@@ -1,23 +1,36 @@
 name: portal-app
 
+# Ambiente de desenvolvimento (Decisão 4a de docs/stack.md).
+#
+# Credenciais fixas e sem valor: valem só para o container local e estão
+# espelhadas em apps/web/.env.example. Nada aqui vai para produção.
+#
+# A major version do Postgres é fixada de propósito. O mesmo postgres:17 roda
+# aqui, no Testcontainers do CI e em produção — é essa paridade que elimina a
+# classe de bug "funciona na minha máquina".
+
 services:
-  mongodb:
-    image: mongo:8
-    container_name: portal-app-mongodb
+  postgres:
+    image: postgres:17
+    container_name: portal-app-postgres
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
-      MONGO_INITDB_DATABASE: portal-app
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: portal
+      POSTGRES_DB: portal_app
     ports:
-      - "27017:27017"
+      # Porta do host configurável: máquina de dev com outro Postgres rodando
+      # é o caso comum, não a exceção. Ajuste POSTGRES_PORT em packages/db/.env
+      # e a DATABASE_URL em apps/web/.env para o mesmo valor.
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - portal-app_mongodb_data:/data/db
+      - portal-app_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
+      # Sem isto o `db:migrate` corre antes do banco aceitar conexão.
+      test: ["CMD-SHELL", "pg_isready -U portal -d portal_app"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     restart: unless-stopped
 
 volumes:
-  portal-app_mongodb_data:
+  portal-app_postgres_data:

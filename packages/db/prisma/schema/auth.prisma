@@ -1,5 +1,14 @@
+// Modelos do Better-Auth.
+//
+// Os ids são String sem `@map("_id")`: aquele mapeamento existia por causa do
+// MongoDB e saiu na migração para PostgreSQL (ADR 0002).
+//
+// O `@default(cuid())` NÃO é o caminho normal — o Better-Auth gera o id na
+// aplicação e o envia no insert. Ele está aqui apenas para seeds e inserts
+// manuais não precisarem inventar um id. Não remova achando que é redundante.
+
 model User {
-  id            String    @id @map("_id")
+  id            String    @id @default(cuid())
   name          String
   email         String
   emailVerified Boolean   @default(false)
@@ -14,7 +23,7 @@ model User {
 }
 
 model Session {
-  id        String   @id @map("_id")
+  id        String   @id @default(cuid())
   expiresAt DateTime
   token     String
   createdAt DateTime @default(now())
@@ -30,7 +39,7 @@ model Session {
 }
 
 model Account {
-  id                    String    @id @map("_id")
+  id                    String    @id @default(cuid())
   accountId             String
   providerId            String
   userId                String
@@ -50,7 +59,7 @@ model Account {
 }
 
 model Verification {
-  id         String   @id @map("_id")
+  id         String   @id @default(cuid())
   identifier String
   value      String
   expiresAt  DateTime

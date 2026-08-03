@@ -9,7 +9,7 @@ export function createAuth() {
 
   return betterAuth({
     database: prismaAdapter(prisma, {
-      provider: "mongodb",
+      provider: "postgresql",
     }),
 
     trustedOrigins: [env.CORS_ORIGIN],

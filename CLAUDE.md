@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-`portal-app` is a Turborepo/pnpm monorepo scaffolded with [Better-T-Stack](https://better-t-stack.dev): Next.js (App Router) frontend + tRPC API + Prisma/MongoDB, using Better-Auth for authentication. There is a single app (`apps/web`) that is fullstack — it hosts both the UI and the tRPC API route handler.
+`portal-app` is a Turborepo/pnpm monorepo scaffolded with [Better-T-Stack](https://better-t-stack.dev): Next.js (App Router) frontend + tRPC API + Prisma/PostgreSQL, using Better-Auth for authentication. There is a single app (`apps/web`) that is fullstack — it hosts both the UI and the tRPC API route handler.
+
+The product is a news portal (Rádio 7 Cidades). Planning docs live in `docs/` and are the source of truth for architecture and scope — read `docs/roadmap.md` first to know which phase is in progress.
 
 ## Commands
 
@@ -19,17 +21,21 @@ pnpm run check-types   # tsc --noEmit across all workspaces
 pnpm run check         # biome check --write . (lint + format, auto-fixes)
 ```
 
-Database (Prisma + MongoDB, all proxied to `packages/db` via turbo filters):
+Database (Prisma + PostgreSQL 17, all proxied to `packages/db` via turbo filters):
 
 ```bash
-pnpm run db:start      # docker compose up -d (starts local MongoDB)
-pnpm run db:push        # push Prisma schema to the database (no migration files; MongoDB)
+pnpm run db:start      # docker compose up -d (starts local PostgreSQL)
+pnpm run db:migrate     # prisma migrate dev — THE official way to change the schema
 pnpm run db:generate    # regenerate the Prisma client
-pnpm run db:migrate     # prisma migrate dev
 pnpm run db:studio      # open Prisma Studio
 pnpm run db:stop        # docker compose stop
 pnpm run db:down        # docker compose down
+pnpm run db:push        # prototyping only — see warning below
 ```
+
+**`db:migrate` vs `db:push`.** Migrations under `packages/db/prisma/migrations/` are versioned and are what gets applied in CI and in production. `db:push` writes the schema straight to the database without producing a migration file, so anything done with it is invisible to every other environment. Use it for throwaway local experiments and nothing else; the change only counts once `db:migrate` has produced a migration.
+
+Environment files: copy `apps/web/.env.example` to `apps/web/.env`. If port 5432 is already taken on your machine, copy `packages/db/.env.example` to `packages/db/.env`, set `POSTGRES_PORT`, and use the same port in `DATABASE_URL`.
 
 There is no test suite configured in this repo (no test runner, no `*.test.*`/`*.spec.*` files).
 
@@ -62,7 +68,7 @@ None of the internal packages (`api`, `auth`, `db`, `env`, `ui`) have a build st
 - Better-Auth server instance is `packages/auth/src/index.ts`, using the Prisma MongoDB adapter and email/password auth.
 - The catch-all Next.js route `apps/web/src/app/api/auth/[...all]/route.ts` mounts Better-Auth's handler.
 - Client-side auth uses `better-auth/react`'s `createAuthClient` (`apps/web/src/lib/auth-client.ts`).
-- Prisma models for auth (`User`, `Session`, `Account`, `Verification`) live in `packages/db/prisma/schema/auth.prisma` and are mapped to lowercase Mongo collection names (`@@map`). `User.id`/etc. map to Mongo's `_id`.
+- Prisma models for auth (`User`, `Session`, `Account`, `Verification`) live in `packages/db/prisma/schema/auth.prisma` and are mapped to lowercase table names (`@@map`). Ids are plain `String` — Better-Auth generates them in the application; the `@default(cuid())` is only a convenience for seeds and manual inserts.
 
 ### UI / styling
 
