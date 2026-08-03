@@ -50,6 +50,11 @@ As fases 5 e 6 são melhorias sobre um produto que já funciona.
 
 > **Objetivo:** deixar o repositório pronto para receber domínio, com as regras de arquitetura e
 > testes já aplicadas automaticamente. É a fase que evita retrabalho em todas as outras.
+>
+> ⚠️ **Ordem alterada na prática:** o portal público (Fase 4) foi construído antes desta fase,
+> para dar visualização aos casos de uso. Isso acrescenta uma restrição a cada etapa da Fase 0 —
+> **não regredir o portal** — e dá ao walking skeleton de testes telas reais para exercitar.
+> Detalhes na spec `specs/00-fundacao.md` §2.
 
 **Escopo**
 
@@ -63,8 +68,11 @@ As fases 5 e 6 são melhorias sobre um produto que já funciona.
    entre a máquina do dev, o CI e a produção.
 3. **`packages/shared-kernel`** — `Result`, `AggregateRoot`, `DomainEvent`, `Entity`, `ValueObject`,
    e as portas `Clock`, `IdGenerator`. Deliberadamente mínimo.
-4. **Esqueleto dos bounded contexts** — pastas `domain/application/infrastructure` em cada pacote
-   de `packages/contexts/*`, com `index.ts` definindo a superfície pública.
+4. **Convenção dos bounded contexts documentada** — a estrutura
+   `domain/application/infrastructure` fica definida e as regras do
+   `dependency-cruiser` são escritas genericamente sobre `packages/contexts/*`, mas os
+   pacotes **nascem na fase que os usa**. Oito pacotes vazios seriam código morto a
+   manter e compilar sem entregar nada (refinado na spec `specs/00-fundacao.md` §14).
 5. **Infraestrutura de testes** — Vitest com workspaces, Testcontainers com Postgres, Playwright,
    builders base, helpers de asserção (`toBeErr`, `toContainEventOfType`).
 6. **`dependency-cruiser`** com as regras de `architecture.md` §4 codificadas e falhando o CI.
