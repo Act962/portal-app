@@ -1,40 +1,41 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 
 import "../index.css";
-import Header from "@/components/header";
-import Providers from "@/components/providers";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { siteConfig } from "@/config/site";
+import { fontVariables } from "@/lib/fonts";
 
 export const metadata: Metadata = {
-  title: "portal-app",
-  description: "portal-app",
+	metadataBase: new URL(siteConfig.url),
+	title: {
+		default: `${siteConfig.name} — Notícias do Piauí`,
+		template: `%s | ${siteConfig.name}`,
+	},
+	description: siteConfig.description,
+	applicationName: siteConfig.name,
+	openGraph: {
+		type: "website",
+		locale: "pt_BR",
+		siteName: siteConfig.name,
+		url: siteConfig.url,
+	},
+	twitter: { card: "summary_large_image" },
+	robots: {
+		index: true,
+		follow: true,
+		// Large previews are effectively a requirement for Google Discover.
+		"max-image-preview": "large",
+	},
 };
 
 export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Providers>
-          <div className="grid grid-rows-[auto_1fr] h-svh">
-            <Header />
-            {children}
-          </div>
-        </Providers>
-      </body>
-    </html>
-  );
+	children,
+}: Readonly<{ children: React.ReactNode }>) {
+	return (
+		// The font variables belong on <html>, not <body>: `--font-sans` is
+		// declared at `:root`, so a `var(--font-archivo)` defined lower down
+		// would be invalid at computed-value time and silently fall back to serif.
+		<html lang="pt-BR" className={fontVariables} suppressHydrationWarning>
+			<body className="antialiased">{children}</body>
+		</html>
+	);
 }

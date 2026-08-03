@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Rádio 7 Cidades">
+  <rect width="200" height="200" rx="44" fill="#011c39" />
+  <path d="M56 48h90v22l-42 78H76l42-78H56z" fill="#ffffff" />
+  <rect x="56" y="160" width="90" height="10" rx="5" fill="#ed1b24" />
+</svg>
