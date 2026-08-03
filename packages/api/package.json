@@ -1,0 +1,27 @@
+{
+  "name": "@portal-app/api",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@portal-app/auth": "workspace:*",
+    "@portal-app/db": "workspace:*",
+    "@portal-app/env": "workspace:*",
+    "@trpc/client": "catalog:",
+    "@trpc/server": "catalog:",
+    "dotenv": "catalog:",
+    "next": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@portal-app/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}
