@@ -57,8 +57,8 @@ Sete etapas, na ordem em que devem ser executadas. Cada uma é mergeável sozinh
 | 3 | `packages/shared-kernel` | — | ✅ Concluída |
 | 4 | Infraestrutura de testes | 1, 2, 3 | ✅ Concluída |
 | 5 | `dependency-cruiser` | 3 | ✅ Concluída |
-| 6 | CI no GitHub Actions | 4, 5 | 🔜 Próxima |
-| 7 | ADRs | — | ⬜ Pendente |
+| 6 | CI no GitHub Actions | 4, 5 | ✅ Concluída |
+| 7 | ADRs | — | 🔜 Próxima |
 
 ### Fora de escopo
 
@@ -358,7 +358,8 @@ não é garantia, é decoração.
 
 ## 9. Etapa 6 — CI no GitHub Actions
 
-> **🔧 Implementada em 04/08/2026**, validando no primeiro run remoto.
+> **✅ Concluída em 04/08/2026** — pipeline **verde** nos 6 jobs (~2,5 min de
+> wall-clock, abaixo da meta de 5 min).
 > `.github/workflows/ci.yml` + action composta `.github/actions/setup`. Bloco
 > paralelo **typecheck · arquitetura (`depcruise`) · unit** (matrix); depois
 > **integração** (Testcontainers), **build** e **e2e** (Postgres de *service*
