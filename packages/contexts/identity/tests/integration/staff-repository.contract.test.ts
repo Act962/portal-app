@@ -112,8 +112,9 @@ function contract(label: string, makeHarness: () => Harness): void {
 			expect(await h.repo.list()).toHaveLength(1);
 		});
 
-		it("findById inexistente devolve null", async () => {
+		it("busca inexistente (por id ou email) devolve null", async () => {
 			expect(await h.repo.findById("nao-existe")).toBeNull();
+			expect(await h.repo.findByEmail("nao@existe.com")).toBeNull();
 		});
 	});
 }

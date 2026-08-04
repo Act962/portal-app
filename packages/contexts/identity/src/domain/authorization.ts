@@ -33,6 +33,7 @@ export function can(
 			return canEditor(staff, action, resource);
 		case "REDATOR":
 			return canRedator(staff, action, resource);
+		/* v8 ignore next 2 -- inalcançável: `role` é sempre um Role válido */
 		default:
 			return false;
 	}

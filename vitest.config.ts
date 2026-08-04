@@ -46,17 +46,18 @@ export default defineConfig({
 				"**/.next/**",
 				"**/dist/**",
 			],
-			// Limiares de docs/testing-strategy.md §10 ficam CONFIGURADOS mas
-			// DESLIGADOS nesta fase: com quase nenhum código de domínio, qualquer
-			// percentual seria ruído. O `fail-under` liga na Fase 1, junto do
-			// primeiro domínio real. Descomentar lá:
-			//
-			// thresholds: {
-			//   "**/domain/**": { statements: 95, branches: 95, functions: 95, lines: 95 },
-			//   "**/application/**": { statements: 90, branches: 90, functions: 90, lines: 90 },
-			//   "**/infrastructure/**": { statements: 70, branches: 70, functions: 70, lines: 70 },
-			//   global: { statements: 80, branches: 80, functions: 80, lines: 80 },
-			// },
+			// `fail-under` do domínio ligado na Fase 1 (docs/testing-strategy.md
+			// §10): é a regra de negócio, onde uma linha não coberta é risco
+			// direto. Aplicação (90%), infra (70%) e global (80%) entram quando
+			// houver domínio/UI suficiente para o número não ser ruído.
+			thresholds: {
+				"packages/contexts/**/src/domain/**": {
+					statements: 95,
+					branches: 95,
+					functions: 95,
+					lines: 95,
+				},
+			},
 		},
 	},
 });

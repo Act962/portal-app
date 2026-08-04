@@ -20,7 +20,7 @@
     "db:stop": "turbo run db:stop -F @portal-app/db",
     "db:down": "turbo run db:down -F @portal-app/db",
     "check": "biome check --write .",
-    "depcruise": "depcruise packages --config .dependency-cruiser.cjs",
+    "depcruise": "depcruise packages apps/web --config .dependency-cruiser.cjs",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",

@@ -105,10 +105,6 @@ export class StaffMember extends AggregateRoot<string> {
 		this.state = { ...this.state, status: "INATIVO" };
 	}
 
-	activate(): void {
-		this.state = { ...this.state, status: "ATIVO" };
-	}
-
 	bindSections(sectionIds: readonly string[]): void {
 		this.state = { ...this.state, sectionIds: [...sectionIds] };
 	}

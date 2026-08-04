@@ -103,8 +103,11 @@ module.exports = {
 	],
 	options: {
 		tsPreCompilationDeps: true,
+		// tsconfig mínimo (só o alias `@/` do apps/web) — o do app não serve
+		// porque seus globs de include quebram fora do diretório dele.
+		tsConfig: { fileName: "tsconfig.depcruise.json" },
 		exclude: {
-			path: "node_modules|/prisma/generated/|\\.next/|/dist/|/tests/|\\.config\\.(ts|js|cjs|mjs)$",
+			path: "node_modules|/prisma/generated/|\\.next/|/dist/|/tests/|\\.css$|\\.config\\.(ts|js|cjs|mjs)$",
 		},
 		doNotFollow: { path: "node_modules" },
 		enhancedResolveOptions: {

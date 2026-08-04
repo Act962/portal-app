@@ -50,7 +50,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       # O runner ubuntu já traz Docker; o Testcontainers sobe o Postgres sozinho.
-      - run: pnpm test:integration
+      # Roda a suíte completa com cobertura: é aqui que o fail-under do domínio
+      # (docs/testing-strategy.md §10) é aplicado — a cobertura depende dos
+      # testes unitários E de integração juntos.
+      - run: pnpm test:coverage
 
   build:
     runs-on: ubuntu-latest

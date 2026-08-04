@@ -1,9 +1,11 @@
 # Spec — Fase 1: Identidade & Acesso
 
-> **Status:** Aprovada (04/08/2026) — **em execução**. Decisões D1–D4
-> confirmadas (recomendações). Etapa 1 em andamento.
+> **Status:** ✅ **Concluída (04/08/2026)** — 5 etapas entregues, CI verde.
+> Adiado com motivo: **A24 (convite por token)** e o **E2E de admin I12**
+> (isolamento por teste). A autorização de gestão está coberta por testes
+> unitários.
 > **Referências:** `../roadmap.md` (Fase 1) · `../architecture.md` §2.3 e §4 ·
-> `../features.md` §3.4 (A20–A27) · `../adr/README.md` (0004, a escrever) ·
+> `../features.md` §3.4 (A20–A27) · `../adr/0004-autorizacao-como-dominio.md` ·
 > `00-fundacao.md` (fundação que esta fase passa a exercitar).
 
 ---
@@ -56,7 +58,7 @@ Cinco etapas, na ordem de execução. Cada uma é mergeável sozinha.
 | 2 | Persistência | schema Prisma, `StaffMemberRepository` (porta + adapter Prisma + fake), testes de contrato | ✅ Concluída |
 | 3 | Sessão → `StaffMember` e guardas | contexto tRPC resolve o staff; procedures por papel; rotas do painel protegidas; **T09 sai do `fixme`** | ✅ Concluída |
 | 4 | Gestão de usuários (admin) | papel, editorias, desativação, perfil de autor, matriz visível, lista | ✅ Concluída¹ |
-| 5 | Fecho | ADR 0004, `dependency-cruiser` ativado no contexto + `apps/web`, `fail-under` de cobertura | 🔜 Próxima |
+| 5 | Fecho | ADR 0004, `dependency-cruiser` ativado no contexto + `apps/web`, `fail-under` de cobertura | ✅ Concluída |
 
 > ¹ **Adiado na Etapa 4**, com motivo: **A24 (convite por token / primeiro
 > acesso)** — o fluxo atual (auto-cadastro provisiona o staff; o 1º é ADMIN, os
