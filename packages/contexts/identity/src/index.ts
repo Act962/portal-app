@@ -3,5 +3,6 @@
 export * from "./domain/action";
 export * from "./domain/author-profile";
 export * from "./domain/authorization";
+export * from "./domain/ports/staff-repository";
 export * from "./domain/role";
 export * from "./domain/staff-member";

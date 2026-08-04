@@ -50,13 +50,13 @@ estrutura `packages/contexts/identity` com as camadas `domain`/`application`/
 
 Cinco etapas, na ordem de execução. Cada uma é mergeável sozinha.
 
-| # | Etapa | Entrega |
-|---|---|---|
-| 1 | Domínio de identidade & autorização | `StaffMember`, `Role`, `AuthorProfile`, `can()` + matriz testada |
-| 2 | Persistência | schema Prisma, `StaffMemberRepository` (porta + adapter Prisma + fake), testes de contrato |
-| 3 | Sessão → `StaffMember` e guardas | contexto tRPC resolve o staff; procedures por papel; rotas do painel protegidas; **T09 sai do `fixme`** |
-| 4 | Gestão de usuários (admin) | convite, papel, editorias, desativação, perfil de autor, matriz visível |
-| 5 | Fecho | ADR 0004, `dependency-cruiser` ativado no contexto + `apps/web`, `fail-under` de cobertura |
+| # | Etapa | Entrega | Status |
+|---|---|---|---|
+| 1 | Domínio de identidade & autorização | `StaffMember`, `Role`, `AuthorProfile`, `can()` + matriz testada | ✅ Concluída |
+| 2 | Persistência | schema Prisma, `StaffMemberRepository` (porta + adapter Prisma + fake), testes de contrato | ✅ Concluída |
+| 3 | Sessão → `StaffMember` e guardas | contexto tRPC resolve o staff; procedures por papel; rotas do painel protegidas; **T09 sai do `fixme`** | 🔜 Próxima |
+| 4 | Gestão de usuários (admin) | convite, papel, editorias, desativação, perfil de autor, matriz visível | ⬜ Pendente |
+| 5 | Fecho | ADR 0004, `dependency-cruiser` ativado no contexto + `apps/web`, `fail-under` de cobertura | ⬜ Pendente |
 
 ### Fora de escopo
 

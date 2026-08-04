@@ -1,0 +1,26 @@
+// Contexto de Identidade & Acesso (Fase 1).
+//
+// O StaffMember é 1:1 com o `user` do Better-Auth: compartilham o mesmo id (o
+// `id` aqui é, ao mesmo tempo, a PK e a FK para `user`). A biblioteca cuida da
+// autenticação; este modelo guarda papel, status, editorias e o perfil de autor.
+// Apagar o usuário apaga o staff (onDelete: Cascade).
+
+model StaffMember {
+  id         String   @id
+  user       User     @relation(fields: [id], references: [id], onDelete: Cascade)
+  email      String   @unique
+  role       String
+  status     String   @default("ATIVO")
+  sectionIds String[]
+
+  // AuthorProfile (VO) achatado em colunas — sempre presente, vazio por padrão.
+  bio      String  @default("")
+  title    String  @default("")
+  photoUrl String?
+  socials  Json    @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("staff_member")
+}

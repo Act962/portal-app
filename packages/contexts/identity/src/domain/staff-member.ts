@@ -1,6 +1,6 @@
 import { AggregateRoot } from "@portal-app/shared-kernel";
 
-import type { AuthorProfile } from "./author-profile";
+import { AuthorProfile } from "./author-profile";
 import type { Role } from "./role";
 
 export type StaffStatus = "ATIVO" | "INATIVO";
@@ -10,7 +10,7 @@ type StaffMemberState = {
 	role: Role;
 	status: StaffStatus;
 	sectionIds: readonly string[];
-	authorProfile: AuthorProfile | null;
+	authorProfile: AuthorProfile;
 };
 
 /**
@@ -31,13 +31,20 @@ export class StaffMember extends AggregateRoot<string> {
 	}
 
 	/** Reidrata um membro a partir da persistência (ou de um teste). */
-	static restore(props: { id: string } & StaffMemberState): StaffMember {
+	static restore(props: {
+		id: string;
+		email: string;
+		role: Role;
+		status: StaffStatus;
+		sectionIds: readonly string[];
+		authorProfile?: AuthorProfile | null;
+	}): StaffMember {
 		return new StaffMember(props.id, {
 			email: props.email,
 			role: props.role,
 			status: props.status,
 			sectionIds: [...props.sectionIds],
-			authorProfile: props.authorProfile,
+			authorProfile: props.authorProfile ?? AuthorProfile.create({}),
 		});
 	}
 
@@ -57,7 +64,7 @@ export class StaffMember extends AggregateRoot<string> {
 		return this.state.sectionIds;
 	}
 
-	get authorProfile(): AuthorProfile | null {
+	get authorProfile(): AuthorProfile {
 		return this.state.authorProfile;
 	}
 

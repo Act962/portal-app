@@ -281,6 +281,9 @@ importers:
 
   packages/contexts/identity:
     dependencies:
+      '@portal-app/db':
+        specifier: workspace:*
+        version: link:../../db
       '@portal-app/shared-kernel':
         specifier: workspace:*
         version: link:../../shared-kernel

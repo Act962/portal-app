@@ -2,6 +2,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../prisma/generated/client";
 
+export type { PrismaClient } from "../prisma/generated/client";
+
 /**
  * Cria um cliente Prisma novo (não-singleton) com o adapter pg. Aponta para a
  * `DATABASE_URL` do ambiente por padrão, mas aceita outra connection string —
