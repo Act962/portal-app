@@ -47,13 +47,21 @@ To run a single workspace's script directly, use turbo's filter flag, e.g. `pnpm
 
 - `apps/web` — the only app. Next.js 16 App Router, React 19, React Compiler enabled (`babel-plugin-react-compiler` + `reactCompiler: true` in `next.config.ts`), `typedRoutes: true`.
 - `packages/api` (`@portal-app/api`) — tRPC router definitions and context. No build step; consumed directly as TS source via subpath exports (e.g. `@portal-app/api/routers/index`, `@portal-app/api/context`).
-- `packages/auth` (`@portal-app/auth`) — Better-Auth instance (`createAuth()` / exported singleton `auth`), configured with the Prisma MongoDB adapter and the `nextCookies()` plugin.
-- `packages/db` (`@portal-app/db`) — Prisma schema (`prisma/schema/*.prisma`, split into `schema.prisma` and `auth.prisma`) and generated client (output to `prisma/generated`, ESM module format). Exports a singleton `PrismaClient` as default export from `src/index.ts`.
+- `packages/auth` (`@portal-app/auth`) — Better-Auth instance (`createAuth()` / exported singleton `auth`), configured with the Prisma adapter (`provider: "postgresql"`) and the `nextCookies()` plugin.
+- `packages/db` (`@portal-app/db`) — Prisma 7 schema (`prisma/schema/*.prisma`, split into `schema.prisma` and `auth.prisma`) and generated client (output to `prisma/generated`, ESM module format). Exports a singleton `PrismaClient` as default export from `src/index.ts`. **Prisma 7 is Rust-free: the client requires a driver adapter** — `createPrismaClient()` builds it with `new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })` (`@prisma/adapter-pg` + `pg`). The datasource `url` no longer lives in `schema.prisma`; it moved to `prisma.config.ts` (`defineConfig({ datasource: { url } })`), which is what the CLIs (`migrate`/`generate`/`studio`) read. Regenerate with `pnpm db:generate` after any adapter/schema change.
 - `packages/env` (`@portal-app/env`) — typed env vars via `@t3-oss/env-core` (`./server`) and `@t3-oss/env-nextjs` (`./web`), validated with zod. Server env currently defines `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `NODE_ENV`.
 - `packages/ui` (`@portal-app/ui`) — shared shadcn/ui primitives and Tailwind v4 global styles, consumed by app(s) via subpath exports (`@portal-app/ui/components/*`, `@portal-app/ui/lib/*`, `@portal-app/ui/hooks/*`, `@portal-app/ui/globals.css`).
 - `packages/config` (`@portal-app/config`) — shared `tsconfig.base.json` extended by every workspace's `tsconfig.json`.
 
 None of the internal packages (`api`, `auth`, `db`, `env`, `ui`) have a build step — they're imported straight as TypeScript source through `package.json` `exports` maps, and workspace deps are declared as `workspace:*`.
+
+### App route groups
+
+`apps/web/src/app` splits into two route groups with different runtime characters — keep the boundary:
+
+- `(site)` — the **public news portal** (home, `[section]`, `[section]/[slug]`, busca, últimas, ao-vivo, menu, 404). All React Server Components: no `Providers`, no React Query, no TanStack devtools. Do not add client providers to this group — the devtools badge leaking onto the portal was a bug caused by exactly that.
+- `(app)` — the **authenticated area** (dashboard, login). `Providers` (`apps/web/src/components/providers.tsx` — tRPC `QueryClientProvider` + React Query devtools + `sonner` `Toaster`) wraps `(app)/layout.tsx` only, so client-side data fetching lives here, not in the portal.
+- The public portal currently renders from **static fixtures** in `apps/web/src/data/` (`articles.ts`, `authors.ts`, `sections.ts`, etc. — read through `data/queries.ts`), not from the database. The DB-backed domain arrives in later roadmap phases; treat `data/` as the temporary content source until then.
 
 ### tRPC flow
 
@@ -65,7 +73,7 @@ None of the internal packages (`api`, `auth`, `db`, `env`, `ui`) have a build st
 
 ### Auth flow
 
-- Better-Auth server instance is `packages/auth/src/index.ts`, using the Prisma MongoDB adapter and email/password auth.
+- Better-Auth server instance is `packages/auth/src/index.ts`, using the Prisma adapter (`provider: "postgresql"`) and email/password auth.
 - The catch-all Next.js route `apps/web/src/app/api/auth/[...all]/route.ts` mounts Better-Auth's handler.
 - Client-side auth uses `better-auth/react`'s `createAuthClient` (`apps/web/src/lib/auth-client.ts`).
 - Prisma models for auth (`User`, `Session`, `Account`, `Verification`) live in `packages/db/prisma/schema/auth.prisma` and are mapped to lowercase table names (`@@map`). Ids are plain `String` — Better-Auth generates them in the application; the `@default(cuid())` is only a convenience for seeds and manual inserts.
@@ -76,7 +84,9 @@ None of the internal packages (`api`, `auth`, `db`, `env`, `ui`) have a build st
 - To add shared primitives: `npx shadcn@latest add <component> -c packages/ui` from repo root (adds to `packages/ui`). To add app-only blocks, run the shadcn CLI from `apps/web` instead.
 - Import shared components as `import { Button } from "@portal-app/ui/components/button"`.
 - Global styles / design tokens: `packages/ui/src/styles/globals.css`.
-- Theming: `next-themes` via `ThemeProvider` (class attribute, system default) wrapping the app in `apps/web/src/components/providers.tsx`, alongside the tRPC `QueryClientProvider`, React Query devtools, and the `sonner` `Toaster`.
+- Theming: `next-themes` via `ThemeProvider` (class attribute, system default) is applied app-wide from the root `layout.tsx`, while the tRPC `QueryClientProvider`, React Query devtools, and `sonner` `Toaster` live in `providers.tsx` and wrap only the `(app)` group (see App route groups above).
+- Tailwind v4 `@theme` tokens live in `packages/ui/src/styles/globals.css`. Gotcha: the `--spacing-*` namespace also generates `inline-size` utilities, so never name a spacing token after a display keyword (`block`/`flex`/`grid`) — `--spacing-block` would emit an `.inline-block { inline-size: … }` that collides with the real `display: inline-block` utility.
+- `next/font` variables (Archivo/Lora/IBM Plex Mono) must be set on `<html>`, not `<body>` — `--font-sans` is declared at `:root`, so a `<body>`-scoped variable renders the fallback (Times New Roman) instead.
 
 ## Code style
 
