@@ -1,6 +1,9 @@
 import { auth } from "@portal-app/auth";
 import { createPrismaClient } from "@portal-app/db";
-import type { StaffMember } from "@portal-app/identity";
+import {
+	provisionStaffForNewUser,
+	type StaffMember,
+} from "@portal-app/identity";
 import { PrismaStaffRepository } from "@portal-app/identity/infrastructure/prisma-staff-repository";
 
 /**
@@ -13,13 +16,27 @@ const staffRepo = new PrismaStaffRepository(createPrismaClient());
 
 type Session = Awaited<ReturnType<typeof auth.api.getSession>>;
 
-/** Resolve a sessão do Better-Auth e o `StaffMember` correspondente. */
+/**
+ * Resolve a sessão do Better-Auth e o `StaffMember` correspondente. Se o usuário
+ * está autenticado mas ainda não tem staff (primeiro acesso), provisiona na hora
+ * — o primeiro do sistema nasce ADMIN (Decisão D2). É idempotente e vive no
+ * caminho de resolução justamente para não depender do timing de um hook.
+ */
 export async function resolveStaff(
 	headers: Headers,
 ): Promise<{ session: Session; staff: StaffMember | null }> {
 	const session = await auth.api.getSession({ headers });
-	const staff = session?.user
-		? await staffRepo.findById(session.user.id)
-		: null;
+	if (!session?.user) {
+		return { session, staff: null };
+	}
+
+	const existing = await staffRepo.findById(session.user.id);
+	const staff =
+		existing ??
+		(await provisionStaffForNewUser(
+			{ userId: session.user.id, email: session.user.email },
+			{ repo: staffRepo },
+		));
+
 	return { session, staff };
 }

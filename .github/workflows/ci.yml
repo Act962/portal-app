@@ -92,6 +92,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      - name: Gerar apps/web/.env para o dev server
+        # O dev server do e2e precisa das env vars via arquivo .env carregado
+        # pelo Next (não só do shell) — do contrário a rota /api/auth não recebe
+        # o segredo/URL e o signup falha. Mesmo mecanismo do job de build.
+        run: |
+          {
+            echo "DATABASE_URL=$DATABASE_URL"
+            echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
+            echo "BETTER_AUTH_URL=$BETTER_AUTH_URL"
+            echo "CORS_ORIGIN=$CORS_ORIGIN"
+          } > apps/web/.env
       - name: Instalar navegador do Playwright
         run: pnpm exec playwright install --with-deps chromium
       - name: Aplicar migrações no Postgres de teste
