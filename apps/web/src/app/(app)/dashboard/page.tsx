@@ -1,23 +1,24 @@
-import { auth } from "@portal-app/auth";
+import { resolveStaff } from "@portal-app/api/staff";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import Dashboard from "./dashboard";
 
 export default async function DashboardPage() {
-	const session = await auth.api.getSession({
-		headers: await headers(),
-	});
+	const { session, staff } = await resolveStaff(await headers());
 
-	if (!session?.user) {
+	// Proteção de rota por identidade: só entra quem tem um StaffMember ativo.
+	if (!session?.user || !staff || !staff.isActive()) {
 		redirect("/login");
 	}
 
 	return (
 		<div>
 			<h1>Dashboard</h1>
-			<p>Welcome {session.user.name}</p>
-			<Dashboard session={session} />
+			<p>
+				{session.user.name} — papel: {staff.role}
+			</p>
+			<Dashboard />
 		</div>
 	);
 }

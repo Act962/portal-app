@@ -11,6 +11,7 @@ export interface StaffMemberRepository {
 	findByEmail(email: string): Promise<StaffMember | null>;
 	save(staff: StaffMember): Promise<void>;
 	list(): Promise<StaffMember[]>;
+	count(): Promise<number>;
 }
 
 /**
@@ -41,6 +42,10 @@ export class InMemoryStaffRepository implements StaffMemberRepository {
 
 	list(): Promise<StaffMember[]> {
 		return Promise.resolve([...this.store.values()]);
+	}
+
+	count(): Promise<number> {
+		return Promise.resolve(this.store.size);
 	}
 
 	clear(): void {

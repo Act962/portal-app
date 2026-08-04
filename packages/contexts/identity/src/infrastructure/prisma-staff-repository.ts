@@ -37,6 +37,10 @@ export class PrismaStaffRepository implements StaffMemberRepository {
 		const rows = await this.prisma.staffMember.findMany();
 		return rows.map(toDomain);
 	}
+
+	async count(): Promise<number> {
+		return this.prisma.staffMember.count();
+	}
 }
 
 type StaffRow = {

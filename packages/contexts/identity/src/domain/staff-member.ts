@@ -30,6 +30,22 @@ export class StaffMember extends AggregateRoot<string> {
 		this.state = state;
 	}
 
+	/** Cria um novo membro (ativo, perfil vazio). Usado no provisionamento. */
+	static create(props: {
+		id: string;
+		email: string;
+		role: Role;
+		sectionIds?: readonly string[];
+	}): StaffMember {
+		return new StaffMember(props.id, {
+			email: props.email,
+			role: props.role,
+			status: "ATIVO",
+			sectionIds: props.sectionIds ? [...props.sectionIds] : [],
+			authorProfile: AuthorProfile.create({}),
+		});
+	}
+
 	/** Reidrata um membro a partir da persistência (ou de um teste). */
 	static restore(props: {
 		id: string;
