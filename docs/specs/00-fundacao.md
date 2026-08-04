@@ -55,8 +55,8 @@ Sete etapas, na ordem em que devem ser executadas. Cada uma é mergeável sozinh
 | 1 | Migração para PostgreSQL | — | ✅ Concluída |
 | 2 | Ambiente Docker completo | 1 | ✅ Concluída |
 | 3 | `packages/shared-kernel` | — | ✅ Concluída |
-| 4 | Infraestrutura de testes | 1, 2, 3 | 🔜 Próxima |
-| 5 | `dependency-cruiser` | 3 | ⬜ Pendente |
+| 4 | Infraestrutura de testes | 1, 2, 3 | ✅ Concluída |
+| 5 | `dependency-cruiser` | 3 | 🔜 Próxima |
 | 6 | CI no GitHub Actions | 4, 5 | ⬜ Pendente |
 | 7 | ADRs | — | ⬜ Pendente |
 
@@ -250,6 +250,19 @@ ar, invariante interna violada.
 ---
 
 ## 7. Etapa 4 — Infraestrutura de testes
+
+> **✅ Concluída em 04/08/2026.** Vitest com dois *projects* (`unit`/
+> `integration`), matchers `toBeErr`/`toContainEventOfType`, Testcontainers e
+> Playwright. **Walking skeleton verde:** T01–T04 (12 testes unitários no
+> shared-kernel) e T05–T07 (3 de integração com Postgres do Testcontainers, com
+> as migrações reais e rollback por transação) rodam com `pnpm test`; T08 (E2E
+> da home) passa. **T09** (criar conta → sair → entrar) está escrito, mas
+> escreve no banco: roda no CI contra um banco dedicado, não no dev local — o
+> *wiring* desse banco de teste fica com a Etapa 6 (CI). Limiares de cobertura
+> (§10) estão no `vitest.config.ts`, comentados; o `fail-under` liga na Fase 1.
+>
+> Comandos: `pnpm test` (unit + integração) · `pnpm test:unit` ·
+> `pnpm test:integration` · `pnpm test:e2e` · `pnpm test:coverage`.
 
 ### Ferramentas
 

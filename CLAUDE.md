@@ -37,7 +37,18 @@ pnpm run db:push        # prototyping only — see warning below
 
 Environment files: copy `apps/web/.env.example` to `apps/web/.env`. If port 5432 is already taken on your machine, copy `packages/db/.env.example` to `packages/db/.env`, set `POSTGRES_PORT`, and use the same port in `DATABASE_URL`.
 
-There is no test suite configured in this repo (no test runner, no `*.test.*`/`*.spec.*` files).
+Tests (Vitest with two projects + Playwright, all run from the repo root — not through Turborepo):
+
+```bash
+pnpm run test              # vitest run — unit + integration projects
+pnpm run test:unit          # only **/tests/unit/** (no setup, fast)
+pnpm run test:integration   # only **/tests/integration/** (spins up Postgres via Testcontainers — Docker required)
+pnpm run test:watch         # vitest watch mode
+pnpm run test:coverage      # vitest run --coverage
+pnpm run test:e2e           # playwright test (starts/reuses the web dev server on :3001)
+```
+
+`vitest.config.ts` defines the `unit` and `integration` projects and coverage settings (thresholds from `docs/testing-strategy.md` §10 are written but commented — `fail-under` turns on in Phase 1). Integration tests get a real Postgres from Testcontainers via `tests/integration/global-setup.ts`, which applies the versioned migrations (`prisma migrate deploy`) once and hands the connection URL to tests through vitest's `provide`/`inject`; tests build a non-singleton client with `newPrismaClient(url)` from `@portal-app/db/client`. Shared custom matchers (`toBeErr`, `toContainEventOfType`) live in `tests/setup/matchers.ts`. Playwright E2E specs are in `apps/web/tests/e2e/` (`playwright.config.ts` at root); the auth flow spec (`auth.spec.ts`) writes to the DB and is meant for CI against a dedicated test database, not the local dev DB.
 
 To run a single workspace's script directly, use turbo's filter flag, e.g. `pnpm turbo run check-types -F web` or `pnpm turbo run db:studio -F @portal-app/db`.
 
