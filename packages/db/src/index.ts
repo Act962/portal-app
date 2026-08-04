@@ -1,11 +1,10 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-
-import { PrismaClient } from "../prisma/generated/client";
+import type { PrismaClient } from "../prisma/generated/client";
+import { newPrismaClient } from "./client";
 
 /**
  * Prisma 7 removeu o query engine em Rust: o cliente agora exige um driver
- * adapter. Para PostgreSQL é o `@prisma/adapter-pg`, que gerencia o pool via
- * `pg` a partir da connection string.
+ * adapter. A construção do cliente vive em `./client` (`newPrismaClient`), que
+ * usa o `@prisma/adapter-pg`.
  *
  * In development Next.js re-evaluates modules on every hot reload, which would
  * open a new connection pool each time. Caching the client on `globalThis`
@@ -16,13 +15,11 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 export function createPrismaClient(): PrismaClient {
-	globalForPrisma.prisma ??= new PrismaClient({
-		adapter: new PrismaPg({
-			connectionString: process.env.DATABASE_URL as string,
-		}),
-	});
+	globalForPrisma.prisma ??= newPrismaClient();
 	return globalForPrisma.prisma;
 }
+
+export { newPrismaClient };
 
 export const prisma = createPrismaClient();
 
