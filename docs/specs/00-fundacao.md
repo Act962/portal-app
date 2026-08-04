@@ -56,8 +56,8 @@ Sete etapas, na ordem em que devem ser executadas. Cada uma é mergeável sozinh
 | 2 | Ambiente Docker completo | 1 | ✅ Concluída |
 | 3 | `packages/shared-kernel` | — | ✅ Concluída |
 | 4 | Infraestrutura de testes | 1, 2, 3 | ✅ Concluída |
-| 5 | `dependency-cruiser` | 3 | 🔜 Próxima |
-| 6 | CI no GitHub Actions | 4, 5 | ⬜ Pendente |
+| 5 | `dependency-cruiser` | 3 | ✅ Concluída |
+| 6 | CI no GitHub Actions | 4, 5 | 🔜 Próxima |
 | 7 | ADRs | — | ⬜ Pendente |
 
 ### Fora de escopo
@@ -319,6 +319,21 @@ verdade. Isso precisa estar escrito no config, senão parece esquecimento.
 ---
 
 ## 8. Etapa 5 — `dependency-cruiser`
+
+> **✅ Concluída em 04/08/2026.** Regras em `.dependency-cruiser.cjs`, script
+> `pnpm depcruise` (scan em `packages/`). Duas regras já valem hoje —
+> `sem-ciclos` e a pureza do `shared-kernel` (`shared-kernel-puro` sem npm,
+> `shared-kernel-isolado` sem outros pacotes). As de camada/contexto
+> (`dominio-nao-importa-camadas`, `dominio-sem-deps-externas`,
+> `aplicacao-nao-importa-infra`, `infra-nao-vaza`, `contextos-isolados`) ficam
+> escritas e **latentes** sobre `packages/contexts/*`, ativando quando o
+> primeiro contexto nascer (Fase 1). `apps/web` (alias `@/`) entra no scan na
+> Fase 1, junto da resolução de alias.
+>
+> **T10 comprovado:** um contexto-fantasma com `domain/` importando
+> `application/` fez o `depcruise` reprovar (`dominio-nao-importa-camadas`, exit
+> 1) — a regra latente foi vista falhando antes de ser confiada ao CI. Removido
+> em seguida.
 
 Codifica as regras de `architecture.md` §4 e as executa no CI.
 

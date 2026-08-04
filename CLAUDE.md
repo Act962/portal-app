@@ -19,7 +19,10 @@ pnpm run dev:web       # start only the web app
 pnpm run build         # build all apps
 pnpm run check-types   # tsc --noEmit across all workspaces
 pnpm run check         # biome check --write . (lint + format, auto-fixes)
+pnpm run depcruise     # dependency-cruiser: enforces the architecture rules over packages/
 ```
+
+Architecture rules live in `.dependency-cruiser.cjs` (from `docs/architecture.md` §4). Two are active today — `sem-ciclos` (no circular deps) and the `shared-kernel` purity rules (no npm, no other workspace package). The layer/context rules (`domain/` can't import `application/`/`infrastructure/` or npm, `application/` can't import `infrastructure/`, contexts only reach each other through the published package entry) are written but **latent**: they target `packages/contexts/*`, which is created in Phase 1. The scan covers `packages/` for now; `apps/web` (which uses the `@/` alias) joins in Phase 1 with alias resolution wired up.
 
 Database (Prisma + PostgreSQL 17, all proxied to `packages/db` via turbo filters):
 
