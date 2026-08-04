@@ -63,7 +63,7 @@ O repositório já foi scaffolded com o [Better-T-Stack](https://better-t-stack.
 | **Busca** | **Postgres full-text no MVP** → Meilisearch na Fase 5 | ✅ **Decisão 2** |
 | Auth | Better-Auth + RBAC próprio | ✅ Mantido |
 | **Mídia / CDN** | **Cloudflare R2** (compatível com S3, egress gratuito) | ✅ **Decisão 3** |
-| **Ambiente de desenvolvimento** | **Docker Compose** (Postgres + Redis + Inngest dev) | ✅ **Decisão 4a** |
+| **Ambiente de desenvolvimento** | **Docker Compose** (Postgres + Redis); Inngest via Dev Server CLI | ✅ **Decisão 4a** |
 | **Infra de produção** | Inclinação: híbrido (Vercel + Postgres gerenciado) | 🕓 **Decisão 4b** — adiada |
 | **Editor de texto** | **TipTap** — conteúdo em blocos JSON | ✅ **Decisão 5** |
 | **Jobs e eventos em background** | **Inngest** (agendamento, outbox, fan-out) | ✅ **Decisão 6** |
@@ -269,12 +269,15 @@ Tudo que a aplicação precisa sobe com **um comando**, sem conta em serviço ne
 
 | Serviço | Imagem / ferramenta | Porta |
 |---|---|---|
-| PostgreSQL | `postgres:17` | 5432 |
-| Redis | `redis:7-alpine` | 6379 |
-| Inngest Dev Server | `inngest/inngest` | 8288 |
-| Meilisearch *(Fase 5)* | `getmeili/meilisearch` | 7700 |
+| PostgreSQL | `postgres:17` (container) | 5432 |
+| Redis | `redis:7-alpine` (container) | 6379 |
+| Inngest Dev Server | `npx inngest-cli dev` (CLI, **não** container) | 8288 |
+| Meilisearch *(Fase 5)* | `getmeili/meilisearch` (container) | 7700 |
 
-O `packages/db/docker-compose.yml` do scaffold já existe (hoje com MongoDB) e será a base.
+O `packages/db/docker-compose.yml` já sobe o Postgres (Etapa 1 da Fase 0) e recebe o Redis na
+Etapa 2. **O Inngest fica fora do compose:** a integração oficial com Next.js é via SDK +
+Dev Server pela CLI (`npx inngest-cli@latest dev`, `INNGEST_DEV=1`, sem conta), que se conecta ao
+route handler `app/api/inngest/route.ts`. Ver `specs/00-fundacao.md` §5.
 
 **Por que isso importa mais do que parece:**
 
@@ -338,7 +341,7 @@ envio de newsletter e notificações. Tudo isso é trabalho **fora do ciclo de r
 
 | Opção | Prós | Contras |
 |---|---|---|
-| **Inngest** (escolhido) | Funções duráveis com retry e backoff automáticos, passos (`step.run`) retomáveis, cron e delays nativos, idempotência por chave de evento, concorrência controlada, dev server local em Docker, painel de observabilidade | Mais um serviço; modelo mental novo para o time |
+| **Inngest** (escolhido) | Funções duráveis com retry e backoff automáticos, passos (`step.run`) retomáveis, cron e delays nativos, idempotência por chave de evento, concorrência controlada, Dev Server local pela CLI (sem conta), painel de observabilidade | Mais um serviço; modelo mental novo para o time |
 | Vercel Cron + rota | Zero dependência | Sem retry, sem durabilidade, limite de duração, sem fan-out — exigiria construir tudo à mão |
 | BullMQ + Redis | Maduro, controle total | Exige worker de longa duração (não combina com Vercel), operação e monitoração por nossa conta |
 | pg-boss | Fila dentro do próprio Postgres, transacional | Mesmo problema do worker persistente; menos recursos |
@@ -363,8 +366,9 @@ envio de newsletter e notificações. Tudo isso é trabalho **fora do ciclo de r
 caso de uso continua valendo o `FakeEventBus` — a suíte de aplicação segue sem I/O e em
 milissegundos (ver `testing-strategy.md` §5).
 
-**Em desenvolvimento** roda o Inngest Dev Server no Docker Compose (Decisão 4a), sem conta e sem
-custo. A escolha entre Inngest Cloud e self-hosted em produção entra junto da Decisão 4b.
+**Em desenvolvimento** roda o Inngest Dev Server pela CLI (`npx inngest-cli@latest dev`,
+`INNGEST_DEV=1`), sem conta e sem custo — **fora do Docker Compose** (Decisão 4a), que fica só com
+Postgres e Redis. A escolha entre Inngest Cloud e self-hosted em produção entra junto da Decisão 4b.
 
 ---
 
@@ -402,7 +406,9 @@ Fase 4 (portal)        ioredis (ou @upstash/redis), @sentry/nextjs
 Fase 5 (busca)         meilisearch — somente quando a troca do adapter for feita
 
 Docker (dev, sem entrar no package.json)
-  postgres:17 · redis:7-alpine · inngest/inngest · getmeili/meilisearch (Fase 5)
+  postgres:17 · redis:7-alpine · getmeili/meilisearch (Fase 5)
+
+Inngest (dev): fora do Docker — `npx inngest-cli@latest dev` (CLI, sem conta)
 ```
 
 Duas notas sobre esta lista:

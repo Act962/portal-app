@@ -1,6 +1,7 @@
 # Spec — Fase 0: Fundação
 
-> **Status:** Proposta — aguardando aprovação.
+> **Status:** Aprovada (03/08/2026) — **em execução**. Etapa 1 concluída
+> (04/08/2026); Etapa 2 em andamento.
 > **Referências:** `../roadmap.md` (Fase 0) · `../architecture.md` §4 e §8 ·
 > `../testing-strategy.md` §7, §13 · `../stack.md` (Decisões 1, 4a e 6)
 
@@ -49,15 +50,15 @@ domínio descartável criado só para o teste existir.
 
 Sete etapas, na ordem em que devem ser executadas. Cada uma é mergeável sozinha.
 
-| # | Etapa | Depende de |
-|---|---|---|
-| 1 | Migração para PostgreSQL | — |
-| 2 | Ambiente Docker completo | 1 |
-| 3 | `packages/shared-kernel` | — |
-| 4 | Infraestrutura de testes | 1, 2, 3 |
-| 5 | `dependency-cruiser` | 3 |
-| 6 | CI no GitHub Actions | 4, 5 |
-| 7 | ADRs | — |
+| # | Etapa | Depende de | Status |
+|---|---|---|---|
+| 1 | Migração para PostgreSQL | — | ✅ Concluída |
+| 2 | Ambiente Docker completo | 1 | 🔜 Em andamento |
+| 3 | `packages/shared-kernel` | — | ⬜ Pendente |
+| 4 | Infraestrutura de testes | 1, 2, 3 | ⬜ Pendente |
+| 5 | `dependency-cruiser` | 3 | ⬜ Pendente |
+| 6 | CI no GitHub Actions | 4, 5 | ⬜ Pendente |
+| 7 | ADRs | — | ⬜ Pendente |
 
 ### Fora de escopo
 
@@ -72,6 +73,14 @@ Registrado para não haver dúvida depois:
 ---
 
 ## 4. Etapa 1 — Migração para PostgreSQL
+
+> **✅ Concluída em 04/08/2026.** Migração aplicada e versionada
+> (`migrations/20260803204924_init_auth_postgres`); autenticação validada contra
+> o Postgres. **Adendo não previsto na spec:** na sequência o Prisma foi
+> atualizado 6.19.3 → 7.9.1. O Prisma 7 é *Rust-free* e o cliente passou a exigir
+> um **driver adapter** (`@prisma/adapter-pg` + `pg`); a `url` do datasource saiu
+> do `schema.prisma` para o `prisma.config.ts` (`defineConfig`). Registrado no
+> commit `chore(db): atualizar Prisma para 7.9.1 com driver adapter`.
 
 Fecha a Decisão 1 de `stack.md`.
 
@@ -127,20 +136,44 @@ alguém lembrar de repetir isso à mão.
 
 ## 5. Etapa 2 — Ambiente Docker completo
 
-Fecha a Decisão 4a de `stack.md`. Reescreve `packages/db/docker-compose.yml`,
-hoje só com MongoDB.
+Fecha a Decisão 4a de `stack.md`. Ajusta `packages/db/docker-compose.yml`, que
+após a Etapa 1 já sobe o Postgres, para acrescentar o cache.
 
 ### Serviços
 
 | Serviço | Imagem | Porta | Por quê agora |
 |---|---|---|---|
-| `postgres` | `postgres:17` | 5432 | Banco da aplicação |
+| `postgres` | `postgres:17` | 5432¹ | Banco da aplicação |
 | `redis` | `redis:7-alpine` | 6379 | Cache e rate limiting (Fase 4) |
-| `inngest` | `inngest/inngest` | 8288 | Jobs e eventos (Fase 3) |
 
-Redis e Inngest entram já nesta fase mesmo sem consumidor: o objetivo declarado
-é **um comando sobe tudo**. Adicionar serviço depois significa que quem clonou
-antes fica com ambiente pela metade e descobre no erro.
+¹ Porta do host configurável via `POSTGRES_PORT` (default 5432); localmente
+usamos 5433 porque a 5432 já é de outro Postgres na máquina.
+
+O Redis entra já nesta fase mesmo sem consumidor: o objetivo é **um comando sobe
+a infraestrutura com estado**. Adicionar serviço depois significa que quem
+clonou antes fica com ambiente pela metade e descobre no erro.
+
+### Inngest não é container — é biblioteca + Dev Server
+
+**Decisão (04/08/2026), revisando a Decisão 4a:** o Inngest **sai do
+`docker-compose`**. No Next.js ele é uma biblioteca (`inngest`), exposta por um
+route handler em `apps/web/src/app/api/inngest/route.ts`; o desenvolvimento
+local usa o **Inngest Dev Server pela CLI**, não um container:
+
+- `npx inngest-cli@latest dev` — sobe o Dev Server em `http://localhost:8288`,
+  **sem conta e sem chave de API**;
+- a app se conecta a ele com `INNGEST_DEV=1`.
+
+Motivo: a integração oficial do Inngest com Next.js é via SDK + Dev Server CLI
+([docs](https://www.inngest.com/docs/getting-started/nextjs-quick-start)). Subir
+`inngest/inngest` no compose duplicaria o runtime e divergiria do fluxo real de
+produção (Inngest Cloud ou self-host, sempre atrás das portas `EventBus` /
+`Scheduler`). O `docker-compose` fica só com o que é *stateful* de fato —
+Postgres e Redis.
+
+Isso **não antecipa a Fase 3**: o SDK, o client (`apps/web/src/inngest/`) e as
+funções nascem lá, quando existe o primeiro job. O que muda aqui é apenas **onde
+o Inngest de dev roda** — CLI, não Docker.
 
 ### Requisitos
 

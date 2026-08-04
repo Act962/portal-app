@@ -63,9 +63,10 @@ As fases 5 e 6 são melhorias sobre um produto que já funciona.
    - IDs: remover `@map("_id")`, adotar `cuid()`
    - Passar de `db push` para **migrações versionadas** (`prisma migrate`)
    - Validar que o login existente continua funcionando
-2. **Ambiente Docker completo** (Decisão 4a) — `docker-compose.yml` com `postgres:17`,
-   `redis:7-alpine` e `inngest/inngest`, subindo com `pnpm db:start`. É o que garante paridade
-   entre a máquina do dev, o CI e a produção.
+2. **Ambiente Docker completo** (Decisão 4a) — `docker-compose.yml` com `postgres:17` e
+   `redis:7-alpine`, subindo com `pnpm db:start`. É o que garante paridade entre a máquina do dev,
+   o CI e a produção. O **Inngest fica fora do compose**: roda pela CLI (`npx inngest-cli dev`) —
+   ver `specs/00-fundacao.md` §5.
 3. **`packages/shared-kernel`** — `Result`, `AggregateRoot`, `DomainEvent`, `Entity`, `ValueObject`,
    e as portas `Clock`, `IdGenerator`. Deliberadamente mínimo.
 4. **Convenção dos bounded contexts documentada** — a estrutura
@@ -269,7 +270,7 @@ mas não será antecipada.
 | ~~Limite de duração do cron da Vercel~~ | — | **Encerrado** pela Decisão 6 (Inngest) |
 | **Decisão de produção adiada (4b)** | Médio | Precisa estar fechada **antes do fim da Fase 4**. Como tudo é serviço padrão em Docker, a escolha é de hospedagem, não de tecnologia |
 | Escopo do editor TipTap inflar (Fase 3) | Médio | Spec fecha a lista de blocos suportados no MVP; colaboração em tempo real está fora |
-| Dependência do Inngest como serviço externo | Médio | Fica atrás das portas `EventBus`/`Scheduler`; dev roda self-hosted em Docker, o que mantém a opção de self-host em produção |
+| Dependência do Inngest como serviço externo | Médio | Fica atrás das portas `EventBus`/`Scheduler`; dev roda o Dev Server pela CLI (sem conta), o que mantém a opção de self-host em produção |
 | Erosão das regras de arquitetura ao longo dos meses | Alto | `dependency-cruiser` no CI desde a Fase 0 |
 | Suíte de testes ficar lenta e ser abandonada | Alto | Pirâmide com base ampla e rápida; integração só onde agrega |
 

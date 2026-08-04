@@ -63,7 +63,7 @@ a base é larga e instantânea; o topo é estreito e caro.
 | **@faker-js/faker** | Dados | Alimenta os *builders* de teste |
 | **axe-core** | Acessibilidade | Via `vitest-axe` (componente) e `@axe-core/playwright` (página) |
 | **dependency-cruiser** | Arquitetura | Falha o CI se alguém violar a regra de dependência entre camadas |
-| **Inngest Dev Server** | Jobs e eventos | Roda as funções de background localmente e no CI, em Docker, sem depender de serviço externo |
+| **Inngest Dev Server** | Jobs e eventos | Roda as funções de background localmente e no CI pela CLI (`npx inngest-cli dev`), sem depender de serviço externo |
 
 **Vitest workspace:** cada pacote em `packages/contexts/*` tem sua própria config, mas roda por um
 comando único na raiz. Permite `pnpm test --filter editorial` durante o desenvolvimento e a suíte
@@ -257,8 +257,9 @@ O último é o teste mais valioso da lista: ele prova que o par "salvar agregado
 atômico. É a garantia de que o sistema nunca fica com o banco dizendo uma coisa e a busca outra.
 
 ### No CI
-O Inngest Dev Server sobe como container junto do Postgres e do Redis, no mesmo job de integração.
-Sem conta, sem chave de API, sem rede externa — o CI continua reproduzível e offline.
+O Postgres e o Redis sobem em container (Testcontainers) no job de integração; o Inngest Dev
+Server sobe pela CLI (`npx inngest-cli dev`) no mesmo job. Sem conta, sem chave de API, sem rede
+externa — o CI continua reproduzível e offline.
 
 ---
 
@@ -382,7 +383,7 @@ push / pull request
         ├── ▸ testes unitários   vitest (domínio + aplicação)  ~30 s  ┘
         │
         ├── ▸ integração         vitest + Testcontainers       ~2 min
-        │                        (Postgres · Redis · Inngest dev, todos em container)
+        │                        (Postgres · Redis em container; Inngest dev via CLI)
         ├── ▸ build              turbo build                   ~2 min
         │
         ├── ▸ e2e                playwright (4 shards)         ~3 min
