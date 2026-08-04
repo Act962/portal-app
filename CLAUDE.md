@@ -53,6 +53,8 @@ pnpm run test:e2e           # playwright test (starts/reuses the web dev server 
 
 `vitest.config.ts` defines the `unit` and `integration` projects and coverage settings (thresholds from `docs/testing-strategy.md` §10 are written but commented — `fail-under` turns on in Phase 1). Integration tests get a real Postgres from Testcontainers via `tests/integration/global-setup.ts`, which applies the versioned migrations (`prisma migrate deploy`) once and hands the connection URL to tests through vitest's `provide`/`inject`; tests build a non-singleton client with `newPrismaClient(url)` from `@portal-app/db/client`. Shared custom matchers (`toBeErr`, `toContainEventOfType`) live in `tests/setup/matchers.ts`. Playwright E2E specs are in `apps/web/tests/e2e/` (`playwright.config.ts` at root); the auth flow spec (`auth.spec.ts`) writes to the DB and is meant for CI against a dedicated test database, not the local dev DB.
 
+CI runs on GitHub Actions (`.github/workflows/ci.yml`, shared setup in `.github/actions/setup`): a parallel `check` matrix (typecheck · `depcruise` · unit), then `integration` (Testcontainers), `build`, and `e2e` (a Postgres service container + `prisma migrate deploy` + Playwright, so the auth flow spec runs against a dedicated DB). The **lint/format gate (`biome ci`) is intentionally not wired yet** — the scaffold hasn't been Biome-formatted; it joins once the repo is cleaned up. Branch protection on `main` is a GitHub-side setting, not in the repo.
+
 To run a single workspace's script directly, use turbo's filter flag, e.g. `pnpm turbo run check-types -F web` or `pnpm turbo run db:studio -F @portal-app/db`.
 
 ## Architecture

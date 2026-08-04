@@ -357,6 +357,23 @@ não é garantia, é decoração.
 
 ## 9. Etapa 6 — CI no GitHub Actions
 
+> **🔧 Implementada em 04/08/2026**, validando no primeiro run remoto.
+> `.github/workflows/ci.yml` + action composta `.github/actions/setup`. Bloco
+> paralelo **typecheck · arquitetura (`depcruise`) · unit** (matrix); depois
+> **integração** (Testcontainers), **build** e **e2e** (Postgres de *service*
+> container + `prisma migrate deploy` + Playwright, com o relatório publicado
+> como artefato). `concurrency` com `cancel-in-progress`, `TZ=America/Sao_Paulo`,
+> cache do store do pnpm e do Turborepo.
+>
+> **Desvios registrados:**
+> - **Gate de lint/format fora por ora** (decisão de 04/08/2026): o scaffold não
+>   passou pelo Biome (≈43 arquivos de formatação + 8 lints, alguns a11y em
+>   primitivos shadcn). O job de lint entra junto da limpeza do repo.
+> - **Branch protection** exige configuração no GitHub (UI ou `gh api`) — não
+>   mora no repositório. A fazer, com autorização.
+> - O e2e do CI já roda contra um **banco dedicado** (o *service* Postgres), que
+>   é o que faltava para o **T09** (login) rodar de verdade.
+
 Pipeline de `testing-strategy.md` §13.
 
 ```
