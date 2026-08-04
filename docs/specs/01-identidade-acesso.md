@@ -55,8 +55,17 @@ Cinco etapas, na ordem de execução. Cada uma é mergeável sozinha.
 | 1 | Domínio de identidade & autorização | `StaffMember`, `Role`, `AuthorProfile`, `can()` + matriz testada | ✅ Concluída |
 | 2 | Persistência | schema Prisma, `StaffMemberRepository` (porta + adapter Prisma + fake), testes de contrato | ✅ Concluída |
 | 3 | Sessão → `StaffMember` e guardas | contexto tRPC resolve o staff; procedures por papel; rotas do painel protegidas; **T09 sai do `fixme`** | ✅ Concluída |
-| 4 | Gestão de usuários (admin) | convite, papel, editorias, desativação, perfil de autor, matriz visível | 🔜 Próxima |
-| 5 | Fecho | ADR 0004, `dependency-cruiser` ativado no contexto + `apps/web`, `fail-under` de cobertura | ⬜ Pendente |
+| 4 | Gestão de usuários (admin) | papel, editorias, desativação, perfil de autor, matriz visível, lista | ✅ Concluída¹ |
+| 5 | Fecho | ADR 0004, `dependency-cruiser` ativado no contexto + `apps/web`, `fail-under` de cobertura | 🔜 Próxima |
+
+> ¹ **Adiado na Etapa 4**, com motivo: **A24 (convite por token / primeiro
+> acesso)** — o fluxo atual (auto-cadastro provisiona o staff; o 1º é ADMIN, os
+> demais REDATOR promovidos por um admin) já entrega a gestão; o convite precisa
+> de provisionamento de usuário + ciclo de token, que vira um passo focado. E o
+> **E2E do admin (I12)** — o bootstrap "1º usuário = ADMIN" torna um teste de
+> admin em DB compartilhado dependente de ordem/retries; fica para quando a
+> infra de E2E tiver isolamento por teste. A autorização de gestão está coberta
+> por **testes unitários** (admin-pode / redator-`Forbidden` / efeitos).
 
 ### Fora de escopo
 

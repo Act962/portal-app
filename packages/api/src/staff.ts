@@ -12,7 +12,7 @@ import { PrismaStaffRepository } from "@portal-app/identity/infrastructure/prism
  * consumir só isto — mantendo a regra `infra-nao-vaza` satisfazível quando o
  * `apps/web` entrar no scan do dependency-cruiser (Etapa 5).
  */
-const staffRepo = new PrismaStaffRepository(createPrismaClient());
+export const staffRepo = new PrismaStaffRepository(createPrismaClient());
 
 type Session = Awaited<ReturnType<typeof auth.api.getSession>>;
 

@@ -23,7 +23,7 @@ type StaffMemberState = {
  * Etapa 4, junto dos casos de uso que as disparam.
  */
 export class StaffMember extends AggregateRoot<string> {
-	private readonly state: StaffMemberState;
+	private state: StaffMemberState;
 
 	private constructor(id: string, state: StaffMemberState) {
 		super(id);
@@ -91,5 +91,29 @@ export class StaffMember extends AggregateRoot<string> {
 	/** O editor age apenas nas editorias às quais está vinculado. */
 	belongsToSection(sectionId: string): boolean {
 		return this.state.sectionIds.includes(sectionId);
+	}
+
+	// Mutações. Eventos de domínio (RoleChanged, StaffDeactivated) entram na
+	// Fase 3, junto do outbox que os publica (ADR 0005) — sem consumidor agora,
+	// emiti-los seria código morto.
+
+	changeRole(role: Role): void {
+		this.state = { ...this.state, role };
+	}
+
+	deactivate(): void {
+		this.state = { ...this.state, status: "INATIVO" };
+	}
+
+	activate(): void {
+		this.state = { ...this.state, status: "ATIVO" };
+	}
+
+	bindSections(sectionIds: readonly string[]): void {
+		this.state = { ...this.state, sectionIds: [...sectionIds] };
+	}
+
+	updateProfile(authorProfile: AuthorProfile): void {
+		this.state = { ...this.state, authorProfile };
 	}
 }

@@ -138,6 +138,9 @@ importers:
       '@portal-app/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@portal-app/identity':
+        specifier: workspace:*
+        version: link:../../packages/contexts/identity
       '@portal-app/ui':
         specifier: workspace:*
         version: link:../../packages/ui
