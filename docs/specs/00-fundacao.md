@@ -1,7 +1,8 @@
 # Spec — Fase 0: Fundação
 
-> **Status:** Aprovada (03/08/2026) — **em execução**. Etapa 1 concluída
-> (04/08/2026); Etapa 2 em andamento.
+> **Status:** ✅ **Concluída (04/08/2026)** — as 7 etapas entregues, CI verde.
+> Ficam registrados dois adiamentos conscientes: o *gate* de lint no CI (espera
+> a limpeza do scaffold) e o E2E de login T09 (`fixme`, vai para a Fase 1).
 > **Referências:** `../roadmap.md` (Fase 0) · `../architecture.md` §4 e §8 ·
 > `../testing-strategy.md` §7, §13 · `../stack.md` (Decisões 1, 4a e 6)
 
@@ -58,7 +59,7 @@ Sete etapas, na ordem em que devem ser executadas. Cada uma é mergeável sozinh
 | 4 | Infraestrutura de testes | 1, 2, 3 | ✅ Concluída |
 | 5 | `dependency-cruiser` | 3 | ✅ Concluída |
 | 6 | CI no GitHub Actions | 4, 5 | ✅ Concluída |
-| 7 | ADRs | — | 🔜 Próxima |
+| 7 | ADRs | — | ✅ Concluída |
 
 ### Fora de escopo
 
@@ -414,14 +415,17 @@ antes de aumentar o limite.
 
 ## 10. Etapa 7 — ADRs
 
+> **✅ Concluída em 04/08/2026.** Escritos em `docs/adr/`, no formato de
+> `docs/adr/README.md`.
+
 Formalizam decisões já tomadas e justificadas em `stack.md` e
 `architecture.md`, no formato de `docs/adr/README.md`.
 
 | ADR | Título |
 |---|---|
-| `0001` | Monólito modular em vez de microsserviços |
-| `0002` | PostgreSQL como banco principal |
-| `0008` | Docker Compose como ambiente de desenvolvimento padrão |
+| [`0001`](../adr/0001-monolito-modular.md) | Monólito modular em vez de microsserviços |
+| [`0002`](../adr/0002-postgresql-banco-principal.md) | PostgreSQL como banco principal |
+| [`0008`](../adr/0008-docker-compose-ambiente-dev.md) | Docker Compose como ambiente de desenvolvimento padrão |
 
 Os ADRs `0003`–`0007` são escritos nas fases que os materializam.
 
@@ -457,7 +461,7 @@ Os ADRs `0003`–`0007` são escritos nas fases que os materializam.
 - [ ] `pnpm build` segue verde e o portal continua gerando as 36 páginas
 - [ ] Login funciona contra o Postgres, com dados visíveis no `db:studio`
 - [ ] `migrations/` versionado no git
-- [ ] ADRs 0001, 0002 e 0008 escritos
+- [x] ADRs 0001, 0002 e 0008 escritos
 - [ ] `CLAUDE.md` atualizado: `db:migrate` como caminho oficial, `db:push` só
       para prototipagem
 
