@@ -1,0 +1,22 @@
+{
+	"name": "@portal-app/shared-kernel",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"check-types": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@portal-app/config": "workspace:*",
+		"@types/node": "^22.20.1",
+		"typescript": "catalog:"
+	}
+}
