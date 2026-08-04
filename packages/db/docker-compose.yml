@@ -2,12 +2,16 @@ name: portal-app
 
 # Ambiente de desenvolvimento (Decisão 4a de docs/stack.md).
 #
-# Credenciais fixas e sem valor: valem só para o container local e estão
+# Credenciais fixas e sem valor: valem só para os containers locais e estão
 # espelhadas em apps/web/.env.example. Nada aqui vai para produção.
 #
-# A major version do Postgres é fixada de propósito. O mesmo postgres:17 roda
-# aqui, no Testcontainers do CI e em produção — é essa paridade que elimina a
-# classe de bug "funciona na minha máquina".
+# As major versions (postgres:17, redis:7) são fixadas de propósito: as mesmas
+# imagens rodam aqui, no Testcontainers do CI e em produção — é essa paridade
+# que elimina a classe de bug "funciona na minha máquina".
+#
+# O Inngest NÃO entra aqui. No Next.js ele é biblioteca + Dev Server pela CLI
+# (`npx inngest-cli@latest dev`), então só o que é stateful vira container.
+# Ver docs/specs/00-fundacao.md §5.
 
 services:
   postgres:
@@ -27,6 +31,23 @@ services:
     healthcheck:
       # Sem isto o `db:migrate` corre antes do banco aceitar conexão.
       test: ["CMD-SHELL", "pg_isready -U portal -d portal_app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: portal-app-redis
+    ports:
+      # Configurável pelo mesmo motivo do Postgres: ajuste REDIS_PORT em
+      # packages/db/.env se a 6379 já estiver ocupada na sua máquina.
+      - "${REDIS_PORT:-6379}:6379"
+    # Cache descartável — sem volume de propósito. O que precisa sobreviver a um
+    # restart mora no Postgres, não aqui. Ainda não há consumidor: o Redis passa
+    # a ser usado a partir da Fase 4 (cache e rate limiting).
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 5s
       timeout: 5s
       retries: 10

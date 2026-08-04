@@ -24,7 +24,7 @@ pnpm run check         # biome check --write . (lint + format, auto-fixes)
 Database (Prisma + PostgreSQL 17, all proxied to `packages/db` via turbo filters):
 
 ```bash
-pnpm run db:start      # docker compose up -d (starts local PostgreSQL)
+pnpm run db:start      # docker compose up -d (starts local PostgreSQL + Redis)
 pnpm run db:migrate     # prisma migrate dev — THE official way to change the schema
 pnpm run db:generate    # regenerate the Prisma client
 pnpm run db:studio      # open Prisma Studio
