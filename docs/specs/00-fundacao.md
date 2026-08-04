@@ -256,9 +256,10 @@ ar, invariante interna violada.
 > Playwright. **Walking skeleton verde:** T01–T04 (12 testes unitários no
 > shared-kernel) e T05–T07 (3 de integração com Postgres do Testcontainers, com
 > as migrações reais e rollback por transação) rodam com `pnpm test`; T08 (E2E
-> da home) passa. **T09** (criar conta → sair → entrar) está escrito, mas
-> escreve no banco: roda no CI contra um banco dedicado, não no dev local — o
-> *wiring* desse banco de teste fica com a Etapa 6 (CI). Limiares de cobertura
+> da home) passa. **T09** (criar conta → sair → entrar) está escrito, mas em
+> `fixme`: o `/dashboard` é RSC com guarda de sessão, e o caminho cadastro →
+> sessão → dashboard é o que a **Fase 1 (Identidade & Acesso)** constrói —
+> quando o CI rodou, T09 falhou justamente aí. Sai do `fixme` na Fase 1. Limiares de cobertura
 > (§10) estão no `vitest.config.ts`, comentados; o `fail-under` liga na Fase 1.
 >
 > Comandos: `pnpm test` (unit + integração) · `pnpm test:unit` ·
@@ -371,8 +372,12 @@ não é garantia, é decoração.
 >   primitivos shadcn). O job de lint entra junto da limpeza do repo.
 > - **Branch protection** exige configuração no GitHub (UI ou `gh api`) — não
 >   mora no repositório. A fazer, com autorização.
-> - O e2e do CI já roda contra um **banco dedicado** (o *service* Postgres), que
->   é o que faltava para o **T09** (login) rodar de verdade.
+> - O e2e do CI roda contra um **banco dedicado** (o *service* Postgres, com
+>   `migrate deploy`). O **T09** (login) revelou no primeiro run que o fluxo
+>   cadastro → sessão → dashboard é da **Fase 1** — ficou em `test.fixme`; o
+>   T08 (home) passa e já prova o harness E2E.
+> - **`SKIP_ENV_VALIDATION`** no job de build: o `next build` valida env num
+>   worker que não recebe as vars de shell; o build não conecta em nada.
 
 Pipeline de `testing-strategy.md` §13.
 

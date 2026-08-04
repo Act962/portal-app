@@ -55,6 +55,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: check
+    env:
+      # O `next build` coleta page-data num worker que não repassa as env vars
+      # de shell (localmente elas vêm de apps/web/.env, ausente no CI). O build
+      # não conecta em nada, então validar env aqui não agrega — o pacote
+      # @portal-app/env expõe este escape hatch justamente para CI.
+      SKIP_ENV_VALIDATION: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
