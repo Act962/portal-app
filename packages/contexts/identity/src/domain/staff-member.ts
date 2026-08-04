@@ -1,0 +1,72 @@
+import { AggregateRoot } from "@portal-app/shared-kernel";
+
+import type { AuthorProfile } from "./author-profile";
+import type { Role } from "./role";
+
+export type StaffStatus = "ATIVO" | "INATIVO";
+
+type StaffMemberState = {
+	email: string;
+	role: Role;
+	status: StaffStatus;
+	sectionIds: readonly string[];
+	authorProfile: AuthorProfile | null;
+};
+
+/**
+ * Membro da redação — o agregado raiz do contexto de identidade. O `id` é o
+ * MESMO id do `user` do Better-Auth (relação 1:1): a biblioteca cuida da
+ * autenticação, este agregado cuida de papel, status e perfil.
+ *
+ * Nesta etapa o agregado é imutável após criado (só leitura + consultas de
+ * autorização). As mutações com evento (mudar papel, desativar) entram na
+ * Etapa 4, junto dos casos de uso que as disparam.
+ */
+export class StaffMember extends AggregateRoot<string> {
+	private readonly state: StaffMemberState;
+
+	private constructor(id: string, state: StaffMemberState) {
+		super(id);
+		this.state = state;
+	}
+
+	/** Reidrata um membro a partir da persistência (ou de um teste). */
+	static restore(props: { id: string } & StaffMemberState): StaffMember {
+		return new StaffMember(props.id, {
+			email: props.email,
+			role: props.role,
+			status: props.status,
+			sectionIds: [...props.sectionIds],
+			authorProfile: props.authorProfile,
+		});
+	}
+
+	get email(): string {
+		return this.state.email;
+	}
+
+	get role(): Role {
+		return this.state.role;
+	}
+
+	get status(): StaffStatus {
+		return this.state.status;
+	}
+
+	get sectionIds(): readonly string[] {
+		return this.state.sectionIds;
+	}
+
+	get authorProfile(): AuthorProfile | null {
+		return this.state.authorProfile;
+	}
+
+	isActive(): boolean {
+		return this.state.status === "ATIVO";
+	}
+
+	/** O editor age apenas nas editorias às quais está vinculado. */
+	belongsToSection(sectionId: string): boolean {
+		return this.state.sectionIds.includes(sectionId);
+	}
+}
