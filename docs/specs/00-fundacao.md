@@ -53,9 +53,9 @@ Sete etapas, na ordem em que devem ser executadas. Cada uma é mergeável sozinh
 | # | Etapa | Depende de | Status |
 |---|---|---|---|
 | 1 | Migração para PostgreSQL | — | ✅ Concluída |
-| 2 | Ambiente Docker completo | 1 | 🔜 Em andamento |
-| 3 | `packages/shared-kernel` | — | ⬜ Pendente |
-| 4 | Infraestrutura de testes | 1, 2, 3 | ⬜ Pendente |
+| 2 | Ambiente Docker completo | 1 | ✅ Concluída |
+| 3 | `packages/shared-kernel` | — | ✅ Concluída |
+| 4 | Infraestrutura de testes | 1, 2, 3 | 🔜 Próxima |
 | 5 | `dependency-cruiser` | 3 | ⬜ Pendente |
 | 6 | CI no GitHub Actions | 4, 5 | ⬜ Pendente |
 | 7 | ADRs | — | ⬜ Pendente |
@@ -194,6 +194,13 @@ máquina" — e é o motivo de fixar a major version em vez de usar `latest`.
 
 ## 6. Etapa 3 — `packages/shared-kernel`
 
+> **✅ Concluída em 04/08/2026.** Pacote criado com `Result`/`ok`/`err`,
+> `Entity`, `ValueObject`, `AggregateRoot`, `DomainEvent` e as portas
+> `Clock` (`SystemClock`/`FixedClock`) e `IdGenerator`
+> (`UuidGenerator`/`SequentialIdGenerator`). Sem build step, `type: module`,
+> exports para TS-source. Verificado por `check-types`, Biome e um smoke test
+> de runtime (17 asserções, base dos casos T01–T04).
+
 Primitivas técnicas compartilhadas. Deliberadamente minúsculo: todo shared
 kernel tende a inchar e virar acoplamento global disfarçado.
 
@@ -207,7 +214,7 @@ packages/shared-kernel/
 │   ├── domain-event.ts      contrato do evento
 │   ├── ports/
 │   │   ├── clock.ts         Clock, SystemClock, FixedClock
-│   │   └── id-generator.ts  IdGenerator, CuidGenerator, SequentialIdGenerator
+│   │   └── id-generator.ts  IdGenerator, UuidGenerator, SequentialIdGenerator
 │   └── index.ts
 ├── package.json
 └── tsconfig.json
@@ -224,6 +231,11 @@ packages/shared-kernel/
   próprio pacote, não em `tests/`: são parte do contrato da porta, e é isso que
   torna o determinismo descrito em `testing-strategy.md` §11 disponível para
   todos os contextos sem duplicação.
+- **`UuidGenerator` no lugar de `CuidGenerator`** (decisão de 04/08/2026): a
+  regra de zero dependências prevaleceu. A implementação de produção usa
+  `crypto.randomUUID()` (Web Crypto, embutido), sem lib de cuid. Um adapter cuid
+  pode substituí-la depois atrás da mesma porta `IdGenerator`, sem tocar no
+  domínio.
 
 ### `Result` em vez de exceção
 
