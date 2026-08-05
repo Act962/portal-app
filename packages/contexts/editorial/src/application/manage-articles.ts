@@ -204,6 +204,31 @@ export function listArticles(filter: ArticleFilter, deps: Pick<Deps, "repo">): P
 	return deps.repo.list(filter);
 }
 
+/** Todas as agendadas — alimenta o calendário editorial (A15). */
+export function listScheduled(deps: Pick<Deps, "repo">): Promise<Article[]> {
+	return deps.repo.list({ status: "AGENDADA" });
+}
+
+/**
+ * Publica as agendadas cujo horário chegou (A13). É o GATILHO DO RELÓGIO, sem
+ * ator humano: quem o dirige é a composição — um `node-cron`, um loop, ou uma
+ * função Inngest (§5.1), todos cumprindo o mesmo papel. Determinístico: o "agora"
+ * vem da porta `Clock`, então roda com `FixedClock` nos testes, sem espera real.
+ * Cada publicação grava `ArticlePublished` no outbox (mesma transação).
+ */
+export async function publishDueScheduled(deps: Pick<Deps, "repo" | "clock">): Promise<Article[]> {
+	const now = deps.clock.now();
+	const due = await deps.repo.listDueScheduled(now);
+	const published: Article[] = [];
+	for (const article of due) {
+		if (article.publish(now).isOk()) {
+			await deps.repo.save(article);
+			published.push(article);
+		}
+	}
+	return published;
+}
+
 export function getArticle(id: string, deps: Pick<Deps, "repo">): Promise<Article | null> {
 	return deps.repo.findById(id);
 }

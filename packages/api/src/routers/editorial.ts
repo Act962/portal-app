@@ -8,7 +8,9 @@ import {
 	createDraft,
 	getArticle,
 	listArticles,
+	listScheduled,
 	publish,
+	publishDueScheduled,
 	reject,
 	schedule,
 	submitForReview,
@@ -150,5 +152,19 @@ export const editorialRouter = router({
 		archive: staffProcedure
 			.input(z.object({ id: z.string() }))
 			.mutation(async ({ ctx, input }) => ensure(await archive(ctx.staff, input, articleDeps))),
+	}),
+
+	schedules: router({
+		/** Calendário editorial (A15): tudo que está agendado. */
+		list: staffProcedure.query(async () => (await listScheduled(articleDeps)).map(articleDto)),
+
+		/**
+		 * Dispara o poller que publica as agendadas vencidas (A13). Em produção,
+		 * quem chama isto é um node-cron / trigger (§5.1); no demo, um clique.
+		 */
+		runDue: staffProcedure.mutation(async () => {
+			const published = await publishDueScheduled(articleDeps);
+			return { published: published.length };
+		}),
 	}),
 });

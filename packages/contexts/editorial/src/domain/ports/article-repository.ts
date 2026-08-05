@@ -24,6 +24,8 @@ export interface ArticleRepository {
 	save(article: Article): Promise<void>;
 	delete(id: string): Promise<void>;
 	list(filter?: ArticleFilter): Promise<Article[]>;
+	/** Agendadas cujo horário já chegou (`scheduledAt <= now`) — para o poller. */
+	listDueScheduled(now: Date): Promise<Article[]>;
 	countPublishedInSection(sectionId: string): Promise<number>;
 	countPublishedWithTag(tagId: string): Promise<number>;
 }
@@ -71,6 +73,14 @@ export class InMemoryArticleRepository implements ArticleRepository {
 			.filter((a) => (term ? a.headline.toLowerCase().includes(term) : true))
 			.sort((a, b) => (this.order.get(b.id) ?? 0) - (this.order.get(a.id) ?? 0));
 		return Promise.resolve(result);
+	}
+
+	listDueScheduled(now: Date): Promise<Article[]> {
+		const due = [...this.store.values()].filter((a) => {
+			const at = a.scheduledAt;
+			return a.status === "AGENDADA" && at !== null && at.getTime() <= now.getTime();
+		});
+		return Promise.resolve(due);
 	}
 
 	countPublishedInSection(sectionId: string): Promise<number> {

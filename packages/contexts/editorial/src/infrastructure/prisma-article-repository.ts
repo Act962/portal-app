@@ -69,6 +69,14 @@ export class PrismaArticleRepository implements ArticleRepository {
 		return rows.map(toDomain);
 	}
 
+	async listDueScheduled(now: Date): Promise<Article[]> {
+		const rows = await this.prisma.article.findMany({
+			where: { status: "AGENDADA", scheduledAt: { lte: now } },
+			orderBy: { scheduledAt: "asc" },
+		});
+		return rows.map(toDomain);
+	}
+
 	countPublishedInSection(sectionId: string): Promise<number> {
 		return this.prisma.article.count({
 			where: { sectionId, status: { in: [...PUBLISHED_STATUSES] } },

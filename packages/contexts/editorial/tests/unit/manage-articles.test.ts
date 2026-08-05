@@ -6,9 +6,13 @@ import {
 	approve,
 	archive,
 	createDraft,
+	getArticle,
 	listArticles,
+	listScheduled,
 	publish,
+	publishDueScheduled,
 	reject,
+	schedule,
 	submitForReview,
 	updateArticle,
 } from "@portal-app/editorial";
@@ -123,6 +127,37 @@ describe("edição", () => {
 
 		const updated = (await updateArticle(admin, { id: article.id, standfirst: "nova linha" }, deps)).unwrap();
 		expect(updated.status).toBe("ATUALIZADA");
+	});
+});
+
+describe("agendamento (poller síncrono / node-cron-friendly)", () => {
+	const LATER = new Date("2026-08-05T18:00:00Z");
+
+	async function scheduleOne() {
+		const admin = staff("ADMIN", "adm");
+		const article = await draftBy(admin);
+		await submitForReview(admin, { id: article.id }, deps);
+		await approve(admin, { id: article.id }, deps);
+		(await schedule(admin, { id: article.id, at: LATER }, deps)).unwrap();
+		return article.id;
+	}
+
+	it("lista as agendadas (calendário A15)", async () => {
+		const id = await scheduleOne();
+		const scheduled = await listScheduled({ repo });
+		expect(scheduled.map((a) => a.id)).toEqual([id]);
+	});
+
+	it("E09: publica só quando o horário chega — FixedClock, sem espera", async () => {
+		const id = await scheduleOne();
+
+		const early = await publishDueScheduled({ repo, clock: new FixedClock(new Date("2026-08-05T12:00:00Z")) });
+		expect(early).toHaveLength(0);
+		expect((await getArticle(id, { repo }))?.status).toBe("AGENDADA");
+
+		const due = await publishDueScheduled({ repo, clock: new FixedClock(LATER) });
+		expect(due).toHaveLength(1);
+		expect((await getArticle(id, { repo }))?.status).toBe("PUBLICADA");
 	});
 });
 

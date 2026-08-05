@@ -25,6 +25,7 @@ export function ArticlesList() {
 			onSuccess: (article) => router.push(articleHref(article.id)),
 		}),
 	);
+	const runDue = useMutation(trpc.editorial.schedules.runDue.mutationOptions({ onSuccess: () => list.refetch() }));
 
 	return (
 		<div>
@@ -48,7 +49,7 @@ export function ArticlesList() {
 				</button>
 			</form>
 
-			<div className="mb-3">
+			<div className="mb-3 flex items-center justify-between">
 				<select
 					value={status}
 					onChange={(e) => setStatus(e.target.value)}
@@ -61,6 +62,14 @@ export function ArticlesList() {
 						</option>
 					))}
 				</select>
+				<button
+					type="button"
+					onClick={() => runDue.mutate()}
+					className="rounded border px-3 py-1 text-sm"
+					title="Publica as matérias agendadas cujo horário já passou"
+				>
+					{runDue.isPending ? "processando…" : "Processar agendadas vencidas"}
+				</button>
 			</div>
 
 			{list.isLoading ? (

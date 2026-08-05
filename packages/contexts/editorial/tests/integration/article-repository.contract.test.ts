@@ -102,6 +102,23 @@ function contract(label: string, make: () => Harness): void {
 			expect(await h.repo.countPublishedWithTag("inexistente")).toBe(0);
 		});
 
+		it("lista agendadas vencidas (poller): só as com horário no passado", async () => {
+			const soon = draft("s-1", "agendada-vencida", "cidades", []);
+			soon.submitForReview(NOW);
+			soon.approve();
+			soon.schedule(new Date("2026-08-05T13:00:00Z"), NOW);
+			await h.repo.save(soon);
+
+			const future = draft("s-2", "agendada-futura", "cidades", []);
+			future.submitForReview(NOW);
+			future.approve();
+			future.schedule(new Date("2026-08-05T20:00:00Z"), NOW);
+			await h.repo.save(future);
+
+			const due = await h.repo.listDueScheduled(new Date("2026-08-05T14:00:00Z"));
+			expect(due.map((a) => a.id)).toEqual(["s-1"]);
+		});
+
 		it("exclui e some da busca", async () => {
 			await h.repo.save(draft("art-1", "x", "cidades", []));
 			await h.repo.delete("art-1");
