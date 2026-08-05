@@ -26,11 +26,11 @@ export class InMemoryMediaStorage implements MediaStorage {
 	private readonly objects = new Map<string, Uint8Array>();
 
 	getUploadUrl(key: string): Promise<string> {
-		return Promise.resolve(`memory://upload/${encodeURIComponent(key)}`);
+		return Promise.resolve(`memory://upload/${key}`);
 	}
 
 	publicUrl(key: string): string {
-		return `memory://public/${encodeURIComponent(key)}`;
+		return `memory://public/${key}`;
 	}
 
 	delete(key: string): Promise<void> {

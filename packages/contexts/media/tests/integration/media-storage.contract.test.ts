@@ -65,7 +65,7 @@ function fakeHarness(): StorageHarness {
 	return {
 		storage: fake,
 		upload: (url, body) => {
-			const key = decodeURIComponent(url.replace("memory://upload/", ""));
+			const key = url.replace("memory://upload/", "");
 			fake.put(key, body);
 			return Promise.resolve();
 		},
