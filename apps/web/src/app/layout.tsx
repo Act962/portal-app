@@ -39,7 +39,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
 	return (
 		// The font variables belong on <html>, not <body>: `--font-sans` is
-		// declared at `:root`, so a `var(--font-archivo)` defined lower down
+		// declared at `:root`, so a `var(--font-nunito)` defined lower down
 		// would be invalid at computed-value time and silently fall back to serif.
 		<html lang="pt-BR" className={fontVariables} suppressHydrationWarning>
 			<body className="antialiased">{children}</body>
