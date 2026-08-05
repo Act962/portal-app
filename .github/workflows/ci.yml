@@ -110,6 +110,10 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Aplicar migrações no Postgres de teste
         run: pnpm --filter @portal-app/db exec prisma migrate deploy
+      - name: Semear conteúdo publicado para o portal (read model da Fase 4)
+        env:
+          PGPASSWORD: portal
+        run: psql -h localhost -U portal -d portal_app -v ON_ERROR_STOP=1 -f packages/db/prisma/seed-e2e.sql
       - name: E2E
         run: pnpm test:e2e
       - name: Publicar relatório do Playwright
