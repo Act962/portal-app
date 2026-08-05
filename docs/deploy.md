@@ -2,6 +2,9 @@
 
 > Guia operacional para colocar e manter o portal no ar. Para o estado do
 > desenvolvimento, ver [`pendencias.md`](./pendencias.md).
+>
+> **Stack de produção:** aplicação na **Vercel**, banco no **Neon**, mídia no
+> **Cloudflare R2**.
 
 ---
 
@@ -26,36 +29,55 @@ pnpm db:deploy
 `prisma migrate deploy` só aplica as migrations pendentes, em ordem, sem
 interação e sem nunca destruir dados. É o comando que pode rodar em pipeline.
 
-### Como ligar no deploy
+### Como ligar na Vercel
 
-O passo precisa acontecer **depois do install e antes (ou no lugar) do build**,
-com a `DATABASE_URL` de produção no ambiente:
+Já está versionado em **`vercel.json`**, na raiz:
 
-```bash
-pnpm install --frozen-lockfile
-pnpm db:deploy          # cria/atualiza as tabelas
-pnpm build
+```json
+"buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm db:deploy; fi && pnpm turbo run build -F web"
 ```
 
-Na **Vercel**, isso vira o *Build Command* do projeto:
+Duas coisas nesse comando merecem explicação:
 
-```
-pnpm db:deploy && pnpm turbo run build -F web
-```
+- **O `if` não é frescura.** Sem ele, **todo deploy de preview migraria o banco
+  de produção** — que é o único banco configurado. Um PR com migração
+  incompleta alteraria o schema de produção antes de qualquer revisão. O guarda
+  restringe a migração ao ambiente de produção.
+- **`pnpm db:deploy`, não `db:migrate`.** `migrate dev` é interativo e pode
+  propor apagar dados.
 
-Em **Docker/VPS**, é um passo do `entrypoint` ou do job de release, antes de
-subir a aplicação nova.
+Na configuração do projeto na Vercel:
 
-> ⚠️ **Verifique o alvo antes de copiar.** O repositório não tem `vercel.json`
-> nem pipeline de deploy versionado — a Decisão 4b (provedor de produção) nunca
-> foi fechada (ver `stack.md`). O comando acima assume a raiz do monorepo como
-> *Root Directory*. Se o projeto na hospedagem aponta para `apps/web`, o caminho
-> relativo muda.
+| Campo | Valor |
+|---|---|
+| Root Directory | **raiz do repositório** (não `apps/web`) |
+| Framework Preset | Next.js |
+| Build/Install Command | deixe **vazio** — vêm do `vercel.json` |
+
+> Se o *Root Directory* estiver como `apps/web`, o `vercel.json` da raiz é
+> ignorado e a migração não roda. É o erro mais fácil de cometer aqui.
+
+### Neon — a conexão da migração é outra
+
+O Neon entrega **duas** connection strings, e a diferença importa:
+
+| Variável | String | Para quê |
+|---|---|---|
+| `DATABASE_URL` | a **com `-pooler`** | runtime da aplicação |
+| `DIRECT_URL` | a **sem `-pooler`** | migrações (`prisma migrate deploy`) |
+
+O `prisma.config.ts` já usa `DIRECT_URL` quando ela existe. **Cadastre as duas
+na Vercel.** Migração através do pooler falha ou trava: o pooler em modo
+transaction não sustenta advisory lock nem DDL na mesma sessão — e o sintoma é
+justamente "as tabelas não foram criadas", sem erro claro.
+
+O runtime fica no pooler porque a Vercel é serverless: sem ele, cada função
+abriria a própria conexão e o limite do Neon estoura rápido.
 
 ### Conferir o que foi aplicado
 
 ```bash
-pnpm --filter @portal-app/db exec prisma migrate status
+DIRECT_URL="postgresql://…" pnpm --filter @portal-app/db exec prisma migrate status
 ```
 
 ---
@@ -143,17 +165,18 @@ capa em cada matéria.
 
 ## 4. Checklist de um deploy limpo
 
-1. [ ] Variáveis de ambiente cadastradas na hospedagem
-       (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`,
-       `S3_*`).
+1. [ ] Variáveis cadastradas na Vercel: `DATABASE_URL` (**com** `-pooler`),
+       `DIRECT_URL` (**sem** `-pooler`), `BETTER_AUTH_SECRET`,
+       `BETTER_AUTH_URL`, `CORS_ORIGIN`, `S3_*`.
 2. [ ] `BETTER_AUTH_SECRET` com no mínimo 32 caracteres, **gerado para produção**
        (`openssl rand -base64 32`) — nunca o do `.env.example`.
 3. [ ] `BETTER_AUTH_URL` e `CORS_ORIGIN` apontando para o domínio real.
-4. [ ] Build command roda `pnpm db:deploy` antes do build.
+4. [ ] *Root Directory* do projeto na Vercel = **raiz do repositório**.
 5. [ ] `prisma migrate status` sem migrations pendentes.
 6. [ ] CORS do bucket liberando `PUT` do domínio do painel.
-7. [ ] Seed rodado uma vez (se o portal estiver vazio).
-8. [ ] Primeiro acesso ao `/login` → criar a conta do dono. **O primeiro usuário
+7. [ ] `S3_PUBLIC_URL` apontando para o bucket (é o prefixo das imagens).
+8. [ ] Seed rodado uma vez (se o portal estiver vazio).
+9. [ ] Primeiro acesso ao `/login` → criar a conta do dono. **O primeiro usuário
        do sistema nasce ADMIN** (Decisão D2 da Fase 1).
 
 > ⚠️ Enquanto não existir convite (Bloco B da Fase 5), **qualquer pessoa que

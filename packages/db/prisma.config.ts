@@ -15,7 +15,13 @@ export default defineConfig({
   // Prisma 7 removeu a URL do bloco `datasource` do schema; ela vive aqui e é
   // lida pelas CLIs (migrate, studio, generate). O runtime do cliente usa o
   // driver adapter em src/index.ts, não este arquivo.
+  //
+  // `DIRECT_URL` tem precedência quando existe. Isso importa em Postgres
+  // serverless (Neon, Supabase): a `DATABASE_URL` de runtime aponta para o
+  // POOLER, e um pooler em modo transaction não sustenta o que uma migração
+  // precisa — advisory locks, DDL em sessão, transações longas. A migração vai
+  // pela conexão DIRETA; o app continua no pooler.
   datasource: {
-    url: process.env.DATABASE_URL as string,
+    url: (process.env.DIRECT_URL || process.env.DATABASE_URL) as string,
   },
 });
