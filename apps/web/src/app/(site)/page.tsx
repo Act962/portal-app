@@ -29,23 +29,41 @@ import {
 import { VIDEOS } from "@/data/videos";
 import { routes } from "@/lib/routes";
 
-export default function HomePage() {
-	const headline = getHeadline();
-	const blocks = getHomeBlocks();
+export default async function HomePage() {
+	const [headline, blocks, mostRead, sections, secondary, latest] = await Promise.all([
+		getHeadline(),
+		getHomeBlocks(),
+		getMostRead(),
+		getSections(),
+		getSecondaryStories(),
+		getLatest(),
+	]);
+
+	// Portal recém-migrado / sem publicações ainda: estado vazio honesto.
+	if (!headline) {
+		return (
+			<ContentWithSidebar sidebar={null}>
+				<div className="py-16 text-center text-ink-muted">
+					<p className="font-bold text-lg">Ainda não há matérias publicadas.</p>
+					<p className="mt-1 text-sm">Publique uma matéria no painel para vê-la aqui.</p>
+				</div>
+			</ContentWithSidebar>
+		);
+	}
 
 	return (
 		<>
 			<ContentWithSidebar
 				sidebar={
 					<>
-						<MostReadList articles={getMostRead()} period="24H" />
+						<MostReadList articles={mostRead} period="24H" />
 						<AdSlot format="sidebar" />
 						<PollCard poll={WEEKLY_POLL} />
 
 						{/* A directory of sections replaces the desktop nav rail on a phone. */}
 						<section className="lg:hidden">
 							<SectionHeader title="Editorias" className="mb-3" />
-							<SectionGrid sections={getSections()} />
+							<SectionGrid sections={sections} />
 						</section>
 
 						<ScheduleCard />
@@ -56,7 +74,7 @@ export default function HomePage() {
 			>
 				<div className="grid gap-stack border-brand-navy pb-stack lg:grid-cols-[1.55fr_1fr] lg:border-b-[3px]">
 					<HeroStory article={headline} />
-					<SecondaryStoryList articles={getSecondaryStories()} />
+					<SecondaryStoryList articles={secondary} />
 				</div>
 
 				<AdSlot format="mobile-top" className="mt-3.5 md:hidden" />
@@ -76,11 +94,8 @@ export default function HomePage() {
 					/>
 
 					<LatestStories
-						articles={getLatest()}
-						mobileArticles={[...getSecondaryStories(), ...getLatest()].slice(
-							0,
-							6,
-						)}
+						articles={latest}
+						mobileArticles={[...secondary, ...latest].slice(0, 6)}
 					/>
 
 					<Link

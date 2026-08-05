@@ -9,7 +9,7 @@ import { routes } from "@/lib/routes";
  * Two-column directory of sections. Used on the mobile home page and as the
  * body of the menu screen, which is why it carries a tone switch.
  */
-export function SectionGrid({
+export async function SectionGrid({
 	sections,
 	tone = "light",
 	showCounts = true,
@@ -21,11 +21,15 @@ export function SectionGrid({
 	className?: string;
 }) {
 	const isDark = tone === "dark";
+	// Read model é cacheado por request; conta todas as seções numa passada.
+	const counts = await Promise.all(
+		sections.map((section) => getArticlesBySection(section.slug).then((a) => a.length)),
+	);
 
 	return (
 		<ul className={cn("grid grid-cols-2 gap-2", className)}>
-			{sections.map((section) => {
-				const total = getArticlesBySection(section.slug).length;
+			{sections.map((section, index) => {
+				const total = counts[index];
 
 				return (
 					<li key={section.slug}>

@@ -27,7 +27,7 @@ export default async function SearchPage({
 }) {
 	const { q } = await searchParams;
 	const query = q?.trim() ?? "";
-	const results = searchArticles(query);
+	const [results, recent] = await Promise.all([searchArticles(query), getLatest(3)]);
 	const hasQuery = query.length > 0;
 
 	return (
@@ -67,7 +67,7 @@ export default async function SearchPage({
 
 					<section>
 						<h2 className={`${EYEBROW} mb-3`}>Publicadas recentemente</h2>
-						{getLatest(3).map((article) => (
+						{recent.map((article) => (
 							<NewsRow
 								key={article.slug}
 								article={article}

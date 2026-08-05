@@ -29,8 +29,8 @@ type ArticlePageProps = {
 	params: Promise<{ section: string; slug: string }>;
 };
 
-export function generateStaticParams() {
-	return getAllArticles().map((article) => ({
+export async function generateStaticParams() {
+	return (await getAllArticles()).map((article) => ({
 		section: article.sectionSlug,
 		slug: article.slug,
 	}));
@@ -40,7 +40,7 @@ export async function generateMetadata({
 	params,
 }: ArticlePageProps): Promise<Metadata> {
 	const { section, slug } = await params;
-	const article = getArticle(section, slug);
+	const article = await getArticle(section, slug);
 
 	if (!article) {
 		return {};
@@ -61,7 +61,7 @@ export async function generateMetadata({
 			modifiedTime: toDateTimeAttribute(
 				article.updatedAt ?? article.publishedAt,
 			),
-			section: getSectionName(article.sectionSlug),
+			section: await getSectionName(article.sectionSlug),
 			tags: [...article.tags],
 		},
 	};
@@ -69,14 +69,18 @@ export async function generateMetadata({
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
 	const { section, slug } = await params;
-	const article = getArticle(section, slug);
+	const article = await getArticle(section, slug);
 
 	if (!article) {
 		notFound();
 	}
 
-	const author = getAuthor(article.authorSlug);
-	const sectionName = getSectionName(article.sectionSlug);
+	const [author, sectionName, mostRead, related] = await Promise.all([
+		getAuthor(article.authorSlug),
+		getSectionName(article.sectionSlug),
+		getMostRead(),
+		getRelated(article),
+	]);
 	const path = routes.article(article.sectionSlug, article.slug);
 	const url = `${siteConfig.url}${path}`;
 
@@ -90,7 +94,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 				sidebar={
 					<>
 						<AdSlot format="sidebar" />
-						<MostReadList articles={getMostRead()} />
+						<MostReadList articles={mostRead} />
 						<NewsletterCard />
 					</>
 				}
@@ -122,7 +126,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 					<ArticleTags tags={article.tags} />
 				</article>
 
-				<RelatedNews articles={getRelated(article)} />
+				<RelatedNews articles={related} />
 			</ContentWithSidebar>
 
 			<JsonLd

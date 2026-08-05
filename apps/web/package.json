@@ -11,6 +11,7 @@
   "dependencies": {
     "@portal-app/api": "workspace:*",
     "@portal-app/auth": "workspace:*",
+    "@portal-app/db": "workspace:*",
     "@portal-app/editorial": "workspace:*",
     "@portal-app/env": "workspace:*",
     "@portal-app/identity": "workspace:*",

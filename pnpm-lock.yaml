@@ -135,6 +135,9 @@ importers:
       '@portal-app/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@portal-app/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@portal-app/editorial':
         specifier: workspace:*
         version: link:../../packages/contexts/editorial

@@ -22,14 +22,15 @@ export default async function LatestPage({
 	searchParams: Promise<{ page?: string }>;
 }) {
 	const { page } = await searchParams;
-	const listing = paginate(getAllArticles(), parsePageParam(page));
+	const [all, mostRead] = await Promise.all([getAllArticles(), getMostRead()]);
+	const listing = paginate(all, parsePageParam(page));
 
 	return (
 		<ContentWithSidebar
 			sidebar={
 				<>
 					<AdSlot format="sidebar" />
-					<MostReadList articles={getMostRead()} period="24H" />
+					<MostReadList articles={mostRead} period="24H" />
 				</>
 			}
 		>

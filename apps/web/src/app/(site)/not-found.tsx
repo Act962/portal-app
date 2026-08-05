@@ -9,7 +9,8 @@ import { getMostRead } from "@/data/queries";
  * most likely to recover the visit — search and what everyone else is reading —
  * rather than a dead end.
  */
-export default function NotFound() {
+export default async function NotFound() {
+	const mostRead = await getMostRead();
 	return (
 		<Container className="max-w-article py-major">
 			<p className="mb-2 font-mono text-[10px] text-brand-red tracking-[0.16em]">
@@ -27,7 +28,7 @@ export default function NotFound() {
 
 			<SearchBox />
 
-			<MostReadList articles={getMostRead()} period="24H" />
+			<MostReadList articles={mostRead} period="24H" />
 		</Container>
 	);
 }

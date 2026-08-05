@@ -17,10 +17,10 @@ import { organizationSchema } from "@/lib/structured-data";
  * `LivePlayerProvider` wraps everything so the audio element outlives route
  * changes — the reader keeps listening while they browse.
  */
-export default function SiteLayout({
+export default async function SiteLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
-	const sections = getSections();
+	const [sections, ticker] = await Promise.all([getSections(), getTicker()]);
 
 	return (
 		<LivePlayerProvider>
@@ -31,7 +31,7 @@ export default function SiteLayout({
 				<SiteHeader />
 				<LivePlayerBar />
 				<MainNav sections={sections} />
-				<NewsTicker articles={getTicker()} />
+				<NewsTicker articles={ticker} />
 
 				<main id="conteudo" className="flex-1">
 					{children}

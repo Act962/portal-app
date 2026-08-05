@@ -22,17 +22,13 @@ const EYEBROW =
  * A route rather than a JavaScript drawer: it is linkable, it restores with
  * the back button, and it works before hydration.
  */
-export default function MenuPage() {
+export default async function MenuPage() {
+	const sections = await getSections();
 	return (
 		<div className="bg-brand-navy">
 			<Container className="py-5 pb-8">
 				<h1 className={EYEBROW}>EDITORIAS</h1>
-				<SectionGrid
-					sections={getSections()}
-					tone="dark"
-					showCounts={false}
-					className="mb-6"
-				/>
+				<SectionGrid sections={sections} tone="dark" showCounts={false} className="mb-6" />
 
 				<h2 className={EYEBROW}>SERVIÇOS</h2>
 				<ul className="flex flex-col">

@@ -26,15 +26,15 @@ type SectionPageProps = {
 	searchParams: Promise<{ page?: string; ordem?: string }>;
 };
 
-export function generateStaticParams() {
-	return getSections().map((section) => ({ section: section.slug }));
+export async function generateStaticParams() {
+	return (await getSections()).map((section) => ({ section: section.slug }));
 }
 
 export async function generateMetadata({
 	params,
 }: SectionPageProps): Promise<Metadata> {
 	const { section: slug } = await params;
-	const section = getSection(slug);
+	const section = await getSection(slug);
 
 	if (!section) {
 		return {};
@@ -54,14 +54,14 @@ export default async function SectionPage({
 }: SectionPageProps) {
 	const { section: slug } = await params;
 	const { page, ordem } = await searchParams;
-	const section = getSection(slug);
+	const section = await getSection(slug);
 
 	if (!section) {
 		notFound();
 	}
 
 	const order = parseOrderParam(ordem);
-	const sorted = sortArticles(getArticlesBySection(section.slug), order);
+	const sorted = sortArticles(await getArticlesBySection(section.slug), order);
 	const [feature, ...rest] = sorted;
 	const listing = paginate(rest, parsePageParam(page));
 	const basePath = routes.section(section.slug);
@@ -74,7 +74,7 @@ export default async function SectionPage({
 					<>
 						<AdSlot format="sidebar" />
 						<MostReadList
-							articles={getMostRead()}
+							articles={await getMostRead()}
 							title={`Mais lidas em ${section.name}`}
 						/>
 					</>
