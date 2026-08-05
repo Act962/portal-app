@@ -21,6 +21,9 @@ export default async function DashboardPage() {
 				{session.user.name} — papel: {staff.role}
 			</p>
 			<nav className="flex gap-4">
+				<Link href="/dashboard/articles" className="text-brand-red underline">
+					Matérias
+				</Link>
 				{can(staff, "user:manage") ? (
 					<Link href="/dashboard/users" className="text-brand-red underline">
 						Gerenciar usuários
