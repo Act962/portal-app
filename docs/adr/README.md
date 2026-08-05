@@ -65,3 +65,4 @@ os materializa — a decisão em si já está tomada e justificada em `../stack.
 | `0006` | Busca atrás de porta: Postgres full-text no MVP, Meilisearch depois | Previsto (Fase 5) | `stack.md` Decisão 2 |
 | `0007` | Inngest para jobs em background e despacho de eventos | Previsto (Fase 3) | `stack.md` Decisão 6 |
 | [`0008`](./0008-docker-compose-ambiente-dev.md) | Docker Compose como ambiente de desenvolvimento padrão | ✅ Escrito | `stack.md` Decisão 4a |
+| [`0009`](./0009-midia-atras-de-porta-r2-minio.md) | Mídia atrás de porta: R2/S3 em produção, MinIO no dev | ✅ Escrito | `stack.md` Decisão 3 · spec Fase 2 |

@@ -1,6 +1,8 @@
 # Spec — Fase 2: Taxonomia & Mídia
 
-> **Status:** ✅ Aprovada (2026-08-05) — decisões D1–D5 confirmadas conforme recomendado. Em execução.
+> **Status:** ✅ Concluída (2026-08-05) — 6 etapas entregues; decisões D1–D5
+> confirmadas conforme recomendado. Único item adiado: M12 (E2E do upload
+> pré-assinado), com justificativa na §9.
 > **Referências:** `../roadmap.md` (Fase 2) · `../architecture.md` §2.2 e §2.4 ·
 > `../features.md` §3.3 (A16–A19) e §3.5 (A28–A32) · `../stack.md` (Decisão 3 —
 > R2) · `01-identidade-acesso.md` (padrões que esta fase reusa).
@@ -42,14 +44,14 @@ Fase 4); ela constrói o **back-office** (domínio + admin) de taxonomia e mídi
 
 Seis etapas, na ordem de execução. Cada uma é mergeável sozinha.
 
-| # | Etapa | Entrega |
-|---|---|---|
-| 1 | Domínio de taxonomia | `Section`, `Tag`, VO `Slug` + invariantes, testes |
-| 2 | Persistência + API + admin de taxonomia | Prisma, repositórios (porta/adapter/fake + contrato), router, telas de editorias e tags |
-| 3 | Domínio de mídia | `MediaAsset` + VOs (`Caption`, `Credit`, `AltText`, `Dimensions`, `FocalPoint`) + invariantes, testes |
-| 4 | Armazenamento (`MediaStorage`) | Porta + adapter S3/R2 + fake; **contrato contra MinIO** (Testcontainers); MinIO no `docker-compose` |
-| 5 | Persistência + API + upload/biblioteca de mídia | Prisma, repositório, router (URL pré-assinada + registro + busca), telas de upload e biblioteca |
-| 6 | Fecho | ADR de mídia/armazenamento, cobertura dos novos domínios, `dependency-cruiser` verde nos dois contextos |
+| # | Etapa | Entrega | Status |
+|---|---|---|---|
+| 1 | Domínio de taxonomia | `Section`, `Tag`, VO `Slug` + invariantes, testes | ✅ |
+| 2 | Persistência + API + admin de taxonomia | Prisma, repositórios (porta/adapter/fake + contrato), router, telas de editorias e tags | ✅ |
+| 3 | Domínio de mídia | `MediaAsset` + VOs (`Caption`, `Credit`, `AltText`, `Dimensions`, `FocalPoint`) + invariantes, testes | ✅ |
+| 4 | Armazenamento (`MediaStorage`) | Porta + adapter S3/R2 + fake; **contrato contra MinIO** (Testcontainers); MinIO no `docker-compose` | ✅ |
+| 5 | Persistência + API + upload/biblioteca de mídia | Prisma, repositório, router (URL pré-assinada + registro + busca), telas de upload e biblioteca | ✅ |
+| 6 | Fecho | ADR de mídia/armazenamento, cobertura dos novos domínios, `dependency-cruiser` verde nos dois contextos | ✅ |
 
 ### Fora de escopo
 
@@ -216,15 +218,17 @@ fechada (produção).
 
 ## 10. Critérios de aceite (do roadmap)
 
-- [ ] Upload de imagem grande conclui com progresso e **sem passar o arquivo
-      pelo servidor** da aplicação
-- [ ] Salvar mídia sem alt text ou sem crédito é **rejeitado pelo domínio**
-- [ ] Editoria com matéria publicada não pode ser excluída (mensagem na UI) —
-      com a checagem de uso pela porta `SectionUsage` (stub nesta fase)
-- [ ] Ponto focal persistido e disponível para o corte responsivo (a
-      renderização por breakpoint é validada na Fase 4)
-- [ ] Contratos fake↔Prisma e fake↔MinIO verdes; cobertura dos domínios ≥95%
-- [ ] `dependency-cruiser` verde com os dois novos contextos
+- [x] Upload de imagem grande conclui com progresso e **sem passar o arquivo
+      pelo servidor** da aplicação — PUT direto por URL pré-assinada (A28)
+- [x] Salvar mídia sem alt text ou sem crédito é **rejeitado pelo domínio**
+      (`MediaAsset.create` → `Result` de erro; M06/M07)
+- [x] Editoria com matéria publicada não pode ser excluída (mensagem na UI) —
+      checagem de uso pela porta `ContentUsage` (stub nesta fase; M04)
+- [x] Ponto focal persistido e disponível para o corte responsivo — coluna no
+      banco + `object-position` na grade (renderização por breakpoint na Fase 4)
+- [x] Contratos fake↔Prisma e fake↔MinIO verdes (M05/M10/M11); cobertura dos
+      domínios ≥95% (100% nos três domínios) — verde no CI
+- [x] `dependency-cruiser` verde com os dois novos contextos
 
 ---
 
@@ -261,7 +265,30 @@ Todas aprovadas conforme a recomendação.
 
 ---
 
-## 13. ADR previsto
+## 13. ADR
 
-- **Mídia atrás de porta; R2/S3 em produção, MinIO no dev** — formaliza a
-  Decisão 3 e o D1 (número a atribuir na sequência dos ADRs, escrito na Etapa 6).
+- [`0009`](../adr/0009-midia-atras-de-porta-r2-minio.md) — **Mídia atrás de
+  porta; R2/S3 em produção, MinIO no dev.** Formaliza a Decisão 3 e o D1.
+  Escrito na Etapa 6.
+
+## 14. Nota de fecho — o que ficou pronto e como demonstrar
+
+Os três domínios (`taxonomy`, `media`) e o back-office estão no `main`, com CI
+verde (6 jobs). Para demonstrar localmente:
+
+1. `pnpm db:start` — sobe Postgres + Redis + **MinIO** (o bucket `portal-media`
+   é criado automaticamente, com leitura pública).
+2. `pnpm db:migrate` (ou `prisma migrate deploy`) para aplicar as migrações.
+3. `pnpm dev:web` e faça login; o **primeiro usuário nasce ADMIN**.
+4. `/dashboard/taxonomy` — criar editorias (reordenar, ativar/desativar) e tags
+   (renomear, mesclar).
+5. `/dashboard/media` — subir uma imagem: dimensões são lidas sozinhas, o
+   crédito e o alt-text são obrigatórios (o domínio recusa sem eles), o ponto
+   focal se ajusta clicando na imagem, o upload vai **direto ao MinIO** com
+   barra de progresso, e o acervo aparece em grade com busca.
+
+**M12 (E2E automatizado do upload) adiado.** O fluxo pré-assinado exige um MinIO
+alcançável pelo navegador do job de e2e e CORS configurado — alto custo e risco
+de intermitência no CI. O caminho já está coberto ponta a ponta pelos contratos
+de integração **M10** (storage real, upload→leitura→delete) e **M11**
+(persistência do asset com todos os metadados), e é verificável no demo acima.

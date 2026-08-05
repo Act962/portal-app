@@ -96,6 +96,7 @@ real e cobrir o login com E2E ainda nesta fase.
 
 ## Fase 1 — Identidade & Acesso
 
+> **Status:** ✅ Concluída — ver [`specs/01-identidade-acesso.md`](./specs/01-identidade-acesso.md).
 > **Objetivo:** ter usuários de redação com papéis, e a autorização como domínio testável.
 > Vem antes de tudo porque *toda* operação editorial depende de "quem pode fazer o quê".
 
@@ -120,6 +121,7 @@ real e cobrir o login com E2E ainda nesta fase.
 
 ## Fase 2 — Taxonomia & Mídia
 
+> **Status:** ✅ Concluída (2026-08-05) — ver [`specs/02-taxonomia-midia.md`](./specs/02-taxonomia-midia.md).
 > **Objetivo:** ter onde classificar e com o que ilustrar a matéria. Precede a Fase 3 porque o
 > agregado `Article` exige editoria e capa para publicar.
 
@@ -134,10 +136,10 @@ real e cobrir o login com E2E ainda nesta fase.
 
 **Critérios de aceite**
 
-- [ ] Upload de imagem grande conclui com progresso e sem passar o arquivo pelo servidor da aplicação
-- [ ] Salvar mídia sem alt text ou sem crédito é **rejeitado pelo domínio**, não só pela interface
-- [ ] Editoria com matéria publicada não pode ser excluída (mensagem explicativa na UI)
-- [ ] Ponto focal altera de fato o corte nos diferentes breakpoints
+- [x] Upload de imagem grande conclui com progresso e sem passar o arquivo pelo servidor da aplicação
+- [x] Salvar mídia sem alt text ou sem crédito é **rejeitado pelo domínio**, não só pela interface
+- [x] Editoria com matéria publicada não pode ser excluída (mensagem explicativa na UI) — via porta `ContentUsage` (stub até a Fase 3)
+- [~] Ponto focal persistido e aplicado (`object-position`); o corte por breakpoint com `next/image` é validado na Fase 4
 
 ---
 
