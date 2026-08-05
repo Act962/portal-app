@@ -2,6 +2,7 @@ import type { ArticleOrder } from "@/lib/sorting";
 
 import type { Article } from "./types";
 
+export type { HomeBlock } from "./read-model";
 /**
  * A camada de leitura do portal. Os componentes importam SÓ daqui.
  *
@@ -13,8 +14,11 @@ import type { Article } from "./types";
 export {
 	getAllArticles,
 	getArticle,
+	getArticlesByAuthor,
 	getArticlesBySection,
+	getArticlesByTag,
 	getAuthor,
+	getAuthors,
 	getHeadline,
 	getHomeBlocks,
 	getLatest,
@@ -24,10 +28,11 @@ export {
 	getSection,
 	getSectionName,
 	getSections,
+	getTag,
+	getTags,
 	getTicker,
 	searchArticles,
 } from "./read-model";
-export type { HomeBlock } from "./read-model";
 
 /**
  * The moment a listing should show. A story edited after publication is
@@ -39,12 +44,18 @@ export function displayTimestamp(article: Article): string {
 }
 
 /** Ordering for listings. "lidas" puts ranked stories first, then the rest. */
-export function sortArticles(articles: Article[], order: ArticleOrder): Article[] {
+export function sortArticles(
+	articles: Article[],
+	order: ArticleOrder,
+): Article[] {
 	if (order === "lidas") {
 		return [...articles].sort(
 			(a, b) =>
-				(a.mostReadRank ?? Number.POSITIVE_INFINITY) - (b.mostReadRank ?? Number.POSITIVE_INFINITY),
+				(a.mostReadRank ?? Number.POSITIVE_INFINITY) -
+				(b.mostReadRank ?? Number.POSITIVE_INFINITY),
 		);
 	}
-	return [...articles].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+	return [...articles].sort(
+		(a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt),
+	);
 }

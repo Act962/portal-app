@@ -47,6 +47,11 @@ export async function generateMetadata({
 	}
 
 	const canonical = routes.article(article.sectionSlug, article.slug);
+	// Imagem social: a capa (já absoluta), servida pelo host do S3/R2. Sem capa,
+	// cai para a arte padrão da marca herdada do layout raiz.
+	const images = article.cover
+		? [{ url: article.cover.url, alt: article.cover.alt }]
+		: undefined;
 
 	return {
 		title: article.title,
@@ -63,7 +68,9 @@ export async function generateMetadata({
 			),
 			section: await getSectionName(article.sectionSlug),
 			tags: [...article.tags],
+			...(images ? { images } : {}),
 		},
+		...(images ? { twitter: { card: "summary_large_image", images } } : {}),
 	};
 }
 

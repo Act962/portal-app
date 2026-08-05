@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { routes } from "@/lib/routes";
 
-/** Tags link into search rather than a dedicated tag page (a Phase 4 feature). */
+/** As tags levam à página do assunto `/tag/{slug}` (P09). */
 export function ArticleTags({ tags }: { tags: string[] }) {
 	if (tags.length === 0) {
 		return null;
@@ -12,7 +12,7 @@ export function ArticleTags({ tags }: { tags: string[] }) {
 	return (
 		<nav aria-label="Assuntos da matéria" className="flex flex-wrap gap-2 pt-6">
 			{tags.map((tag) => (
-				<Link key={tag} href={routes.searchFor(tag)}>
+				<Link key={tag} href={routes.tag(tag)}>
 					<Chip>#{tag}</Chip>
 				</Link>
 			))}

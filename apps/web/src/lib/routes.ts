@@ -19,5 +19,7 @@ export const routes = {
 	section: (slug: string) => `/${slug}` as Route,
 	article: (sectionSlug: string, slug: string) =>
 		`/${sectionSlug}/${slug}` as Route,
+	author: (slug: string) => `/autor/${slug}` as Route,
+	tag: (slug: string) => `/tag/${slug}` as Route,
 	searchFor: (term: string) => `/busca?q=${encodeURIComponent(term)}` as Route,
 };

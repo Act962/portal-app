@@ -13,10 +13,29 @@ export type Section = {
 	description: string;
 };
 
+/** Redes sociais do autor (E-E-A-T). Espelha o VO `AuthorProfile` do `identity`. */
+export type AuthorSocials = {
+	twitter?: string;
+	instagram?: string;
+	linkedin?: string;
+	website?: string;
+};
+
 export type Author = {
 	slug: string;
 	name: string;
+	/** Cargo/função exibido na assinatura (ex.: "Repórter"). Vem do `title` do perfil. */
 	role: string;
+	/** Perfil público, quando o autor é um membro da redação com perfil preenchido. */
+	bio?: string;
+	photoUrl?: string | null;
+	socials?: AuthorSocials;
+};
+
+/** Assunto (tag) já resolvido para o portal: rótulo + slug para a rota `/tag/{slug}`. */
+export type Tag = {
+	slug: string;
+	name: string;
 };
 
 /** Inline run inside a paragraph. Mirrors the block editor's inline model. */

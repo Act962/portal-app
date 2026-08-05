@@ -43,7 +43,17 @@ export async function generateMetadata({
 	return {
 		title: section.name,
 		description: section.description,
-		alternates: { canonical: routes.section(section.slug) },
+		alternates: {
+			canonical: routes.section(section.slug),
+			types: {
+				"application/rss+xml": [
+					{
+						url: `/${section.slug}/rss.xml`,
+						title: `${section.name} — RSS`,
+					},
+				],
+			},
+		},
 		openGraph: { title: section.name, description: section.description },
 	};
 }

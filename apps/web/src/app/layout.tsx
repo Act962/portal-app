@@ -12,6 +12,13 @@ export const metadata: Metadata = {
 	},
 	description: siteConfig.description,
 	applicationName: siteConfig.name,
+	alternates: {
+		types: {
+			"application/rss+xml": [
+				{ url: "/rss.xml", title: `${siteConfig.name} — Últimas notícias` },
+			],
+		},
+	},
 	openGraph: {
 		type: "website",
 		locale: "pt_BR",

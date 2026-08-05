@@ -13,6 +13,7 @@ import { SecondaryStoryList } from "@/components/news/secondary-story-list";
 import { SectionBlock } from "@/components/news/section-block";
 import { SectionGrid } from "@/components/news/section-grid";
 import { ColumnistGrid } from "@/components/people/columnist-grid";
+import { JsonLd } from "@/components/seo/json-ld";
 import { PollCard } from "@/components/sidebar/poll-card";
 import { ScheduleCard } from "@/components/sidebar/schedule-card";
 import { WhatsappCard } from "@/components/sidebar/whatsapp-card";
@@ -28,16 +29,18 @@ import {
 } from "@/data/queries";
 import { VIDEOS } from "@/data/videos";
 import { routes } from "@/lib/routes";
+import { websiteSchema } from "@/lib/structured-data";
 
 export default async function HomePage() {
-	const [headline, blocks, mostRead, sections, secondary, latest] = await Promise.all([
-		getHeadline(),
-		getHomeBlocks(),
-		getMostRead(),
-		getSections(),
-		getSecondaryStories(),
-		getLatest(),
-	]);
+	const [headline, blocks, mostRead, sections, secondary, latest] =
+		await Promise.all([
+			getHeadline(),
+			getHomeBlocks(),
+			getMostRead(),
+			getSections(),
+			getSecondaryStories(),
+			getLatest(),
+		]);
 
 	// Portal recém-migrado / sem publicações ainda: estado vazio honesto.
 	if (!headline) {
@@ -45,7 +48,9 @@ export default async function HomePage() {
 			<ContentWithSidebar sidebar={null}>
 				<div className="py-16 text-center text-ink-muted">
 					<p className="font-bold text-lg">Ainda não há matérias publicadas.</p>
-					<p className="mt-1 text-sm">Publique uma matéria no painel para vê-la aqui.</p>
+					<p className="mt-1 text-sm">
+						Publique uma matéria no painel para vê-la aqui.
+					</p>
 				</div>
 			</ContentWithSidebar>
 		);
@@ -121,6 +126,8 @@ export default async function HomePage() {
 				<VideoShowcase videos={VIDEOS} />
 				<ColumnistGrid columnists={COLUMNISTS} />
 			</Container>
+
+			<JsonLd schema={websiteSchema()} />
 		</>
 	);
 }

@@ -14,7 +14,7 @@
 | 1 — Identidade & Acesso | ✅ Concluída | `specs/01-identidade-acesso.md` |
 | 2 — Taxonomia & Mídia | ✅ Concluída | `specs/02-taxonomia-midia.md` |
 | 3 — Editorial | ✅ Concluída | `specs/03-editorial.md` |
-| 4 — Portal público | 🚧 **Em andamento** (Etapas 1–2 de 7 feitas) | `specs/04-portal-publico.md` |
+| 4 — Portal público | 🚧 **Em andamento** (Etapas 1–4 de 7 feitas) | `specs/04-portal-publico.md` |
 | 5 — Busca e distribuição | ⬜ Não iniciada | (spec futura) |
 | 6 — Engajamento e Analytics | ⬜ Não iniciada | (spec futura) |
 
@@ -31,21 +31,37 @@ checagens.**
 
 Ordem sugerida; cada etapa é mergeável e verificável.
 
-### Etapa 3 — Autor, tag, menu, paginação
-- [ ] Página de autor `/autor/{slug}` (P10): ligar no `AuthorProfile` do
-      contexto `identity` (bio/foto/cargo — E-E-A-T). Hoje `getAuthor` no read
-      model só deriva o nome do slug (`apps/web/src/data/read-model.ts`).
-- [ ] Página de tag `/tag/{slug}` (P09): rota nova em `(site)`, lista por tag.
-- [ ] Navegação/menu completo (P11) e **paginação por cursor** (P12) — hoje a
-      paginação é por offset (`@/lib/pagination`).
+### Etapa 3 — Autor, tag, menu, paginação ✅ (exceto P12)
+- [x] Página de autor `/autor/{slug}` (P10): lê o `AuthorProfile` (bio/foto/
+      cargo/redes) direto das colunas do staff no read model — lado de leitura,
+      sem passar pelos agregados. Autor sem perfil degrada para o nome. Índice de
+      autores por `slugify(authorName)` → `authorId`. Assinatura na matéria vira
+      link. Componente `people/author-profile-card.tsx`.
+- [x] Página de tag `/tag/{slug}` (P09): rota nova em `(site)`, lista por tag; as
+      chips de tag da matéria agora apontam para cá (antes iam para a busca).
+- [x] Navegação/menu completo (P11): o menu ganhou o bloco NAVEGAÇÃO
+      (Início/Últimas/Ao vivo/Busca).
+- [ ] **Paciência: paginação por cursor (P12) adiada.** Hoje o read model carrega
+      tudo em memória, então cursor sobre array em memória não traz o ganho real
+      (evitar `OFFSET` no banco) e uma UI de "carregar mais" é pior para SEO que
+      as páginas numeradas atuais (cada `?page=N` é URL rastreável). Cursor cabe
+      na Etapa 5/6, quando o read model virar query por página no Postgres e puder
+      ser cursor + `rel=next`. Ver tabela de adiados.
 
-### Etapa 4 — SEO
-- [ ] JSON-LD `NewsArticle` + `BreadcrumbList` + `Organization` (P24) — já há
-      `@/lib/structured-data` e `@/components/seo/json-ld`; revisar/validar no
-      Rich Results Test.
-- [ ] Open Graph/Twitter com a **capa pelo ponto focal** como imagem OG (P25).
-- [ ] `sitemap.xml` por editoria (P26), `news-sitemap.xml` só das últimas 48 h
-      (P27, ≤1.000 URLs), **RSS** geral e por editoria (P28).
+### Etapa 4 — SEO ✅
+- [x] JSON-LD `NewsArticle` (com `image` quando há capa + `author.url` para a
+      página de autor), `BreadcrumbList`, `Organization` (já no layout) e
+      **`WebSite` + `SearchAction`** na home; `ProfilePage`/`Person` na página de
+      autor. `@/lib/structured-data`.
+- [x] Open Graph/Twitter com a **capa** como imagem social na matéria (P25);
+      `summary_large_image`. Sem capa cai para a arte padrão da marca.
+- [x] `sitemap.xml` como índice → `sitemap-geral.xml` (home/últimas/editorias/
+      autores/tags) + um `/{editoria}/sitemap.xml` por editoria (P26) +
+      `news-sitemap.xml` das últimas 48 h, ≤1.000 URLs, namespace `news:` (P27);
+      **RSS** geral (`/rss.xml`) e por editoria (`/{editoria}/rss.xml`), com
+      `<link rel="alternate">` de descoberta (P28); `robots.txt`. Feeds à mão em
+      `@/lib/feed` + `@/lib/xml` (a convenção `MetadataRoute` não cobre `news:`/
+      RSS). Rotas `dynamic` até a Etapa 5 ligar a revalidação por evento.
 
 ### Etapa 5 — ISR + cache (o fio com o outbox)
 - [ ] Etiquetar rotas (`article:{id}`, `section:{slug}`, `home`) e trocar os
@@ -86,6 +102,7 @@ Ordem sugerida; cada etapa é mergeável e verificável.
 | **Diff/restauração visual de versões** (A07) | 3 | Autosave por snapshot entregue; diff visual é peso extra | Fase 4/pós-MVP |
 | **Resiliência de autosave a queda** | 3 | Autosave por debounce entregue; teste de resiliência a queda de conexão | Fase 4 |
 | **Editor visual de layout da home** (P06 pleno) | 4 | Home compõe por recência + ordem das editorias; marcação de manchete/destaque explícita fica para depois | Fase 4/6 |
+| **Paginação por cursor** (P12) | 4 | Read model carrega tudo em memória: cursor não traz ganho e piora o SEO vs. páginas numeradas rastreáveis. Vale quando o read model virar query por página no Postgres | Etapa 5/6 (`@/lib/pagination`) |
 | **Gate de lint (`biome ci`)** | 0 | Scaffold não foi formatado com Biome; ligar junto da limpeza do repo | `.github/workflows/ci.yml` §24 (comentado) |
 | **Branch protection no `main`** | 0 | A conta `JGabriel963` tem `admin:false` em `Act962/portal-app` | precisa de owner (`Act962`) rodar `gh api`/UI |
 

@@ -1,7 +1,9 @@
 import { Kicker } from "@portal-app/ui/components/kicker";
+import Link from "next/link";
 
 import type { Article, Author } from "@/data/types";
 import { formatRelativeTime } from "@/lib/format";
+import { routes } from "@/lib/routes";
 
 import { ShareBar } from "./share-bar";
 import { Timestamp } from "./timestamp";
@@ -38,7 +40,12 @@ export function ArticleHeader({ article, author, url }: ArticleHeaderProps) {
 
 				<div className="min-w-0 flex-1">
 					<p className="font-bold text-[12.5px] text-brand-navy md:text-[13.5px]">
-						{author.name}
+						<Link
+							href={routes.author(author.slug)}
+							className="hover:text-brand-red"
+						>
+							{author.name}
+						</Link>
 					</p>
 					<p className="font-mono text-[9.5px] text-meta md:text-[10px]">
 						<Timestamp iso={article.publishedAt} variant="byline" />
