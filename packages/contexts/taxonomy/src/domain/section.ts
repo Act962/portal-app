@@ -150,12 +150,51 @@ export class Section extends AggregateRoot<string> {
 		return this.state.status === "ATIVA";
 	}
 
+	activate(): void {
+		this.state = { ...this.state, status: "ATIVA" };
+	}
+
 	deactivate(): void {
 		this.state = { ...this.state, status: "INATIVA" };
 	}
 
 	reorderTo(order: number): void {
 		this.state = { ...this.state, order };
+	}
+
+	/**
+	 * Edita nome, descrição e cor. O slug NÃO muda aqui: alterá-lo quebraria a URL
+	 * pública, então ele é fixado na criação. Só toca o que vem no input.
+	 */
+	updateDetails(input: {
+		name?: string;
+		description?: string;
+		color?: string | null;
+	}): Result<void, NameRequired | InvalidColor> {
+		const next = { ...this.state };
+
+		if (input.name !== undefined) {
+			const name = input.name.trim();
+			if (!name) {
+				return err(new NameRequired("da editoria"));
+			}
+			next.name = name;
+		}
+
+		if (input.description !== undefined) {
+			next.description = input.description.trim();
+		}
+
+		if (input.color !== undefined) {
+			const color = normalizeColor(input.color);
+			if (color.isErr()) {
+				return err(color.error);
+			}
+			next.color = color.value;
+		}
+
+		this.state = next;
+		return ok(undefined);
 	}
 
 	/**

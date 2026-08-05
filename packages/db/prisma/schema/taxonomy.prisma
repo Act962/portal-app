@@ -1,0 +1,38 @@
+// Contexto de Taxonomia (Fase 2).
+//
+// Editorias (Section) e tags classificam as matérias. Modelos independentes do
+// Editorial (que só chega na Fase 3): não há FK para Article aqui — o vínculo é
+// resolvido lá. O id é gerado na aplicação (IdGenerator), como no resto do DDD;
+// o @default(cuid()) é só conveniência para seeds/inserts manuais.
+
+model Section {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String  @default("")
+  color       String?
+  order       Int     @default(0)
+  status      String  @default("ATIVA")
+
+  // Hierarquia de no máximo dois níveis (imposta no domínio). A auto-relação
+  // guarda a mãe; apagar a mãe desvincula as filhas (SetNull), não as apaga.
+  parentId String?
+  parent   Section?  @relation("SectionChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children Section[] @relation("SectionChildren")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("section")
+}
+
+model Tag {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tag")
+}

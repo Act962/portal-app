@@ -20,11 +20,18 @@ export default async function DashboardPage() {
 			<p>
 				{session.user.name} — papel: {staff.role}
 			</p>
-			{can(staff, "user:manage") ? (
-				<Link href="/dashboard/users" className="text-brand-red underline">
-					Gerenciar usuários
-				</Link>
-			) : null}
+			<nav className="flex gap-4">
+				{can(staff, "user:manage") ? (
+					<Link href="/dashboard/users" className="text-brand-red underline">
+						Gerenciar usuários
+					</Link>
+				) : null}
+				{can(staff, "taxonomy:manage") ? (
+					<Link href="/dashboard/taxonomy" className="text-brand-red underline">
+						Editorias e tags
+					</Link>
+				) : null}
+			</nav>
 			<Dashboard />
 		</div>
 	);

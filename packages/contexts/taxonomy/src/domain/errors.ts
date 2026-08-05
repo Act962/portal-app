@@ -49,3 +49,44 @@ export class SectionInUse extends Error {
 		this.name = "SectionInUse";
 	}
 }
+
+/** Tentativa de excluir/mesclar uma tag que ainda classifica conteúdo. */
+export class TagInUse extends Error {
+	constructor() {
+		super("Tag em uso por matérias não pode ser excluída.");
+		this.name = "TagInUse";
+	}
+}
+
+/**
+ * Slug já ocupado por outra editoria/tag. É a unicidade que o domínio delega ao
+ * repositório: o caso de uso consulta a porta e devolve isto quando colide.
+ */
+export class SlugTaken extends Error {
+	constructor(slug: string) {
+		super(`O slug "${slug}" já está em uso.`);
+		this.name = "SlugTaken";
+	}
+}
+
+export class SectionNotFound extends Error {
+	constructor(id: string) {
+		super(`Editoria não encontrada: ${id}`);
+		this.name = "SectionNotFound";
+	}
+}
+
+export class TagNotFound extends Error {
+	constructor(id: string) {
+		super(`Tag não encontrada: ${id}`);
+		this.name = "TagNotFound";
+	}
+}
+
+/** Mesclar uma tag nela mesma não faz sentido. */
+export class CannotMergeIntoItself extends Error {
+	constructor() {
+		super("Não é possível mesclar uma tag nela mesma.");
+		this.name = "CannotMergeIntoItself";
+	}
+}

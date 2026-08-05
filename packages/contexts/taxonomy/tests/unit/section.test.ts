@@ -98,6 +98,57 @@ describe("Section — ciclo de vida", () => {
 		expect(sec.order).toBe(7);
 	});
 
+	it("reativa uma editoria desativada", () => {
+		const sec = section();
+		sec.deactivate();
+		sec.activate();
+
+		expect(sec.isActive()).toBe(true);
+	});
+
+	it("edita nome, descrição e cor sem tocar o slug", () => {
+		const sec = section();
+		const result = sec.updateDetails({
+			name: "  Política Nacional ",
+			description: "  Brasília ",
+			color: "#ABC",
+		});
+
+		expect(result.isOk()).toBe(true);
+		expect(sec.name).toBe("Política Nacional");
+		expect(sec.description).toBe("Brasília");
+		expect(sec.color).toBe("#abc");
+		expect(sec.slug).toBe("politica"); // inalterado
+	});
+
+	it("edição parcial mexe só no que veio", () => {
+		const sec = Section.create({
+			id: "s",
+			name: "Política",
+			description: "orig",
+			color: "#111111",
+		}).unwrap();
+		sec.updateDetails({ description: "nova" });
+
+		expect(sec.name).toBe("Política");
+		expect(sec.color).toBe("#111111");
+		expect(sec.description).toBe("nova");
+	});
+
+	it("permite limpar a cor com null", () => {
+		const sec = Section.create({ id: "s", name: "Política", color: "#111111" }).unwrap();
+		sec.updateDetails({ color: null });
+
+		expect(sec.color).toBeNull();
+	});
+
+	it("recusa nome vazio e cor inválida na edição", () => {
+		const sec = section();
+
+		expect(sec.updateDetails({ name: " " }).unwrapErr()).toBeInstanceOf(NameRequired);
+		expect(sec.updateDetails({ color: "roxo" }).unwrapErr()).toBeInstanceOf(InvalidColor);
+	});
+
 	it("M04: editoria em uso não pode ser excluída; sem uso pode", () => {
 		const sec = section();
 
