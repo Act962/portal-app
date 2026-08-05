@@ -109,16 +109,31 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 				<article className="max-w-article">
 					<ArticleHeader article={article} author={author} url={url} />
 
-					<figure>
+					<figure className="-mx-4 md:mx-0">
 						{/* Edge-to-edge on a phone: the photo is the one element that
-						    benefits from the full width of a small screen. */}
-						<MediaPlaceholder
-							label="[ foto principal 16:9 ]"
-							className="-mx-4 h-[220px] w-auto rounded-none md:mx-0 md:h-[415px] md:w-full md:rounded-card"
-						/>
-						<figcaption className="pt-1.5 font-mono text-[9.5px] text-meta leading-relaxed md:pt-2 md:text-[10px]">
-							{article.coverCaption}
-						</figcaption>
+						    benefits from the full width of a small screen. O corte
+						    respeita o ponto focal escolhido na redação (P15/A32). */}
+						{article.cover ? (
+							// biome-ignore lint/a11y/useAltText: alt aplicado via prop
+							<img
+								src={article.cover.url}
+								alt={article.cover.alt}
+								style={{
+									objectPosition: `${article.cover.focalX * 100}% ${article.cover.focalY * 100}%`,
+								}}
+								className="block h-[220px] w-full object-cover md:h-[415px] md:rounded-card"
+							/>
+						) : (
+							<MediaPlaceholder
+								label="[ foto principal 16:9 ]"
+								className="h-[220px] w-auto rounded-none md:h-[415px] md:w-full md:rounded-card"
+							/>
+						)}
+						{article.coverCaption ? (
+							<figcaption className="px-4 pt-1.5 font-mono text-[9.5px] text-meta leading-relaxed md:px-0 md:pt-2 md:text-[10px]">
+								{article.coverCaption}
+							</figcaption>
+						) : null}
 					</figure>
 
 					<ArticleBody blocks={article.body} adAfterBlock={2} />

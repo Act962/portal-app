@@ -33,7 +33,18 @@ export type InlineNode =
 export type ArticleBlock =
 	| { kind: "paragraph"; content: InlineNode[] }
 	| { kind: "subheading"; text: string }
-	| { kind: "quote"; text: string; attribution?: string };
+	| { kind: "quote"; text: string; attribution?: string }
+	| { kind: "image"; url: string; alt: string; caption?: string }
+	| { kind: "list"; ordered: boolean; items: string[] };
+
+/** Imagem de capa já resolvida para o portal: URL pública + ponto focal. */
+export type Cover = {
+	url: string;
+	alt: string;
+	/** Fração [0,1] para o `object-position` no corte responsivo (P15/A32). */
+	focalX: number;
+	focalY: number;
+};
 
 export type Article = {
 	slug: string;
@@ -48,6 +59,8 @@ export type Article = {
 	updatedAt?: string;
 	readingMinutes: number;
 	coverCaption: string;
+	/** Capa resolvida (URL + ponto focal); `null` quando a matéria não tem capa. */
+	cover?: Cover | null;
 	tags: string[];
 	body: ArticleBlock[];
 	/** Exactly one article carries this: the lead story on the home page. */

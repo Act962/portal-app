@@ -1,8 +1,12 @@
 import "server-only";
 import { createPrismaClient } from "@portal-app/db";
+import { env } from "@portal-app/env/server";
 import { cache } from "react";
 
-import type { Article, ArticleBlock, Author, Section } from "./types";
+import type { Article, ArticleBlock, Author, Cover, Section } from "./types";
+
+/** Um asset de mídia já resolvido para o portal (URL pública + foco). */
+type MediaInfo = { url: string; alt: string; caption: string; focalX: number; focalY: number };
 
 /**
  * Read model público (Fase 4, D1). O portal lê AQUI — só matérias publicadas, já
@@ -59,8 +63,51 @@ const loadTagSlugs = cache(async (): Promise<Map<string, string>> => {
 	return new Map(rows.map((tag) => [tag.id, tag.slug]));
 });
 
+const PUBLIC_BASE = env.S3_PUBLIC_URL.replace(/\/+$/, "");
+
+const loadMedia = cache(async (): Promise<Map<string, MediaInfo>> => {
+	const rows = await safely(
+		"media",
+		() =>
+			prisma.mediaAsset.findMany({
+				select: {
+					id: true,
+					storageKey: true,
+					altText: true,
+					caption: true,
+					focalX: true,
+					focalY: true,
+				},
+			}),
+		[] as {
+			id: string;
+			storageKey: string;
+			altText: string | null;
+			caption: string;
+			focalX: number | null;
+			focalY: number | null;
+		}[],
+	);
+	return new Map(
+		rows.map((m) => [
+			m.id,
+			{
+				url: `${PUBLIC_BASE}/${m.storageKey}`,
+				alt: m.altText ?? "",
+				caption: m.caption,
+				focalX: m.focalX ?? 0.5,
+				focalY: m.focalY ?? 0.5,
+			},
+		]),
+	);
+});
+
 const loadPublished = cache(async (): Promise<Article[]> => {
-	const [sections, tagSlugs] = await Promise.all([loadSections(), loadTagSlugs()]);
+	const [sections, tagSlugs, media] = await Promise.all([
+		loadSections(),
+		loadTagSlugs(),
+		loadMedia(),
+	]);
 	const sectionById = new Map(sections.map((section) => [section.id, section]));
 	const rows = await safely(
 		"articles",
@@ -71,7 +118,7 @@ const loadPublished = cache(async (): Promise<Article[]> => {
 			}),
 		[] as ArticleRow[],
 	);
-	return rows.map((row, index) => mapArticle(row, sectionById, tagSlugs, index === 0));
+	return rows.map((row, index) => mapArticle(row, sectionById, tagSlugs, media, index === 0));
 });
 
 // --- Seção -----------------------------------------------------------------
@@ -179,6 +226,7 @@ type ArticleRow = {
 	authorName: string;
 	sectionId: string | null;
 	tagIds: string[];
+	coverMediaId: string | null;
 	coverAltText: string | null;
 	status: string;
 	publishedAt: Date | null;
@@ -190,10 +238,20 @@ function mapArticle(
 	row: ArticleRow,
 	sectionById: Map<string, SectionRow>,
 	tagSlugs: Map<string, string>,
+	media: Map<string, MediaInfo>,
 	isHeadline: boolean,
 ): Article {
 	const section = row.sectionId ? sectionById.get(row.sectionId) : undefined;
 	const blocks = Array.isArray(row.body) ? (row.body as EditorialBlock[]) : [];
+	const coverMedia = row.coverMediaId ? media.get(row.coverMediaId) : undefined;
+	const cover: Cover | null = coverMedia
+		? {
+				url: coverMedia.url,
+				alt: row.coverAltText || coverMedia.alt,
+				focalX: coverMedia.focalX,
+				focalY: coverMedia.focalY,
+			}
+		: null;
 	return {
 		slug: row.slug,
 		title: row.headline,
@@ -204,16 +262,17 @@ function mapArticle(
 		publishedAt: (row.publishedAt ?? row.createdAt).toISOString(),
 		updatedAt: row.status === "ATUALIZADA" ? row.updatedAt.toISOString() : undefined,
 		readingMinutes: readingMinutes(blocks),
-		coverCaption: row.coverAltText ?? "",
+		coverCaption: cover?.alt ?? "",
+		cover,
 		tags: row.tagIds.map((id) => tagSlugs.get(id)).filter((s): s is string => Boolean(s)),
-		body: mapBody(blocks),
+		body: mapBody(blocks, media),
 		isHeadline: isHeadline || undefined,
 	};
 }
 
-/** Mapeia os blocos do editorial para o formato reduzido do portal. Imagem/lista/
- * embed entram quando a página da matéria adotar o BlockRenderer real (Etapa 2). */
-function mapBody(blocks: EditorialBlock[]): ArticleBlock[] {
+/** Mapeia os blocos do editorial para os blocos do portal, resolvendo a URL das
+ * imagens. Embed vira um parágrafo com link (reusa o nó inline existente). */
+function mapBody(blocks: EditorialBlock[], media: Map<string, MediaInfo>): ArticleBlock[] {
 	const out: ArticleBlock[] = [];
 	for (const block of blocks) {
 		if (block.type === "paragraph" && typeof block.text === "string") {
@@ -222,6 +281,23 @@ function mapBody(blocks: EditorialBlock[]): ArticleBlock[] {
 			out.push({ kind: "subheading", text: block.text });
 		} else if (block.type === "quote" && typeof block.text === "string") {
 			out.push({ kind: "quote", text: block.text, attribution: block.cite as string | undefined });
+		} else if (block.type === "image" && typeof block.mediaId === "string") {
+			const info = media.get(block.mediaId);
+			if (info) {
+				out.push({
+					kind: "image",
+					url: info.url,
+					alt: info.alt,
+					caption: (block.caption as string | undefined) || info.caption || undefined,
+				});
+			}
+		} else if (block.type === "list" && Array.isArray(block.items)) {
+			out.push({ kind: "list", ordered: Boolean(block.ordered), items: block.items as string[] });
+		} else if (block.type === "embed" && typeof block.url === "string") {
+			out.push({
+				kind: "paragraph",
+				content: [{ kind: "link", text: block.url, href: block.url }],
+			});
 		}
 	}
 	return out;

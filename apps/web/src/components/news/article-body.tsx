@@ -18,13 +18,8 @@ function inlineKey(node: InlineNode): string {
 	return `${node.kind}:${node.text}`;
 }
 
-function blockKey(block: ArticleBlock): string {
-	const sample =
-		block.kind === "paragraph"
-			? block.content.map((node) => node.text).join("")
-			: block.text;
-
-	return `${block.kind}:${sample.slice(0, 48)}`;
+function blockKey(block: ArticleBlock, index: number): string {
+	return `${block.kind}:${index}`;
 }
 
 function InlineContent({ nodes }: { nodes: InlineNode[] }) {
@@ -75,6 +70,29 @@ function Block({ block }: { block: ArticleBlock }) {
 		);
 	}
 
+	if (block.kind === "image") {
+		return (
+			<figure className="-mx-4 my-1 md:mx-0">
+				{/* biome-ignore lint/a11y/useAltText: alt aplicado via prop */}
+				<img src={block.url} alt={block.alt} className="w-full md:rounded-card" />
+				{block.caption ? (
+					<figcaption className="px-4 pt-1.5 font-mono text-[9.5px] text-meta leading-relaxed md:px-0 md:text-[10px]">
+						{block.caption}
+					</figcaption>
+				) : null}
+			</figure>
+		);
+	}
+
+	if (block.kind === "list") {
+		const items = block.items.map((item, index) => <li key={index}>{item}</li>);
+		return block.ordered ? (
+			<ol className="list-decimal pl-6">{items}</ol>
+		) : (
+			<ul className="list-disc pl-6">{items}</ul>
+		);
+	}
+
 	return (
 		<p>
 			<InlineContent nodes={block.content} />
@@ -92,7 +110,7 @@ export function ArticleBody({ blocks, adAfterBlock }: ArticleBodyProps) {
 	return (
 		<div className="flex max-w-reading flex-col gap-4 pt-4.5 font-serif text-[16.5px] text-ink leading-[1.65] md:gap-5 md:pt-stack md:text-[18.5px] md:leading-[1.68]">
 			{blocks.map((block, index) => (
-				<Fragment key={blockKey(block)}>
+				<Fragment key={blockKey(block, index)}>
 					<Block block={block} />
 					{adAfterBlock === index ? <AdSlot format="in-content" /> : null}
 				</Fragment>
