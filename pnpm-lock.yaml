@@ -294,6 +294,22 @@ importers:
 
   packages/config: {}
 
+  packages/contexts/editorial:
+    dependencies:
+      '@portal-app/shared-kernel':
+        specifier: workspace:*
+        version: link:../../shared-kernel
+    devDependencies:
+      '@portal-app/config':
+        specifier: workspace:*
+        version: link:../../config
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/contexts/identity:
     dependencies:
       '@portal-app/db':
