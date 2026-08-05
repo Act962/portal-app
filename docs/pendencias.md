@@ -55,7 +55,7 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 | **Testes de router** para os dois defeitos de autorização corrigidos | idem | Nada impede a regressão voltar |
 | **`next/image` no painel e no portal** | Falta `images.remotePatterns` para o host do R2 | Imagens servidas sem otimização; pesa no Core Web Vitals |
 | **Paginação por cursor (P12)** | Read model carrega tudo em memória | Só incomoda com muitas matérias; hoje é aceitável |
-| **ISR + Redis** (Fase 4, Etapa 5) | Não chegou a ser feita | Toda página bate no banco a cada acesso. Com tráfego real, vira o primeiro gargalo |
+| **Invalidação por evento** (Fase 4, Etapa 5) | Feito o mínimo: `revalidate = 60` no portal. Faltam o consumidor do outbox chamando `revalidateTag` e o Redis | Matéria publicada demora até 1 min para entrar no ar, e o portal consulta o banco de tempos em tempos mesmo sem novidade. Antes disto, as páginas eram **congeladas no build** e matéria nova só aparecia com um redeploy |
 | **Busca full-text** (Fase 4, Etapa 6) | Não chegou a ser feita | A busca é `includes` em memória — não erra, mas não escala nem tolera erro de digitação |
 | **Gate de lint (`biome ci`)** | Scaffold nunca formatado | Estilo diverge entre arquivos |
 | **Branch protection no `main`** | Precisa do owner (`Act962`) | Push direto em `main` é possível |

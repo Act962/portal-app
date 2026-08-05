@@ -12,6 +12,24 @@ import { getSections, getTicker } from "@/data/queries";
 import { organizationSchema } from "@/lib/structured-data";
 
 /**
+ * Revalidação do portal público.
+ *
+ * Sem isto o Next PRÉ-RENDERIZA as páginas no build e as congela: a home
+ * publicada continuaria mostrando o que existia no banco no momento do deploy, e
+ * toda matéria nova só apareceria depois de um novo build — inaceitável num
+ * portal de notícias.
+ *
+ * 60 segundos é o compromisso: a matéria publicada entra no ar em até um minuto,
+ * e o banco recebe no máximo uma consulta por página por minuto (importante com
+ * Postgres serverless, que cobra por conexão/computação).
+ *
+ * O passo seguinte é trocar isto por invalidação POR EVENTO — o consumidor do
+ * outbox chamando `revalidateTag` ao publicar, o que põe a matéria no ar na hora
+ * e zera as consultas ociosas. Está registrado em `docs/pendencias.md`.
+ */
+export const revalidate = 60;
+
+/**
  * Public portal shell.
  *
  * `LivePlayerProvider` wraps everything so the audio element outlives route
