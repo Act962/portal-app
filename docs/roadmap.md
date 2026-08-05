@@ -145,6 +145,8 @@ real e cobrir o login com E2E ainda nesta fase.
 
 ## Fase 3 — Editorial (núcleo do produto)
 
+> **Status:** ✅ Concluída (2026-08-05) — ver [`specs/03-editorial.md`](./specs/03-editorial.md).
+> Adiados: rich-text TipTap, E2E de navegador e diff visual de versões (razões na spec §11).
 > **Objetivo:** a redação consegue produzir, revisar, aprovar, agendar e publicar matéria.
 > É o **core domain** e a fase que merece mais rigor.
 
@@ -163,15 +165,15 @@ real e cobrir o login com E2E ainda nesta fase.
 
 **Critérios de aceite**
 
-- [ ] Toda transição inválida do workflow é rejeitada, com teste unitário para cada uma
-- [ ] Publicar sem capa, sem alt text ou sem editoria é bloqueado pelo domínio
-- [ ] Matéria agendada é publicada no horário correto — testado com `FixedClock`, sem espera real
-- [ ] Entregar o mesmo evento de publicação duas vezes **não** duplica a publicação
-- [ ] Slug permanece imutável após a primeira publicação
-- [ ] Evento gravado na mesma transação do agregado (comprovado por teste de rollback)
-- [ ] `domain/` e `application/` não importam Inngest nem TipTap — verificado pelo
+- [x] Toda transição inválida do workflow é rejeitada, com teste unitário para cada uma
+- [x] Publicar sem capa, sem alt text ou sem editoria é bloqueado pelo domínio
+- [x] Matéria agendada é publicada no horário correto — testado com `FixedClock`, sem espera real
+- [x] Entregar o mesmo evento de publicação duas vezes **não** duplica a publicação
+- [x] Slug permanece imutável após a primeira publicação
+- [x] Evento gravado na mesma transação do agregado (comprovado por teste de rollback)
+- [x] `domain/` e `application/` não importam Inngest nem TipTap — verificado pelo
       `dependency-cruiser`
-- [ ] Autosave não perde conteúdo em queda de conexão
+- [~] Autosave não perde conteúdo em queda de conexão — autosave por debounce entregue; teste de resiliência na Fase 4
 
 **Risco encerrado:** a versão anterior deste roadmap registrava o limite de duração do cron da
 Vercel como risco do agendamento. Com a adoção do Inngest (Decisão 6), a publicação agendada passa

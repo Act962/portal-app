@@ -59,10 +59,10 @@ os materializa — a decisão em si já está tomada e justificada em `../stack.
 |---|---|---|---|
 | [`0001`](./0001-monolito-modular.md) | Monólito modular em vez de microsserviços | ✅ Escrito | `architecture.md` §1 |
 | [`0002`](./0002-postgresql-banco-principal.md) | PostgreSQL como banco principal (migração a partir do MongoDB do scaffold) | ✅ Escrito | `stack.md` Decisão 1 |
-| `0003` | Corpo da matéria em blocos JSON em vez de HTML | Previsto (Fase 3) | `stack.md` Decisão 5 |
+| [`0003`](./0003-corpo-em-blocos-json.md) | Corpo da matéria em blocos JSON em vez de HTML | ✅ Escrito | `stack.md` Decisão 5 · spec Fase 3 |
 | [`0004`](./0004-autorizacao-como-dominio.md) | Autorização como domínio, não como middleware | ✅ Escrito | `architecture.md` §2.3 |
-| `0005` | Outbox transacional para eventos de domínio | Previsto (Fase 3) | `architecture.md` §5 |
+| [`0005`](./0005-outbox-transacional.md) | Outbox transacional para eventos de domínio | ✅ Escrito | `architecture.md` §5 · spec Fase 3 |
 | `0006` | Busca atrás de porta: Postgres full-text no MVP, Meilisearch depois | Previsto (Fase 5) | `stack.md` Decisão 2 |
-| `0007` | Inngest para jobs em background e despacho de eventos | Previsto (Fase 3) | `stack.md` Decisão 6 |
+| [`0007`](./0007-eventos-e-agendamento-atras-de-portas.md) | Despacho de eventos e agendamento atrás de portas (Inngest substituível) | ✅ Escrito | `stack.md` Decisão 6 · spec Fase 3 §5.1 |
 | [`0008`](./0008-docker-compose-ambiente-dev.md) | Docker Compose como ambiente de desenvolvimento padrão | ✅ Escrito | `stack.md` Decisão 4a |
 | [`0009`](./0009-midia-atras-de-porta-r2-minio.md) | Mídia atrás de porta: R2/S3 em produção, MinIO no dev | ✅ Escrito | `stack.md` Decisão 3 · spec Fase 2 |

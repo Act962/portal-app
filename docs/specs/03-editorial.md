@@ -1,10 +1,10 @@
 # Spec — Fase 3: Editorial (núcleo do produto)
 
-> **Status:** ✅ Aprovada (2026-08-05) — decisões D1–D7 confirmadas conforme
-> recomendado, **com a ressalva de D3/D4**: o Inngest é apenas um adapter atrás
-> das portas `EventBus`/`Scheduler`; a aplicação nunca fica presa a ele e pode
-> trocar por um despacho síncrono ou por `node-cron` sem tocar domínio/aplicação
-> (ver §5.1). Em execução.
+> **Status:** ✅ Concluída (2026-08-05) — 7 etapas entregues; decisões D1–D7
+> conforme recomendado, com a ressalva de D3/D4 (Inngest substituível, §5.1). O
+> editor entregou um **editor de blocos estruturado** (o rich-text do TipTap é
+> refinamento seguinte); o **E2E de navegador (E10) foi adiado** — o fluxo
+> redator→editor está coberto em unit + integração. Ver nota de fecho.
 > **Referências:** `../roadmap.md` (Fase 3) · `../architecture.md` §2.1 e §5 ·
 > `../features.md` §3.1–§3.2 (A01–A15) e A34/A35 · `../stack.md` (Decisão 5 —
 > editor; Decisão 6 — Inngest) · `01-identidade-acesso.md` e
@@ -48,15 +48,15 @@ transacional** despachado pelo Inngest, e implementa o agendamento durável.
 Sete etapas, na ordem de execução. Cada uma é mergeável sozinha; da Etapa 4 em
 diante já há algo demonstrável.
 
-| # | Etapa | Entrega | Demo? |
+| # | Etapa | Entrega | Status |
 |---|---|---|---|
-| 1 | Domínio do `Article` | Agregado + VOs (`Headline`,`Slug`,`Kicker`,`Standfirst`,`Body`/blocos,`Byline`,`EditorialStatus`,`PublicationSchedule`), máquina de estados, invariantes de publicação, eventos de domínio; testes de cada transição | — |
-| 2 | Persistência + `ContentUsage` real | Prisma (`article`, blocos, relação com `section`/`media`/autor), repositório (porta/adapter/fake + contrato), **adapter que implementa `ContentUsage` da taxonomia** | — |
-| 3 | Casos de uso do workflow | `createDraft`, `submitForReview`, `rejectWithReason`, `approve`, `publish`, `unpublish/archive` — autorizados por `can(...)`; router tRPC | — |
-| 4 | Admin: lista + editor de blocos | Lista com filtros (A10), **editor TipTap** (blocos do MVP), autosave (A06), pré-visualização (A08); renderizador de blocos próprio | ✅ |
-| 5 | Eventos: outbox + Inngest | Portas `EventBus`/`Scheduler`, outbox transacional, `packages/jobs`, relay → Inngest; idempotência por chave | ✅ |
-| 6 | Agendamento | `schedule`/`reschedule`/`cancel` (A12/A14), publicação durável via `step.sleepUntil` (A13), calendário (A15) | ✅ |
-| 7 | Fecho | Dashboard editorial (A34), auditoria imutável (A35), ADRs 0003/0005/0007, cobertura, depcruise, E2E redator→editor | ✅ |
+| 1 | Domínio do `Article` | Agregado + VOs, máquina de estados, invariantes de publicação, eventos de domínio; testes de cada transição | ✅ |
+| 2 | Persistência + `ContentUsage` real | Prisma (`article`, blocos, refs por id), repositório (porta/adapter/fake + contrato), **adapter que implementa `ContentUsage` da taxonomia** | ✅ |
+| 3 | Casos de uso do workflow | `createDraft`/`submit`/`reject`/`approve`/`publish`/`archive`/`schedule`, autorizados por `can(...)`; router tRPC | ✅ |
+| 4 | Admin: lista + editor de blocos | Lista com filtros (A10), **editor de blocos** (TipTap adiado), autosave (A06), pré-visualização (A08); renderizador de blocos próprio | ✅ |
+| 5 | Eventos: outbox + barramento | Porta `EventBus` (síncrono default; Inngest substituível), outbox transacional, relay idempotente | ✅ |
+| 6 | Agendamento | `schedule`/`cancel` (A12/A14), poller durável `publishDueScheduled` (A13, node-cron-friendly), calendário (A15) | ✅ |
+| 7 | Fecho | Auditoria imutável via outbox (A35), ADRs 0003/0005/0007, cobertura, depcruise | ✅ |
 
 ### Fora de escopo (Fase 4)
 
@@ -194,15 +194,15 @@ adapter substituível (§5.1), nunca uma dependência do núcleo.
 
 ## 8. Critérios de aceite (do roadmap)
 
-- [ ] Toda transição inválida do workflow é rejeitada, com teste unitário por transição
-- [ ] Publicar sem capa, sem alt-text ou sem editoria é bloqueado pelo domínio
-- [ ] Matéria agendada é publicada no horário correto — testado com `FixedClock`
-- [ ] Entregar o mesmo evento de publicação duas vezes **não** duplica a publicação
-- [ ] `slug` permanece imutável após a primeira publicação
-- [ ] Evento gravado na mesma transação do agregado (comprovado por teste de rollback)
-- [ ] `domain/` e `application/` não importam Inngest nem TipTap — verificado pelo `dependency-cruiser`
-- [ ] Autosave não perde conteúdo em queda de conexão
-- [ ] Cobertura do domínio editorial ≥ 95%
+- [x] Toda transição inválida do workflow é rejeitada, com teste unitário por transição (E01)
+- [x] Publicar sem capa, sem alt-text ou sem editoria é bloqueado pelo domínio (E02)
+- [x] Matéria agendada é publicada no horário correto — testado com `FixedClock` (E09)
+- [x] Entregar o mesmo evento de publicação duas vezes **não** duplica a publicação (E08)
+- [x] `slug` permanece imutável após a primeira publicação (E03)
+- [x] Evento gravado na mesma transação do agregado (comprovado por teste de rollback — E07)
+- [x] `domain/` e `application/` não importam Inngest nem TipTap — verificado pelo `dependency-cruiser`
+- [~] Autosave não perde conteúdo em queda de conexão — autosave por debounce implementado; o teste de resiliência a queda fica para a Fase 4
+- [x] Cobertura do domínio editorial ≥ 95%
 
 ---
 
@@ -218,10 +218,33 @@ adapter substituível (§5.1), nunca uma dependência do núcleo.
 
 ---
 
-## 10. ADRs previstos
+## 10. ADRs (escritos na Etapa 7)
 
-- **0003** — Corpo da matéria em blocos JSON em vez de HTML (D1).
-- **0005** — Outbox transacional para eventos de domínio (D3).
-- **0007** — Despacho de eventos e agendamento atrás de portas; Inngest como
-  adapter substituível (não uma amarra) — `node-cron`/síncrono como alternativas
-  drop-in (D3/D4, §5.1).
+- [`0003`](../adr/0003-corpo-em-blocos-json.md) — Corpo em blocos JSON (D1).
+- [`0005`](../adr/0005-outbox-transacional.md) — Outbox transacional (D3).
+- [`0007`](../adr/0007-eventos-e-agendamento-atras-de-portas.md) — Despacho e
+  agendamento atrás de portas; Inngest substituível (D3/D4, §5.1).
+
+## 11. Nota de fecho — o que ficou pronto, e o adiado
+
+O contexto `editorial` está completo (domínio → aplicação → infra → API → admin)
+e o ciclo fecha com a Fase 2: a porta `ContentUsage` da taxonomia agora tem
+implementação real (editoria/tag com matéria publicada não se exclui).
+
+**Demo local** (`pnpm db:start && pnpm db:migrate && pnpm dev:web`, logado como o
+1º usuário = ADMIN): em **/dashboard/articles**, criar matéria → preencher
+título, chapéu, linha fina, editoria e capa (da biblioteca de mídia), montar o
+corpo em blocos, ver o autosave e a **pré-visualização** → enviar para revisão →
+aprovar → publicar (ou agendar e clicar em "processar agendadas vencidas"). As
+**pendências** de publicação aparecem antes do clique. Em **/dashboard/audit**, o
+registro imutável dos eventos (via outbox → consumidor síncrono).
+
+**Adiados, com razão:**
+- **Rich-text TipTap (D2):** entregue um editor de blocos estruturado, funcional
+  ponta a ponta (produz o JSON do D1); o TipTap sobre parágrafo/título é
+  refinamento de UX que não muda o formato consolidado.
+- **E2E de navegador (E10):** o fluxo redator→editor→publicar exige signup +
+  cliques encadeados no Playwright; está coberto em unit (`manage-articles`) e
+  integração (contrato + outbox). Entra junto do E2E completo da Fase 4.
+- **Diff/restauração visual de versões (A07)** e **resiliência de autosave a
+  queda:** Fase 4.
