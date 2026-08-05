@@ -37,12 +37,15 @@ depois".
 | **2** | Taxonomia & Mídia: editorias, tags, upload | `specs/02-taxonomia-midia.md` |
 | **3** | Editorial: matéria, workflow, agendamento | `specs/03-editorial.md` |
 | **4** | Portal público: home, matéria, SEO, ISR | `specs/04-portal-publico.md` |
-| **5** | Busca & Distribuição | `specs/05-busca-distribuicao.md` |
-| **6** | Engajamento & Analytics | `specs/06-engajamento-analytics.md` |
-| **7+** | Evolução contínua | por demanda |
+| **5** | Painel da redação: shell, rich-text, mídia, equipe, banners | `specs/05-admin-redacao.md` |
+| **6** | Busca & Distribuição | `specs/06-busca-distribuicao.md` |
+| **7** | Engajamento & Analytics | `specs/07-engajamento-analytics.md` |
+| **8+** | Evolução contínua | por demanda |
 
 **Fim do MVP = fim da Fase 4.** A partir dali existe um portal operável por uma redação real.
-As fases 5 e 6 são melhorias sobre um produto que já funciona.
+A Fase 5 torna essa operação **confortável e vendável** — o backend amadureceu nas fases 0–4,
+mas a interface do painel ficou no esqueleto. As fases 6 e 7 são melhorias sobre um produto
+que já funciona.
 
 ---
 
@@ -217,7 +220,43 @@ go-live desta fase. Até a Fase 3 tudo roda em Docker local e nada depende dela.
 
 ---
 
-## Fase 5 — Busca & Distribuição
+## Fase 5 — Painel da redação
+
+> **Status:** 🚧 Em andamento — escopo em
+> [`specs/05-admin-redacao.md`](./specs/05-admin-redacao.md).
+> **Objetivo:** a redação opera o portal inteiro com conforto, e o produto fica
+> apresentável a um cliente.
+
+**Contexto:** as fases 0–4 entregaram um backend maduro (workflow de seis estados,
+RBAC, outbox, upload com ponto focal, SEO completo), mas a interface do painel nunca
+saiu do walking skeleton — sem sidebar, sem componentes do design system, e sem
+rich-text de verdade.
+
+**Escopo:** `A01`–`A12` (painel) + as lacunas de backend que ele expõe
+
+- **Bloco A** — shell moderno com sidebar e dark/light; editor **TipTap** emitindo os
+  blocos do domínio (com formatação inline, ADR 0010); biblioteca de mídia com upload
+  múltiplo e ponto focal; telas de matéria, lista, taxonomia e auditoria refeitas
+- **Bloco B** — convite de membros por link, reativação, e configurações do site
+  (a permissão `settings:manage` existe desde a Fase 1 sem nada atrás)
+- **Bloco C** — banners como campanhas com posição e período; o `AdSlot` do portal
+  passa a servir campanha real
+
+**Critérios de aceite**
+
+- [ ] Um REDATOR consegue escolher editoria e tags (hoje recebe FORBIDDEN — defeito
+      de autorização corrigido nesta fase)
+- [ ] De qualquer subpágina se navega para qualquer outra, com a navegação filtrada por papel
+- [ ] Negrito, itálico e link funcionam dentro do parágrafo e aparecem no portal
+- [ ] Matéria em formato antigo continua sendo lida e renderizada corretamente
+- [ ] Publicar fica bloqueado enquanto houver pendência, com o motivo visível
+- [ ] O painel funciona em claro e escuro; **o portal público continua claro**
+- [ ] O dono convida alguém por link e a pessoa entra com o papel certo
+- [ ] Campanha no ar aparece na posição certa; fora do período, não
+
+---
+
+## Fase 6 — Busca & Distribuição
 
 > **Objetivo:** melhorar descoberta de conteúdo e alcance.
 
@@ -239,7 +278,7 @@ go-live desta fase. Até a Fase 3 tudo roda em Docker local e nada depende dela.
 
 ---
 
-## Fase 6 — Engajamento & Analytics
+## Fase 7 — Engajamento & Analytics
 
 > **Objetivo:** relacionamento com o leitor e dados para decisão editorial.
 
@@ -259,7 +298,7 @@ go-live desta fase. Até a Fase 3 tudo roda em Docker local e nada depende dela.
 
 ---
 
-## Fase 7+ — Evolução
+## Fase 8+ — Evolução
 
 Sem data definida; entram por prioridade de negócio: cobertura ao vivo, especiais e séries,
 editoria de vídeo, PWA, enquetes, relatórios de produção. Cada um com sua spec.

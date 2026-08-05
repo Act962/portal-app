@@ -15,8 +15,13 @@
 | 2 — Taxonomia & Mídia | ✅ Concluída | `specs/02-taxonomia-midia.md` |
 | 3 — Editorial | ✅ Concluída | `specs/03-editorial.md` |
 | 4 — Portal público | 🚧 **Em andamento** (Etapas 1–4 de 7 feitas) | `specs/04-portal-publico.md` |
-| 5 — Busca e distribuição | ⬜ Não iniciada | (spec futura) |
-| 6 — Engajamento e Analytics | ⬜ Não iniciada | (spec futura) |
+| 5 — **Painel da redação** | 🚧 **Em andamento** | `specs/05-admin-redacao.md` |
+| 6 — Busca e distribuição | ⬜ Não iniciada | (spec futura) |
+| 7 — Engajamento e Analytics | ⬜ Não iniciada | (spec futura) |
+
+> **Nota:** a Fase 5 (painel) foi inserida antes de Busca — o backend amadureceu nas
+> fases 0–4, mas a UI do dashboard ficou no esqueleto e o produto não é apresentável a
+> um cliente. Busca e Engajamento foram empurradas para 6 e 7.
 
 **MVP funcional hoje:** o ciclo completo redação→leitor funciona — criar
 editoria/tags, subir mídia (upload direto, ponto focal), escrever matéria em
