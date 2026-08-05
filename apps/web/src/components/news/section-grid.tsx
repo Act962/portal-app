@@ -23,7 +23,9 @@ export async function SectionGrid({
 	const isDark = tone === "dark";
 	// Read model é cacheado por request; conta todas as seções numa passada.
 	const counts = await Promise.all(
-		sections.map((section) => getArticlesBySection(section.slug).then((a) => a.length)),
+		sections.map((section) =>
+			getArticlesBySection(section.slug).then((a) => a.length),
+		),
 	);
 
 	return (

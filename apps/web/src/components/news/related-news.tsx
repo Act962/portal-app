@@ -1,9 +1,8 @@
-import { MediaPlaceholder } from "@portal-app/ui/components/media-placeholder";
 import { SectionHeader } from "@portal-app/ui/components/section-header";
 import Link from "next/link";
-
 import type { Article } from "@/data/types";
 import { routes } from "@/lib/routes";
+import { ArticleThumb } from "./article-thumb";
 
 import { NewsCard } from "./news-card";
 
@@ -15,7 +14,10 @@ function RelatedRow({ article }: { article: Article }) {
 				href={routes.article(article.sectionSlug, article.slug)}
 				className="flex gap-3 py-3 text-brand-navy hover:text-brand-navy"
 			>
-				<MediaPlaceholder className="h-[62px] w-[88px] shrink-0" />
+				<ArticleThumb
+					article={article}
+					className="h-[62px] w-[88px] shrink-0"
+				/>
 				<span className="flex-1 text-pretty font-bold text-[14.5px] leading-[1.24]">
 					{article.title}
 				</span>

@@ -1,9 +1,8 @@
 import { Kicker } from "@portal-app/ui/components/kicker";
-import { MediaPlaceholder } from "@portal-app/ui/components/media-placeholder";
 import Link from "next/link";
-
 import type { Article } from "@/data/types";
 import { routes } from "@/lib/routes";
+import { ArticleThumb } from "./article-thumb";
 
 /** Column of supporting stories next to the home page lead. */
 export function SecondaryStoryList({ articles }: { articles: Article[] }) {
@@ -17,7 +16,7 @@ export function SecondaryStoryList({ articles }: { articles: Article[] }) {
 						href={routes.article(article.sectionSlug, article.slug)}
 						className="group flex flex-col gap-2.5 py-4 text-brand-navy hover:text-brand-navy"
 					>
-						<MediaPlaceholder className="h-[130px] w-full" />
+						<ArticleThumb article={article} className="h-[130px] w-full" />
 						<Kicker variant="text">{article.kicker}</Kicker>
 						<h3 className="text-pretty font-bold text-[19px] leading-tight tracking-[-0.015em] group-hover:text-brand-red">
 							{article.title}

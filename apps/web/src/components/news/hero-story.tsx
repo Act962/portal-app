@@ -1,5 +1,4 @@
 import { Kicker } from "@portal-app/ui/components/kicker";
-import { MediaPlaceholder } from "@portal-app/ui/components/media-placeholder";
 import Link from "next/link";
 
 import { displayTimestamp } from "@/data/queries";
@@ -7,6 +6,7 @@ import type { Article } from "@/data/types";
 import { formatRelativeTime } from "@/lib/format";
 import { routes } from "@/lib/routes";
 
+import { ArticleThumb } from "./article-thumb";
 import { Timestamp } from "./timestamp";
 
 type HeroStoryProps = {
@@ -31,12 +31,14 @@ export function HeroStory({ article, headingLevel = "h1" }: HeroStoryProps) {
 				href={routes.article(article.sectionSlug, article.slug)}
 				className="group block text-white hover:text-white md:text-brand-navy md:hover:text-brand-navy"
 			>
-				<MediaPlaceholder
+				<ArticleThumb
+					article={article}
 					tone="dark"
 					className="h-[215px] w-full md:hidden"
 					label="[ foto da manchete ]"
 				/>
-				<MediaPlaceholder
+				<ArticleThumb
+					article={article}
 					label="[ foto da manchete 16:9 ]"
 					className="hidden h-[320px] w-full md:mb-3.5 md:flex"
 				/>

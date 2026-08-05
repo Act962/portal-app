@@ -1,5 +1,4 @@
 import { Kicker } from "@portal-app/ui/components/kicker";
-import { MediaPlaceholder } from "@portal-app/ui/components/media-placeholder";
 import { cn } from "@portal-app/ui/lib/utils";
 import Link from "next/link";
 
@@ -7,6 +6,7 @@ import { displayTimestamp } from "@/data/queries";
 import type { Article } from "@/data/types";
 import { routes } from "@/lib/routes";
 
+import { ArticleThumb } from "./article-thumb";
 import { Timestamp } from "./timestamp";
 
 /** Photo heights are fixed per the design, not derived from an aspect ratio. */
@@ -37,7 +37,10 @@ export function NewsCard({
 				href={routes.article(article.sectionSlug, article.slug)}
 				className="group flex flex-col gap-2 text-brand-navy hover:text-brand-navy"
 			>
-				<MediaPlaceholder className={cn("w-full", SIZES[size].image)} />
+				<ArticleThumb
+					article={article}
+					className={cn("w-full", SIZES[size].image)}
+				/>
 
 				<Kicker variant="text">{article.kicker}</Kicker>
 

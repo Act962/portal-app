@@ -1,10 +1,11 @@
-import { MediaPlaceholder } from "@portal-app/ui/components/media-placeholder";
 import Link from "next/link";
 
 import { displayTimestamp } from "@/data/queries";
 import type { Article } from "@/data/types";
 import { formatRelativeTime } from "@/lib/format";
 import { routes } from "@/lib/routes";
+
+import { ArticleThumb } from "./article-thumb";
 
 /**
  * Opening story of a section page. Stacked and full-bleed on mobile; photo
@@ -17,7 +18,8 @@ export function FeatureStory({ article }: { article: Article }) {
 				href={routes.article(article.sectionSlug, article.slug)}
 				className="group block text-brand-navy hover:text-brand-navy md:grid md:grid-cols-[1.3fr_1fr] md:gap-stack"
 			>
-				<MediaPlaceholder
+				<ArticleThumb
+					article={article}
 					label="[ foto de abertura ]"
 					className="-mx-4 h-[190px] w-auto rounded-none md:mx-0 md:h-[280px] md:w-full md:rounded-card"
 				/>

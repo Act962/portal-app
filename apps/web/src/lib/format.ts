@@ -1,5 +1,3 @@
-import { FIXTURE_NOW } from "@/data/articles";
-
 /**
  * Every date is formatted in the newsroom's timezone rather than the server's,
  * so a deploy region change can never shift a publication time by three hours.
@@ -33,12 +31,20 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /**
- * "há 12 min". Measured against the fixture clock, not `Date.now()`, so the
- * server and client markup match exactly (see FIXTURE_NOW).
+ * "há 12 min".
+ *
+ * Medido contra o relógio real. Já foi medido contra um instante fixo das
+ * fixtures — o que fazia sentido quando o conteúdo era estático e as datas eram
+ * relativas àquele momento, mas passou a mentir assim que o portal começou a ler
+ * do banco: toda matéria publicada depois daquela data caía no piso e aparecia
+ * como "há 1 min".
+ *
+ * Não há risco de divergência de hidratação: o portal `(site)` é todo renderizado
+ * no servidor. O parâmetro `now` continua injetável para os testes.
  */
 export function formatRelativeTime(
 	iso: string,
-	now: Date = FIXTURE_NOW,
+	now: Date = new Date(),
 ): string {
 	const elapsed = now.getTime() - Date.parse(iso);
 

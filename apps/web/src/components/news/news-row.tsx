@@ -1,10 +1,9 @@
 import { Kicker } from "@portal-app/ui/components/kicker";
-import { MediaPlaceholder } from "@portal-app/ui/components/media-placeholder";
 import Link from "next/link";
-
 import { displayTimestamp } from "@/data/queries";
 import type { Article } from "@/data/types";
 import { routes } from "@/lib/routes";
+import { ArticleThumb } from "./article-thumb";
 
 import { Timestamp } from "./timestamp";
 
@@ -28,7 +27,10 @@ export function NewsRow({
 				href={routes.article(article.sectionSlug, article.slug)}
 				className="group flex gap-3 py-3 text-brand-navy hover:text-brand-navy md:gap-5 md:py-4.5"
 			>
-				<MediaPlaceholder className="h-[74px] w-[104px] shrink-0 md:h-[140px] md:w-[220px] md:max-w-[40%]" />
+				<ArticleThumb
+					article={article}
+					className="h-[74px] w-[104px] shrink-0 md:h-[140px] md:w-[220px] md:max-w-[40%]"
+				/>
 
 				<div className="min-w-0 flex-1">
 					{showKicker ? (
