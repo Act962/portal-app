@@ -183,6 +183,9 @@ a ser entrega de evento no horário exato, com durabilidade e retry — o risco 
 
 ## Fase 4 — Portal público *(fim do MVP)*
 
+> **Status:** 🚧 Em andamento — Etapas 1–2 de 7 feitas (read model + página da
+> matéria). O que falta está em [`proximos-passos.md`](./proximos-passos.md);
+> escopo em [`specs/04-portal-publico.md`](./specs/04-portal-publico.md).
 > **Objetivo:** o leitor encontra e lê a notícia, com SEO e desempenho de portal profissional.
 
 **Escopo:** `P01` a `P22` e `P24` a `P30`
