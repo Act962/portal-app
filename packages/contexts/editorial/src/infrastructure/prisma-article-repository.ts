@@ -27,12 +27,27 @@ export class PrismaArticleRepository implements ArticleRepository {
 		return row ? toDomain(row) : null;
 	}
 
+	/**
+	 * Persiste o agregado E seus eventos no OUTBOX, na MESMA transação (ADR 0005):
+	 * ou tudo entra, ou nada entra — nunca "salvou o artigo mas perdeu o evento".
+	 * O despacho fica para o relay, depois.
+	 */
 	async save(article: Article): Promise<void> {
+		const events = article.pullEvents();
 		const data = toPersistence(article);
-		await this.prisma.article.upsert({
-			where: { id: article.id },
-			create: data,
-			update: data,
+		await this.prisma.$transaction(async (tx) => {
+			await tx.article.upsert({ where: { id: article.id }, create: data, update: data });
+			if (events.length > 0) {
+				await tx.outboxEvent.createMany({
+					data: events.map((event) => ({
+						aggregateId: article.id,
+						eventName: event.eventName,
+						// Serialização plana: Date vira ISO, métodos somem — pronto p/ Json.
+						payload: JSON.parse(JSON.stringify(event)),
+						occurredAt: event.occurredAt,
+					})),
+				});
+			}
 		});
 	}
 

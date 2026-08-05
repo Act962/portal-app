@@ -11,5 +11,6 @@ export * from "./domain/events";
 export * from "./domain/headline";
 export * from "./domain/optional-text";
 export * from "./domain/ports/article-repository";
+export * from "./domain/ports/event-bus";
 export * from "./domain/publication-schedule";
 export * from "./domain/slug";

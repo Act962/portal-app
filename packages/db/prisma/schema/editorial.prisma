@@ -35,3 +35,20 @@ model Article {
   @@index([sectionId, status])
   @@map("article")
 }
+
+// Outbox transacional (ADR 0005): os eventos de dominio sao gravados na MESMA
+// transacao do agregado e despachados depois pelo relay. Elimina o "salvou mas
+// nao indexou". `processedAt` nulo = pendente; o relay o marca ao entregar, o
+// que da idempotencia (nao redespacha o ja entregue).
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  aggregateId String
+  eventName   String
+  payload     Json
+  occurredAt  DateTime
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([processedAt, createdAt])
+  @@map("outbox_event")
+}
