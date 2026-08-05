@@ -8,6 +8,94 @@
 
 ---
 
+## 0. Passo a passo — do zero ao portal no ar
+
+Sete passos. O detalhe de cada um está nas seções seguintes.
+
+### 1 · Neon — pegue as DUAS strings de conexão
+
+No painel do Neon, em *Connection string*, copie **duas vezes**:
+
+- com o botão **“Pooled connection” LIGADO** → vai ser a `DATABASE_URL`
+- com o botão **DESLIGADO** → vai ser a `DIRECT_URL`
+
+A diferença é o `-pooler` no host. As duas são necessárias: a aplicação usa o
+pooler, a migração usa a direta. É o passo que mais dá problema quando pulado.
+
+### 2 · R2 — bucket, token e CORS
+
+1. O bucket já existe e já tem URL pública (`pub-….r2.dev`).
+2. Em *Manage R2 API Tokens*, crie um token com permissão de **leitura e
+   escrita** nesse bucket. Guarde as duas chaves.
+3. Em *Settings → CORS policy* do bucket, cole (trocando pelo seu domínio):
+
+   ```json
+   [{ "AllowedOrigins": ["https://SEU-DOMINIO"],
+      "AllowedMethods": ["PUT"],
+      "AllowedHeaders": ["content-type"],
+      "MaxAgeSeconds": 3600 }]
+   ```
+
+   Sem isso o envio de imagem trava em 0% — o upload vai do navegador direto
+   para o R2.
+
+### 3 · Gere o segredo de autenticação
+
+```bash
+openssl rand -base64 32
+```
+
+### 4 · Vercel — variáveis de ambiente
+
+Em *Settings → Environment Variables*, ambiente **Production**:
+
+| Variável | Valor |
+|---|---|
+| `DATABASE_URL` | string do Neon **com** `-pooler` |
+| `DIRECT_URL` | string do Neon **sem** `-pooler` |
+| `BETTER_AUTH_SECRET` | o que saiu do passo 3 |
+| `BETTER_AUTH_URL` | `https://seu-dominio` |
+| `CORS_ORIGIN` | `https://seu-dominio` |
+| `S3_ENDPOINT` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
+| `S3_REGION` | `auto` |
+| `S3_ACCESS_KEY_ID` | do token do passo 2 |
+| `S3_SECRET_ACCESS_KEY` | do token do passo 2 |
+| `S3_BUCKET` | nome do bucket |
+| `S3_PUBLIC_URL` | `https://pub-….r2.dev` (sem barra no fim) |
+| `S3_FORCE_PATH_STYLE` | `false` |
+
+Ainda em *Settings*, confira em **General**:
+
+- **Root Directory = a raiz do repositório** (vazio), **não** `apps/web`
+- **Build** e **Install Command**: deixe vazios (vêm do `vercel.json`)
+
+### 5 · Deploy
+
+Faça o deploy. O `vercel.json` roda `pnpm db:deploy` antes do build **e as
+tabelas são criadas nesse momento**.
+
+Confira no log do build a linha das migrations. Se aparecer erro de conexão, é
+quase sempre a `DIRECT_URL` faltando ou apontando para o pooler.
+
+### 6 · Popule o portal (uma vez só)
+
+Da sua máquina, com o repositório atualizado:
+
+```bash
+DATABASE_URL="<a string do Neon>" pnpm db:seed
+```
+
+Cria 5 editorias, 8 assuntos e 24 matérias publicadas com capa.
+**Rode uma vez.** Rodar de novo sobrescreve o conteúdo semeado.
+
+### 7 · Crie a sua conta
+
+Abra `https://seu-dominio/login` e cadastre-se. **O primeiro usuário do sistema
+nasce ADMIN.** Faça isso antes de divulgar o endereço — enquanto o convite não
+existe (Bloco B), qualquer pessoa que acesse o `/login` consegue criar conta.
+
+---
+
 ## 1. Por que as tabelas não foram criadas
 
 **As migrations existem** — são 7, em `packages/db/prisma/migrations/`. O que
