@@ -13,6 +13,7 @@
   "dependencies": {
     "@portal-app/auth": "workspace:*",
     "@portal-app/db": "workspace:*",
+    "@portal-app/editorial": "workspace:*",
     "@portal-app/env": "workspace:*",
     "@portal-app/identity": "workspace:*",
     "@portal-app/media": "workspace:*",

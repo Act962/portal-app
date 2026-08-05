@@ -229,6 +229,9 @@ importers:
       '@portal-app/db':
         specifier: workspace:*
         version: link:../db
+      '@portal-app/editorial':
+        specifier: workspace:*
+        version: link:../contexts/editorial
       '@portal-app/env':
         specifier: workspace:*
         version: link:../env
@@ -296,6 +299,9 @@ importers:
 
   packages/contexts/editorial:
     dependencies:
+      '@portal-app/db':
+        specifier: workspace:*
+        version: link:../../db
       '@portal-app/shared-kernel':
         specifier: workspace:*
         version: link:../../shared-kernel

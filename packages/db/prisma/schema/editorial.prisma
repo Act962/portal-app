@@ -1,0 +1,37 @@
+// Contexto Editorial (Fase 3) — o core domain.
+//
+// Referências a outros contextos (editoria, tags, mídia da capa, autor) são por
+// ID puro, SEM foreign key: contextos são isolados e não compartilham schema —
+// o vínculo é resolvido na aplicação, não pelo banco. O corpo é uma lista de
+// blocos JSON (D1/ADR 0003). Id gerado na aplicação; @default(cuid()) é seed.
+
+model Article {
+  id         String @id @default(cuid())
+  headline   String
+  slug       String @unique
+  kicker     String @default("")
+  standfirst String @default("")
+  body       Json   @default("[]")
+
+  // Assinatura (autor) — id do StaffMember + nome exibido, por valor.
+  authorId   String
+  authorName String
+
+  sectionId    String?
+  tagIds       String[]
+  coverMediaId String?
+  coverAltText String?
+
+  status           String    @default("RASCUNHO")
+  scheduledAt      DateTime?
+  publishedAt      DateTime?
+  firstPublishedAt DateTime?
+  rejectionReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A checagem "editoria em uso" (ContentUsage) filtra por editoria + status.
+  @@index([sectionId, status])
+  @@map("article")
+}

@@ -40,6 +40,7 @@ type ArticleState = {
 	body: Body;
 	byline: Byline;
 	sectionId: string | null;
+	tagIds: readonly string[];
 	cover: Cover | null;
 	status: EditorialStatus;
 	schedule: PublicationSchedule | null;
@@ -56,6 +57,7 @@ type DraftInput = {
 	kicker?: string | null;
 	standfirst?: string | null;
 	sectionId?: string | null;
+	tagIds?: readonly string[];
 	body?: readonly Block[];
 	cover?: { mediaId: string; altText?: string | null } | null;
 };
@@ -106,6 +108,7 @@ export class Article extends AggregateRoot<string> {
 				body: body.value,
 				byline: byline.value,
 				sectionId: input.sectionId ?? null,
+				tagIds: input.tagIds ? [...input.tagIds] : [],
 				cover: input.cover ? Cover.create(input.cover) : null,
 				status: "RASCUNHO",
 				schedule: null,
@@ -125,6 +128,7 @@ export class Article extends AggregateRoot<string> {
 		kicker?: string | null;
 		standfirst?: string | null;
 		sectionId?: string | null;
+		tagIds?: readonly string[];
 		body?: readonly Block[];
 		cover?: { mediaId: string; altText?: string | null } | null;
 		status: EditorialStatus;
@@ -148,6 +152,7 @@ export class Article extends AggregateRoot<string> {
 			body: body.value,
 			byline: byline.value,
 			sectionId: props.sectionId ?? null,
+			tagIds: props.tagIds ? [...props.tagIds] : [],
 			cover: props.cover ? Cover.create(props.cover) : null,
 			status: props.status,
 			schedule:
@@ -190,6 +195,10 @@ export class Article extends AggregateRoot<string> {
 		return this.state.sectionId;
 	}
 
+	get tagIds(): readonly string[] {
+		return this.state.tagIds;
+	}
+
 	get cover(): Cover | null {
 		return this.state.cover;
 	}
@@ -204,6 +213,11 @@ export class Article extends AggregateRoot<string> {
 
 	get publishedAt(): Date | null {
 		return this.state.publishedAt;
+	}
+
+	/** Instante da PRIMEIRA publicação — sela a imutabilidade do slug. */
+	get firstPublishedAt(): Date | null {
+		return this.state.firstPublishedAt;
 	}
 
 	get rejectionReason(): string | null {

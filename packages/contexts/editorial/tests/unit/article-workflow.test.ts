@@ -50,11 +50,12 @@ function approved(): Article {
 
 describe("Article — criação", () => {
 	it("nasce RASCUNHO com slug derivado do título", () => {
-		const article = draft({ sectionId: "cidades" });
+		const article = draft({ sectionId: "cidades", tagIds: ["chuva", "clima"] });
 		expect(article.status).toBe("RASCUNHO");
 		expect(article.headline).toBe("Enchente atinge o centro");
 		expect(article.slug).toBe("enchente-atinge-o-centro");
 		expect(article.sectionId).toBe("cidades");
+		expect([...article.tagIds]).toEqual(["chuva", "clima"]);
 		expect(article.byline.name).toBe("Ana");
 		expect(article.isPublished()).toBe(false);
 	});
@@ -112,6 +113,7 @@ describe("Article — caminho feliz e eventos", () => {
 		expect(article.publish(NOW).isOk()).toBe(true);
 		expect(article.status).toBe("PUBLICADA");
 		expect(article.publishedAt?.toISOString()).toBe(NOW.toISOString());
+		expect(article.firstPublishedAt?.toISOString()).toBe(NOW.toISOString());
 		expect(article.isPublished()).toBe(true);
 
 		const events = article.pullEvents();
