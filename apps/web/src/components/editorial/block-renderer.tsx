@@ -1,9 +1,10 @@
-import type { Block } from "@portal-app/editorial";
+import type { Block, InlineNode } from "@portal-app/editorial";
+import { Fragment } from "react";
 
 /**
- * Renderizador próprio dos blocos do corpo (D1). É o que o PREVIEW usa agora e o
- * que o portal público vai reusar na Fase 4 — o público nunca carrega o editor,
- * só este renderizador. Imagens são resolvidas por `imageUrls` (mediaId → URL).
+ * Renderizador próprio dos blocos do corpo (D1). É o que o PREVIEW do editor
+ * usa; o portal público tem o seu (o público nunca carrega o editor). Imagens
+ * são resolvidas por `imageUrls` (mediaId → URL).
  */
 export function BlockRenderer({
 	blocks,
@@ -13,66 +14,124 @@ export function BlockRenderer({
 	imageUrls?: Record<string, string>;
 }) {
 	return (
-		<div className="prose max-w-none">
+		<div className="prose dark:prose-invert max-w-none">
 			{blocks.map((block, index) => (
-				<BlockView key={index} block={block} imageUrls={imageUrls} />
+				<BlockView
+					key={`${block.type}:${index}`}
+					block={block}
+					imageUrls={imageUrls}
+				/>
 			))}
 		</div>
 	);
 }
 
-function BlockView({ block, imageUrls }: { block: Block; imageUrls: Record<string, string> }) {
+/** Formatação inline (ADR 0010): negrito, itálico e link dentro do texto. */
+function Inline({ nodes }: { nodes: readonly InlineNode[] }) {
+	return nodes.map((node, index) => {
+		const key = `${node.type}:${index}`;
+		if (node.type === "strong") {
+			return <strong key={key}>{node.text}</strong>;
+		}
+		if (node.type === "em") {
+			return <em key={key}>{node.text}</em>;
+		}
+		if (node.type === "link") {
+			return (
+				<a
+					key={key}
+					href={node.href}
+					target="_blank"
+					rel="noreferrer"
+					className="text-brand-red underline"
+				>
+					{node.text}
+				</a>
+			);
+		}
+		return <Fragment key={key}>{node.text}</Fragment>;
+	});
+}
+
+function BlockView({
+	block,
+	imageUrls,
+}: {
+	block: Block;
+	imageUrls: Record<string, string>;
+}) {
 	switch (block.type) {
 		case "paragraph":
-			return <p className="my-3 leading-relaxed">{block.text}</p>;
+			return (
+				<p className="my-3 leading-relaxed">
+					<Inline nodes={block.content} />
+				</p>
+			);
 		case "heading":
 			return block.level === 2 ? (
-				<h2 className="mt-6 mb-2 font-bold text-xl">{block.text}</h2>
+				<h2 className="mt-6 mb-2 font-bold text-xl">
+					<Inline nodes={block.content} />
+				</h2>
 			) : (
-				<h3 className="mt-5 mb-2 font-bold text-lg">{block.text}</h3>
+				<h3 className="mt-5 mb-2 font-bold text-lg">
+					<Inline nodes={block.content} />
+				</h3>
 			);
 		case "image": {
 			const url = imageUrls[block.mediaId];
 			return (
 				<figure className="my-4">
 					{url ? (
-						<img src={url} alt={block.caption ?? ""} className="w-full rounded" />
+						<img
+							src={url}
+							alt={block.caption ?? ""}
+							className="w-full rounded"
+						/>
 					) : (
-						<div className="rounded border border-dashed p-4 text-ink-muted text-sm">
+						<div className="rounded border border-dashed p-4 text-muted-foreground text-sm">
 							[imagem {block.mediaId}]
 						</div>
 					)}
 					{block.caption ? (
-						<figcaption className="mt-1 text-ink-muted text-sm">{block.caption}</figcaption>
+						<figcaption className="mt-1 text-muted-foreground text-sm">
+							{block.caption}
+						</figcaption>
 					) : null}
 				</figure>
 			);
 		}
-		case "list":
+		case "list": {
+			const items = block.items.map((item, index) => (
+				<li key={`item:${index}`}>
+					<Inline nodes={item} />
+				</li>
+			));
 			return block.ordered ? (
-				<ol className="my-3 list-decimal pl-6">
-					{block.items.map((item, i) => (
-						<li key={i}>{item}</li>
-					))}
-				</ol>
+				<ol className="my-3 list-decimal pl-6">{items}</ol>
 			) : (
-				<ul className="my-3 list-disc pl-6">
-					{block.items.map((item, i) => (
-						<li key={i}>{item}</li>
-					))}
-				</ul>
+				<ul className="my-3 list-disc pl-6">{items}</ul>
 			);
+		}
 		case "quote":
 			return (
 				<blockquote className="my-4 border-brand-red border-l-4 pl-4 italic">
-					{block.text}
-					{block.cite ? <cite className="mt-1 block text-ink-muted text-sm">— {block.cite}</cite> : null}
+					<Inline nodes={block.content} />
+					{block.cite ? (
+						<cite className="mt-1 block text-muted-foreground text-sm">
+							— {block.cite}
+						</cite>
+					) : null}
 				</blockquote>
 			);
 		case "embed":
 			return (
 				<p className="my-3">
-					<a href={block.url} className="text-brand-red underline" target="_blank" rel="noreferrer">
+					<a
+						href={block.url}
+						className="text-brand-red underline"
+						target="_blank"
+						rel="noreferrer"
+					>
 						{block.url}
 					</a>
 				</p>

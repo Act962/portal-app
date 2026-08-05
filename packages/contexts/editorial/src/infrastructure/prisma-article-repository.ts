@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@portal-app/db/client";
 
 import { Article } from "../domain/article";
-import type { Block } from "../domain/body";
+import { Body } from "../domain/body";
 import type { EditorialStatus } from "../domain/editorial-status";
 import {
 	type ArticleFilter,
@@ -140,7 +140,9 @@ function toDomain(row: ArticleRow): Article {
 		slug: row.slug,
 		kicker: row.kicker,
 		standfirst: row.standfirst,
-		body: (row.body ?? []) as Block[],
+		// `fromRaw` em vez de um cast cego: cura o conteúdo gravado antes do
+		// ADR 0010 (texto puro) na leitura, e nunca falha por bloco corrompido.
+		body: [...Body.fromRaw(row.body).blocks],
 		byline: { authorId: row.authorId, name: row.authorName },
 		sectionId: row.sectionId,
 		tagIds: row.tagIds,

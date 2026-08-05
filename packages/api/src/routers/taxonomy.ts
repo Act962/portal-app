@@ -17,9 +17,18 @@ import {
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { requirePermission, router } from "../index";
+import { requirePermission, router, staffProcedure } from "../index";
 import { sectionDeps, tagDeps } from "../taxonomy";
 
+/**
+ * Só as MUTAÇÕES exigem `taxonomy:manage` (que apenas o ADMIN tem).
+ *
+ * As leituras são `staffProcedure`: qualquer membro ativo precisa listar
+ * editorias e tags para classificar a própria matéria — e editoria é pendência
+ * de publicação. Quando `list` também exigia `manage`, REDATOR e EDITOR abriam o
+ * editor, recebiam FORBIDDEN e ficavam com o select vazio, sem conseguir
+ * publicar. Ler a taxonomia não é gerenciá-la.
+ */
 const manage = requirePermission("taxonomy:manage");
 
 function sectionDto(section: Section) {
@@ -63,7 +72,9 @@ function ensure<T>(result: Result<T, Error>): T {
 
 export const taxonomyRouter = router({
 	sections: router({
-		list: manage.query(async () => (await listSections(sectionDeps)).map(sectionDto)),
+		list: staffProcedure.query(async () =>
+			(await listSections(sectionDeps)).map(sectionDto),
+		),
 
 		create: manage
 			.input(
@@ -75,7 +86,9 @@ export const taxonomyRouter = router({
 					parentId: z.string().nullish(),
 				}),
 			)
-			.mutation(async ({ input }) => sectionDto(ensure(await createSection(input, sectionDeps)))),
+			.mutation(async ({ input }) =>
+				sectionDto(ensure(await createSection(input, sectionDeps))),
+			),
 
 		update: manage
 			.input(
@@ -86,43 +99,65 @@ export const taxonomyRouter = router({
 					color: z.string().nullish(),
 				}),
 			)
-			.mutation(async ({ input }) => sectionDto(ensure(await updateSection(input, sectionDeps)))),
+			.mutation(async ({ input }) =>
+				sectionDto(ensure(await updateSection(input, sectionDeps))),
+			),
 
 		setActive: manage
 			.input(z.object({ id: z.string(), active: z.boolean() }))
-			.mutation(async ({ input }) => sectionDto(ensure(await setSectionActive(input, sectionDeps)))),
+			.mutation(async ({ input }) =>
+				sectionDto(ensure(await setSectionActive(input, sectionDeps))),
+			),
 
 		reorder: manage
-			.input(z.object({ orders: z.array(z.object({ id: z.string(), order: z.number().int() })) }))
+			.input(
+				z.object({
+					orders: z.array(
+						z.object({ id: z.string(), order: z.number().int() }),
+					),
+				}),
+			)
 			.mutation(async ({ input }) => {
 				ensure(await reorderSections(input, sectionDeps));
 				return { ok: true };
 			}),
 
-		delete: manage.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
-			ensure(await deleteSection(input, sectionDeps));
-			return { ok: true };
-		}),
+		delete: manage
+			.input(z.object({ id: z.string() }))
+			.mutation(async ({ input }) => {
+				ensure(await deleteSection(input, sectionDeps));
+				return { ok: true };
+			}),
 	}),
 
 	tags: router({
-		list: manage.query(async () => (await listTags(tagDeps)).map(tagDto)),
+		list: staffProcedure.query(async () =>
+			(await listTags(tagDeps)).map(tagDto),
+		),
 
 		create: manage
 			.input(z.object({ name: z.string(), slug: z.string().optional() }))
-			.mutation(async ({ input }) => tagDto(ensure(await createTag(input, tagDeps)))),
+			.mutation(async ({ input }) =>
+				tagDto(ensure(await createTag(input, tagDeps))),
+			),
 
 		rename: manage
 			.input(z.object({ id: z.string(), name: z.string() }))
-			.mutation(async ({ input }) => tagDto(ensure(await renameTag(input, tagDeps)))),
+			.mutation(async ({ input }) =>
+				tagDto(ensure(await renameTag(input, tagDeps))),
+			),
 
 		merge: manage
 			.input(z.object({ sourceId: z.string(), targetId: z.string() }))
-			.mutation(async ({ input }) => tagDto(ensure(await mergeTags(input, tagDeps)))),
+			.mutation(async ({ input }) =>
+				tagDto(ensure(await mergeTags(input, tagDeps))),
+			),
 
-		delete: manage.input(z.object({ id: z.string() })).mutation(async ({ input }) => {
-			ensure(await deleteTag(input, tagDeps));
-			return { ok: true };
-		}),
+		delete: manage
+			.input(z.object({ id: z.string() }))
+			.mutation(async ({ input }) => {
+				ensure(await deleteTag(input, tagDeps));
+				return { ok: true };
+			}),
 	}),
 });

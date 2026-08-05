@@ -1,6 +1,4 @@
-import { resolveStaff } from "@portal-app/api/staff";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { requireStaff } from "@/lib/require-staff";
 
 import { ArticleEditor } from "./article-editor";
 
@@ -9,16 +7,7 @@ export default async function ArticleEditorPage({
 }: {
 	params: Promise<{ id: string }>;
 }) {
-	const { staff } = await resolveStaff(await headers());
-
-	if (!staff || !staff.isActive()) {
-		redirect("/dashboard");
-	}
-
+	await requireStaff();
 	const { id } = await params;
-	return (
-		<div className="mx-auto max-w-4xl p-6">
-			<ArticleEditor id={id} />
-		</div>
-	);
+	return <ArticleEditor id={id} />;
 }

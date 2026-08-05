@@ -42,6 +42,7 @@ export type Tag = {
 export type InlineNode =
 	| { kind: "text"; text: string }
 	| { kind: "strong"; text: string }
+	| { kind: "em"; text: string }
 	| { kind: "link"; text: string; href: string };
 
 /**

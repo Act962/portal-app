@@ -9,6 +9,7 @@ import type {
 	Author,
 	AuthorSocials,
 	Cover,
+	InlineNode,
 	Section,
 	Tag,
 } from "./types";
@@ -448,6 +449,47 @@ function mapArticle(
 	};
 }
 
+/**
+ * Converte o conteúdo de um bloco de texto para os nós inline do portal.
+ *
+ * Tolera os DOIS formatos, porque aqui se lê o JSON do Prisma sem passar pelo
+ * domínio: `content` (ADR 0010, com negrito/itálico/link) e `text` (o formato
+ * anterior, texto puro). Sem esta tolerância o portal perderia parágrafos em
+ * silêncio nas matérias antigas.
+ */
+function mapInline(block: EditorialBlock): InlineNode[] {
+	if (Array.isArray(block.content)) {
+		const out: InlineNode[] = [];
+		for (const raw of block.content) {
+			const node = raw as { type?: string; text?: unknown; href?: unknown };
+			if (typeof node.text !== "string" || !node.text) {
+				continue;
+			}
+			if (node.type === "link" && typeof node.href === "string") {
+				out.push({ kind: "link", text: node.text, href: node.href });
+			} else if (node.type === "strong") {
+				out.push({ kind: "strong", text: node.text });
+			} else if (node.type === "em") {
+				out.push({ kind: "em", text: node.text });
+			} else {
+				out.push({ kind: "text", text: node.text });
+			}
+		}
+		return out;
+	}
+	if (typeof block.text === "string" && block.text) {
+		return [{ kind: "text", text: block.text }];
+	}
+	return [];
+}
+
+/** Texto corrido de um bloco, nos dois formatos. */
+function plainOf(block: EditorialBlock): string {
+	return mapInline(block)
+		.map((node) => node.text)
+		.join("");
+}
+
 /** Mapeia os blocos do editorial para os blocos do portal, resolvendo a URL das
  * imagens. Embed vira um parágrafo com link (reusa o nó inline existente). */
 function mapBody(
@@ -456,19 +498,25 @@ function mapBody(
 ): ArticleBlock[] {
 	const out: ArticleBlock[] = [];
 	for (const block of blocks) {
-		if (block.type === "paragraph" && typeof block.text === "string") {
-			out.push({
-				kind: "paragraph",
-				content: [{ kind: "text", text: block.text }],
-			});
-		} else if (block.type === "heading" && typeof block.text === "string") {
-			out.push({ kind: "subheading", text: block.text });
-		} else if (block.type === "quote" && typeof block.text === "string") {
-			out.push({
-				kind: "quote",
-				text: block.text,
-				attribution: block.cite as string | undefined,
-			});
+		if (block.type === "paragraph") {
+			const content = mapInline(block);
+			if (content.length > 0) {
+				out.push({ kind: "paragraph", content });
+			}
+		} else if (block.type === "heading") {
+			const text = plainOf(block);
+			if (text) {
+				out.push({ kind: "subheading", text });
+			}
+		} else if (block.type === "quote") {
+			const text = plainOf(block);
+			if (text) {
+				out.push({
+					kind: "quote",
+					text,
+					attribution: block.cite as string | undefined,
+				});
+			}
 		} else if (block.type === "image" && typeof block.mediaId === "string") {
 			const info = media.get(block.mediaId);
 			if (info) {
@@ -481,11 +529,18 @@ function mapBody(
 				});
 			}
 		} else if (block.type === "list" && Array.isArray(block.items)) {
-			out.push({
-				kind: "list",
-				ordered: Boolean(block.ordered),
-				items: block.items as string[],
-			});
+			const items = block.items
+				.map((item) =>
+					typeof item === "string"
+						? item
+						: mapInline({ type: "paragraph", content: item })
+								.map((node) => node.text)
+								.join(""),
+				)
+				.filter((item) => item.trim() !== "");
+			if (items.length > 0) {
+				out.push({ kind: "list", ordered: Boolean(block.ordered), items });
+			}
 		} else if (block.type === "embed" && typeof block.url === "string") {
 			out.push({
 				kind: "paragraph",
@@ -498,13 +553,20 @@ function mapBody(
 
 function readingMinutes(blocks: EditorialBlock[]): number {
 	const words = blocks
-		.map((b) =>
-			typeof b.text === "string"
-				? b.text
-				: Array.isArray(b.items)
-					? b.items.join(" ")
-					: "",
-		)
+		.map((block) => {
+			if (Array.isArray(block.items)) {
+				return block.items
+					.map((item) =>
+						typeof item === "string"
+							? item
+							: plainOf({ type: "paragraph", content: item }),
+					)
+					.join(" ");
+			}
+			// `plainOf` cobre os dois formatos (content e text). Sem isto, uma
+			// matéria no formato novo contaria zero palavras.
+			return plainOf(block);
+		})
 		.join(" ")
 		.split(/\s+/)
 		.filter(Boolean).length;

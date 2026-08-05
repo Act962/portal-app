@@ -2,7 +2,7 @@ import { can, Forbidden, type ResourceRef, type StaffMember } from "@portal-app/
 import { type Clock, type IdGenerator, type Result, err, ok } from "@portal-app/shared-kernel";
 
 import { Article } from "../domain/article";
-import type { Block } from "../domain/body";
+import type { BlockInput } from "../domain/body";
 import {
 	ArticleNotFound,
 	type BylineRequired,
@@ -46,7 +46,7 @@ export async function createDraft(
 		standfirst?: string | null;
 		sectionId?: string | null;
 		tagIds?: readonly string[];
-		body?: readonly Block[];
+		body?: readonly BlockInput[];
 		cover?: { mediaId: string; altText?: string | null } | null;
 	},
 	deps: Deps,
@@ -83,7 +83,7 @@ export async function updateArticle(
 		standfirst?: string | null;
 		sectionId?: string | null;
 		tagIds?: readonly string[];
-		body?: readonly Block[];
+		body?: readonly BlockInput[];
 		cover?: { mediaId: string; altText?: string | null } | null;
 		authorName?: string;
 	},

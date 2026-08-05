@@ -1,26 +1,18 @@
-import Header from "@/components/header";
 import Providers from "@/components/providers";
 
 /**
- * Authenticated area (dashboard, login).
+ * Área autenticada (painel e login).
  *
- * Deliberately separate from `(site)`: the portal and the newsroom tooling
- * have different chrome, different audiences and different performance
- * budgets. The real admin replaces this shell in Phase 1 of the roadmap.
+ * Deliberadamente separada do `(site)`: o portal e as ferramentas da redação têm
+ * chrome, público e orçamento de performance diferentes.
  *
- * React Query, the theme provider and the toaster are mounted here rather
- * than at the root because only this area uses them — the public portal is
- * entirely server-rendered and should ship none of that JavaScript.
+ * Aqui só moram os providers — React Query, tema e toaster — porque só esta área
+ * os usa; o portal público é todo renderizado no servidor e não embarca nada
+ * disso. A casca visual do painel (sidebar, topbar) fica em `dashboard/layout`,
+ * já que o `/login` também vive neste grupo e não deve tê-la.
  */
 export default function AppLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
-	return (
-		<Providers>
-			<div className="grid h-svh grid-rows-[auto_1fr]">
-				<Header />
-				{children}
-			</div>
-		</Providers>
-	);
+	return <Providers>{children}</Providers>;
 }

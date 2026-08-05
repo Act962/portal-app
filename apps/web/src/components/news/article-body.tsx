@@ -14,8 +14,10 @@ import type { ArticleBlock, InlineNode } from "@/data/types";
  * the newsroom re-authoring anything.
  */
 
-function inlineKey(node: InlineNode): string {
-	return `${node.kind}:${node.text}`;
+/** O índice entra na chave porque dois trechos idênticos no mesmo parágrafo
+ * deixaram de ser exceção depois que o texto ganhou formatação inline. */
+function inlineKey(node: InlineNode, index: number): string {
+	return `${node.kind}:${index}:${node.text}`;
 }
 
 function blockKey(block: ArticleBlock, index: number): string {
@@ -23,19 +25,37 @@ function blockKey(block: ArticleBlock, index: number): string {
 }
 
 function InlineContent({ nodes }: { nodes: InlineNode[] }) {
-	return nodes.map((node) => {
+	return nodes.map((node, index) => {
+		const key = inlineKey(node, index);
+
 		if (node.kind === "strong") {
 			return (
-				<strong key={inlineKey(node)} className="font-semibold">
+				<strong key={key} className="font-semibold">
 					{node.text}
 				</strong>
 			);
 		}
 
+		if (node.kind === "em") {
+			return <em key={key}>{node.text}</em>;
+		}
+
 		if (node.kind === "link") {
-			return (
+			// Link externo é âncora, não `next/link`: prefetch de um domínio de
+			// fora não faz sentido e a URL absoluta não é uma rota tipada.
+			return /^https?:\/\//.test(node.href) ? (
+				<a
+					key={key}
+					href={node.href}
+					target="_blank"
+					rel="noreferrer"
+					className="text-brand-red underline-offset-2 hover:underline"
+				>
+					{node.text}
+				</a>
+			) : (
 				<Link
-					key={inlineKey(node)}
+					key={key}
 					href={node.href as Route}
 					className="text-brand-red underline-offset-2 hover:underline"
 				>
@@ -44,7 +64,7 @@ function InlineContent({ nodes }: { nodes: InlineNode[] }) {
 			);
 		}
 
-		return <Fragment key={inlineKey(node)}>{node.text}</Fragment>;
+		return <Fragment key={key}>{node.text}</Fragment>;
 	});
 }
 
@@ -74,7 +94,11 @@ function Block({ block }: { block: ArticleBlock }) {
 		return (
 			<figure className="-mx-4 my-1 md:mx-0">
 				{/* biome-ignore lint/a11y/useAltText: alt aplicado via prop */}
-				<img src={block.url} alt={block.alt} className="w-full md:rounded-card" />
+				<img
+					src={block.url}
+					alt={block.alt}
+					className="w-full md:rounded-card"
+				/>
 				{block.caption ? (
 					<figcaption className="px-4 pt-1.5 font-mono text-[9.5px] text-meta leading-relaxed md:px-0 md:text-[10px]">
 						{block.caption}

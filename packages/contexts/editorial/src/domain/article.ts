@@ -1,6 +1,6 @@
 import { AggregateRoot, type Result, err, ok } from "@portal-app/shared-kernel";
 
-import { type Block, Body } from "./body";
+import { type BlockInput, Body } from "./body";
 import { Byline } from "./byline";
 import { Cover } from "./cover";
 import type { EditorialStatus } from "./editorial-status";
@@ -58,7 +58,7 @@ type DraftInput = {
 	standfirst?: string | null;
 	sectionId?: string | null;
 	tagIds?: readonly string[];
-	body?: readonly Block[];
+	body?: readonly BlockInput[];
 	cover?: { mediaId: string; altText?: string | null } | null;
 };
 
@@ -129,7 +129,7 @@ export class Article extends AggregateRoot<string> {
 		standfirst?: string | null;
 		sectionId?: string | null;
 		tagIds?: readonly string[];
-		body?: readonly Block[];
+		body?: readonly BlockInput[];
 		cover?: { mediaId: string; altText?: string | null } | null;
 		status: EditorialStatus;
 		scheduledAt?: Date | null;
@@ -273,7 +273,7 @@ export class Article extends AggregateRoot<string> {
 		headline?: string;
 		kicker?: string | null;
 		standfirst?: string | null;
-		body?: readonly Block[];
+		body?: readonly BlockInput[];
 		sectionId?: string | null;
 		tagIds?: readonly string[];
 		cover?: { mediaId: string; altText?: string | null } | null;

@@ -10,10 +10,14 @@ import { ThemeProvider } from "./theme-provider";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
 	return (
+		// Só o painel tem tema: o portal público é sempre claro e nem carrega o
+		// next-themes — os providers vivem apenas no grupo `(app)`. A chave de
+		// armazenamento é própria para não colidir com nada do portal.
 		<ThemeProvider
 			attribute="class"
-			defaultTheme="light"
-			forcedTheme="light"
+			defaultTheme="system"
+			enableSystem
+			storageKey="portal-admin-theme"
 			disableTransitionOnChange
 		>
 			<QueryClientProvider client={queryClient}>
