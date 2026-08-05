@@ -1,26 +1,39 @@
-import { resolveStaff } from "@portal-app/api/staff";
-import { can } from "@portal-app/identity";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@portal-app/ui/components/tabs";
+
+import { PageHeader } from "@/components/admin/page-header";
+import { requireStaff } from "@/lib/require-staff";
 
 import { PermissionMatrix } from "./permission-matrix";
 import { UsersTable } from "./users-table";
 
 export default async function UsersPage() {
-	const { staff } = await resolveStaff(await headers());
-
 	// Só quem pode gerenciar usuários (ADMIN, pela matriz) entra aqui.
-	if (!staff || !staff.isActive() || !can(staff, "user:manage")) {
-		redirect("/dashboard");
-	}
+	await requireStaff("user:manage");
 
 	return (
-		<div className="mx-auto max-w-4xl p-6">
-			<h1 className="mb-4 font-bold text-2xl">Usuários</h1>
-			<UsersTable />
+		<>
+			<PageHeader
+				title="Equipe"
+				description="Quem tem acesso ao painel e o que cada papel pode fazer."
+			/>
 
-			<h2 className="mt-10 mb-3 font-bold text-xl">Matriz de permissões</h2>
-			<PermissionMatrix />
-		</div>
+			<Tabs defaultValue="pessoas">
+				<TabsList className="mb-4">
+					<TabsTrigger value="pessoas">Pessoas</TabsTrigger>
+					<TabsTrigger value="permissoes">O que cada papel faz</TabsTrigger>
+				</TabsList>
+				<TabsContent value="pessoas">
+					<UsersTable />
+				</TabsContent>
+				<TabsContent value="permissoes">
+					<PermissionMatrix />
+				</TabsContent>
+			</Tabs>
+		</>
 	);
 }

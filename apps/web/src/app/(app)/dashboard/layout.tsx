@@ -24,7 +24,9 @@ export default async function DashboardLayout({
 
 	const groups = ADMIN_NAV.map((group) => ({
 		...group,
-		items: group.items.filter((item) => !item.action || can(staff, item.action)),
+		items: group.items.filter(
+			(item) => !item.action || can(staff, item.action),
+		),
 	})).filter((group) => group.items.length > 0);
 
 	// O estado da sidebar persiste em cookie, lido no servidor para a primeira

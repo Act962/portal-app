@@ -11,9 +11,9 @@ import {
 } from "@portal-app/ui/components/card";
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
+import { CheckCircle2, Clock, FileText, PenLine } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { CheckCircle2, Clock, FileText, PenLine } from "lucide-react";
 
 import { StatusBadge } from "@/components/admin/status-badge";
 import { trpc } from "@/utils/trpc";
@@ -68,7 +68,9 @@ export function DashboardOverview({ role }: { role: string }) {
 				{CARDS.map((card) => (
 					<Card key={card.key}>
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="font-medium text-sm">{card.label}</CardTitle>
+							<CardTitle className="font-medium text-sm">
+								{card.label}
+							</CardTitle>
 							<card.icon className="size-4 text-muted-foreground" />
 						</CardHeader>
 						<CardContent>

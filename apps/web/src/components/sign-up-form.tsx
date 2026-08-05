@@ -19,22 +19,13 @@ export default function SignUpForm({
 	const { isPending } = authClient.useSession();
 
 	const form = useForm({
-		defaultValues: {
-			email: "",
-			password: "",
-			name: "",
-		},
+		defaultValues: { email: "", password: "", name: "" },
 		onSubmit: async ({ value }) => {
 			await authClient.signUp.email(
-				{
-					email: value.email,
-					password: value.password,
-					name: value.name,
-				},
+				{ email: value.email, password: value.password, name: value.name },
 				{
 					onSuccess: () => {
 						router.push("/dashboard");
-						toast.success("Sign up successful");
 					},
 					onError: (error) => {
 						toast.error(error.error.message || error.error.statusText);
@@ -44,9 +35,9 @@ export default function SignUpForm({
 		},
 		validators: {
 			onSubmit: z.object({
-				name: z.string().min(2, "Name must be at least 2 characters"),
-				email: z.email("Invalid email address"),
-				password: z.string().min(8, "Password must be at least 8 characters"),
+				name: z.string().min(2, "Informe o nome completo"),
+				email: z.email("Informe um e-mail válido"),
+				password: z.string().min(8, "A senha tem no mínimo 8 caracteres"),
 			}),
 		},
 	});
@@ -56,84 +47,80 @@ export default function SignUpForm({
 	}
 
 	return (
-		<div className="mx-auto mt-10 w-full max-w-md p-6">
-			<h1 className="mb-6 text-center font-bold text-3xl">Create Account</h1>
-
+		<>
 			<form
 				onSubmit={(e) => {
 					e.preventDefault();
 					e.stopPropagation();
 					form.handleSubmit();
 				}}
-				className="space-y-4"
+				className="flex flex-col gap-4"
 			>
-				<div>
-					<form.Field name="name">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Name</Label>
-								<Input
-									id={field.name}
-									name={field.name}
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-								/>
-								{field.state.meta.errors.map((error) => (
-									<p key={error?.message} className="text-red-500">
-										{error?.message}
-									</p>
-								))}
-							</div>
-						)}
-					</form.Field>
-				</div>
+				<form.Field name="name">
+					{(field) => (
+						<div className="flex flex-col gap-1.5">
+							<Label htmlFor={field.name}>Nome</Label>
+							<Input
+								id={field.name}
+								name={field.name}
+								autoComplete="name"
+								placeholder="Como você assina as matérias"
+								value={field.state.value}
+								onBlur={field.handleBlur}
+								onChange={(e) => field.handleChange(e.target.value)}
+							/>
+							{field.state.meta.errors.map((error) => (
+								<p key={error?.message} className="text-destructive text-sm">
+									{error?.message}
+								</p>
+							))}
+						</div>
+					)}
+				</form.Field>
 
-				<div>
-					<form.Field name="email">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Email</Label>
-								<Input
-									id={field.name}
-									name={field.name}
-									type="email"
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-								/>
-								{field.state.meta.errors.map((error) => (
-									<p key={error?.message} className="text-red-500">
-										{error?.message}
-									</p>
-								))}
-							</div>
-						)}
-					</form.Field>
-				</div>
+				<form.Field name="email">
+					{(field) => (
+						<div className="flex flex-col gap-1.5">
+							<Label htmlFor={field.name}>E-mail</Label>
+							<Input
+								id={field.name}
+								name={field.name}
+								type="email"
+								autoComplete="email"
+								value={field.state.value}
+								onBlur={field.handleBlur}
+								onChange={(e) => field.handleChange(e.target.value)}
+							/>
+							{field.state.meta.errors.map((error) => (
+								<p key={error?.message} className="text-destructive text-sm">
+									{error?.message}
+								</p>
+							))}
+						</div>
+					)}
+				</form.Field>
 
-				<div>
-					<form.Field name="password">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Password</Label>
-								<Input
-									id={field.name}
-									name={field.name}
-									type="password"
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-								/>
-								{field.state.meta.errors.map((error) => (
-									<p key={error?.message} className="text-red-500">
-										{error?.message}
-									</p>
-								))}
-							</div>
-						)}
-					</form.Field>
-				</div>
+				<form.Field name="password">
+					{(field) => (
+						<div className="flex flex-col gap-1.5">
+							<Label htmlFor={field.name}>Senha</Label>
+							<Input
+								id={field.name}
+								name={field.name}
+								type="password"
+								autoComplete="new-password"
+								value={field.state.value}
+								onBlur={field.handleBlur}
+								onChange={(e) => field.handleChange(e.target.value)}
+							/>
+							{field.state.meta.errors.map((error) => (
+								<p key={error?.message} className="text-destructive text-sm">
+									{error?.message}
+								</p>
+							))}
+						</div>
+					)}
+				</form.Field>
 
 				<form.Subscribe
 					selector={(state) => ({
@@ -144,24 +131,21 @@ export default function SignUpForm({
 					{({ canSubmit, isSubmitting }) => (
 						<Button
 							type="submit"
-							className="w-full"
+							className="mt-1 w-full"
 							disabled={!canSubmit || isSubmitting}
 						>
-							{isSubmitting ? "Submitting..." : "Sign Up"}
+							{isSubmitting ? "Criando…" : "Criar conta"}
 						</Button>
 					)}
 				</form.Subscribe>
 			</form>
 
-			<div className="mt-4 text-center">
-				<Button
-					variant="link"
-					onClick={onSwitchToSignIn}
-					className="text-indigo-600 hover:text-indigo-800"
-				>
-					Already have an account? Sign In
+			<p className="mt-4 text-center text-muted-foreground text-sm">
+				Já tem acesso?{" "}
+				<Button variant="link" className="px-1" onClick={onSwitchToSignIn}>
+					Entrar
 				</Button>
-			</div>
-		</div>
+			</p>
+		</>
 	);
 }

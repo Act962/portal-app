@@ -19,20 +19,13 @@ export default function SignInForm({
 	const { isPending } = authClient.useSession();
 
 	const form = useForm({
-		defaultValues: {
-			email: "",
-			password: "",
-		},
+		defaultValues: { email: "", password: "" },
 		onSubmit: async ({ value }) => {
 			await authClient.signIn.email(
-				{
-					email: value.email,
-					password: value.password,
-				},
+				{ email: value.email, password: value.password },
 				{
 					onSuccess: () => {
 						router.push("/dashboard");
-						toast.success("Sign in successful");
 					},
 					onError: (error) => {
 						toast.error(error.error.message || error.error.statusText);
@@ -42,8 +35,8 @@ export default function SignInForm({
 		},
 		validators: {
 			onSubmit: z.object({
-				email: z.email("Invalid email address"),
-				password: z.string().min(8, "Password must be at least 8 characters"),
+				email: z.email("Informe um e-mail válido"),
+				password: z.string().min(8, "A senha tem no mínimo 8 caracteres"),
 			}),
 		},
 	});
@@ -53,62 +46,59 @@ export default function SignInForm({
 	}
 
 	return (
-		<div className="mx-auto mt-10 w-full max-w-md p-6">
-			<h1 className="mb-6 text-center font-bold text-3xl">Welcome Back</h1>
-
+		<>
 			<form
 				onSubmit={(e) => {
 					e.preventDefault();
 					e.stopPropagation();
 					form.handleSubmit();
 				}}
-				className="space-y-4"
+				className="flex flex-col gap-4"
 			>
-				<div>
-					<form.Field name="email">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Email</Label>
-								<Input
-									id={field.name}
-									name={field.name}
-									type="email"
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-								/>
-								{field.state.meta.errors.map((error) => (
-									<p key={error?.message} className="text-red-500">
-										{error?.message}
-									</p>
-								))}
-							</div>
-						)}
-					</form.Field>
-				</div>
+				<form.Field name="email">
+					{(field) => (
+						<div className="flex flex-col gap-1.5">
+							<Label htmlFor={field.name}>E-mail</Label>
+							<Input
+								id={field.name}
+								name={field.name}
+								type="email"
+								autoComplete="email"
+								placeholder="voce@fm7cidades.com"
+								value={field.state.value}
+								onBlur={field.handleBlur}
+								onChange={(e) => field.handleChange(e.target.value)}
+							/>
+							{field.state.meta.errors.map((error) => (
+								<p key={error?.message} className="text-destructive text-sm">
+									{error?.message}
+								</p>
+							))}
+						</div>
+					)}
+				</form.Field>
 
-				<div>
-					<form.Field name="password">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Password</Label>
-								<Input
-									id={field.name}
-									name={field.name}
-									type="password"
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-								/>
-								{field.state.meta.errors.map((error) => (
-									<p key={error?.message} className="text-red-500">
-										{error?.message}
-									</p>
-								))}
-							</div>
-						)}
-					</form.Field>
-				</div>
+				<form.Field name="password">
+					{(field) => (
+						<div className="flex flex-col gap-1.5">
+							<Label htmlFor={field.name}>Senha</Label>
+							<Input
+								id={field.name}
+								name={field.name}
+								type="password"
+								autoComplete="current-password"
+								value={field.state.value}
+								onBlur={field.handleBlur}
+								onChange={(e) => field.handleChange(e.target.value)}
+							/>
+							{field.state.meta.errors.map((error) => (
+								<p key={error?.message} className="text-destructive text-sm">
+									{error?.message}
+								</p>
+							))}
+						</div>
+					)}
+				</form.Field>
 
 				<form.Subscribe
 					selector={(state) => ({
@@ -119,24 +109,21 @@ export default function SignInForm({
 					{({ canSubmit, isSubmitting }) => (
 						<Button
 							type="submit"
-							className="w-full"
+							className="mt-1 w-full"
 							disabled={!canSubmit || isSubmitting}
 						>
-							{isSubmitting ? "Submitting..." : "Sign In"}
+							{isSubmitting ? "Entrando…" : "Entrar"}
 						</Button>
 					)}
 				</form.Subscribe>
 			</form>
 
-			<div className="mt-4 text-center">
-				<Button
-					variant="link"
-					onClick={onSwitchToSignUp}
-					className="text-indigo-600 hover:text-indigo-800"
-				>
-					Need an account? Sign Up
+			<p className="mt-4 text-center text-muted-foreground text-sm">
+				Ainda não tem acesso?{" "}
+				<Button variant="link" className="px-1" onClick={onSwitchToSignUp}>
+					Criar conta
 				</Button>
-			</div>
-		</div>
+			</p>
+		</>
 	);
 }

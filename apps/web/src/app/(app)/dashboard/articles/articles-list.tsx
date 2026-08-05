@@ -39,7 +39,13 @@ import {
 	TableRow,
 } from "@portal-app/ui/components/table";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLink, MoreHorizontal, Plus, Search, Timer } from "lucide-react";
+import {
+	ExternalLink,
+	MoreHorizontal,
+	Plus,
+	Search,
+	Timer,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -95,7 +101,8 @@ export function ArticlesList() {
 		sections.data?.find((s) => s.id === id)?.name ?? "—";
 
 	const articles = list.data ?? [];
-	const hasFilters = status !== ALL || sectionId !== ALL || search.trim() !== "";
+	const hasFilters =
+		status !== ALL || sectionId !== ALL || search.trim() !== "";
 
 	return (
 		<>
@@ -107,7 +114,11 @@ export function ArticlesList() {
 						<DropdownMenu>
 							<DropdownMenuTrigger
 								render={
-									<Button variant="outline" size="icon" aria-label="Mais ações" />
+									<Button
+										variant="outline"
+										size="icon"
+										aria-label="Mais ações"
+									/>
 								}
 							>
 								<MoreHorizontal className="size-4" />
@@ -175,7 +186,7 @@ export function ArticlesList() {
 
 			<div className="flex flex-wrap items-center gap-2">
 				<div className="relative min-w-56 flex-1">
-					<Search className="-translate-y-1/2 absolute top-1/2 left-2.5 size-4 text-muted-foreground" />
+					<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
 					<Input
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}

@@ -1,7 +1,11 @@
 "use client";
 
 import type { Block, EditorialStatus } from "@portal-app/editorial";
-import { Alert, AlertDescription, AlertTitle } from "@portal-app/ui/components/alert";
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from "@portal-app/ui/components/alert";
 import { Badge } from "@portal-app/ui/components/badge";
 import { Button } from "@portal-app/ui/components/button";
 import {
@@ -32,7 +36,12 @@ import {
 	SelectValue,
 } from "@portal-app/ui/components/select";
 import { Skeleton } from "@portal-app/ui/components/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@portal-app/ui/components/tabs";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@portal-app/ui/components/tabs";
 import { Textarea } from "@portal-app/ui/components/textarea";
 import {
 	Tooltip,
@@ -292,8 +301,8 @@ export function ArticleEditor({ id }: { id: string }) {
 								<p
 									className={`mt-1 text-xs ${countHint(headline.length, 40, 70)}`}
 								>
-									{headline.length} caracteres — o ideal para busca fica entre 40
-									e 70
+									{headline.length} caracteres — o ideal para busca fica entre
+									40 e 70
 								</p>
 							</div>
 
