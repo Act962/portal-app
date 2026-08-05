@@ -53,5 +53,39 @@ services:
       retries: 10
     restart: unless-stopped
 
+  minio:
+    # Armazenamento de mídia no dev (Fase 2). MinIO fala a API S3 do R2, então o
+    # mesmo adapter S3MediaStorage roda aqui offline e, em produção, no R2 — sem
+    # conta em serviço nenhum (Decisão D1). O CI usa MinIO via Testcontainers.
+    image: minio/minio
+    container_name: portal-app-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      # Console web do MinIO (inspecionar objetos): http://localhost:9001
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - portal-app_minio_data:/data
+    restart: unless-stopped
+
+  minio-init:
+    # Provisiona o bucket assim que o MinIO sobe: cria `portal-media` e o deixa
+    # com leitura pública (o portal serve as imagens por `publicUrl`). Roda uma
+    # vez e sai — por isso não tem restart.
+    image: minio/mc
+    container_name: portal-app-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done;
+      mc mb --ignore-existing local/portal-media;
+      mc anonymous set download local/portal-media;
+      "
+
 volumes:
   portal-app_postgres_data:
+  portal-app_minio_data:

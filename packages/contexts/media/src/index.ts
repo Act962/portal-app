@@ -8,3 +8,4 @@ export * from "./domain/errors";
 export * from "./domain/focal-point";
 export * from "./domain/media-asset";
 export * from "./domain/media-type";
+export * from "./domain/ports/media-storage";
