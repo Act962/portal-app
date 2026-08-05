@@ -1,5 +1,6 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
 import { identityRouter } from "./identity";
+import { mediaRouter } from "./media";
 import { taxonomyRouter } from "./taxonomy";
 
 export const appRouter = router({
@@ -14,5 +15,6 @@ export const appRouter = router({
 	}),
 	identity: identityRouter,
 	taxonomy: taxonomyRouter,
+	media: mediaRouter,
 });
 export type AppRouter = typeof appRouter;

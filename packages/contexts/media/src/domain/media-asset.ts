@@ -34,7 +34,7 @@ type CreateInput = {
 	focalPoint?: { x: number; y: number } | null;
 };
 
-type CreateError =
+export type MediaAssetError =
 	| MissingCredit
 	| MissingAltText
 	| MissingDimensions
@@ -60,7 +60,7 @@ export class MediaAsset extends AggregateRoot<string> {
 		this.state = state;
 	}
 
-	static create(input: CreateInput): Result<MediaAsset, CreateError> {
+	static create(input: CreateInput): Result<MediaAsset, MediaAssetError> {
 		const credit = Credit.create(input.credit);
 		if (credit.isErr()) {
 			return err(credit.error);

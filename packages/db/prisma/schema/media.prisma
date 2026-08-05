@@ -1,0 +1,26 @@
+// Contexto de Mídia (Fase 2).
+//
+// Metadados do arquivo; o binário mora no storage (R2/MinIO), referenciado por
+// storageKey (único). Dimensões e ponto focal são achatados em colunas anuláveis
+// — só imagem os tem. Independente do Editorial (o vínculo com Article é da
+// Fase 3). Id gerado na aplicação; o @default(cuid()) é conveniência de seed.
+
+model MediaAsset {
+  id         String  @id @default(cuid())
+  type       String
+  storageKey String  @unique
+  filename   String
+  mimeType   String
+  caption    String  @default("")
+  credit     String
+  altText    String?
+  width      Int?
+  height     Int?
+  focalX     Float?
+  focalY     Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("media_asset")
+}

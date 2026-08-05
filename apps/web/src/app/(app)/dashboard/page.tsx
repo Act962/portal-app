@@ -31,6 +31,9 @@ export default async function DashboardPage() {
 						Editorias e tags
 					</Link>
 				) : null}
+				<Link href="/dashboard/media" className="text-brand-red underline">
+					Biblioteca de mídia
+				</Link>
 			</nav>
 			<Dashboard />
 		</div>
