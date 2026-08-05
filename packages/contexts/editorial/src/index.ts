@@ -1,5 +1,6 @@
 // Interface publicada do contexto editorial. Outros contextos e a camada de
 // interface (apps/web) importam daqui — nunca de caminhos internos.
+export * from "./application/manage-articles";
 export * from "./domain/article";
 export * from "./domain/body";
 export * from "./domain/byline";

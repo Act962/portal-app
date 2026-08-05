@@ -1,6 +1,7 @@
 import { createPrismaClient } from "@portal-app/db";
 import type { ArticleRepository } from "@portal-app/editorial";
 import { PrismaArticleRepository } from "@portal-app/editorial/infrastructure/prisma-article-repository";
+import { SystemClock, UuidGenerator } from "@portal-app/shared-kernel";
 import type { ContentUsage } from "@portal-app/taxonomy";
 
 /**
@@ -13,6 +14,13 @@ import type { ContentUsage } from "@portal-app/taxonomy";
 const prisma = createPrismaClient();
 
 export const articleRepo: ArticleRepository = new PrismaArticleRepository(prisma);
+
+/** Dependências dos casos de uso do editorial (relógio real em produção). */
+export const articleDeps = {
+	repo: articleRepo,
+	clock: new SystemClock(),
+	ids: new UuidGenerator(),
+};
 
 class EditorialContentUsage implements ContentUsage {
 	constructor(private readonly articles: ArticleRepository) {}

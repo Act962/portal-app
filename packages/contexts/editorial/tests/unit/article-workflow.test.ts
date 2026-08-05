@@ -259,6 +259,53 @@ describe("Article — atualização e arquivamento", () => {
 	});
 });
 
+describe("Article — edição de conteúdo", () => {
+	it("edita só os campos informados e valida", () => {
+		const article = draft();
+		const result = article.editContent({
+			headline: "  Novo título ",
+			kicker: "URGENTE",
+			standfirst: "apoio",
+			sectionId: "cidades",
+			tagIds: ["t1"],
+			body: [{ type: "paragraph", text: "novo corpo" }],
+			cover: { mediaId: "m-9", altText: "capa" },
+			authorName: "Bruno",
+		});
+
+		expect(result.isOk()).toBe(true);
+		expect(article.headline).toBe("Novo título");
+		expect(article.kicker).toBe("URGENTE");
+		expect(article.sectionId).toBe("cidades");
+		expect([...article.tagIds]).toEqual(["t1"]);
+		expect(article.cover?.mediaId).toBe("m-9");
+		expect(article.byline.name).toBe("Bruno");
+		expect(article.slug).toBe("enchente-atinge-o-centro"); // slug intacto
+	});
+
+	it("limpa capa com null e mantém edição parcial", () => {
+		const article = draft({ cover: { mediaId: "m-1", altText: "a" } });
+		article.editContent({ cover: null });
+		expect(article.cover).toBeNull();
+	});
+
+	it("valida título, corpo e autor na edição", () => {
+		const article = draft();
+		expect(article.editContent({ headline: " " }).unwrapErr()).toBeInstanceOf(HeadlineRequired);
+		expect(
+			article.editContent({ body: [{ type: "paragraph", text: "" }] }).isErr(),
+		).toBe(true);
+		expect(article.editContent({ authorName: " " }).isErr()).toBe(true);
+	});
+
+	it("não edita matéria arquivada", () => {
+		const article = approved();
+		article.publish(NOW);
+		article.archive(NOW);
+		expect(article.editContent({ headline: "x" }).unwrapErr()).toBeInstanceOf(InvalidTransition);
+	});
+});
+
 describe("Article — reidratação", () => {
 	it("restaura um agendado e um publicado", () => {
 		const scheduled = Article.restore({

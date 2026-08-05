@@ -6,6 +6,13 @@ import type { EditorialStatus } from "./editorial-status";
  * listáveis para a UI mostrar ANTES do clique (A04).
  */
 
+export class ArticleNotFound extends Error {
+	constructor(id: string) {
+		super(`Matéria não encontrada: ${id}`);
+		this.name = "ArticleNotFound";
+	}
+}
+
 export class HeadlineRequired extends Error {
 	constructor() {
 		super("A matéria precisa de título.");

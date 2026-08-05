@@ -16,6 +16,7 @@
 	},
 	"dependencies": {
 		"@portal-app/db": "workspace:*",
+		"@portal-app/identity": "workspace:*",
 		"@portal-app/shared-kernel": "workspace:*"
 	},
 	"devDependencies": {

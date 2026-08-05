@@ -302,6 +302,9 @@ importers:
       '@portal-app/db':
         specifier: workspace:*
         version: link:../../db
+      '@portal-app/identity':
+        specifier: workspace:*
+        version: link:../identity
       '@portal-app/shared-kernel':
         specifier: workspace:*
         version: link:../../shared-kernel

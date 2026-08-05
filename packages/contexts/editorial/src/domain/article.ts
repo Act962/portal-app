@@ -263,6 +263,64 @@ export class Article extends AggregateRoot<string> {
 		return ok(undefined);
 	}
 
+	/**
+	 * Edita o conteúdo (só os campos informados). O slug NÃO muda aqui — é o
+	 * `changeSlug`, que impõe a imutabilidade. Matéria ARQUIVADA é imutável. A
+	 * transição PUBLICADA → ATUALIZADA (com evento) é decidida pelo caso de uso
+	 * via `markUpdated`, não aqui: editar o conteúdo é ortogonal ao estado.
+	 */
+	editContent(input: {
+		headline?: string;
+		kicker?: string | null;
+		standfirst?: string | null;
+		body?: readonly Block[];
+		sectionId?: string | null;
+		tagIds?: readonly string[];
+		cover?: { mediaId: string; altText?: string | null } | null;
+		authorName?: string;
+	}): Result<void, InvalidTransition | HeadlineRequired | InvalidBlock | BylineRequired> {
+		if (this.state.status === "ARQUIVADA") {
+			return err(new InvalidTransition("ARQUIVADA", "ARQUIVADA"));
+		}
+		if (input.headline !== undefined) {
+			const headline = Headline.create(input.headline);
+			if (headline.isErr()) {
+				return err(headline.error);
+			}
+			this.state.headline = headline.value;
+		}
+		if (input.body !== undefined) {
+			const body = Body.create(input.body);
+			if (body.isErr()) {
+				return err(body.error);
+			}
+			this.state.body = body.value;
+		}
+		if (input.authorName !== undefined) {
+			const byline = Byline.create({ authorId: this.state.byline.authorId, name: input.authorName });
+			if (byline.isErr()) {
+				return err(byline.error);
+			}
+			this.state.byline = byline.value;
+		}
+		if (input.kicker !== undefined) {
+			this.state.kicker = Kicker.create(input.kicker);
+		}
+		if (input.standfirst !== undefined) {
+			this.state.standfirst = Standfirst.create(input.standfirst);
+		}
+		if (input.sectionId !== undefined) {
+			this.state.sectionId = input.sectionId;
+		}
+		if (input.tagIds !== undefined) {
+			this.state.tagIds = [...input.tagIds];
+		}
+		if (input.cover !== undefined) {
+			this.state.cover = input.cover ? Cover.create(input.cover) : null;
+		}
+		return ok(undefined);
+	}
+
 	// --- Transições do workflow ----------------------------------------------
 
 	submitForReview(now: Date): Result<void, InvalidTransition> {
