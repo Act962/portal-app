@@ -20,7 +20,7 @@ import type { Result } from "@portal-app/shared-kernel";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { articleDeps } from "../editorial";
+import { articleDeps, dispatchEditorialEvents, listAuditLog } from "../editorial";
 import { router, staffProcedure } from "../index";
 
 /** Blocos do corpo (D1) — espelha a união discriminada do domínio. */
@@ -75,6 +75,17 @@ function ensure(result: Result<Article, Error>) {
 	return articleDto(result.unwrap());
 }
 
+/**
+ * Desembrulha E despacha o outbox pelo bus síncrono — assim a auditoria e demais
+ * consumidores reagem logo após a transação. Em produção um node-cron/Inngest
+ * poderia dirigir o despacho; aqui é síncrono (§5.1).
+ */
+async function commit(result: Result<Article, Error>) {
+	const dto = ensure(result);
+	await dispatchEditorialEvents();
+	return dto;
+}
+
 const contentInput = {
 	headline: z.string().optional(),
 	kicker: z.string().nullish(),
@@ -108,7 +119,7 @@ export const editorialRouter = router({
 		create: staffProcedure
 			.input(z.object({ ...contentInput, headline: z.string() }))
 			.mutation(async ({ ctx, input }) =>
-				ensure(
+				commit(
 					await createDraft(
 						ctx.staff,
 						{ ...input, authorName: ctx.session.user.name ?? "Redação" },
@@ -119,39 +130,39 @@ export const editorialRouter = router({
 
 		update: staffProcedure
 			.input(z.object({ id: z.string(), ...contentInput, authorName: z.string().optional() }))
-			.mutation(async ({ ctx, input }) => ensure(await updateArticle(ctx.staff, input, articleDeps))),
+			.mutation(async ({ ctx, input }) => commit(await updateArticle(ctx.staff, input, articleDeps))),
 
 		changeSlug: staffProcedure
 			.input(z.object({ id: z.string(), slug: z.string() }))
-			.mutation(async ({ ctx, input }) => ensure(await changeSlug(ctx.staff, input, articleDeps))),
+			.mutation(async ({ ctx, input }) => commit(await changeSlug(ctx.staff, input, articleDeps))),
 
 		submit: staffProcedure
 			.input(z.object({ id: z.string() }))
-			.mutation(async ({ ctx, input }) => ensure(await submitForReview(ctx.staff, input, articleDeps))),
+			.mutation(async ({ ctx, input }) => commit(await submitForReview(ctx.staff, input, articleDeps))),
 
 		approve: staffProcedure
 			.input(z.object({ id: z.string() }))
-			.mutation(async ({ ctx, input }) => ensure(await approve(ctx.staff, input, articleDeps))),
+			.mutation(async ({ ctx, input }) => commit(await approve(ctx.staff, input, articleDeps))),
 
 		reject: staffProcedure
 			.input(z.object({ id: z.string(), reason: z.string() }))
-			.mutation(async ({ ctx, input }) => ensure(await reject(ctx.staff, input, articleDeps))),
+			.mutation(async ({ ctx, input }) => commit(await reject(ctx.staff, input, articleDeps))),
 
 		publish: staffProcedure
 			.input(z.object({ id: z.string() }))
-			.mutation(async ({ ctx, input }) => ensure(await publish(ctx.staff, input, articleDeps))),
+			.mutation(async ({ ctx, input }) => commit(await publish(ctx.staff, input, articleDeps))),
 
 		schedule: staffProcedure
 			.input(z.object({ id: z.string(), at: z.coerce.date() }))
-			.mutation(async ({ ctx, input }) => ensure(await schedule(ctx.staff, input, articleDeps))),
+			.mutation(async ({ ctx, input }) => commit(await schedule(ctx.staff, input, articleDeps))),
 
 		cancelSchedule: staffProcedure
 			.input(z.object({ id: z.string() }))
-			.mutation(async ({ ctx, input }) => ensure(await cancelSchedule(ctx.staff, input, articleDeps))),
+			.mutation(async ({ ctx, input }) => commit(await cancelSchedule(ctx.staff, input, articleDeps))),
 
 		archive: staffProcedure
 			.input(z.object({ id: z.string() }))
-			.mutation(async ({ ctx, input }) => ensure(await archive(ctx.staff, input, articleDeps))),
+			.mutation(async ({ ctx, input }) => commit(await archive(ctx.staff, input, articleDeps))),
 	}),
 
 	schedules: router({
@@ -164,7 +175,13 @@ export const editorialRouter = router({
 		 */
 		runDue: staffProcedure.mutation(async () => {
 			const published = await publishDueScheduled(articleDeps);
+			await dispatchEditorialEvents();
 			return { published: published.length };
 		}),
+	}),
+
+	/** Auditoria (A35): registro imutável derivado dos eventos. */
+	audit: router({
+		list: staffProcedure.query(() => listAuditLog()),
 	}),
 });

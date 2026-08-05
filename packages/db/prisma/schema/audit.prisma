@@ -1,0 +1,15 @@
+// Auditoria (Fase 3, A35). Registro IMUTÁVEL derivado dos eventos de domínio —
+// um consumidor do outbox escreve aqui, nunca a aplicacao em paralelo (uma fonte
+// da verdade só, D7). So insere; nunca atualiza nem apaga.
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  aggregateId String
+  occurredAt  DateTime
+  detail      Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("audit_log")
+}

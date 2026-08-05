@@ -37,6 +37,11 @@ export default async function DashboardPage() {
 				<Link href="/dashboard/media" className="text-brand-red underline">
 					Biblioteca de mídia
 				</Link>
+				{can(staff, "audit:view") ? (
+					<Link href="/dashboard/audit" className="text-brand-red underline">
+						Auditoria
+					</Link>
+				) : null}
 			</nav>
 			<Dashboard />
 		</div>
