@@ -15,7 +15,7 @@
 | 2 — Taxonomia & Mídia | ✅ Concluída | `specs/02-taxonomia-midia.md` |
 | 3 — Editorial | ✅ Concluída | `specs/03-editorial.md` |
 | 4 — Portal público | 🚧 **Em andamento** (Etapas 1–4 de 7 feitas) | `specs/04-portal-publico.md` |
-| 5 — **Painel da redação** | 🚧 **Em andamento** | `specs/05-admin-redacao.md` |
+| 5 — **Painel da redação** | 🚧 **Bloco A concluído**; B e C pendentes | `specs/05-admin-redacao.md` |
 | 6 — Busca e distribuição | ⬜ Não iniciada | (spec futura) |
 | 7 — Engajamento e Analytics | ⬜ Não iniciada | (spec futura) |
 
@@ -95,6 +95,46 @@ Ordem sugerida; cada etapa é mergeável e verificável.
 - [ ] **ADR de hospedagem** fechando a Decisão 4b: Vercel + Postgres gerenciado +
       **Redis auto-hospedável** + R2. Código provider-agnóstico (tudo atrás de
       portas).
+
+---
+
+## 2b. Fase 5 — o que falta (Blocos B e C)
+
+O **Bloco A está concluído**: o painel tem shell com sidebar e dark/light, editor
+rich-text (TipTap) emitindo os blocos do domínio com formatação inline, biblioteca
+de mídia com arrastar-e-soltar e ponto focal, e todas as telas refeitas no design
+system. Detalhes e critérios de aceite em `specs/05-admin-redacao.md`.
+
+### Bloco B — Equipe e configurações
+- [ ] **Convite por link** (D2): agregado `Invitation` no contexto `identity`
+      (token com hash guardado, e-mail, papel, validade de 7 dias, aceito/revogado)
+      + modelo Prisma + `pnpm db:migrate`. A UI mostra o link para copiar; **sem
+      dependência de e-mail** (restrição de infra auto-hospedável).
+- [ ] **Decisão de segurança que vem junto:** hoje `resolveStaff` provisiona
+      QUALQUER usuário autenticado como membro (o primeiro vira ADMIN). Com
+      convites isso vira brecha — passar a provisionar só com convite válido,
+      exceto o primeiro do sistema.
+- [ ] `reactivateStaff` (só existe `deactivate`).
+- [ ] **Configurações do site**: `settings:manage` existe como permissão desde a
+      Fase 1 sem nada atrás. Contexto novo com `SiteSettings` (nome, logo,
+      contato, redes, integrações) + tela com abas.
+- [ ] Paginação por cursor no `articles.list` (dívida P12) e contagens reais nos
+      cartões da visão geral (hoje derivadas da lista completa em memória).
+
+### Bloco C — Banners
+- [ ] Contexto `advertising` com `Campaign` (imagem, link, posição, período,
+      ativo). O `AdSlot` continua em `packages/ui` como componente de
+      apresentação — quem consulta o banco é um RSC novo (`AdPlacement`), porque
+      `packages/ui` não pode acessar dados.
+
+### Dívida assumida no Bloco A
+- **Testes**: a pedido, o Bloco A foi entregue sem testes novos. Os 183 existentes
+  seguem passando (a normalização retrocompatível preservou-os). Falta escrever:
+  round-trip do `serialize.ts` (`docToBlocks(blocksToDoc(b)) ≡ b`), cobertura da
+  normalização do `body.ts` (que é `domain/`, sob gate de ≥95%) e testes de router
+  para os dois defeitos de autorização corrigidos.
+- **`next/image`** ainda não é usado no painel (falta `images.remotePatterns` para
+  o host do S3/R2) — as imagens usam `<img>`.
 
 ---
 
