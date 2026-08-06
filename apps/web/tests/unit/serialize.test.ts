@@ -1,3 +1,4 @@
+import type { Block } from "@portal-app/editorial";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -20,11 +21,13 @@ import {
  */
 describe("serialize (TipTap ↔ blocos do domínio)", () => {
 	it("fecha a ida e volta de um parágrafo simples", () => {
-		const blocks = [
+		// Sem `as const`: `Block` tem `content` mutável, e o literal congelado não
+		// é atribuível a ele.
+		const blocks: Block[] = [
 			{ type: "paragraph", content: [{ type: "text", text: "Olá" }] },
-		] as const;
+		];
 
-		expect(docToBlocks(blocksToDoc([...blocks]))).toEqual(blocks);
+		expect(docToBlocks(blocksToDoc(blocks))).toEqual(blocks);
 	});
 
 	// --- O que sustenta o autosave -----------------------------------------
