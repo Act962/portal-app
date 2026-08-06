@@ -13,6 +13,8 @@
   "dependencies": {
     "@portal-app/db": "workspace:*",
     "@portal-app/env": "workspace:*",
+    "@portal-app/identity": "workspace:*",
+    "@portal-app/shared-kernel": "workspace:*",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
     "zod": "catalog:"

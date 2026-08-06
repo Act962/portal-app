@@ -1,18 +1,26 @@
 import type { StaffMemberRepository } from "../domain/ports/staff-repository";
+import type { Role } from "../domain/role";
 import { StaffMember } from "../domain/staff-member";
 
 /**
- * Cria o `StaffMember` que espelha um novo usuário do Better-Auth. O PRIMEIRO
- * membro do sistema nasce `ADMIN` (destrava o painel — Decisão D2 da spec); os
- * seguintes nascem `REDATOR` e têm o papel ajustado por um admin via convite
- * (Etapa 4). Idempotente: se o staff já existe, apenas o devolve.
+ * Cria o membro da redação correspondente a um usuário recém-autenticado.
  *
- * Camada de aplicação: depende só do domínio e da porta — nunca do adapter
- * Prisma. É o `dependency-cruiser` (regra `aplicacao-nao-importa-infra`) que
- * garante isso.
+ * O PRIMEIRO usuário do sistema nasce ADMIN (Decisão D2 da Fase 1) — sem isso o
+ * sistema ficaria trancado para fora de si mesmo, porque não haveria quem
+ * convidasse. Os demais nascem com o papel do CONVITE que autorizou o cadastro;
+ * o `REDATOR` só permanece como piso defensivo, para o caso de chegar aqui sem
+ * convite (o que o portão do Better Auth já impede).
+ *
+ * Idempotente: chamado no caminho de resolução da sessão, não num hook, para não
+ * depender de timing.
  */
 export async function provisionStaffForNewUser(
-	input: { userId: string; email: string },
+	input: {
+		userId: string;
+		email: string;
+		role?: Role;
+		sectionIds?: readonly string[];
+	},
 	deps: { repo: StaffMemberRepository },
 ): Promise<StaffMember> {
 	const existing = await deps.repo.findById(input.userId);
@@ -24,7 +32,8 @@ export async function provisionStaffForNewUser(
 	const staff = StaffMember.create({
 		id: input.userId,
 		email: input.email,
-		role: isFirst ? "ADMIN" : "REDATOR",
+		role: isFirst ? "ADMIN" : (input.role ?? "REDATOR"),
+		sectionIds: isFirst ? [] : input.sectionIds,
 	});
 
 	await deps.repo.save(staff);

@@ -16,7 +16,7 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 
 | # | Pendência | Por que importa | Onde |
 |---|---|---|---|
-| B1 | **Qualquer um cria conta no painel** | Não existe convite: quem abrir `/login` num domínio público vira REDATOR sozinho. Hoje o único freio é ninguém saber o endereço. | `packages/api/src/staff.ts` (`resolveStaff` provisiona qualquer autenticado) |
+| B1 | ~~Qualquer um cria conta no painel~~ | ✅ **Resolvido**: o cadastro é fechado por convite, com o portão no `databaseHooks.user.create.before` do Better Auth — vale para qualquer caminho que crie usuário, não só a nossa UI. O portão é o **e-mail** (sem token). Primeiro usuário do sistema segue nascendo ADMIN. | `packages/auth/src/index.ts` |
 | B2 | ~~Capa das matérias do seed~~ | ✅ **Resolvido**: o seed distribui, em rodízio, 6 imagens que já estão no bucket do R2. Depende de `S3_PUBLIC_URL` apontar para o bucket. | `packages/db/prisma/seed.mjs` (`IMAGENS`) |
 | B3 | **Migrations no deploy** | ✅ **Resolvido**: `pnpm db:deploy` criado. Falta **ligar no build command** da hospedagem. | [`deploy.md`](./deploy.md) §1 |
 | B4 | **R2 em produção** | ✅ **Código pronto** (adapter S3 serve R2 sem mudança). Falta cadastrar as variáveis e o **CORS de `PUT`** no bucket — sem ele, o upload falha. | [`deploy.md`](./deploy.md) §2 |
@@ -29,12 +29,19 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 ## 🟠 Funcionalidades combinadas e ainda não feitas
 
 ### Bloco B — Equipe e configurações
-- [ ] **Convite por link** (resolve B1): agregado `Invitation` no contexto
-      `identity` (token com hash guardado, e-mail, papel, validade), modelo
-      Prisma + migration, e a tela que mostra o link para copiar. Sem depender de
-      serviço de e-mail — restrição de infra auto-hospedável.
-- [ ] **Fechar o auto-cadastro**: passar a provisionar membro **só com convite
-      válido**, exceto o primeiro usuário do sistema.
+- [x] ~~**Convite** e **fechar o auto-cadastro**~~ ✅ Feito. O portão é o
+      **e-mail convidado**, por decisão do cliente — sem token, o que também
+      significa que convite não vaza por encaminhamento de mensagem.
+- [ ] **Envio do convite por e-mail (Resend)**: hoje o admin cria o convite e
+      avisa a pessoa pelo canal que quiser. Fica **atrás de uma porta `Mailer`**,
+      com o Resend como adapter — a mesma regra que vale para o Inngest e o
+      Redis: SaaS é peça trocável, nunca amarra. O modo "avise você mesmo"
+      continua sendo o padrão, e funciona sem provedor nenhum.
+- [ ] **Redefinição de senha (B5)**: o Better Auth já resolve com o hook
+      `sendResetPassword({ user, url, token })` — em vez de mandar e-mail,
+      guarda-se o link para o admin entregar, ou manda-se pelo `Mailer` acima.
+      Nada de `POST /admin/set-user-password`: faria o admin escolher a senha de
+      outra pessoa.
 - [ ] **Redefinição de senha pelo admin** (resolve B5): sai de graça junto do
       convite — é o mesmo token com hash e validade, mudando só o efeito (trocar
       a senha em vez de criar o membro). Sem serviço de e-mail: o admin gera o

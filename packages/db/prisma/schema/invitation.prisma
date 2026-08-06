@@ -1,0 +1,28 @@
+/// Convite para entrar na redação (spec 05, D2 — emendada: o portão é o E-MAIL,
+/// sem token no link).
+///
+/// Quem se cadastra com um e-mail convidado entra com o papel do convite;
+/// qualquer outro e-mail é recusado pelo `databaseHooks.user.create.before` do
+/// Better Auth. A exceção é o primeiro usuário do sistema, que nasce ADMIN —
+/// sem ela não haveria como criar quem convida.
+model Invitation {
+  id String @id @default(cuid())
+
+  /// Sempre em minúsculas e aparado: é chave de comparação com o e-mail do
+  /// cadastro, e "Joao@X.com" precisa casar com "joao@x.com".
+  email String
+
+  role       String
+  /// Editorias às quais o membro fica vinculado ao aceitar (EDITOR).
+  sectionIds String[] @default([])
+
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  invitedBy  String
+
+  createdAt DateTime @default(now())
+
+  /// A consulta do portão: o convite aberto de um e-mail, em todo cadastro.
+  @@index([email, acceptedAt])
+  @@map("invitation")
+}
