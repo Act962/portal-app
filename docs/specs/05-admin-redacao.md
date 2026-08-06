@@ -73,6 +73,10 @@ Três blocos de entrega. **Ao fim do bloco A o produto já é demonstrável a um
 Convite de membro por link (D2), reativação, e configurações do site (`settings:manage`
 existe como permissão desde a Fase 1, sem nada atrás).
 
+> A parte de **configurações do site** ganhou spec própria, detalhada a partir da
+> auditoria do portal de 2026-08-06: [`05b-configuracoes-do-site.md`](./05b-configuracoes-do-site.md)
+> (decisões D6–D13). Convite e reativação seguem descritos aqui, em D2.
+
 ### Bloco C — Banners
 
 Campanhas com imagem, link, posição e período (D3). O `AdSlot` do portal, hoje um

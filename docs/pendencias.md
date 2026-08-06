@@ -42,7 +42,11 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 - [ ] **Reativar membro** — só existe desativar.
 - [ ] **Configurações do site**: a permissão `settings:manage` existe desde a
       Fase 1 **sem nada atrás**. Falta o agregado `SiteSettings` (nome, logo,
-      contato, redes, integrações) e a tela.
+      contato, redes, rodapé) e a tela.
+      📄 **Spec escrita**, aguardando aprovação:
+      [`specs/05b-configuracoes-do-site.md`](./specs/05b-configuracoes-do-site.md).
+      Inclui o `streamUrl` da rádio — hoje `null`, o que faz o `<audio>` nem ser
+      renderizado: **o botão de play do portal não toca nada**.
 
 ### Bloco C — Banners e anúncios
 - [ ] Contexto `advertising` com `Campaign` (imagem, link, posição, período,
@@ -53,6 +57,24 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
       cuidado com cache).
 
 ### Avulso
+- [ ] **Grade de programação da rádio**: programa, horário, locutor e "no ar
+      agora" são fixture (`apps/web/src/data/radio.ts`). É coleção com entidade
+      própria, então ficou de fora da spec de configurações (D11) — o
+      `streamUrl` entra lá, a grade vem depois.
+- [ ] **Colunistas, enquete e vídeos da home** também são fixture. São conteúdo,
+      não configuração: colunista provavelmente é autor com destaque; enquete e
+      vídeo são features novas.
+- [ ] **"Mais lidas" não é mais lidas**: `getMostRead()` devolve as 5 mais
+      recentes, e `mostReadRank` nunca é preenchido — o filtro "mais lidas" das
+      listagens também não ordena nada. Precisa de contador de visualizações;
+      até lá, o honesto é trocar o rótulo.
+- [ ] **Temperatura do topo é `"32°C"` fixo** (`top-bar.tsx`). Não vira campo
+      editável (D12): exige uma porta `Weather` com provedor real, senão é o
+      cliente digitando a temperatura do dia.
+- [ ] **`packages/api` não é verificado**: o `package.json` tem `"scripts": {}`,
+      sem `check-types` — o pacote dos routers e das permissões nunca passa pelo
+      `tsc` no CI. O que o `apps/web` importa é verificado de carona; o resto,
+      não. Ligar pode revelar erros acumulados, então merece commit próprio.
 - [ ] **Excluir imagem da biblioteca**: o router de mídia só tem
       `requestUpload`, `register`, `library` e `get`. Um envio errado fica lá
       para sempre e a biblioteca só cresce. Precisa apagar no storage **e** na
