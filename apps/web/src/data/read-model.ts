@@ -1,5 +1,10 @@
 import "server-only";
+import {
+	articleDeps,
+	dispatchEditorialEvents,
+} from "@portal-app/api/editorial";
 import { createPrismaClient } from "@portal-app/db";
+import { publishDueScheduled } from "@portal-app/editorial";
 import { env } from "@portal-app/env/server";
 import { SiteSettings, type SiteSettingsData } from "@portal-app/settings";
 import { cache } from "react";
@@ -244,7 +249,48 @@ const loadMedia = cache(async (): Promise<Map<string, MediaInfo>> => {
 	);
 });
 
+/**
+ * Rede de segurança do agendamento: publica o que já venceu, na hora de ler.
+ *
+ * O gatilho oficial é o cron (`/api/cron/publish-scheduled`). Este aqui existe
+ * porque agendamento é uma promessa feita ao jornalista, e ela não pode depender
+ * de UMA peça de infraestrutura estar de pé: cron não configurado, plano da
+ * hospedagem que só aceita cron diário, serviço externo fora do ar, troca de
+ * biblioteca no meio do caminho — em qualquer um desses casos a matéria marcada
+ * para as 6h continua saindo.
+ *
+ * Fica no caminho de leitura de propósito. Como roda ANTES de listar, a matéria
+ * que acabou de vencer aparece no MESMO render — não há intervalo entre publicar
+ * e estar no ar. O custo é uma consulta indexada por revalidação (no máximo uma
+ * por página por minuto, pelo `revalidate = 60`), e nada é escrito quando não há
+ * nada vencido.
+ *
+ * Limite conhecido, e aceitável: sem tráfego nenhum, nada revalida e nada
+ * publica. Um portal sem visitante também não tem quem veja a matéria — e o cron
+ * cobre justamente esse caso.
+ *
+ * `safely` mantém a regra da casa: falha aqui não derruba a página, e o build
+ * sem banco continua passando.
+ */
+const publishDueScheduledOnRead = cache(async (): Promise<void> => {
+	await safely(
+		"publicar-agendadas",
+		async () => {
+			const published = await publishDueScheduled(articleDeps);
+			if (published.length > 0) {
+				// Sem isto os eventos ficariam parados no outbox e a auditoria não
+				// registraria a publicação.
+				await dispatchEditorialEvents();
+			}
+			return published.length;
+		},
+		0,
+	);
+});
+
 const loadPublished = cache(async (): Promise<Article[]> => {
+	await publishDueScheduledOnRead();
+
 	const [sections, tagSlugs, media] = await Promise.all([
 		loadSections(),
 		loadTagSlugs(),
