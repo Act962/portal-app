@@ -65,8 +65,9 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 
 | Item | Razão | Risco se ficar |
 |---|---|---|
-| **Testes do serializador do TipTap** | Bloco A entregue sem testes novos, a pedido | Uma regressão no `docToBlocks` quebra o autosave silenciosamente. É o teste mais barato e mais valioso que falta: `docToBlocks(blocksToDoc(b)) ≡ b` |
-| **Testes de router** para os dois defeitos de autorização corrigidos | idem | Nada impede a regressão voltar |
+| **Testes do serializador do TipTap** | Bloco A entregue sem testes novos, a pedido | Uma regressão no `docToBlocks` quebra o autosave silenciosamente. **Esqueleto pronto** em `apps/web/tests/unit/serialize.test.ts` (13 `it.todo` + 1 caso de fumaça); falta preencher |
+| **Testes de router** para os dois defeitos de autorização corrigidos | idem | Nada impede a regressão voltar. **Esqueleto** em `packages/api/tests/unit/authorization.test.ts` — implementar exige antes tornar a raiz de composição injetável (`createAppRouter(deps)` no lugar dos singletons de módulo em `staff.ts`), senão o teste vira integração |
+| **Testes de formatação de data** | idem | `apps/web/tests/unit/format.test.ts` — módulo que já quebrou duas vezes em produção; os dois casos de fumaça cobrem esse par, o resto é `it.todo` |
 | **`next/image` no painel e no portal** | Falta `images.remotePatterns` para o host do R2 | Imagens servidas sem otimização; pesa no Core Web Vitals |
 | **Paginação por cursor (P12)** | Read model carrega tudo em memória | Só incomoda com muitas matérias; hoje é aceitável |
 | **Invalidação por evento** (Fase 4, Etapa 5) | Feito o mínimo: `revalidate = 60` no portal. Faltam o consumidor do outbox chamando `revalidateTag` e o Redis | Matéria publicada demora até 1 min para entrar no ar, e o portal consulta o banco de tempos em tempos mesmo sem novidade. Antes disto, as páginas eram **congeladas no build** e matéria nova só aparecia com um redeploy |
@@ -91,8 +92,15 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 
 ## Corrigido de passagem (achado ao semear)
 
-Duas coisas só apareceram quando o portal passou a ter conteúdo real — com as
-fixtures antigas nenhuma das duas dava sinal:
+Três coisas só apareceram quando o portal passou a ter conteúdo real — com as
+fixtures antigas nenhuma das três dava sinal. **Todas o mesmo defeito de fundo:**
+uma data medida contra um instante congelado (`FIXTURE_NOW`, 3 de agosto) em vez
+do relógio. É por isso que a formatação de data agora tem esqueleto de teste.
+
+- **A data do cabeçalho estava parada em 3 de agosto**, em todas as páginas, e o
+  ano do rodapé vinha da mesma constante. Corrigido; com ele saíram as últimas
+  fixtures (`articles.ts`, `sections.ts`, `authors.ts` — 420 linhas de notícia
+  falsa que só seguiam no bundle por causa dessa constante).
 
 - **Toda matéria aparecia como "há 1 min".** O cálculo de tempo relativo media
   contra um instante fixo herdado das fixtures (`FIXTURE_NOW`, 3 de agosto), não

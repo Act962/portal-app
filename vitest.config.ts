@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -6,6 +7,17 @@ import { defineConfig } from "vitest/config";
  * Testcontainers. Ver docs/testing-strategy.md §7.
  */
 export default defineConfig({
+	/**
+	 * O alias `@/` do `apps/web`. O tsconfig do app já o conhece, mas o vitest
+	 * roda da raiz e não lê `paths` — sem isto, o primeiro teste de um módulo do
+	 * app falha no import, e o custo aparece justamente na hora de escrever o
+	 * teste. Fica aqui, e não dentro de um project, para valer nos dois.
+	 */
+	resolve: {
+		alias: {
+			"@": fileURLToPath(new URL("./apps/web/src", import.meta.url)),
+		},
+	},
 	test: {
 		projects: [
 			{

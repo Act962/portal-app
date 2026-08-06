@@ -105,6 +105,37 @@ None of the internal packages (`api`, `auth`, `db`, `env`, `ui`) have a build st
 - Tailwind v4 `@theme` tokens live in `packages/ui/src/styles/globals.css`. Gotcha: the `--spacing-*` namespace also generates `inline-size` utilities, so never name a spacing token after a display keyword (`block`/`flex`/`grid`) — `--spacing-block` would emit an `.inline-block { inline-size: … }` that collides with the real `display: inline-block` utility.
 - `next/font` variables (Archivo/Lora/IBM Plex Mono) must be set on `<html>`, not `<body>` — `--font-sans` is declared at `:root`, so a `<body>`-scoped variable renders the fallback (Times New Roman) instead.
 
+## Testes — dívida assumida na entrega (REGRA)
+
+A partir da Fase 5, features estão indo para produção **sem teste**, por decisão
+explícita: o produto precisava ser entregue. A dívida **vai ser paga** — não é
+"sem teste", é "teste depois". Duas regras existem para que pagar depois não
+custe mais caro do que teria custado escrever na hora:
+
+**1. Todo código novo nasce testável.** A lógica pura sai do componente e vira
+módulo `.ts` sem JSX e sem React — o modelo é
+`apps/web/src/components/editorial/rich-text/serialize.ts`. Nada de `new Date()`,
+`Math.random()` ou I/O escondido dentro de uma regra: o relógio e o id entram por
+parâmetro ou pelas portas `Clock`/`IdGenerator` do shared-kernel (é o que já faz
+`formatRelativeTime(iso, now)`), e efeito colateral fica atrás de porta. Se para
+testar é preciso montar componente, subir banco ou congelar o relógio global, a
+regra está no lugar errado — mova antes de seguir.
+
+**2. Toda entrega sem teste deixa o esqueleto pronto.** Cria-se o arquivo em
+`tests/unit/` com cada caso escrito como `it.todo("...")`. O `it.todo` é o
+registro **executável** do que falta: aparece no relatório do vitest a cada
+rodada, ao contrário de um TODO em comentário, que ninguém relê. Escrever o
+esqueleto na hora é o momento em que ainda se lembra dos casos-limite — que é
+justamente o que se perde ao adiar.
+
+Esqueletos abertos hoje: `apps/web/tests/unit/` (serializador do TipTap,
+formatação de data) e `packages/api/tests/unit/` (autorização dos routers).
+Estado detalhado em `docs/pendencias.md`.
+
+**A régua de cobertura do domínio (95%) não se baixa** para acomodar código novo
+— quando `body.ts` derrubou a cobertura, a decisão foi escrever o teste, não
+afrouxar o limite. O domínio é exatamente o que a régua existe para proteger.
+
 ## Code style
 
 - Formatting/linting is Biome (`biome.json`), not ESLint/Prettier. Run `pnpm run check` to auto-fix.
