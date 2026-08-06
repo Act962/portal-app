@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { siteConfig } from "@/config/site";
-import { FIXTURE_NOW } from "@/data/articles";
 import type { Section } from "@/data/types";
 import { routes } from "@/lib/routes";
 
@@ -75,8 +74,8 @@ export function SiteFooter({ sections }: { sections: Section[] }) {
 			<div className="border-white/15 border-t">
 				<Container className="flex flex-wrap justify-between gap-2 py-3.5 font-mono text-[9.5px] text-on-navy-dim tracking-[0.08em] md:text-[10px]">
 					<span>
-						© {FIXTURE_NOW.getFullYear()} {siteConfig.name.toUpperCase()} ·
-						TODOS OS DIREITOS RESERVADOS
+						© {new Date().getFullYear()} {siteConfig.name.toUpperCase()} · TODOS
+						OS DIREITOS RESERVADOS
 					</span>
 					<span className="hidden md:inline">{siteConfig.legal}</span>
 				</Container>
