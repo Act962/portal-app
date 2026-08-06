@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm --filter @portal-app/db exec prisma migrate deploy; fi && pnpm turbo run build -F web"
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm --filter @portal-app/db exec prisma migrate deploy; fi && pnpm turbo run build -F web",
+  "crons": [
+    {
+      "path": "/api/cron/publish-scheduled",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

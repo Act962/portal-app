@@ -39,10 +39,13 @@ pooler, a migração usa a direta. É o passo que mais dá problema quando pulad
    Sem isso o envio de imagem trava em 0% — o upload vai do navegador direto
    para o R2.
 
-### 3 · Gere o segredo de autenticação
+### 3 · Gere os segredos
+
+Dois, um para cada finalidade — não reaproveite o mesmo valor:
 
 ```bash
-openssl rand -base64 32
+openssl rand -base64 32   # BETTER_AUTH_SECRET
+openssl rand -base64 24   # CRON_SECRET
 ```
 
 ### 4 · Vercel — variáveis de ambiente
@@ -56,6 +59,7 @@ Em *Settings → Environment Variables*, ambiente **Production**:
 | `BETTER_AUTH_SECRET` | o que saiu do passo 3 |
 | `BETTER_AUTH_URL` | `https://seu-dominio` |
 | `CORS_ORIGIN` | `https://seu-dominio` |
+| `CRON_SECRET` | outro segredo gerado (mín. 16 caracteres) — ver §3 |
 | `S3_ENDPOINT` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
 | `S3_REGION` | `auto` |
 | `S3_ACCESS_KEY_ID` | do token do passo 2 |
@@ -223,7 +227,52 @@ carregar no portal, está certo. Se o envio travar em 0%, é CORS.
 
 ---
 
-## 3. Conteúdo inicial (seed)
+## 3. Publicação automática das matérias agendadas
+
+O painel deixa marcar uma matéria para sair às 6h. Quem efetivamente publica é
+um **gatilho externo** batendo nesta rota:
+
+```
+GET /api/cron/publish-scheduled
+Authorization: Bearer $CRON_SECRET
+```
+
+Ela publica tudo que venceu, despacha os eventos (auditoria inclusa) e responde
+`{"published": N, "ids": [...]}`. É idempotente: chamar de novo sem nada vencido
+devolve `0`.
+
+O agendamento já está versionado no `vercel.json` — a cada 5 minutos:
+
+```json
+"crons": [{ "path": "/api/cron/publish-scheduled", "schedule": "*/5 * * * *" }]
+```
+
+> ⚠️ **Cadastre `CRON_SECRET` na Vercel.** Sem a variável a rota responde **503 e
+> não publica nada** — de propósito: um endpoint que muda o portal não pode ficar
+> aberto na internet. Com a variável cadastrada, a Vercel manda o header sozinha.
+
+### Se o plano for Hobby
+
+O plano Hobby da Vercel **só aceita cron uma vez por dia** — o deploy recusa o
+`*/5`. Duas saídas:
+
+- trocar o schedule por algo diário (`"0 9 * * *"`), aceitando que agendar só
+  funciona naquele horário; ou
+- **dirigir de fora**: qualquer agendador que faça um GET com o header serve —
+  cron-job.org, um `curl` no crontab de um VPS, um `node-cron`. A rota foi feita
+  burra exatamente para isso, e essa saída não amarra o produto à Vercel.
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://seu-dominio/api/cron/publish-scheduled
+```
+
+O botão **"Publicar agendadas vencidas"**, no menu da lista de matérias,
+continua existindo — é o disparo manual, útil para testar e para não ficar
+refém do cron.
+
+---
+
+## 4. Conteúdo inicial (seed)
 
 Para o portal não nascer vazio:
 
@@ -251,11 +300,11 @@ capa em cada matéria.
 
 ---
 
-## 4. Checklist de um deploy limpo
+## 5. Checklist de um deploy limpo
 
 1. [ ] Variáveis cadastradas na Vercel: `DATABASE_URL` (**com** `-pooler`),
        `DIRECT_URL` (**sem** `-pooler`), `BETTER_AUTH_SECRET`,
-       `BETTER_AUTH_URL`, `CORS_ORIGIN`, `S3_*`.
+       `BETTER_AUTH_URL`, `CORS_ORIGIN`, `CRON_SECRET`, `S3_*`.
 2. [ ] `BETTER_AUTH_SECRET` com no mínimo 32 caracteres, **gerado para produção**
        (`openssl rand -base64 32`) — nunca o do `.env.example`.
 3. [ ] `BETTER_AUTH_URL` e `CORS_ORIGIN` apontando para o domínio real.
@@ -263,8 +312,10 @@ capa em cada matéria.
 5. [ ] `prisma migrate status` sem migrations pendentes.
 6. [ ] CORS do bucket liberando `PUT` do domínio do painel.
 7. [ ] `S3_PUBLIC_URL` apontando para o bucket (é o prefixo das imagens).
-8. [ ] Seed rodado uma vez (se o portal estiver vazio).
-9. [ ] Primeiro acesso ao `/login` → criar a conta do dono. **O primeiro usuário
+8. [ ] `CRON_SECRET` cadastrada — confira chamando a rota do §3 à mão: tem de
+       responder `{"published":0,...}`, e **não** `503`.
+9. [ ] Seed rodado uma vez (se o portal estiver vazio).
+10. [ ] Primeiro acesso ao `/login` → criar a conta do dono. **O primeiro usuário
        do sistema nasce ADMIN** (Decisão D2 da Fase 1).
 
 > ⚠️ Enquanto não existir convite (Bloco B da Fase 5), **qualquer pessoa que

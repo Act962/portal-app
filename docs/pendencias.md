@@ -1,6 +1,6 @@
 # Pendências — o que falta para o produto ficar completo
 
-> **Atualizado:** 2026-08-05.
+> **Atualizado:** 2026-08-06.
 > Lista única e priorizada do que está em aberto, para a entrega em andamento.
 > Estado por fase em [`proximos-passos.md`](./proximos-passos.md); escopo em
 > [`specs/`](./specs/); operação em [`deploy.md`](./deploy.md).
@@ -20,6 +20,9 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 | B2 | ~~Capa das matérias do seed~~ | ✅ **Resolvido**: o seed distribui, em rodízio, 6 imagens que já estão no bucket do R2. Depende de `S3_PUBLIC_URL` apontar para o bucket. | `packages/db/prisma/seed.mjs` (`IMAGENS`) |
 | B3 | **Migrations no deploy** | ✅ **Resolvido**: `pnpm db:deploy` criado. Falta **ligar no build command** da hospedagem. | [`deploy.md`](./deploy.md) §1 |
 | B4 | **R2 em produção** | ✅ **Código pronto** (adapter S3 serve R2 sem mudança). Falta cadastrar as variáveis e o **CORS de `PUT`** no bucket — sem ele, o upload falha. | [`deploy.md`](./deploy.md) §2 |
+| B5 | **Sem recuperação de senha** | Quem esquece a senha fica trancado para fora **em definitivo**: não há "esqueci minha senha", e o admin também não tem como redefinir a de ninguém. Basta uma pessoa na redação esquecer para virar chamado de suporte sem saída. | Nada implementado — nem rota, nem procedure |
+| B6 | ~~"Anúncios" e "Configurações" davam 404~~ | ✅ **Resolvido**: os dois itens saíram da navegação até as telas existirem. Apontavam para rotas inexistentes, e só o ADMIN — o dono do portal — os enxergava. | `apps/web/src/lib/admin-nav.ts` |
+| B7 | ~~Agendamento não publicava sozinho~~ | ✅ **Resolvido**: `GET /api/cron/publish-scheduled`, autenticado por `CRON_SECRET`, agendado no `vercel.json` a cada 5 min. Antes, o único gatilho era um clique no painel — matéria marcada para as 6h esperava alguém lembrar. | [`deploy.md`](./deploy.md) §3 |
 
 ---
 
@@ -32,6 +35,10 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
       serviço de e-mail — restrição de infra auto-hospedável.
 - [ ] **Fechar o auto-cadastro**: passar a provisionar membro **só com convite
       válido**, exceto o primeiro usuário do sistema.
+- [ ] **Redefinição de senha pelo admin** (resolve B5): sai de graça junto do
+      convite — é o mesmo token com hash e validade, mudando só o efeito (trocar
+      a senha em vez de criar o membro). Sem serviço de e-mail: o admin gera o
+      link e entrega pelo canal que quiser.
 - [ ] **Reativar membro** — só existe desativar.
 - [ ] **Configurações do site**: a permissão `settings:manage` existe desde a
       Fase 1 **sem nada atrás**. Falta o agregado `SiteSettings` (nome, logo,
@@ -44,6 +51,13 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
       `packages/ui` não pode consultar banco.
 - [ ] Métricas de impressão/clique ficam para depois (exigem rota de tracking e
       cuidado com cache).
+
+### Avulso
+- [ ] **Excluir imagem da biblioteca**: o router de mídia só tem
+      `requestUpload`, `register`, `library` e `get`. Um envio errado fica lá
+      para sempre e a biblioteca só cresce. Precisa apagar no storage **e** na
+      linha do banco, e antes disso checar se alguma matéria usa a imagem —
+      capa ou bloco do corpo — senão o portal passa a servir imagem quebrada.
 
 ---
 
@@ -92,10 +106,15 @@ fixtures antigas nenhuma das duas dava sinal:
 
 ## Ordem sugerida, dada a pressa
 
-1. **Ligar `pnpm db:deploy` no build** e **configurar o R2** — sem isso não há
-   produção funcionando (B3, B4). Ambos são configuração, não código.
-2. **Rodar o seed** para o portal não abrir vazio.
-3. **Convite + fechar auto-cadastro** (B1) — é a única pendência de *segurança*
+Os passos de colocar no ar (migrations, R2, seed) estão **feitos** — o portal
+está em produção com conteúdo. O que resta:
+
+1. **Cadastrar `CRON_SECRET` na Vercel.** Sem ela a rota do agendamento responde
+   503 e as matérias marcadas continuam não saindo sozinhas. É uma variável, não
+   é código — mas sem ela o B7 não vale nada.
+2. **Convite + fechar o auto-cadastro** (B1) — a única pendência de *segurança*
    antes de divulgar o endereço do painel.
+3. **Redefinição de senha** (B5) — vai junto do convite, mesmo mecanismo de
+   token, e evita o primeiro chamado de suporte sem saída.
 4. **Testes do serializador** — barato, e protege o que mais dói quebrar.
 5. Banners, quando houver anunciante.

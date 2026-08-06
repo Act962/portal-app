@@ -9,6 +9,11 @@ export const env = createEnv({
     BETTER_AUTH_URL: z.url(),
     CORS_ORIGIN: z.url(),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+    // Senha do gatilho de publicação das matérias agendadas
+    // (`/api/cron/publish-scheduled`). Opcional porque dev, build e CI não
+    // precisam dela — mas SEM ela a rota se recusa a rodar, em vez de ficar
+    // aberta: é um endpoint que muda o estado do portal.
+    CRON_SECRET: z.string().min(16).optional(),
     // Armazenamento de mídia (S3-compatível). Defaults miram o MinIO local, para
     // dev/build/CI funcionarem sem configuração; produção (R2) sobrescreve tudo.
     S3_ENDPOINT: z.url().default("http://localhost:9000"),
