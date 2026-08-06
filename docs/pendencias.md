@@ -56,6 +56,20 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 - [ ] Métricas de impressão/clique ficam para depois (exigem rota de tracking e
       cuidado com cache).
 
+### Sobrou da spec 05b (configurações)
+- [ ] **SEO e feeds ainda leem do arquivo**: `lib/structured-data.ts`,
+      `lib/feed.ts`, `robots.ts`, `sitemap*.xml` e as rotas de RSS usam
+      `siteConfig.url/name/description/locale`. O `<title>` e o `og:*` da raiz
+      já migraram; estes ficaram porque mexem em URL canônica e sitemap, e um
+      erro ali some do Google em silêncio — merece verificação própria. Na
+      prática só divergem se o cliente trocar nome ou domínio.
+- [ ] **A frase do rodapé** ("Notícias do Piauí 24 horas no ar, em todo lugar")
+      segue no código: é copy, e o modelo não tem campo para ela. Criar um custa
+      outra migration; entra junto do próximo campo que precisar.
+- [ ] **Tela de configurações não foi verificada visualmente** — entrar no
+      painel exigiria criar conta e digitar senha. Vale um olhar humano na
+      primeira vez que abrir.
+
 ### Avulso
 - [ ] **Grade de programação da rádio**: programa, horário, locutor e "no ar
       agora" são fixture (`apps/web/src/data/radio.ts`). É coleção com entidade
