@@ -1,8 +1,8 @@
 import {
-	type MediaAsset,
-	MEDIA_TYPES,
 	getAsset,
 	listLibrary,
+	MEDIA_TYPES,
+	type MediaAsset,
 	registerAsset,
 	requestUpload,
 } from "@portal-app/media";
@@ -30,14 +30,18 @@ function assetDto(asset: MediaAsset) {
 		altText: asset.altText?.value ?? null,
 		width: asset.dimensions?.width ?? null,
 		height: asset.dimensions?.height ?? null,
-		focalPoint: asset.focalPoint ? { x: asset.focalPoint.x, y: asset.focalPoint.y } : null,
+		focalPoint: asset.focalPoint
+			? { x: asset.focalPoint.x, y: asset.focalPoint.y }
+			: null,
 	};
 }
 
 export const mediaRouter = router({
 	/** Passo 1 do upload: devolve a URL PUT pré-assinada e a storageKey. */
 	requestUpload: staffProcedure
-		.input(z.object({ filename: z.string().min(1), contentType: z.string().min(1) }))
+		.input(
+			z.object({ filename: z.string().min(1), contentType: z.string().min(1) }),
+		)
 		.mutation(({ input }) => requestUpload(input, mediaDeps)),
 
 	/** Passo 2: registra o asset (o domínio valida os invariantes A29). */
@@ -60,7 +64,10 @@ export const mediaRouter = router({
 		.mutation(async ({ input }) => {
 			const result = await registerAsset(input, mediaDeps);
 			if (result.isErr()) {
-				throw new TRPCError({ code: "BAD_REQUEST", message: result.unwrapErr().message });
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: result.unwrapErr().message,
+				});
 			}
 			return assetDto(result.unwrap());
 		}),
@@ -69,13 +76,20 @@ export const mediaRouter = router({
 	library: staffProcedure
 		.input(
 			z
-				.object({ search: z.string().optional(), type: z.enum(MEDIA_TYPES).optional() })
+				.object({
+					search: z.string().optional(),
+					type: z.enum(MEDIA_TYPES).optional(),
+				})
 				.optional(),
 		)
-		.query(async ({ input }) => (await listLibrary(input ?? {}, mediaDeps)).map(assetDto)),
+		.query(async ({ input }) =>
+			(await listLibrary(input ?? {}, mediaDeps)).map(assetDto),
+		),
 
-	get: staffProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
-		const asset = await getAsset(input.id, mediaDeps);
-		return asset ? assetDto(asset) : null;
-	}),
+	get: staffProcedure
+		.input(z.object({ id: z.string() }))
+		.query(async ({ input }) => {
+			const asset = await getAsset(input.id, mediaDeps);
+			return asset ? assetDto(asset) : null;
+		}),
 });

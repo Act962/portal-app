@@ -1,12 +1,19 @@
 import { Container } from "@portal-app/ui/components/container";
 
-import { siteConfig } from "@/config/site";
+import { SiteLink } from "@/components/layout/site-link";
+import { loadSiteSettings } from "@/data/queries";
 import { formatLongDate } from "@/lib/format";
 
-/** Placeholder until a weather provider is wired up. */
+/**
+ * Valor fixo, mantido em tela por decisão do cliente (spec 05b, D12): o
+ * cabeçalho fica visualmente completo agora e troca-se por dado real quando
+ * houver uma porta `Weather`. A contrapartida está registrada — 32 °C todo dia,
+ * inclusive quando chove.
+ */
 const CURRENT_TEMPERATURE = "32°C";
 
-export function TopBar() {
+export async function TopBar() {
+	const site = await loadSiteSettings();
 	// A data de HOJE, não a de um instante herdado das fixtures — que deixava o
 	// cabeçalho parado em 3 de agosto de 2026 em todas as páginas. É o mesmo
 	// defeito que fazia toda matéria aparecer como "há 1 min".
@@ -17,6 +24,10 @@ export function TopBar() {
 	// atraso. `formatLongDate` já formata no fuso da redação, e não no do
 	// servidor — a data não pula quando a Vercel roda em UTC.
 	const today = new Date();
+
+	// Só os dois primeiros que têm destino: a barra é estreita e o rodapé já
+	// lista todos.
+	const shortcuts = site.institutional.filter((link) => link.href).slice(0, 2);
 
 	return (
 		// Date, weather and social links are desktop furniture — on a phone they
@@ -30,36 +41,40 @@ export function TopBar() {
 				</span>
 
 				<span>
-					{siteConfig.city.toUpperCase()} — {siteConfig.state} ·{" "}
-					{CURRENT_TEMPERATURE}
+					{site.city.toUpperCase()} — {site.state} · {CURRENT_TEMPERATURE}
 				</span>
 
 				<div className="flex-1" />
 
-				<nav aria-label="Institucional" className="flex items-center gap-4">
-					<a href="#anuncie" className="text-on-navy-muted hover:text-white">
-						ANUNCIE
-					</a>
-					<a href="#redacao" className="text-on-navy-muted hover:text-white">
-						FALE COM A REDAÇÃO
-					</a>
-				</nav>
+				{/* Atalho para os institucionais que JÁ TÊM destino. Antes eram dois
+				    links fixos (`#anuncie`, `#redacao`) apontando para âncoras
+				    inexistentes; agora saem das configurações e, enquanto ninguém
+				    preenche o endereço, a barra simplesmente não os mostra (D9). */}
+				{shortcuts.length > 0 ? (
+					<>
+						<nav aria-label="Institucional" className="flex items-center gap-4">
+							{shortcuts.map((link) => (
+								<SiteLink
+									key={link.label}
+									link={link}
+									className="text-on-navy-muted uppercase hover:text-white"
+								/>
+							))}
+						</nav>
 
-				<span aria-hidden className="text-on-navy-rule">
-					|
-				</span>
+						<span aria-hidden className="text-on-navy-rule">
+							|
+						</span>
+					</>
+				) : null}
 
 				<nav aria-label="Redes sociais" className="flex gap-2">
-					{siteConfig.social.map((network) => (
-						<a
-							key={network.name}
-							href={network.href}
-							rel="noreferrer"
-							target="_blank"
+					{site.social.map((network) => (
+						<SiteLink
+							key={network.label}
+							link={{ ...network, label: network.label.toUpperCase() }}
 							className="text-on-navy-muted hover:text-white"
-						>
-							{network.name.toUpperCase()}
-						</a>
+						/>
 					))}
 				</nav>
 			</Container>

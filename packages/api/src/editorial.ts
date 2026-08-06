@@ -5,7 +5,13 @@ import { PrismaArticleRepository } from "@portal-app/editorial/infrastructure/pr
 import { SystemClock, UuidGenerator } from "@portal-app/shared-kernel";
 import type { ContentUsage } from "@portal-app/taxonomy";
 
-/** Eventos que viram registro de auditoria (A35). */
+/**
+ * Eventos que viram registro de auditoria (A35).
+ *
+ * A lista não é só do editorial: o outbox e o relay são UM só para o sistema
+ * inteiro, então quem quiser ser auditado se inscreve aqui. É o caso do
+ * `SiteSettingsChanged` (spec 05b, D10), que chega pelo mesmo caminho.
+ */
 const AUDITED_EVENTS = [
 	"ArticleSubmittedForReview",
 	"ArticleRejected",
@@ -13,6 +19,7 @@ const AUDITED_EVENTS = [
 	"ArticlePublished",
 	"ArticleUpdated",
 	"ArticleUnpublished",
+	"SiteSettingsChanged",
 ] as const;
 
 /**
@@ -24,7 +31,9 @@ const AUDITED_EVENTS = [
  */
 const prisma = createPrismaClient();
 
-export const articleRepo: ArticleRepository = new PrismaArticleRepository(prisma);
+export const articleRepo: ArticleRepository = new PrismaArticleRepository(
+	prisma,
+);
 
 /** Dependências dos casos de uso do editorial (relógio real em produção). */
 export const articleDeps = {
@@ -46,7 +55,9 @@ class EditorialContentUsage implements ContentUsage {
 }
 
 /** Injetado no `sectionDeps`/`tagDeps` da taxonomia, no lugar do `StubNoUsage`. */
-export const contentUsage: ContentUsage = new EditorialContentUsage(articleRepo);
+export const contentUsage: ContentUsage = new EditorialContentUsage(
+	articleRepo,
+);
 
 /**
  * Barramento de eventos — adapter SÍNCRONO (o default; §5.1). O consumidor de
@@ -79,9 +90,18 @@ export function dispatchEditorialEvents(): Promise<number> {
 /** Registro de auditoria mais recente (A35). DTO plano — o campo Json `detail`
  * fica de fora para não estourar a inferência de tipos do tRPC. */
 export async function listAuditLog(): Promise<
-	Array<{ id: string; action: string; aggregateId: string; occurredAt: Date; createdAt: Date }>
+	Array<{
+		id: string;
+		action: string;
+		aggregateId: string;
+		occurredAt: Date;
+		createdAt: Date;
+	}>
 > {
-	const rows = await prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+	const rows = await prisma.auditLog.findMany({
+		orderBy: { createdAt: "desc" },
+		take: 100,
+	});
 	return rows.map((row) => ({
 		id: row.id,
 		action: row.action,

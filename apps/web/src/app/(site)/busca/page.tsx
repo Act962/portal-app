@@ -5,8 +5,7 @@ import Link from "next/link";
 
 import { NewsRow } from "@/components/news/news-row";
 import { SearchBox } from "@/components/search/search-box";
-import { siteConfig } from "@/config/site";
-import { getLatest, searchArticles } from "@/data/queries";
+import { getLatest, loadSiteSettings, searchArticles } from "@/data/queries";
 import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -27,7 +26,11 @@ export default async function SearchPage({
 }) {
 	const { q } = await searchParams;
 	const query = q?.trim() ?? "";
-	const [results, recent] = await Promise.all([searchArticles(query), getLatest(3)]);
+	const [results, recent, site] = await Promise.all([
+		searchArticles(query),
+		getLatest(3),
+		loadSiteSettings(),
+	]);
 	const hasQuery = query.length > 0;
 
 	return (
@@ -55,7 +58,7 @@ export default async function SearchPage({
 					<section className="mb-section">
 						<h2 className={`${EYEBROW} mb-3`}>Buscas mais frequentes</h2>
 						<div className="flex flex-wrap gap-2">
-							{siteConfig.popularSearches.map((term) => (
+							{site.popularSearches.map((term) => (
 								<Link key={term} href={routes.searchFor(term)}>
 									<Chip className="font-semibold text-brand-navy text-sm">
 										{term}

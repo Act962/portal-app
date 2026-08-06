@@ -147,6 +147,9 @@ importers:
       '@portal-app/identity':
         specifier: workspace:*
         version: link:../../packages/contexts/identity
+      '@portal-app/settings':
+        specifier: workspace:*
+        version: link:../../packages/contexts/settings
       '@portal-app/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -262,6 +265,9 @@ importers:
       '@portal-app/media':
         specifier: workspace:*
         version: link:../contexts/media
+      '@portal-app/settings':
+        specifier: workspace:*
+        version: link:../contexts/settings
       '@portal-app/shared-kernel':
         specifier: workspace:*
         version: link:../shared-kernel

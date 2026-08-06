@@ -1,7 +1,7 @@
 import { createPrismaClient } from "@portal-app/db";
 import { env } from "@portal-app/env/server";
-import { S3MediaStorage } from "@portal-app/media/infrastructure/s3-media-storage";
 import { PrismaMediaRepository } from "@portal-app/media/infrastructure/prisma-media-repository";
+import { S3MediaStorage } from "@portal-app/media/infrastructure/s3-media-storage";
 import { UuidGenerator } from "@portal-app/shared-kernel";
 
 /**

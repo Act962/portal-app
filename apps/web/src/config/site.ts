@@ -1,51 +1,48 @@
-/** Everything about the outlet that is copy, not content. */
+import { DEFAULT_SITE_SETTINGS } from "@portal-app/settings";
+
+/**
+ * Identidade do veículo — os DEFAULTS, não a fonte da verdade (spec 05b, D7).
+ *
+ * A fonte é o banco, lido por `loadSiteSettings()`. Este objeto é o que o portal
+ * mostra antes da primeira edição, e o que preenche qualquer campo que o cliente
+ * ainda não tocou. Os valores vêm de `DEFAULT_SITE_SETTINGS`, no contexto de
+ * configurações, para que portal, painel e banco vazio concordem sobre o mesmo
+ * ponto de partida — editar em dois lugares seria como esperar que não
+ * divergissem.
+ *
+ * O formato aninhado (`radio.*`, `contact.*`) permanece porque os geradores de
+ * SEO e de feed ainda consomem daqui; eles migram para o read model numa etapa
+ * própria (registrada em `docs/pendencias.md`).
+ */
+const d = DEFAULT_SITE_SETTINGS;
+
 export const siteConfig = {
-	name: "Rádio 7 Cidades",
-	shortName: "7 Cidades",
-	tagline: "NOTÍCIAS DO PIAUÍ · 93,9 FM",
-	description:
-		"Notícias do Piauí 24 horas no ar. Política, cidades, economia e esportes de Piracuruca e região, com a Rádio 7 Cidades 93,9 FM.",
-	url: "https://fm7cidades.com",
-	locale: "pt-BR",
-	/**
-	 * Swap this for the official artwork by dropping the file in
-	 * `public/brand/` and pointing this at it — no component changes needed.
-	 */
+	name: d.name,
+	shortName: d.shortName,
+	tagline: d.tagline,
+	description: d.description,
+	url: d.url,
+	city: d.city,
+	state: d.state,
+
+	/** Não é configurável: é o arquivo em `public/`, usado enquanto não há logo
+	 * enviado pela biblioteca de mídia (D8). */
 	logo: "/brand/logo.svg",
-	city: "Piracuruca",
-	state: "PI",
+	locale: "pt-BR",
+
 	radio: {
-		frequency: "93,9 MHz",
-		band: "93,9 FM",
-		/** No stream wired up yet; the player renders its paused state. */
-		streamUrl: null as string | null,
+		frequency: d.radioFrequency,
+		band: d.radioBand,
+		streamUrl: d.radioStreamUrl,
 	},
 	contact: {
-		newsroom: "(86) 3343-1107",
-		whatsapp: "(86) 9 9999-0000",
-		email: "contato@fm7cidades.com",
-		address: "BR-343, km 140 · Piracuruca",
+		newsroom: d.contactNewsroom,
+		whatsapp: d.contactWhatsapp,
+		email: d.contactEmail,
+		address: d.contactAddress,
 	},
-	social: [
-		{ name: "Instagram", href: "https://instagram.com" },
-		{ name: "Facebook", href: "https://facebook.com" },
-		{ name: "YouTube", href: "https://youtube.com" },
-	],
-	institutional: [
-		"Quem somos",
-		"Anuncie na 7 Cidades",
-		"Programação",
-		"Locutores e colunistas",
-		"Enquetes",
-		"Fale com a redação",
-	],
-	legal: "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE USO",
-	popularSearches: [
-		"Concurso público",
-		"Piracuruca",
-		"Eleições 2026",
-		"Vaquejada",
-		"BR-343",
-		"Programação",
-	],
+	social: d.social.map((link) => ({ name: link.label, href: link.href })),
+	institutional: d.institutional,
+	legal: d.legal,
+	popularSearches: d.popularSearches,
 } as const;

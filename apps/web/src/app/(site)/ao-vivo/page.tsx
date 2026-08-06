@@ -8,6 +8,7 @@ import { OnAirDot } from "@/components/radio/on-air-dot";
 import { PlayButton } from "@/components/radio/play-button";
 import { ScheduleList } from "@/components/radio/schedule-list";
 import { siteConfig } from "@/config/site";
+import { loadSiteSettings } from "@/data/queries";
 import { LIVE_SHOW, TRACK_LOG } from "@/data/radio";
 import { formatCompactNumber } from "@/lib/format";
 import { routes } from "@/lib/routes";
@@ -22,7 +23,9 @@ export const metadata: Metadata = {
  * Mobile centres the whole thing like a player screen and lifts the schedule
  * onto a light sheet; desktop splits it into artwork + detail columns.
  */
-export default function LivePage() {
+export default async function LivePage() {
+	const site = await loadSiteSettings();
+
 	return (
 		<div className="bg-brand-navy">
 			<Container className="grid items-start gap-6 py-6 text-center md:gap-12 md:py-major md:text-left lg:grid-cols-[minmax(240px,var(--container-sidebar))_minmax(0,1fr)]">
@@ -49,7 +52,7 @@ export default function LivePage() {
 					<div className="mt-5 flex flex-col items-center gap-2 lg:hidden">
 						<PlayButton size="lg" tone="solid" />
 						<p className="font-mono text-[10px] text-on-navy-muted tracking-[0.12em]">
-							TOQUE PARA OUVIR · {siteConfig.radio.frequency}
+							TOQUE PARA OUVIR · {site.radioFrequency}
 						</p>
 					</div>
 				</div>
@@ -68,7 +71,7 @@ export default function LivePage() {
 								TOQUE PARA OUVIR
 							</p>
 							<p className="mt-1 font-bold text-[15px] text-white">
-								{siteConfig.radio.frequency} ·{" "}
+								{site.radioFrequency} ·{" "}
 								{formatCompactNumber(LIVE_SHOW.listeners)} ouvindo
 							</p>
 						</div>
@@ -113,7 +116,7 @@ export default function LivePage() {
 								Mande seu recado ou pedido de música pelo WhatsApp da rádio
 							</p>
 							<CtaButton variant="secondary" className="lg:bg-brand-red">
-								{siteConfig.contact.whatsapp}
+								{site.contactWhatsapp}
 							</CtaButton>
 						</div>
 

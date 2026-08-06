@@ -1,38 +1,50 @@
 import type { Metadata } from "next";
 
 import "../index.css";
-import { siteConfig } from "@/config/site";
+import { loadSiteSettings } from "@/data/queries";
 import { fontVariables } from "@/lib/fonts";
 
-export const metadata: Metadata = {
-	metadataBase: new URL(siteConfig.url),
-	title: {
-		default: `${siteConfig.name} — Notícias do Piauí`,
-		template: `%s | ${siteConfig.name}`,
-	},
-	description: siteConfig.description,
-	applicationName: siteConfig.name,
-	alternates: {
-		types: {
-			"application/rss+xml": [
-				{ url: "/rss.xml", title: `${siteConfig.name} — Últimas notícias` },
-			],
+/**
+ * Metadata dinâmica (spec 05b): título, descrição e og:* saem do banco.
+ *
+ * Era um objeto estático, o que deixaria a aba do navegador com o nome antigo
+ * depois de o cliente renomear o veículo nas configurações — o tipo de
+ * inconsistência que ele nota no mesmo dia. `loadSiteSettings` é `cache()`, então
+ * isto não custa uma consulta a mais por página.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+	const site = await loadSiteSettings();
+
+	return {
+		metadataBase: new URL(site.url),
+		title: {
+			default: `${site.name} — Notícias do Piauí`,
+			template: `%s | ${site.name}`,
 		},
-	},
-	openGraph: {
-		type: "website",
-		locale: "pt_BR",
-		siteName: siteConfig.name,
-		url: siteConfig.url,
-	},
-	twitter: { card: "summary_large_image" },
-	robots: {
-		index: true,
-		follow: true,
-		// Large previews are effectively a requirement for Google Discover.
-		"max-image-preview": "large",
-	},
-};
+		description: site.description,
+		applicationName: site.name,
+		alternates: {
+			types: {
+				"application/rss+xml": [
+					{ url: "/rss.xml", title: `${site.name} — Últimas notícias` },
+				],
+			},
+		},
+		openGraph: {
+			type: "website",
+			locale: "pt_BR",
+			siteName: site.name,
+			url: site.url,
+		},
+		twitter: { card: "summary_large_image" },
+		robots: {
+			index: true,
+			follow: true,
+			// Large previews are effectively a requirement for Google Discover.
+			"max-image-preview": "large",
+		},
+	};
+}
 
 export default function RootLayout({
 	children,

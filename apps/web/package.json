@@ -15,6 +15,7 @@
     "@portal-app/editorial": "workspace:*",
     "@portal-app/env": "workspace:*",
     "@portal-app/identity": "workspace:*",
+    "@portal-app/settings": "workspace:*",
     "@portal-app/ui": "workspace:*",
     "@prisma/client": "catalog:",
     "@swc/helpers": "^0.5.23",

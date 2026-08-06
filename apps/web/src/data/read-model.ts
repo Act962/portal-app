@@ -1,6 +1,7 @@
 import "server-only";
 import { createPrismaClient } from "@portal-app/db";
 import { env } from "@portal-app/env/server";
+import { SiteSettings, type SiteSettingsData } from "@portal-app/settings";
 import { cache } from "react";
 
 import type {
@@ -37,6 +38,21 @@ type MediaInfo = {
  * entra na Etapa 5 (Redis).
  */
 const prisma = createPrismaClient();
+
+/**
+ * Configuração do veículo (spec 05b). Uma consulta por render, deduplicada pelo
+ * `cache()` — o cabeçalho, o rodapé e a barra do topo pedem os mesmos dados.
+ *
+ * Linha ausente não é caso especial: `fromStored` mescla sobre os defaults (D7),
+ * então um banco recém-migrado serve o portal completo. É por isso que esta
+ * função não devolve `null` e ninguém precisa tratar "ainda não configurado".
+ */
+export const loadSiteSettings = cache(async (): Promise<SiteSettingsData> => {
+	const row = await prisma.siteSettings.findUnique({
+		where: { id: SiteSettings.ID },
+	});
+	return SiteSettings.fromStored(row).data;
+});
 
 type SectionRow = {
 	id: string;

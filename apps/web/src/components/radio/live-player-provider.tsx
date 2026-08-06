@@ -2,13 +2,15 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 
-import { siteConfig } from "@/config/site";
 import { LIVE_SHOW } from "@/data/radio";
 
 type LivePlayerContextValue = {
 	isPlaying: boolean;
 	/** Programme currently on air, shown next to the transport controls. */
 	showName: string;
+	/** Falso quando não há stream configurado — os controles se desabilitam em
+	 * vez de fingir que tocam. */
+	canPlay: boolean;
 	toggle: () => void;
 };
 
@@ -24,8 +26,15 @@ const LivePlayerContext = createContext<LivePlayerContextValue | null>(null);
  */
 export function LivePlayerProvider({
 	children,
+	streamUrl,
 }: {
 	children: React.ReactNode;
+	/**
+	 * Vem do servidor (spec 05b, D11). É prop, e não leitura direta, porque este
+	 * é o único componente cliente da moldura do portal — e configuração do
+	 * veículo mora no banco, que o cliente não alcança.
+	 */
+	streamUrl: string | null;
 }) {
 	const [isPlaying, setIsPlaying] = useState(false);
 	const audioRef = useRef<HTMLAudioElement>(null);
@@ -49,14 +58,17 @@ export function LivePlayerProvider({
 	const value: LivePlayerContextValue = {
 		isPlaying,
 		showName: LIVE_SHOW.name,
-		toggle: () => setIsPlaying((playing) => !playing),
+		canPlay: Boolean(streamUrl),
+		// Sem stream, o clique não muda nada: melhor um controle inerte do que um
+		// que troca para "tocando" e não emite som.
+		toggle: () => setIsPlaying((playing) => (streamUrl ? !playing : false)),
 	};
 
 	return (
 		<LivePlayerContext.Provider value={value}>
 			{children}
-			{siteConfig.radio.streamUrl ? (
-				<audio ref={audioRef} src={siteConfig.radio.streamUrl} preload="none">
+			{streamUrl ? (
+				<audio ref={audioRef} src={streamUrl} preload="none">
 					<track kind="captions" />
 				</audio>
 			) : null}

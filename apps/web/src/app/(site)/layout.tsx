@@ -8,7 +8,7 @@ import { TopBar } from "@/components/layout/top-bar";
 import { LivePlayerBar } from "@/components/radio/live-player-bar";
 import { LivePlayerProvider } from "@/components/radio/live-player-provider";
 import { JsonLd } from "@/components/seo/json-ld";
-import { getSections, getTicker } from "@/data/queries";
+import { getSections, getTicker, loadSiteSettings } from "@/data/queries";
 import { organizationSchema } from "@/lib/structured-data";
 
 /**
@@ -38,10 +38,14 @@ export const revalidate = 60;
 export default async function SiteLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
-	const [sections, ticker] = await Promise.all([getSections(), getTicker()]);
+	const [sections, ticker, site] = await Promise.all([
+		getSections(),
+		getTicker(),
+		loadSiteSettings(),
+	]);
 
 	return (
-		<LivePlayerProvider>
+		<LivePlayerProvider streamUrl={site.radioStreamUrl}>
 			{/* Bottom padding clears the sticky anchor ad on small screens. */}
 			<div className="flex min-h-svh flex-col bg-canvas pb-[68px] text-ink md:pb-0">
 				<SkipLink />

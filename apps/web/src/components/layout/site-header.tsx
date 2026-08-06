@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { LivePlayerPill } from "@/components/radio/live-player-pill";
 import { siteConfig } from "@/config/site";
+import { loadSiteSettings } from "@/data/queries";
 import { routes } from "@/lib/routes";
 
 const ICON_BUTTON =
@@ -16,7 +17,9 @@ const ICON_BUTTON =
  * navy and compact with icon actions on mobile, white and wide with the live
  * pill and a banner slot from `md` up.
  */
-export function SiteHeader() {
+export async function SiteHeader() {
+	const site = await loadSiteSettings();
+
 	return (
 		<header className="border-hairline bg-brand-navy md:border-b md:bg-surface">
 			<Container className="flex flex-wrap items-center gap-3 py-2 md:gap-6 md:py-4">
@@ -35,14 +38,12 @@ export function SiteHeader() {
 					/>
 					<span className="flex flex-col gap-px md:gap-[3px]">
 						<span className="font-extrabold text-[15px] uppercase leading-none tracking-[-0.01em] md:text-[25px] md:tracking-[-0.025em]">
-							<span className="md:hidden">{siteConfig.shortName}</span>
-							<span className="hidden md:inline">{siteConfig.name}</span>
+							<span className="md:hidden">{site.shortName}</span>
+							<span className="hidden md:inline">{site.name}</span>
 						</span>
 						<span className="font-mono text-[9px] text-on-navy-muted tracking-[0.14em] md:text-[10px] md:text-meta md:tracking-[0.16em]">
-							<span className="md:hidden">
-								NOTÍCIAS · {siteConfig.radio.band}
-							</span>
-							<span className="hidden md:inline">{siteConfig.tagline}</span>
+							<span className="md:hidden">NOTÍCIAS · {site.radioBand}</span>
+							<span className="hidden md:inline">{site.tagline}</span>
 						</span>
 					</span>
 				</Link>

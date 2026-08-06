@@ -2,6 +2,7 @@ import { protectedProcedure, publicProcedure, router } from "../index";
 import { editorialRouter } from "./editorial";
 import { identityRouter } from "./identity";
 import { mediaRouter } from "./media";
+import { settingsRouter } from "./settings";
 import { taxonomyRouter } from "./taxonomy";
 
 export const appRouter = router({
@@ -18,5 +19,6 @@ export const appRouter = router({
 	taxonomy: taxonomyRouter,
 	media: mediaRouter,
 	editorial: editorialRouter,
+	settings: settingsRouter,
 });
 export type AppRouter = typeof appRouter;

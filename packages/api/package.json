@@ -17,6 +17,7 @@
     "@portal-app/env": "workspace:*",
     "@portal-app/identity": "workspace:*",
     "@portal-app/media": "workspace:*",
+    "@portal-app/settings": "workspace:*",
     "@portal-app/shared-kernel": "workspace:*",
     "@portal-app/taxonomy": "workspace:*",
     "@trpc/client": "catalog:",

@@ -23,7 +23,7 @@ export function PlayButton({
 	tone = "on-red",
 	className,
 }: PlayButtonProps) {
-	const { isPlaying, toggle, showName } = useLivePlayer();
+	const { isPlaying, toggle, showName, canPlay } = useLivePlayer();
 	const spec = SIZES[size];
 	const Icon = isPlaying ? Pause : Play;
 
@@ -31,17 +31,24 @@ export function PlayButton({
 		<button
 			type="button"
 			onClick={toggle}
+			// Sem stream configurado o controle se desabilita e diz por quê, em vez
+			// de aceitar o clique e não emitir som (spec 05b, D11).
+			disabled={!canPlay}
+			title={canPlay ? undefined : "Transmissão ao vivo ainda não configurada"}
 			aria-pressed={isPlaying}
 			aria-label={
-				isPlaying
-					? `Pausar transmissão de ${showName}`
-					: `Ouvir ao vivo: ${showName}`
+				canPlay
+					? isPlaying
+						? `Pausar transmissão de ${showName}`
+						: `Ouvir ao vivo: ${showName}`
+					: "Transmissão ao vivo ainda não configurada"
 			}
 			className={cn(
 				"flex shrink-0 items-center justify-center rounded-full transition-transform focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 active:scale-95",
 				tone === "on-red"
 					? "bg-white text-brand-red"
 					: "bg-brand-red text-white",
+				!canPlay && "cursor-not-allowed opacity-50",
 				spec.button,
 				className,
 			)}

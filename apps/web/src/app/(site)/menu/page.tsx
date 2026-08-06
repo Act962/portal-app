@@ -2,9 +2,9 @@ import { Container } from "@portal-app/ui/components/container";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { SiteLink } from "@/components/layout/site-link";
 import { SectionGrid } from "@/components/news/section-grid";
-import { siteConfig } from "@/config/site";
-import { getSections } from "@/data/queries";
+import { getSections, loadSiteSettings } from "@/data/queries";
 import { routes } from "@/lib/routes";
 
 /** Navegação principal do portal, exposta por completo no menu (P11). */
@@ -32,7 +32,10 @@ const EYEBROW =
  * the back button, and it works before hydration.
  */
 export default async function MenuPage() {
-	const sections = await getSections();
+	const [sections, site] = await Promise.all([
+		getSections(),
+		loadSiteSettings(),
+	]);
 	return (
 		<div className="bg-brand-navy">
 			<Container className="py-5 pb-8">
@@ -63,17 +66,12 @@ export default async function MenuPage() {
 
 				<h2 className={EYEBROW}>SERVIÇOS</h2>
 				<ul className="flex flex-col">
-					{siteConfig.institutional.map((item) => (
-						<li key={item} className="border-white/15 border-t">
-							<a
-								href="#institucional"
+					{site.institutional.map((item) => (
+						<li key={item.label} className="border-white/15 border-t">
+							<SiteLink
+								link={item}
 								className="flex min-h-11 items-center justify-between gap-3 py-3 font-semibold text-[15px] text-white hover:text-white"
-							>
-								{item}
-								<span aria-hidden className="text-on-navy-muted">
-									→
-								</span>
-							</a>
+							/>
 						</li>
 					))}
 				</ul>

@@ -2,7 +2,9 @@ import { Container } from "@portal-app/ui/components/container";
 import Image from "next/image";
 import Link from "next/link";
 
+import { SiteLink } from "@/components/layout/site-link";
 import { siteConfig } from "@/config/site";
+import { loadSiteSettings } from "@/data/queries";
 import type { Section } from "@/data/types";
 import { routes } from "@/lib/routes";
 
@@ -10,7 +12,18 @@ const HEADING =
 	"mb-2.5 font-mono text-[9px] tracking-[0.16em] text-white md:text-[9.5px]";
 const LINK = "text-on-navy-muted hover:text-white";
 
-export function SiteFooter({ sections }: { sections: Section[] }) {
+export async function SiteFooter({ sections }: { sections: Section[] }) {
+	const site = await loadSiteSettings();
+
+	// Só as linhas preenchidas: um rótulo "WhatsApp ·" sem número ao lado é pior
+	// do que a ausência da linha.
+	const contact = [
+		site.contactNewsroom ? `Redação · ${site.contactNewsroom}` : null,
+		site.contactWhatsapp ? `WhatsApp · ${site.contactWhatsapp}` : null,
+		site.contactEmail,
+		site.contactAddress,
+	].filter((line): line is string => Boolean(line));
+
 	return (
 		<footer className="mt-stack bg-brand-navy text-on-navy-muted md:mt-major">
 			<Container className="grid grid-cols-2 gap-x-5 gap-y-6 py-6 md:gap-8 md:py-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
@@ -25,12 +38,16 @@ export function SiteFooter({ sections }: { sections: Section[] }) {
 							className="block size-8 rounded-lg md:size-11 md:rounded-[10px]"
 						/>
 						<span className="font-extrabold text-sm text-white uppercase md:text-[17px]">
-							{siteConfig.name}
+							{site.name}
 						</span>
 					</div>
+					{/* A frase final é copy de rodapé, não identidade: o modelo não tem
+					    campo para ela e inventar um agora custaria outra migration.
+					    Registrado em pendencias.md. */}
 					<p className="max-w-[38ch] font-serif text-[13px] leading-relaxed md:text-sm">
-						{siteConfig.radio.frequency} · {siteConfig.city} —{" "}
-						{siteConfig.state}. Notícias do Piauí 24 horas no ar, em todo lugar.
+						{site.radioFrequency ? `${site.radioFrequency} · ` : ""}
+						{site.city} — {site.state}. Notícias do Piauí 24 horas no ar, em
+						todo lugar.
 					</p>
 				</div>
 
@@ -50,11 +67,9 @@ export function SiteFooter({ sections }: { sections: Section[] }) {
 				<nav aria-label="Institucional">
 					<h2 className={HEADING}>INSTITUCIONAL</h2>
 					<ul className="flex flex-col gap-1.5 text-[12.5px] md:text-[13.5px]">
-						{siteConfig.institutional.map((item) => (
-							<li key={item}>
-								<a href="#institucional" className={LINK}>
-									{item}
-								</a>
+						{site.institutional.map((item) => (
+							<li key={item.label}>
+								<SiteLink link={item} className={LINK} />
 							</li>
 						))}
 					</ul>
@@ -63,10 +78,9 @@ export function SiteFooter({ sections }: { sections: Section[] }) {
 				<div className="col-span-2 lg:col-span-1">
 					<h2 className={HEADING}>CONTATO</h2>
 					<ul className="flex flex-col gap-1.5 text-[12.5px] md:text-[13.5px]">
-						<li>Redação · {siteConfig.contact.newsroom}</li>
-						<li>WhatsApp · {siteConfig.contact.whatsapp}</li>
-						<li>{siteConfig.contact.email}</li>
-						<li>{siteConfig.contact.address}</li>
+						{contact.map((line) => (
+							<li key={line}>{line}</li>
+						))}
 					</ul>
 				</div>
 			</Container>
@@ -74,10 +88,12 @@ export function SiteFooter({ sections }: { sections: Section[] }) {
 			<div className="border-white/15 border-t">
 				<Container className="flex flex-wrap justify-between gap-2 py-3.5 font-mono text-[9.5px] text-on-navy-dim tracking-[0.08em] md:text-[10px]">
 					<span>
-						© {new Date().getFullYear()} {siteConfig.name.toUpperCase()} · TODOS
-						OS DIREITOS RESERVADOS
+						© {new Date().getFullYear()} {site.name.toUpperCase()} · TODOS OS
+						DIREITOS RESERVADOS
 					</span>
-					<span className="hidden md:inline">{siteConfig.legal}</span>
+					{site.legal ? (
+						<span className="hidden md:inline">{site.legal}</span>
+					) : null}
 				</Container>
 			</div>
 		</footer>

@@ -31,6 +31,7 @@ export {
 	getTag,
 	getTags,
 	getTicker,
+	loadSiteSettings,
 	searchArticles,
 } from "./read-model";
 
