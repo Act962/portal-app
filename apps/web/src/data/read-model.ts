@@ -49,9 +49,15 @@ const prisma = createPrismaClient();
  */
 export const loadSiteSettings = cache(
 	async (): Promise<SiteSettingsData & { logoUrl: string | null }> => {
-		const row = await prisma.siteSettings.findUnique({
-			where: { id: SiteSettings.ID },
-		});
+		// `safely` como todos os outros loaders: o build do CI prerenderiza SEM
+		// banco, e sem esta tolerância a página inteira quebra na geração. O
+		// fallback `null` cai nos defaults pelo `fromStored` (D7) — que é
+		// exatamente o comportamento desejado quando não há de onde ler.
+		const row = await safely(
+			"site-settings",
+			() => prisma.siteSettings.findUnique({ where: { id: SiteSettings.ID } }),
+			null,
+		);
 		const data = SiteSettings.fromStored(row).data;
 
 		// O agregado guarda o ID da mídia, não a URL (D8) — resolver é trabalho da
