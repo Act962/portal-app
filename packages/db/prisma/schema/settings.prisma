@@ -1,0 +1,44 @@
+/// Configuração do veículo — LINHA ÚNICA (docs/specs/05b, D6).
+///
+/// O `id` tem default fixo e é a chave primária: a unicidade é do banco, não de
+/// uma convenção do código. Não há "pega o primeiro", não há como nascer uma
+/// segunda linha por corrida.
+///
+/// Linha ausente é estado válido: o agregado cai nos defaults (D7), então um
+/// banco recém-migrado já serve o portal inteiro.
+model SiteSettings {
+  id String @id @default("singleton")
+
+  // Identidade
+  name        String
+  shortName   String
+  tagline     String
+  description String
+  url         String
+  city        String
+  state       String
+  logoMediaId String?
+
+  // Rádio (D11) — streamUrl é o que efetivamente põe a rádio no ar
+  radioFrequency String?
+  radioBand      String?
+  radioStreamUrl String?
+
+  // Contato
+  contactNewsroom String?
+  contactWhatsapp String?
+  contactEmail    String?
+  contactAddress  String?
+
+  /// Listas curtas, ordenadas, editadas inteiras e nunca consultadas por item
+  /// (D13). Normalizar custaria três modelos e três CRUDs para nada.
+  social          Json
+  institutional   Json
+  popularSearches Json
+
+  legal String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
+}

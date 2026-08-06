@@ -1,6 +1,7 @@
 # Spec — Fase 5, Bloco B: Configurações do site
 
-> **Status:** 🟡 Proposta — aguardando aprovação.
+> **Status:** ✅ Aprovada (2026-08-06), com uma emenda do cliente em D12.
+> Em execução.
 > **Spec-mãe:** [`05-admin-redacao.md`](./05-admin-redacao.md) (Bloco B). Decisões
 > numeradas a partir de D6, continuando as D1–D5 de lá.
 > **Referências:** `../pendencias.md` (Bloco B) · `../adr/0009-midia-atras-de-porta-r2-minio.md`
@@ -156,13 +157,25 @@ que é um projeto à parte.
 O player já trata a ausência: sem URL, nada de elemento de áudio. A mudança é
 passar a ter URL.
 
-### D12 — O que não tem fonte de dado sai da tela
+### D12 — O que não tem fonte de dado **fica** na tela, como placeholder
 
-A temperatura no topo é `"32°C"` fixo. Não vira campo editável — um cliente
-digitando a temperatura do dia é pior do que não ter temperatura.
+**Emenda do cliente na aprovação.** A proposta original era tirar da barra o que
+não tem fonte real — a temperatura `"32°C"` fixa. **Decidido o contrário:** os
+elementos ficam onde estão e vão sendo trocados por dado real conforme o
+desenvolvimento avança.
 
-Sai da barra até existir uma porta `Weather` com provedor real. Registrado em
-`pendencias.md`, não nesta spec.
+A razão é de produto, e é boa: o portal precisa estar visualmente completo agora,
+e um espaço vazio no cabeçalho é mais custoso hoje do que um valor provisório. O
+mesmo raciocínio que já vale para o `AdSlot` e para o `MediaPlaceholder` — o
+layout reserva o lugar antes de existir conteúdo.
+
+Fica registrada a contrapartida, para não virar esquecimento: **valor fixo que
+parece dado ao vivo engana o leitor.** A temperatura é o caso mais claro — 32 °C
+todo dia, inclusive quando chove. Enquanto não houver porta `Weather`, isso é
+dívida consciente, listada em `pendencias.md`.
+
+**Não confundir com D9.** Placeholder *visual* fica; **link morto não** — um
+elemento que convida ao clique e não faz nada é defeito, não provisório.
 
 ### D13 — Listas curtas vão em `Json`
 

@@ -12,7 +12,7 @@
   "scripts": {
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "node scripts/assert-local-db.mjs && prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "node prisma/seed.mjs",
     "postinstall": "prisma generate",

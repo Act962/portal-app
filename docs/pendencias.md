@@ -68,9 +68,10 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
       recentes, e `mostReadRank` nunca é preenchido — o filtro "mais lidas" das
       listagens também não ordena nada. Precisa de contador de visualizações;
       até lá, o honesto é trocar o rótulo.
-- [ ] **Temperatura do topo é `"32°C"` fixo** (`top-bar.tsx`). Não vira campo
-      editável (D12): exige uma porta `Weather` com provedor real, senão é o
-      cliente digitando a temperatura do dia.
+- [ ] **Temperatura do topo é `"32°C"` fixo** (`top-bar.tsx`). **Fica na tela**
+      por decisão do cliente (D12) — troca-se por dado real quando houver uma
+      porta `Weather` com provedor. Até lá é dívida consciente: valor fixo que
+      parece dado ao vivo engana o leitor (32 °C inclusive quando chove).
 - [ ] **`packages/api` não é verificado**: o `package.json` tem `"scripts": {}`,
       sem `check-types` — o pacote dos routers e das permissões nunca passa pelo
       `tsc` no CI. O que o `apps/web` importa é verificado de carona; o resto,
