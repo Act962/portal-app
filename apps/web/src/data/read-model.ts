@@ -47,12 +47,22 @@ const prisma = createPrismaClient();
  * então um banco recém-migrado serve o portal completo. É por isso que esta
  * função não devolve `null` e ninguém precisa tratar "ainda não configurado".
  */
-export const loadSiteSettings = cache(async (): Promise<SiteSettingsData> => {
-	const row = await prisma.siteSettings.findUnique({
-		where: { id: SiteSettings.ID },
-	});
-	return SiteSettings.fromStored(row).data;
-});
+export const loadSiteSettings = cache(
+	async (): Promise<SiteSettingsData & { logoUrl: string | null }> => {
+		const row = await prisma.siteSettings.findUnique({
+			where: { id: SiteSettings.ID },
+		});
+		const data = SiteSettings.fromStored(row).data;
+
+		// O agregado guarda o ID da mídia, não a URL (D8) — resolver é trabalho da
+		// leitura, e a biblioteca já está em cache neste render.
+		const logoUrl = data.logoMediaId
+			? ((await loadMedia()).get(data.logoMediaId)?.url ?? null)
+			: null;
+
+		return { ...data, logoUrl };
+	},
+);
 
 type SectionRow = {
 	id: string;

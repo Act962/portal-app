@@ -30,7 +30,7 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 				<div className="col-span-2 lg:col-span-1">
 					<div className="mb-3 flex items-center gap-2.5 md:gap-3">
 						<Image
-							src={siteConfig.logo}
+							src={site.logoUrl ?? siteConfig.logo}
 							alt=""
 							width={44}
 							height={44}

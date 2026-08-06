@@ -28,7 +28,8 @@ export async function SiteHeader() {
 					className="flex shrink-0 items-center gap-2.5 text-white hover:text-white md:gap-3 md:text-brand-navy md:hover:text-brand-navy"
 				>
 					<Image
-						src={siteConfig.logo}
+						// Logo enviado pela biblioteca (D8); sem ele, o arquivo estático.
+						src={site.logoUrl ?? siteConfig.logo}
 						alt=""
 						width={52}
 						height={52}

@@ -62,13 +62,15 @@ export const ADMIN_NAV: NavGroup[] = [
 				icon: "Users",
 				action: "user:manage",
 			},
-			// "Anúncios" (/dashboard/campaigns) e "Configurações"
-			// (/dashboard/settings) VOLTAM AQUI quando os Blocos B e C existirem.
-			// Estavam listados antes das telas, então o ADMIN — a única pessoa com
-			// `settings:manage`, ou seja, o dono do portal — clicava e caía num 404.
-			// Um item que não leva a lugar nenhum é pior do que um item ausente:
-			// parece defeito, não roadmap. Os ícones seguem no `NavIcon` de
-			// propósito, à espera deles.
+			{
+				href: "/dashboard/settings",
+				label: "Configurações",
+				icon: "Settings",
+				action: "settings:manage",
+			},
+			// "Anúncios" (/dashboard/campaigns) VOLTA AQUI quando o Bloco C
+			// existir. Um item que leva a 404 é pior do que um item ausente:
+			// parece defeito, não roadmap.
 			{
 				href: "/dashboard/audit",
 				label: "Auditoria",
@@ -87,5 +89,6 @@ export const ROUTE_LABELS: Record<string, string> = {
 	"/dashboard/media": "Mídia",
 	"/dashboard/taxonomy": "Editorias e tags",
 	"/dashboard/users": "Equipe",
+	"/dashboard/settings": "Configurações",
 	"/dashboard/audit": "Auditoria",
 };
