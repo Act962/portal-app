@@ -16,6 +16,7 @@ Run everything from the repo root with pnpm (package manager is pinned to `pnpm@
 pnpm install          # install all workspace deps
 pnpm run dev           # start all apps in dev mode (web on http://localhost:3001)
 pnpm run dev:web       # start only the web app
+pnpm run dev:inngest   # Inngest Dev Server (agendador) — precisa de INNGEST_DEV=1 no .env
 pnpm run build         # build all apps
 pnpm run check-types   # tsc --noEmit across all workspaces
 pnpm run check         # biome check --write . (lint + format, auto-fixes)

@@ -67,15 +67,20 @@ Esta ADR ficou meses descrevendo mais do que existia. O que vale hoje:
 | Outbox + relay idempotente | ✅ `dispatchOutbox`, com teste de reentrega |
 | Porta `Scheduler` + `TaskRegistry` | ✅ `packages/shared-kernel/src/ports/scheduler.ts` |
 | Driver HTTP (`/api/cron/[task]`) | ✅ autenticado por `CRON_SECRET`, dirigido hoje pelo cron da Vercel |
-| Adapter Inngest | ❌ **nunca foi escrito** — e não é necessário |
+| Adapter Inngest do `Scheduler` | ✅ `packages/api/src/inngest.ts` + rota `/api/inngest` |
+| Adapter Inngest do `EventBus` | ❌ não escrito — o despacho de eventos segue síncrono |
 | `packages/jobs` | ❌ nunca existiu; as tarefas moram na raiz de composição |
 
-**O Inngest continua sendo uma opção, não um pressuposto.** Adotá-lo é escrever
-um arquivo que percorre `scheduler.tasks()` e cria uma função por tarefa;
-abandoná-lo é apagar esse arquivo. Nenhum contexto, caso de uso ou agregado
-muda nos dois sentidos — que era o objetivo declarado lá em cima.
+**O Inngest foi adotado como agendador** (2026-08-07), pela facilidade de
+operação e pelo retry com backoff. E a adoção custou exatamente o que a ADR
+prometia: um arquivo de 3 linhas úteis percorrendo `scheduler.tasks()`, mais a
+rota que o serve. Nenhum contexto, caso de uso ou agregado mudou — abandoná-lo é
+apagar os dois arquivos e deixar o cron da Vercel dirigindo `/api/cron/[task]`,
+que continua funcionando.
 
-**O que ainda não temos, e é bom não esquecer:** retry com backoff. Um
-consumidor que falhe perde a rodada; o evento não some (a linha do outbox
-continua sem `processedAt`), mas nada tenta de novo sozinho. É a garantia que
-justificaria o Inngest no dia em que o volume justificar.
+**O que ainda NÃO ganhamos com isso:** retry no despacho de EVENTOS. O
+`EventBus` continua síncrono — um consumidor que falhe perde a rodada, e nada
+tenta de novo sozinho (o evento não some: a linha do outbox fica sem
+`processedAt`). O retry que o Inngest agora dá vale para a execução da TAREFA,
+não para o fan-out. Plugar o `EventBus` durável é o passo seguinte, e agora é
+barato: o cliente e a rota já existem.

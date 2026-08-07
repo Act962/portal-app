@@ -67,6 +67,8 @@ Em *Settings → Environment Variables*, ambiente **Production**:
 | `S3_BUCKET` | nome do bucket |
 | `S3_PUBLIC_URL` | `https://pub-….r2.dev` (sem barra no fim) |
 | `S3_FORCE_PATH_STYLE` | `false` |
+| `INNGEST_SIGNING_KEY` | Settings → Keys, no painel do Inngest — ver §3.1 |
+| `INNGEST_EVENT_KEY` | idem |
 
 Ainda em *Settings*, confira em **General**:
 
@@ -259,10 +261,49 @@ sem tocar em código de negócio:
 
 | Agendador | Como ligar |
 |---|---|
-| **Cron da Vercel** (atual) | uma entrada em `crons` no `vercel.json` por tarefa |
+| **Inngest** (adotado) | já escrito — `packages/api/src/inngest.ts` + a rota `/api/inngest`. Ver §3.1 |
+| **Cron da Vercel** (rede de segurança) | uma entrada em `crons` no `vercel.json` por tarefa |
 | **`node-cron`** / VPS | no boot: `for (const t of scheduler.tasks()) cron.schedule(t.cron, () => scheduler.run(t.name))` |
 | **crontab do sistema** | `curl -H "Authorization: Bearer $CRON_SECRET" https://dominio/api/cron/<tarefa>` |
-| **Inngest** | `scheduler.tasks().map((t) => inngest.createFunction({ id: t.name }, { cron: t.cron }, () => scheduler.run(t.name)))` |
+
+### 3.1 · Inngest — o agendador de produção
+
+Adotado pela facilidade de operação e pelo **retry com backoff**, que o cron da
+Vercel não tem: uma tarefa que falhe por banco indisponível é reprocessada
+sozinha, em vez de esperar a próxima janela.
+
+O adapter percorre `scheduler.tasks()` e cria uma função por tarefa, usando o
+`cron` que a própria tarefa declara — **não há periodicidade redigitada**.
+Registrar tarefa nova em `packages/api/src/scheduler.ts` basta; ela aparece no
+Inngest no deploy seguinte.
+
+**Localmente** (nenhuma conta necessária):
+
+```bash
+pnpm dev:inngest
+```
+
+Sobe o Dev Server, que descobre a app em `http://localhost:3001/api/inngest`.
+Painel em `http://localhost:8288` — dá para ver a função, disparar à mão e ler o
+log de cada execução. Exige `INNGEST_DEV=1` no `apps/web/.env`; sem ela o SDK
+assume nuvem e a rota responde 500 pedindo chave de assinatura.
+
+**Em produção:**
+
+1. Crie a app no painel do Inngest e aponte o *sync* para
+   `https://SEU-DOMINIO/api/inngest`.
+2. Em *Settings → Keys*, copie a **Signing Key** e a **Event Key**.
+3. Cadastre na Vercel `INNGEST_SIGNING_KEY` e `INNGEST_EVENT_KEY`. **Não**
+   defina `INNGEST_DEV`.
+4. Faça o deploy e confirme no painel do Inngest que a função
+   `publish-scheduled` aparece com o gatilho `*/5 * * * *`.
+
+> **O cron da Vercel continua ligado de propósito.** Enquanto o Inngest não
+> estiver confirmado em produção, ele é a rede de segurança — as tarefas são
+> idempotentes, então os dois caminhos disparando não duplicam nada (a segunda
+> execução não acha o que publicar e devolve `0`). Depois de confirmar,
+> **apague o bloco `crons` do `vercel.json`**: aí a periodicidade passa a ter
+> uma fonte só, e o aviso abaixo deixa de valer.
 
 > ⚠️ **A periodicidade fica em dois lugares enquanto o driver for a Vercel.** A
 > tarefa declara o `cron` no registro, mas a Vercel lê o `vercel.json` — os dois
@@ -337,8 +378,12 @@ capa em cada matéria.
 7. [ ] `S3_PUBLIC_URL` apontando para o bucket (é o prefixo das imagens).
 8. [ ] `CRON_SECRET` cadastrada — confira chamando a rota do §3 à mão: tem de
        responder `{"published":0,...}`, e **não** `503`.
-9. [ ] Seed rodado uma vez (se o portal estiver vazio).
-10. [ ] Primeiro acesso ao `/login` → criar a conta do dono. **O primeiro usuário
+9. [ ] `INNGEST_SIGNING_KEY` e `INNGEST_EVENT_KEY` cadastradas, e a app
+       sincronizada no painel do Inngest — confira que `publish-scheduled`
+       aparece lá com o gatilho `*/5 * * * *`. **Não** defina `INNGEST_DEV`
+       em produção.
+10. [ ] Seed rodado uma vez (se o portal estiver vazio).
+11. [ ] Primeiro acesso ao `/login` → criar a conta do dono. **O primeiro usuário
        do sistema nasce ADMIN** (Decisão D2 da Fase 1).
 
 > ⚠️ Enquanto não existir convite (Bloco B da Fase 5), **qualquer pessoa que

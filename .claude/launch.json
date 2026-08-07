@@ -7,6 +7,18 @@
       "runtimeArgs": ["--filter", "web", "exec", "next", "dev"],
       "port": 3001,
       "autoPort": true
+    },
+    {
+      "name": "inngest",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "inngest-cli@latest",
+        "dev",
+        "-u",
+        "http://localhost:3001/api/inngest"
+      ],
+      "port": 8288
     }
   ]
 }

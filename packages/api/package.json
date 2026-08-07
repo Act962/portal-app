@@ -11,6 +11,7 @@
   },
   "scripts": {},
   "dependencies": {
+    "inngest": "catalog:",
     "@portal-app/analytics": "workspace:*",
     "@portal-app/auth": "workspace:*",
     "@portal-app/broadcast": "workspace:*",

@@ -39,6 +39,26 @@ export const env = createEnv({
 		// disponível (build do CI, Redis fora do ar), a leitura degrada para
 		// "mais recentes" (N03) em vez de quebrar a página.
 		REDIS_URL: z.string().min(1).default("redis://localhost:6379"),
+		// Inngest — o agendador de produção (ADR 0007). O próprio SDK lê estas três
+		// do ambiente; estão declaradas aqui para ficarem documentadas e validadas
+		// num lugar só. Todas opcionais, porque a combinação válida depende do
+		// ambiente e não dá para exprimir isso campo a campo.
+		//
+		// INNGEST_DEV=1 põe o SDK em modo local, falando com o Dev Server
+		// (`pnpm dev:inngest`) em vez da nuvem — é o que faz dev e CI rodarem sem
+		// conta em serviço nenhum (N10). **Não é inferido do `NODE_ENV`**: sem a
+		// variável o SDK assume nuvem e a rota `/api/inngest` responde 500 pedindo
+		// a chave. Recusar assim é o comportamento certo — o contrário seria um
+		// deploy de produção conversando em silêncio com um servidor local que não
+		// existe.
+		//
+		// SIGNING_KEY: verifica que quem chama `/api/inngest` é o Inngest.
+		// EVENT_KEY: autentica o envio de eventos NOSSOS para o Inngest — hoje não
+		// enviamos nenhum (só usamos gatilho por cron), mas é o que o `EventBus`
+		// durável vai precisar quando for plugado.
+		INNGEST_DEV: z.string().optional(),
+		INNGEST_SIGNING_KEY: z.string().min(1).optional(),
+		INNGEST_EVENT_KEY: z.string().min(1).optional(),
 	},
 	runtimeEnv: process.env,
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,

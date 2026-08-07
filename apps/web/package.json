@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "inngest": "catalog:",
     "@portal-app/analytics": "workspace:*",
     "@portal-app/api": "workspace:*",
     "@portal-app/auth": "workspace:*",

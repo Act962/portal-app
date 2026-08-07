@@ -11,6 +11,7 @@
     "build": "turbo run build",
     "check-types": "turbo run check-types",
     "dev:web": "turbo run dev -F web",
+    "dev:inngest": "npx --yes inngest-cli@latest dev -u http://localhost:3001/api/inngest",
     "db:push": "turbo run db:push -F @portal-app/db",
     "db:studio": "turbo run db:studio -F @portal-app/db",
     "db:generate": "turbo run db:generate -F @portal-app/db",
