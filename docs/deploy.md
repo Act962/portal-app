@@ -247,6 +247,29 @@ O agendamento já está versionado no `vercel.json` — a cada 5 minutos:
 "crons": [{ "path": "/api/cron/publish-scheduled", "schedule": "*/5 * * * *" }]
 ```
 
+### Trocar de agendador, ou adicionar uma tarefa
+
+A rota é `/api/cron/[task]`: o último segmento é o **nome** de uma tarefa
+registrada em `packages/api/src/scheduler.ts`. Registrar uma tarefa nova é uma
+linha lá; a rota, a autenticação e o formato da resposta vêm de graça.
+
+O cron da Vercel é só o motorista de hoje. A porta `Scheduler`
+([ADR 0007](./adr/0007-eventos-e-agendamento-atras-de-portas.md)) deixa trocar
+sem tocar em código de negócio:
+
+| Agendador | Como ligar |
+|---|---|
+| **Cron da Vercel** (atual) | uma entrada em `crons` no `vercel.json` por tarefa |
+| **`node-cron`** / VPS | no boot: `for (const t of scheduler.tasks()) cron.schedule(t.cron, () => scheduler.run(t.name))` |
+| **crontab do sistema** | `curl -H "Authorization: Bearer $CRON_SECRET" https://dominio/api/cron/<tarefa>` |
+| **Inngest** | `scheduler.tasks().map((t) => inngest.createFunction({ id: t.name }, { cron: t.cron }, () => scheduler.run(t.name)))` |
+
+> ⚠️ **A periodicidade fica em dois lugares enquanto o driver for a Vercel.** A
+> tarefa declara o `cron` no registro, mas a Vercel lê o `vercel.json` — os dois
+> precisam bater, e nada valida isso automaticamente. Ao mudar a frequência de
+> uma tarefa, mude nos dois. Com `node-cron` ou Inngest o problema some: eles
+> leem o `cron` do próprio registro.
+
 > ⚠️ **Cadastre `CRON_SECRET` na Vercel.** Sem a variável a rota responde **503 e
 > não publica nada** — de propósito: um endpoint que muda o portal não pode ficar
 > aberto na internet. Com a variável cadastrada, a Vercel manda o header sozinha.

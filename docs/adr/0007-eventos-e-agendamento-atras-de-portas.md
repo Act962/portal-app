@@ -33,6 +33,12 @@ Despacho e agendamento ficam atrás de portas do editorial:
 - **Agendamento** — a matéria agendada guarda o horário no próprio agregado; um
   **poller** (`publishDueScheduled`, dirigido por `node-cron`/trigger) publica as
   vencidas. Um adapter de Inngest com `step.sleepUntil` cumpriria o mesmo papel.
+- **`Scheduler`** (`packages/shared-kernel/src/ports/scheduler.ts`) — o registro
+  de tarefas recorrentes que separa *o que roda* de *quem manda rodar*. Mora no
+  shared-kernel, e não num contexto, porque agendar não é assunto de nenhum
+  domínio em particular: é a mesma família de `Clock` e `IdGenerator`. As
+  tarefas são declaradas em `packages/api/src/scheduler.ts`; o driver é escolha
+  da infraestrutura.
 
 O **Inngest é apenas um adapter**, instanciado (se for o caso) na raiz de
 composição (`packages/api`). Trocá-lo por síncrono ou `node-cron` é trocar a
@@ -49,3 +55,27 @@ persistidos independentemente de quem os despacha. Ver spec da Fase 3, §5.1.
   do Inngest — se quisermos essas garantias em produção, é preciso plugar o
   adapter correspondente; manter a paridade entre adapters (mesma semântica de
   entrega) é responsabilidade nossa.
+
+## Estado da implementação (2026-08-07)
+
+Esta ADR ficou meses descrevendo mais do que existia. O que vale hoje:
+
+| Peça | Estado |
+|---|---|
+| Porta `EventBus` | ✅ `packages/contexts/editorial/src/domain/ports/event-bus.ts` |
+| Adapter `SyncEventBus` (o default do MVP) | ✅ ligado em `packages/api/src/editorial.ts`, com o consumidor de auditoria |
+| Outbox + relay idempotente | ✅ `dispatchOutbox`, com teste de reentrega |
+| Porta `Scheduler` + `TaskRegistry` | ✅ `packages/shared-kernel/src/ports/scheduler.ts` |
+| Driver HTTP (`/api/cron/[task]`) | ✅ autenticado por `CRON_SECRET`, dirigido hoje pelo cron da Vercel |
+| Adapter Inngest | ❌ **nunca foi escrito** — e não é necessário |
+| `packages/jobs` | ❌ nunca existiu; as tarefas moram na raiz de composição |
+
+**O Inngest continua sendo uma opção, não um pressuposto.** Adotá-lo é escrever
+um arquivo que percorre `scheduler.tasks()` e cria uma função por tarefa;
+abandoná-lo é apagar esse arquivo. Nenhum contexto, caso de uso ou agregado
+muda nos dois sentidos — que era o objetivo declarado lá em cima.
+
+**O que ainda não temos, e é bom não esquecer:** retry com backoff. Um
+consumidor que falhe perde a rodada; o evento não some (a linha do outbox
+continua sem `processedAt`), mas nada tenta de novo sozinho. É a garantia que
+justificaria o Inngest no dia em que o volume justificar.

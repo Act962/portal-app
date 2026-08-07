@@ -265,7 +265,11 @@ Editorial** — adicionar um quarto consumidor amanhã não altera o código de 
 **Entrega transacional:** os eventos são gravados na mesma transação do agregado
 (*transactional outbox*) e despachados depois. Isso evita o clássico "salvou mas não indexou".
 
-**Despacho com Inngest.** O relay do outbox entrega os eventos ao Inngest, que assume a partir dali:
+**Despacho com Inngest — projetado, NÃO implementado.** O quadro abaixo é o desenho de destino, e
+descreve o que um adapter de Inngest daria. Hoje o relay do outbox entrega a um `SyncEventBus`
+in-process, e o agendamento roda por um `TaskRegistry` (porta `Scheduler`) dirigido pelo cron da
+Vercel. Ver o estado real em [`adr/0007`](./adr/0007-eventos-e-agendamento-atras-de-portas.md)
+§"Estado da implementação". O que o Inngest acrescentaria:
 
 - **Retry com backoff** por consumidor. Se o índice de busca estiver fora do ar, só a indexação é
   reprocessada — a publicação já aconteceu e o resto do fan-out não é afetado.
@@ -275,9 +279,11 @@ Editorial** — adicionar um quarto consumidor amanhã não altera o código de 
   varrendo tabela — a matéria agendada emite um evento que é entregue no horário exato.
 - **Idempotência por chave de evento**, satisfazendo o critério `A13` de `features.md`.
 
-**A fronteira permanece intacta:** o Inngest fica atrás das portas `EventBus` e `Scheduler`,
-declaradas em `application/ports/`. `domain/` e `application/` não o importam — o que preserva os
-testes de caso de uso rodando em memória, sem I/O.
+**A fronteira permanece intacta:** o Inngest ficaria atrás das portas `EventBus`
+(`editorial/domain/ports/`) e `Scheduler` (`shared-kernel/src/ports/`), que já existem e já são o
+que a aplicação usa. `domain/` e `application/` não importam agendador nenhum — o que preserva os
+testes de caso de uso rodando em memória, sem I/O, e é o que torna a adoção (ou o abandono) do
+Inngest um arquivo na raiz de composição.
 
 ```
 Article.publish()  →  evento no outbox (mesma transação)
@@ -347,7 +353,7 @@ packages/
     audience/                (pós-MVP)
   shared-kernel/             Result, Id, DomainEvent, AggregateRoot, Clock, tipos base
   api/                       tRPC routers — camada de interface, orquestra casos de uso
-  jobs/                      funções Inngest — interface para trabalho assíncrono
+  (jobs/)                    PLANEJADO, não existe — as tarefas agendadas moram hoje em api/scheduler.ts
   auth/                      Better-Auth (adapter de autenticação)
   db/                        Prisma schema + client
   ui/                        design system (shadcn/ui + tokens)
