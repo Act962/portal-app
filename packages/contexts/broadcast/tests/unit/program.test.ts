@@ -87,6 +87,64 @@ describe("Program.updateDetails", () => {
 		// Estado original preservado — a edição inválida não aplica parcial.
 		expect(program.startTime).toBe("06:00");
 	});
+
+	// As mesmas regras do `create` valem na edição. Estavam só no `create`, e a
+	// edição é justamente o caminho por onde um programa já salvo poderia virar
+	// invalido — daí valer a repeticao.
+	it("recusa nome vazio na edição", () => {
+		const program = novo().unwrap();
+
+		expect(program.updateDetails({ name: "  " })).toBeErr(NameRequired);
+		expect(program.name).toBe("Manhã 7 Cidades");
+	});
+
+	it("recusa locutor vazio na edição", () => {
+		const program = novo().unwrap();
+
+		expect(program.updateDetails({ host: " " })).toBeErr(HostRequired);
+		expect(program.host).toBe("Léo Martins");
+	});
+
+	it.each([-1, 7, 1.5])(
+		"recusa dia da semana inválido na edição: %s",
+		(dayOfWeek) => {
+			const program = novo().unwrap();
+
+			expect(program.updateDetails({ dayOfWeek })).toBeErr(InvalidDayOfWeek);
+			expect(program.dayOfWeek).toBe(1);
+		},
+	);
+
+	it("recusa horário de início fora do formato HH:MM", () => {
+		const program = novo().unwrap();
+
+		expect(program.updateDetails({ startTime: "6h" })).toBeErr(InvalidTime);
+		expect(program.startTime).toBe("06:00");
+	});
+
+	it("recusa horário de término fora do formato HH:MM", () => {
+		const program = novo().unwrap();
+
+		expect(program.updateDetails({ endTime: "24:00" })).toBeErr(InvalidTime);
+		expect(program.endTime).toBe("09:00");
+	});
+
+	it("estende o término sem tocar no início", () => {
+		const program = novo().unwrap();
+
+		expect(program.updateDetails({ endTime: "10:00" }).isOk()).toBe(true);
+		expect(program.startTime).toBe("06:00");
+		expect(program.endTime).toBe("10:00");
+	});
+
+	it("move o programa de dia sem mexer no horário", () => {
+		const program = novo().unwrap();
+
+		expect(program.updateDetails({ dayOfWeek: 6 }).isOk()).toBe(true);
+		expect(program.dayOfWeek).toBe(6);
+		expect(program.startTime).toBe("06:00");
+		expect(program.endTime).toBe("09:00");
+	});
 });
 
 describe("Program.reorderTo", () => {

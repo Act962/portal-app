@@ -114,6 +114,25 @@ describe("viewsBySource", () => {
 		// Todas as cinco categorias, sempre.
 		expect(result).toHaveLength(5);
 	});
+
+	// A coluna `source` no banco é `String`, não enum: uma linha antiga, uma
+	// migração futura ou um insert manual podem trazer valor fora da lista. O
+	// gráfico ignora o desconhecido em vez de inventar uma sexta barra — e, acima
+	// de tudo, não quebra o painel inteiro por causa de uma linha torta.
+	it("origem desconhecida vinda do banco não vira categoria nem derruba a conta", () => {
+		const records = [
+			view({ source: "direto" }),
+			view({ source: "telepatia" as never }),
+		];
+
+		const result = viewsBySource(records);
+
+		expect(result).toHaveLength(5);
+		expect(result).toContainEqual({ source: "direto", views: 1 });
+		expect(result.some((row) => row.source === ("telepatia" as never))).toBe(
+			false,
+		);
+	});
 });
 
 describe("averageReadingTimeByArticle", () => {

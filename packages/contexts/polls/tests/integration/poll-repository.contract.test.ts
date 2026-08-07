@@ -106,6 +106,24 @@ function contract(label: string, make: () => Harness): void {
 			expect((await h.repo.findPublished())?.id).toBe("publicada");
 		});
 
+		// `publishPoll` fecha a anterior antes de publicar a nova, então duas no ar
+		// não deveria acontecer pelo caminho normal. Mas "não deveria" não é
+		// garantia: uma corrida entre dois editores, ou um UPDATE feito à mão no
+		// banco, chega lá. As duas implementações precisam concordar em QUAL
+		// aparece no portal — a publicada por último —, senão o leitor vê uma
+		// enquete diferente conforme o ambiente.
+		it("com duas no ar, devolve a publicada por último", async () => {
+			const antiga = novaEnquete("antiga");
+			antiga.publish(new Date("2026-08-01T09:00:00-03:00"));
+			await h.repo.save(antiga);
+
+			const recente = novaEnquete("recente");
+			recente.publish(NOW);
+			await h.repo.save(recente);
+
+			expect((await h.repo.findPublished())?.id).toBe("recente");
+		});
+
 		it("conta os votos por opção", async () => {
 			const poll = novaEnquete();
 			poll.publish(NOW);

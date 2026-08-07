@@ -180,6 +180,36 @@ describe("Poll.update", () => {
 		);
 		expect(poll.question).toBe("Você aprova a nova faixa de ônibus?");
 	});
+
+	// A validação das opções vale na edição do rascunho tanto quanto na criação:
+	// é o caminho por onde uma enquete já salva poderia ficar sem opção.
+	it("recusa trocar por menos de duas opções", () => {
+		const poll = novo().unwrap();
+
+		expect(
+			poll.update({ options: [{ id: "n1", label: "Só essa" }] }).unwrapErr(),
+		).toBeInstanceOf(TooFewOptions);
+		expect(poll.options).toHaveLength(2);
+	});
+
+	it("recusa trocar por opção com texto vazio", () => {
+		const poll = novo().unwrap();
+
+		expect(
+			poll
+				.update({
+					options: [
+						{ id: "n1", label: "Aprovo" },
+						{ id: "n2", label: "   " },
+					],
+				})
+				.unwrapErr(),
+		).toBeInstanceOf(OptionLabelRequired);
+		expect(poll.options.map((option) => option.label)).toEqual([
+			"Aprovo",
+			"Desaprovo",
+		]);
+	});
 });
 
 describe("Poll.ensureCanReceiveVote", () => {
