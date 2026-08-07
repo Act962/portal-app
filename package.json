@@ -28,7 +28,8 @@
     "test:integration": "vitest run --project integration",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:local": "node scripts/test-e2e-local.mjs"
   },
   "dependencies": {
     "@portal-app/env": "workspace:*",
