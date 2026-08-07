@@ -1,6 +1,6 @@
 # Pendências — o que falta para o produto ficar completo
 
-> **Atualizado:** 2026-08-06.
+> **Atualizado:** 2026-08-07.
 > Lista única e priorizada do que está em aberto, para a entrega em andamento.
 > Estado por fase em [`proximos-passos.md`](./proximos-passos.md); escopo em
 > [`specs/`](./specs/); operação em [`deploy.md`](./deploy.md).
@@ -8,18 +8,63 @@
 **O que já funciona hoje:** o ciclo completo redação → leitor. Criar editoria e
 assunto, subir imagem com ponto focal, escrever matéria em rich-text com
 formatação, passar pelo workflow (rascunho → revisão → aprovada → publicada, com
-agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
+agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS. Em
+volta disso: equipe e permissões com convite por e-mail e redefinição de senha,
+configurações do veículo, grade de programação, enquete com voto anônimo,
+"mais lidas" por audiência real e o painel de insights.
+
+---
+
+## 🔧 Configuração de produção — não é código
+
+**O maior retorno por esforço do projeto inteiro está aqui.** São variáveis de
+ambiente e uma política de bucket; o código correspondente já está escrito,
+testado e no ar. Enquanto não forem cadastradas, quatro funcionalidades prontas
+não valem nada — e três delas falham **em silêncio**, que é o pior modo de
+falhar.
+
+| Variável / ajuste | Sem isso | Onde |
+|---|---|---|
+| `CRON_SECRET` | A rota do agendamento responde **503** e a matéria marcada para as 6h não sai sozinha | [`deploy.md`](./deploy.md) §3 |
+| CORS de `PUT` no bucket R2 | O envio de imagem trava em 0% — o upload vai do navegador **direto** para o R2 | [`deploy.md`](./deploy.md) §2 |
+| `REDIS_URL` | "Mais lidas" degrada para "mais recentes" **sem avisar**: a seção continua na tela, com a ordem errada | `packages/env/src/server.ts` |
+| `RESEND_API_KEY` | Convite e redefinição de senha ficam no "avise você mesmo" (funciona, mas é manual) — opcional por desenho | `packages/contexts/identity/src/infrastructure/create-mailer.ts` |
+
+---
+
+## 👀 Aceite visual pendente
+
+Cinco telas existem, passam nos testes automatizados e **nunca foram abertas por
+um humano**. Testes provam comportamento, não legibilidade: espaçamento, ordem
+dos campos, texto de estado vazio e o que a tela comunica quando não há dado
+nenhum só aparecem no olho.
+
+- [ ] **Assuntos/Tags** (`/dashboard/taxonomy`) — criar, renomear, apagar; e o
+      que a tela diz quando o assunto está em uso por uma matéria.
+- [ ] **Programação** (`/dashboard/programacao`) — com a tabela vazia o card do
+      portal fica **oculto** (por desenho); vale ver a tela com grade cheia.
+- [ ] **Insights** (`/dashboard/insights`) — num banco sem histórico os gráficos
+      aparecem zerados. Verificar se o estado vazio comunica "ainda não há dado"
+      em vez de parecer defeito.
+- [ ] **Enquetes** (`/dashboard/enquetes`) — rascunho → publicar → votar como
+      leitor anônimo → conferir que o resultado só aparece depois do voto.
+- [ ] **Configurações** (`/dashboard/settings`) — a aba "Rádio" mudou: sobraram
+      frequência e faixa, o campo de transmissão saiu junto com o player.
 
 ---
 
 ## 🔴 Bloqueiam a venda / o uso real
 
+> **Seção fechada.** As sete estão resolvidas em código. O que sobrou de B3 e B4
+> é cadastro de variável e política de bucket, agrupado na seção 🔧 no topo —
+> aqui fica só o registro do que foi feito e por quê.
+
 | # | Pendência | Por que importa | Onde |
 |---|---|---|---|
 | B1 | ~~Qualquer um cria conta no painel~~ | ✅ **Resolvido**: o cadastro é fechado por convite, com o portão no `databaseHooks.user.create.before` do Better Auth — vale para qualquer caminho que crie usuário, não só a nossa UI. O portão é o **e-mail** (sem token). Primeiro usuário do sistema segue nascendo ADMIN. | `packages/auth/src/index.ts` |
 | B2 | ~~Capa das matérias do seed~~ | ✅ **Resolvido**: o seed distribui, em rodízio, 6 imagens que já estão no bucket do R2. Depende de `S3_PUBLIC_URL` apontar para o bucket. | `packages/db/prisma/seed.mjs` (`IMAGENS`) |
-| B3 | **Migrations no deploy** | ✅ **Resolvido**: `pnpm db:deploy` criado. Falta **ligar no build command** da hospedagem. | [`deploy.md`](./deploy.md) §1 |
-| B4 | **R2 em produção** | ✅ **Código pronto** (adapter S3 serve R2 sem mudança). Falta cadastrar as variáveis e o **CORS de `PUT`** no bucket — sem ele, o upload falha. | [`deploy.md`](./deploy.md) §2 |
+| B3 | ~~Migrations no deploy~~ | ✅ **Resolvido**: `pnpm db:deploy` criado e já ligado no `buildCommand` do `vercel.json`, com guarda para não migrar o banco de produção em deploy de preview. | [`deploy.md`](./deploy.md) §1 |
+| B4 | ~~R2 em produção~~ | ✅ **Código pronto** (o adapter S3 serve R2 sem mudança). O que falta é configuração, não código: variáveis e o **CORS de `PUT`** no bucket — ver seção 🔧. | [`deploy.md`](./deploy.md) §2 |
 | B5 | ~~Sem recuperação de senha~~ | ✅ **Resolvido (MVP)**: o admin gera o link de redefinição em "Equipe" → "Pessoas" e entrega manualmente (mesmo padrão "avise você mesmo" do convite) — usa o fluxo nativo do Better Auth, capturado via `captureResetLink` (`AsyncLocalStorage`, sem precisar de tabela nova). O login ganhou "Esqueci minha senha", que hoje só orienta a procurar um admin — sem Mailer configurado (ver Bloco B abaixo), não há como entregar o link com segurança para quem esqueceu. | `packages/auth/src/index.ts`, `packages/auth/src/reset-link-capture.ts`, `packages/api/src/routers/identity.ts` (`users.resetPassword`), `apps/web/src/app/(app)/reset-password/` |
 | B6 | ~~"Anúncios" e "Configurações" davam 404~~ | ✅ **Resolvido**: os dois itens saíram da navegação até as telas existirem. Apontavam para rotas inexistentes, e só o ADMIN — o dono do portal — os enxergava. | `apps/web/src/lib/admin-nav.ts` |
 | B7 | ~~Agendamento não publicava sozinho~~ | ✅ **Resolvido**: `GET /api/cron/publish-scheduled`, autenticado por `CRON_SECRET`, agendado no `vercel.json` a cada 5 min. Antes, o único gatilho era um clique no painel — matéria marcada para as 6h esperava alguém lembrar. | [`deploy.md`](./deploy.md) §3 |
@@ -83,9 +128,9 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 - [ ] **A frase do rodapé** ("Notícias do Piauí 24 horas no ar, em todo lugar")
       segue no código: é copy, e o modelo não tem campo para ela. Criar um custa
       outra migration; entra junto do próximo campo que precisar.
-- [ ] **Tela de configurações não foi verificada visualmente** — entrar no
-      painel exigiria criar conta e digitar senha. Vale um olhar humano na
-      primeira vez que abrir.
+- [ ] **Tela de configurações não foi verificada visualmente** — ver a seção
+      "Aceite visual pendente", no topo, que agora reúne as cinco telas nessa
+      situação.
 
 ### Avulso
 - [x] ~~**Grade de programação da rádio**~~ ✅ Resolvido (Bloco 2): novo
@@ -165,8 +210,10 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 | **Invalidação por evento** (Fase 4, Etapa 5) | Feito o mínimo: `revalidate = 60` no portal. Faltam o consumidor do outbox chamando `revalidateTag` e o Redis | Matéria publicada demora até 1 min para entrar no ar, e o portal consulta o banco de tempos em tempos mesmo sem novidade. Antes disto, as páginas eram **congeladas no build** e matéria nova só aparecia com um redeploy |
 | **Busca full-text** (Fase 4, Etapa 6) | Não chegou a ser feita | A busca é `includes` em memória — não erra, mas não escala nem tolera erro de digitação |
 | **Gate de lint (`biome ci`)** | Scaffold nunca formatado | Estilo diverge entre arquivos |
-| **Branch protection no `main`** | Precisa do owner (`Act962`) | Push direto em `main` é possível |
+| **Branch protection no `main`** | Precisa do owner (`Act962`) | Push direto em `main` é possível — foi o que aconteceu na entrega de 2026-08-07 |
 | **Editor visual da home (P06)** | Home compõe por recência | Não dá para destacar manualmente uma matéria |
+| **O job de e2e do CI não sobe Redis** | O serviço nunca foi adicionado ao `ci.yml` | O e2e roda sempre com "mais lidas" degradado para "mais recentes". O fallback está sendo exercitado por acidente, e o ranking de verdade **não é testado em lugar nenhum** |
+| **Actions do CI em Node 20** | `checkout@v4`, `setup-node@v4`, `cache@v4`, `pnpm/action-setup@v4` | O GitHub já depreciou e força para Node 24. Funciona hoje; quebra sem aviso quando a compatibilidade sair |
 
 ---
 
@@ -204,16 +251,37 @@ do relógio. É por isso que a formatação de data agora tem esqueleto de teste
 
 ---
 
-## Ordem sugerida, dada a pressa
+## Ordem sugerida
 
 Os passos de colocar no ar (migrations, R2, seed) estão **feitos** — o portal
-está em produção com conteúdo. O que resta:
+está em produção com conteúdo, e as sete pendências vermelhas foram fechadas. O
+que resta, na ordem em que rende mais:
 
-1. **Cadastrar `CRON_SECRET` na Vercel.** Sem ela a rota do agendamento responde
-   503 e as matérias marcadas continuam não saindo sozinhas. É uma variável, não
-   é código — mas sem ela o B7 não vale nada.
-2. ~~**Convite + fechar o auto-cadastro** (B1)~~ ✅ Feito.
-3. ~~**Redefinição de senha** (B5)~~ ✅ Feito, junto de reativar membro e do
-   Mailer (convite/reset por e-mail quando `RESEND_API_KEY` existir).
-4. **Testes do serializador** — barato, e protege o que mais dói quebrar.
-5. Banners, quando houver anunciante.
+1. **Configuração de produção** (seção 🔧, no topo). Meia hora de painel da
+   Vercel e da Cloudflare, e quatro funcionalidades já construídas passam a
+   funcionar. Nada aqui é código.
+
+2. **Aceite visual das cinco telas** (seção 👀). Antes de empilhar feature nova:
+   se alguma tela precisar de ajuste, é mais barato descobrir agora do que
+   depois de construir em cima dela.
+
+3. **Ligar o `check-types` do `packages/api`.** Uma linha no `package.json`,
+   e passa a verificar justamente os routers e as **permissões** — a parte cujo
+   defeito é mais caro. Merece commit próprio porque pode revelar erro
+   acumulado.
+
+4. **Preencher os 29 `it.todo`** (13 no serializador do TipTap, 8 na
+   autorização, 8 na formatação de data). O de autorização exige antes tornar a
+   raiz de composição injetável (`createAppRouter(deps)`), senão o teste vira
+   integração.
+
+5. **Invalidação por evento.** É o único item da lista que o leitor final
+   percebe todo dia: matéria publicada demora até 1 min para entrar no ar.
+
+6. **Banners**, quando houver anunciante — é o maior item que sobrou (contexto
+   `advertising` inteiro), e não rende nada até existir campanha para veicular.
+
+**Duas decisões que dependem do cliente, não de engenharia:** se anúncios entram
+agora ou quando aparecer o primeiro anunciante; e o que "colunistas" significa —
+autor com destaque (barato, o backend já suporta) ou seção editorial própria
+(feature nova).
