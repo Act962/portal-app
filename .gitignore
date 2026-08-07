@@ -58,3 +58,6 @@ playwright/.cache
 .cache
 tmp
 temp
+
+# Cache local do pnpm (criado por `pnpm config set store-dir`); nao versionar.
+.pnpm-store
