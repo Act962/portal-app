@@ -92,10 +92,13 @@ test.describe.serial("autenticação", () => {
 		await page
 			.getByRole("button", { name: "Desativar", exact: true })
 			.click();
-		await expect(row.getByText("Inativo")).toBeVisible();
+		await expect(row.getByText("Inativo", { exact: true })).toBeVisible();
 
 		await row.getByRole("button", { name: `Reativar ${memberEmail}` }).click();
-		await expect(row.getByText("Ativo")).toBeVisible();
+		// `exact` é obrigatório aqui: "Ativo" é SUBSTRING de "Inativo", e sem ele a
+		// asserção passaria com o selo ainda dizendo "Inativo" — ou seja, o teste
+		// aprovaria uma reativação que não aconteceu.
+		await expect(row.getByText("Ativo", { exact: true })).toBeVisible();
 	});
 
 	/**
@@ -232,7 +235,14 @@ test.describe.serial("autenticação", () => {
 
 		await expect(page.getByText(pergunta)).toBeVisible();
 		await page.getByRole("button", { name: "Publicar" }).click();
-		await expect(page.getByText("No ar")).toBeVisible();
+		// `exact: true` NÃO é preciosismo. Sem ele, `getByText` casa por SUBSTRING
+		// e sem diferenciar maiúsculas — e esta tela tem "Uma enquete no ar por
+		// vez…" no cabeçalho desde o carregamento. A asserção passava
+		// instantaneamente, sem nunca esperar a publicação terminar, e o leitor ia
+		// para a home antes de existir enquete publicada. Local passava por sorte
+		// de latência; no CI falhou. Com `exact`, só o selo da enquete casa — que é
+		// o que de fato prova que o servidor gravou.
+		await expect(page.getByText("No ar", { exact: true })).toBeVisible();
 
 		// --- O leitor anônimo chega à home -----------------------------------
 		const leitor = await browser.newContext();
