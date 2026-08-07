@@ -11,7 +11,6 @@ import { routes } from "@/lib/routes";
 const PRIMARY_NAV = [
 	{ label: "Início", href: routes.home },
 	{ label: "Últimas notícias", href: routes.latest },
-	{ label: "Ao vivo", href: routes.live },
 	{ label: "Busca", href: routes.search },
 ] as const;
 

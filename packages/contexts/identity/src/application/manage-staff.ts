@@ -52,6 +52,15 @@ export async function deactivateStaff(
 	return mutate(actor, input.staffId, deps, (staff) => staff.deactivate());
 }
 
+/** Reativa o membro: devolve o acesso ao painel com o mesmo papel de antes. */
+export async function activateStaff(
+	actor: StaffMember,
+	input: { staffId: string },
+	deps: Deps,
+): Promise<StaffResult> {
+	return mutate(actor, input.staffId, deps, (staff) => staff.activate());
+}
+
 /**
  * Edita o perfil de autor. Diferente das demais: o próprio membro pode editar o
  * seu; para editar o de outro é preciso gerenciar usuários.

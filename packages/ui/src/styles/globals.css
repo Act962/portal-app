@@ -199,19 +199,6 @@
 	--spacing-stack: 26px;
 	--spacing-section: 34px;
 	--spacing-major: 46px;
-
-	/* Motion */
-	--animate-on-air: on-air 1.6s ease-in-out infinite;
-
-	@keyframes on-air {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.25;
-		}
-	}
 }
 
 /* Diagonal hatching that stands in for media we do not have yet.

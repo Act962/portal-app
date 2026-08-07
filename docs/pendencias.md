@@ -20,7 +20,7 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 | B2 | ~~Capa das matérias do seed~~ | ✅ **Resolvido**: o seed distribui, em rodízio, 6 imagens que já estão no bucket do R2. Depende de `S3_PUBLIC_URL` apontar para o bucket. | `packages/db/prisma/seed.mjs` (`IMAGENS`) |
 | B3 | **Migrations no deploy** | ✅ **Resolvido**: `pnpm db:deploy` criado. Falta **ligar no build command** da hospedagem. | [`deploy.md`](./deploy.md) §1 |
 | B4 | **R2 em produção** | ✅ **Código pronto** (adapter S3 serve R2 sem mudança). Falta cadastrar as variáveis e o **CORS de `PUT`** no bucket — sem ele, o upload falha. | [`deploy.md`](./deploy.md) §2 |
-| B5 | **Sem recuperação de senha** | Quem esquece a senha fica trancado para fora **em definitivo**: não há "esqueci minha senha", e o admin também não tem como redefinir a de ninguém. Basta uma pessoa na redação esquecer para virar chamado de suporte sem saída. | Nada implementado — nem rota, nem procedure |
+| B5 | ~~Sem recuperação de senha~~ | ✅ **Resolvido (MVP)**: o admin gera o link de redefinição em "Equipe" → "Pessoas" e entrega manualmente (mesmo padrão "avise você mesmo" do convite) — usa o fluxo nativo do Better Auth, capturado via `captureResetLink` (`AsyncLocalStorage`, sem precisar de tabela nova). O login ganhou "Esqueci minha senha", que hoje só orienta a procurar um admin — sem Mailer configurado (ver Bloco B abaixo), não há como entregar o link com segurança para quem esqueceu. | `packages/auth/src/index.ts`, `packages/auth/src/reset-link-capture.ts`, `packages/api/src/routers/identity.ts` (`users.resetPassword`), `apps/web/src/app/(app)/reset-password/` |
 | B6 | ~~"Anúncios" e "Configurações" davam 404~~ | ✅ **Resolvido**: os dois itens saíram da navegação até as telas existirem. Apontavam para rotas inexistentes, e só o ADMIN — o dono do portal — os enxergava. | `apps/web/src/lib/admin-nav.ts` |
 | B7 | ~~Agendamento não publicava sozinho~~ | ✅ **Resolvido**: `GET /api/cron/publish-scheduled`, autenticado por `CRON_SECRET`, agendado no `vercel.json` a cada 5 min. Antes, o único gatilho era um clique no painel — matéria marcada para as 6h esperava alguém lembrar. | [`deploy.md`](./deploy.md) §3 |
 
@@ -32,28 +32,38 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
 - [x] ~~**Convite** e **fechar o auto-cadastro**~~ ✅ Feito. O portão é o
       **e-mail convidado**, por decisão do cliente — sem token, o que também
       significa que convite não vaza por encaminhamento de mensagem.
-- [ ] **Envio do convite por e-mail (Resend)**: hoje o admin cria o convite e
-      avisa a pessoa pelo canal que quiser. Fica **atrás de uma porta `Mailer`**,
-      com o Resend como adapter — a mesma regra que vale para o Inngest e o
-      Redis: SaaS é peça trocável, nunca amarra. O modo "avise você mesmo"
-      continua sendo o padrão, e funciona sem provedor nenhum.
-- [ ] **Redefinição de senha (B5)**: o Better Auth já resolve com o hook
-      `sendResetPassword({ user, url, token })` — em vez de mandar e-mail,
-      guarda-se o link para o admin entregar, ou manda-se pelo `Mailer` acima.
-      Nada de `POST /admin/set-user-password`: faria o admin escolher a senha de
-      outra pessoa.
-- [ ] **Redefinição de senha pelo admin** (resolve B5): sai de graça junto do
-      convite — é o mesmo token com hash e validade, mudando só o efeito (trocar
-      a senha em vez de criar o membro). Sem serviço de e-mail: o admin gera o
-      link e entrega pelo canal que quiser.
-- [ ] **Reativar membro** — só existe desativar.
-- [ ] **Configurações do site**: a permissão `settings:manage` existe desde a
-      Fase 1 **sem nada atrás**. Falta o agregado `SiteSettings` (nome, logo,
-      contato, redes, rodapé) e a tela.
-      📄 **Spec escrita**, aguardando aprovação:
-      [`specs/05b-configuracoes-do-site.md`](./specs/05b-configuracoes-do-site.md).
-      Inclui o `streamUrl` da rádio — hoje `null`, o que faz o `<audio>` nem ser
-      renderizado: **o botão de play do portal não toca nada**.
+- [x] ~~**Envio do convite por e-mail (Resend)**~~ ✅ Resolvido: porta `Mailer`
+      (`packages/contexts/identity/src/domain/ports/mailer.ts`) com
+      `NoopMailer` como padrão e `ResendMailer` (`fetch` puro, sem SDK) atrás
+      de `RESEND_API_KEY`. Mesma regra do Inngest e do Redis: SaaS é peça
+      trocável, nunca amarra. Sem a chave, o "avise você mesmo" continua sendo
+      o comportamento — o convite não fica bloqueado por falta de provedor.
+- [x] ~~**Redefinição de senha (B5)**~~ ✅ Resolvido: hook nativo
+      `sendResetPassword({ user, url })` do Better Auth, mais
+      `captureResetLink` (`AsyncLocalStorage`) para o admin conseguir o link
+      sem precisar de e-mail. Login ganhou "Esqueci minha senha" — com Mailer
+      configurado é autosserviço de verdade; sem ele, orienta a procurar um
+      admin (a tela pergunta via `identity.capabilities.mailerEnabled`, para
+      não fingir que enviou algo que não foi).
+- [x] ~~**Redefinição de senha pelo admin**~~ ✅ Resolvido junto do item
+      acima — botão "Redefinir senha" em "Equipe" → "Pessoas" gera o link e
+      mostra num diálogo para copiar.
+- [x] ~~**Reativar membro**~~ ✅ Resolvido: `activate()` simétrico ao
+      `deactivate()` (`packages/contexts/identity/src/domain/staff-member.ts`),
+      `activateStaff()` na aplicação e `users.activate` no router. Reativar
+      preserva o papel de antes; reativar quem já está ativo é idempotente.
+- [x] ~~**Configurações do site**~~ ✅ Entregue conforme
+      [`specs/05b-configuracoes-do-site.md`](./specs/05b-configuracoes-do-site.md):
+      contexto `settings` + tela em "Configurações", atrás de `settings:manage`.
+- [x] ~~**Botão de play não toca nada**~~ ✅ Encerrado por **mudança de escopo**:
+      a rádio se desvinculou do portal e a transmissão ao vivo saiu do produto.
+      Removidos o `<audio>` e o `LivePlayerProvider`, a barra vermelha "AO VIVO",
+      a pílula do cabeçalho, a página `/ao-vivo`, a env `RADIO_STREAM_URL` e o
+      campo `radioStreamUrl` das Configurações (migration
+      `20260807181354_drop_radio_stream_url`).
+      **O que ficou:** a grade de programação (contexto `broadcast`, tela do
+      painel e card da home) e a identidade "93,9 FM" no cabeçalho/rodapé — são
+      informação sobre o veículo, não dependiam do player.
 
 ### Bloco C — Banners e anúncios
 - [ ] Contexto `advertising` com `Campaign` (imagem, link, posição, período,
@@ -78,17 +88,55 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS.
       primeira vez que abrir.
 
 ### Avulso
-- [ ] **Grade de programação da rádio**: programa, horário, locutor e "no ar
-      agora" são fixture (`apps/web/src/data/radio.ts`). É coleção com entidade
-      própria, então ficou de fora da spec de configurações (D11) — o
-      `streamUrl` entra lá, a grade vem depois.
-- [ ] **Colunistas, enquete e vídeos da home** também são fixture. São conteúdo,
-      não configuração: colunista provavelmente é autor com destaque; enquete e
-      vídeo são features novas.
-- [ ] **"Mais lidas" não é mais lidas**: `getMostRead()` devolve as 5 mais
-      recentes, e `mostReadRank` nunca é preenchido — o filtro "mais lidas" das
-      listagens também não ordena nada. Precisa de contador de visualizações;
-      até lá, o honesto é trocar o rótulo.
+- [x] ~~**Grade de programação da rádio**~~ ✅ Resolvido (Bloco 2): novo
+      contexto `packages/contexts/broadcast` (agregado `Program`, grade
+      semanal recorrente — sem exceção pontual, por decisão do cliente).
+      Painel em "Programação" (`broadcast:manage`, ADMIN). O portal
+      (`ScheduleList`) lê do banco via `loadSchedule`; "no ar agora" é
+      calculado contra o relógio (`isProgramLive`/`Program.isLiveAt`), nunca
+      guardado. `LIVE_SHOW`/`TRACK_LOG` (o widget do programa "ao vivo" em
+      destaque e o log de músicas) continuam fixture — não fazem parte da
+      grade, ficam para quando viram feature própria.
+- [x] ~~**Enquete da home**~~ ✅ Resolvida (Bloco 5): novo contexto
+      `packages/contexts/polls` (agregado `Poll` com máquina de estados
+      `RASCUNHO → PUBLICADA → FECHADA`, sem volta). Voto **anônimo por cookie**
+      httpOnly, por decisão do cliente — sem conta de leitor. A garantia de
+      "um voto por pessoa" é a chave única `pollId + voterToken` no BANCO, não
+      uma checagem antes do insert (só o banco resiste a dois cliques
+      simultâneos — há teste de concorrência provando isso). O resultado só
+      aparece **depois** do voto, e essa decisão é aplicada no servidor: quem
+      não votou nem recebe os números, então não adianta inspecionar o
+      elemento. Painel em "Enquetes" (`polls:manage`, ADMIN); publicar uma
+      nova encerra a anterior (o portal mostra uma por vez).
+      No portal, o card é **RSC** e só o botão de votar é cliente, via Server
+      Action — o grupo `(site)` continua sem `QueryClientProvider`.
+- [ ] **Colunistas e vídeos da home** ainda são fixture. São conteúdo, não
+      configuração: colunista provavelmente é autor com destaque; vídeo é
+      feature nova.
+- [x] ~~**"Mais lidas" não é mais lidas**~~ ✅ Resolvido (Bloco 3): novo
+      contexto `packages/contexts/analytics` com `ViewCounterPort` (Redis,
+      janela móvel de 24h — sorted set por matéria, não balde que zera à
+      meia-noite). `ViewTracker` (client isolado, `sendBeacon`) registra a
+      visita na página da matéria via `/api/track/pageview`, sem custar tempo
+      de resposta. `getMostRead()` e o filtro "lidas" das listagens
+      (`mostReadRank`) agora usam o ranking de verdade; sem Redis disponível
+      (cache frio, serviço fora do ar), degradam para as mais recentes (N03)
+      em vez de quebrar.
+- [x] ~~**Analytics editorial (A38)**~~ ✅ Resolvido (Bloco 4): log DURÁVEL de
+      visualização em Postgres (`page_view`) ao lado do contador de 24h em
+      Redis — o painel precisa de histórico, que não cabe num cache
+      descartável. Tela em "Insights" (`analytics:view`, **ADMIN e EDITOR** —
+      é insumo de pauta, não governança como a auditoria). Mostra
+      visualizações por dia, origem do tráfego, tempo médio de leitura por
+      matéria e volume de produção por autor/editoria.
+      **Sem dado pessoal** (N09): nem IP, nem user-agent, nem identificador de
+      leitor — o referrer é classificado no servidor e descartado, só a
+      categoria é guardada.
+      Duas decisões que valem revisão: (a) o tempo de leitura só é reportado a
+      partir de **3 segundos** — abaixo disso é clique errado, não leitura, e
+      contaria contra a média; (b) a partir da segunda página da mesma aba a
+      origem é "interno", porque em navegação client-side o `document.referrer`
+      congela no que trouxe o leitor ao site.
 - [ ] **Temperatura do topo é `"32°C"` fixo** (`top-bar.tsx`). **Fica na tela**
       por decisão do cliente (D12) — troca-se por dado real quando houver uma
       porta `Weather` com provedor. Até lá é dívida consciente: valor fixo que
@@ -164,9 +212,8 @@ está em produção com conteúdo. O que resta:
 1. **Cadastrar `CRON_SECRET` na Vercel.** Sem ela a rota do agendamento responde
    503 e as matérias marcadas continuam não saindo sozinhas. É uma variável, não
    é código — mas sem ela o B7 não vale nada.
-2. **Convite + fechar o auto-cadastro** (B1) — a única pendência de *segurança*
-   antes de divulgar o endereço do painel.
-3. **Redefinição de senha** (B5) — vai junto do convite, mesmo mecanismo de
-   token, e evita o primeiro chamado de suporte sem saída.
+2. ~~**Convite + fechar o auto-cadastro** (B1)~~ ✅ Feito.
+3. ~~**Redefinição de senha** (B5)~~ ✅ Feito, junto de reativar membro e do
+   Mailer (convite/reset por e-mail quando `RESEND_API_KEY` existir).
 4. **Testes do serializador** — barato, e protege o que mais dói quebrar.
 5. Banners, quando houver anunciante.

@@ -1,10 +1,12 @@
 import { auth } from "@portal-app/auth";
 import { createPrismaClient } from "@portal-app/db";
+import { env } from "@portal-app/env/server";
 import {
 	acceptInvitation,
 	provisionStaffForNewUser,
 	type StaffMember,
 } from "@portal-app/identity";
+import { createMailer } from "@portal-app/identity/infrastructure/create-mailer";
 import { PrismaInvitationRepository } from "@portal-app/identity/infrastructure/prisma-invitation-repository";
 import { PrismaStaffRepository } from "@portal-app/identity/infrastructure/prisma-staff-repository";
 import { SystemClock } from "@portal-app/shared-kernel";
@@ -23,6 +25,8 @@ export const invitationRepo = new PrismaInvitationRepository(prisma);
 export const invitationDeps = {
 	invitations: invitationRepo,
 	clock: new SystemClock(),
+	mailer: createMailer({ apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM }),
+	appUrl: env.BETTER_AUTH_URL,
 };
 
 type Session = Awaited<ReturnType<typeof auth.api.getSession>>;

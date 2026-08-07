@@ -129,6 +129,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@portal-app/analytics':
+        specifier: workspace:*
+        version: link:../../packages/contexts/analytics
       '@portal-app/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -147,6 +150,9 @@ importers:
       '@portal-app/identity':
         specifier: workspace:*
         version: link:../../packages/contexts/identity
+      '@portal-app/polls':
+        specifier: workspace:*
+        version: link:../../packages/contexts/polls
       '@portal-app/settings':
         specifier: workspace:*
         version: link:../../packages/contexts/settings
@@ -247,9 +253,15 @@ importers:
 
   packages/api:
     dependencies:
+      '@portal-app/analytics':
+        specifier: workspace:*
+        version: link:../contexts/analytics
       '@portal-app/auth':
         specifier: workspace:*
         version: link:../auth
+      '@portal-app/broadcast':
+        specifier: workspace:*
+        version: link:../contexts/broadcast
       '@portal-app/db':
         specifier: workspace:*
         version: link:../db
@@ -265,6 +277,9 @@ importers:
       '@portal-app/media':
         specifier: workspace:*
         version: link:../contexts/media
+      '@portal-app/polls':
+        specifier: workspace:*
+        version: link:../contexts/polls
       '@portal-app/settings':
         specifier: workspace:*
         version: link:../contexts/settings
@@ -330,6 +345,47 @@ importers:
 
   packages/config: {}
 
+  packages/contexts/analytics:
+    dependencies:
+      '@portal-app/db':
+        specifier: workspace:*
+        version: link:../../db
+      '@portal-app/shared-kernel':
+        specifier: workspace:*
+        version: link:../../shared-kernel
+      ioredis:
+        specifier: ^5.9.0
+        version: 5.11.1
+    devDependencies:
+      '@portal-app/config':
+        specifier: workspace:*
+        version: link:../../config
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
+  packages/contexts/broadcast:
+    dependencies:
+      '@portal-app/db':
+        specifier: workspace:*
+        version: link:../../db
+      '@portal-app/shared-kernel':
+        specifier: workspace:*
+        version: link:../../shared-kernel
+    devDependencies:
+      '@portal-app/config':
+        specifier: workspace:*
+        version: link:../../config
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/contexts/editorial:
     dependencies:
       '@portal-app/db':
@@ -379,6 +435,25 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1103.0
         version: 3.1103.0
+      '@portal-app/db':
+        specifier: workspace:*
+        version: link:../../db
+      '@portal-app/shared-kernel':
+        specifier: workspace:*
+        version: link:../../shared-kernel
+    devDependencies:
+      '@portal-app/config':
+        specifier: workspace:*
+        version: link:../../config
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
+  packages/contexts/polls:
+    dependencies:
       '@portal-app/db':
         specifier: workspace:*
         version: link:../../db
@@ -1250,6 +1325,9 @@ packages:
     peerDependenciesMeta:
       '@types/node':
         optional: true
+
+  '@ioredis/commands@1.10.0':
+    resolution: {integrity: sha512-UmeW7z4LfctwoQ5wkhVzgq8tXkreED2xZGpX+Bg+zA+WJFZCT6c062AfCK/Dfk81xZnnwdhJCUMkitihRaoC2Q==}
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -2811,6 +2889,10 @@ packages:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
 
+  cluster-key-slot@1.1.1:
+    resolution: {integrity: sha512-rwHwUfXL40Chm1r08yrhU3qpUvdVlgkKNeyeGPOxnW8/SyVDvgRaed/Uz54AqWNaTCAThlj6QAs3TZcKI0xDEw==}
+    engines: {node: '>=0.10.0'}
+
   cmdk@1.1.1:
     resolution: {integrity: sha512-Vsv7kFaXm+ptHDMZ7izaRsP70GgrW9NBNGswt9OZaVBLlE0SNpDq8eu/VGXyF9r7M0azK3Wy7OlYXsuyYLFzHg==}
     peerDependencies:
@@ -3479,6 +3561,10 @@ packages:
   interpret@3.1.1:
     resolution: {integrity: sha512-6xwYfHbajpoF0xLW+iwLkhwgvLoZDfjYfoFNu8ftMoXINzwuymNLd9u/KmwtdT2GbR+/Cz66otEGEVVUHX9QLQ==}
     engines: {node: '>=10.13.0'}
+
+  ioredis@5.11.1:
+    resolution: {integrity: sha512-ehuGcf94bQXhfagULNXrJdfnWO38v070jxSx/qE87Kjzmu2fU7ro5EFAb+OPituLqgfyuQaym5DlrNydW2sJ9A==}
+    engines: {node: '>=12.22.0'}
 
   ip-address@10.4.0:
     resolution: {integrity: sha512-oSK96Grm3aP6OrS263xVxbNDGVL7rzBtYdpGqlDG8iQdoenDoTs/nkki+DflYbAEE8Xl6o5YxhxlrKvI3nqKXQ==}
@@ -4457,6 +4543,14 @@ packages:
     resolution: {integrity: sha512-/vxpCXddiX8NGfGO/mTafwjq4aFa/71pvamip0++IQk3zG8cbCj0fifNPrjjF1XMXUne91jL9OoxmdykoEtifQ==}
     engines: {node: '>= 10.13.0'}
 
+  redis-errors@1.2.0:
+    resolution: {integrity: sha512-1qny3OExCf0UvUV/5wpYKf2YwPcOqXzkwKKSmKHiE6ZMQs5heeE/c8eXK+PNllPvmjgAbfnsbpkGZWy8cBpn9w==}
+    engines: {node: '>=4'}
+
+  redis-parser@3.0.0:
+    resolution: {integrity: sha512-DJnGAeenTdpMEH6uAJRK/uiyEIH9WVsUmoLwzudwGJUwZPp80PDBWPHXSAGNPwNvIXAbe7MSUB1zQFugFml66A==}
+    engines: {node: '>=4'}
+
   regexp-tree@0.1.27:
     resolution: {integrity: sha512-iETxpjK6YoRWJG5o6hXLwvjYAoW+FEZn9os0PD/b6AP6xQwsa/Y7lCVgIixBbUPMfhu+i2LtdeAqVTgGlQarfA==}
     hasBin: true
@@ -4657,6 +4751,9 @@ packages:
 
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
+
+  standard-as-callback@2.1.0:
+    resolution: {integrity: sha512-qoRRSyROncaz1z0mvYqIE4lCd9p2R90i6GxW3uZv5ucSu8tU7B5HXUP1gG8pVZsYNVaXjk8ClXHPttLyxAL48A==}
 
   statuses@2.0.2:
     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
@@ -5907,6 +6004,8 @@ snapshots:
   '@inquirer/type@4.0.7(@types/node@22.20.1)':
     optionalDependencies:
       '@types/node': 22.20.1
+
+  '@ioredis/commands@1.10.0': {}
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -7416,6 +7515,8 @@ snapshots:
 
   clsx@2.1.1: {}
 
+  cluster-key-slot@1.1.1: {}
+
   cmdk@1.1.1(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.2.18)(react@19.2.8)
@@ -8070,6 +8171,18 @@ snapshots:
   internmap@2.0.3: {}
 
   interpret@3.1.1: {}
+
+  ioredis@5.11.1:
+    dependencies:
+      '@ioredis/commands': 1.10.0
+      cluster-key-slot: 1.1.1
+      debug: 4.4.3
+      denque: 2.1.0
+      redis-errors: 1.2.0
+      redis-parser: 3.0.0
+      standard-as-callback: 2.1.0
+    transitivePeerDependencies:
+      - supports-color
 
   ip-address@10.4.0: {}
 
@@ -9017,6 +9130,12 @@ snapshots:
     dependencies:
       resolve: 1.22.12
 
+  redis-errors@1.2.0: {}
+
+  redis-parser@3.0.0:
+    dependencies:
+      redis-errors: 1.2.0
+
   regexp-tree@0.1.27: {}
 
   remeda@2.33.4: {}
@@ -9289,6 +9408,8 @@ snapshots:
       nan: 2.28.0
 
   stackback@0.0.2: {}
+
+  standard-as-callback@2.1.0: {}
 
   statuses@2.0.2: {}
 

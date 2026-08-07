@@ -1,6 +1,7 @@
 import { createPrismaClient } from "@portal-app/db";
 import { env } from "@portal-app/env/server";
 import { assertCanSignUp } from "@portal-app/identity";
+import { createMailer } from "@portal-app/identity/infrastructure/create-mailer";
 import { PrismaInvitationRepository } from "@portal-app/identity/infrastructure/prisma-invitation-repository";
 import { PrismaStaffRepository } from "@portal-app/identity/infrastructure/prisma-staff-repository";
 import { SystemClock } from "@portal-app/shared-kernel";
@@ -8,6 +9,8 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+
+import { recordResetLink } from "./reset-link-capture";
 
 export function createAuth() {
 	const prisma = createPrismaClient();
@@ -18,6 +21,11 @@ export function createAuth() {
 		clock: new SystemClock(),
 	};
 
+	const mailer = createMailer({
+		apiKey: env.RESEND_API_KEY,
+		from: env.MAIL_FROM,
+	});
+
 	return betterAuth({
 		database: prismaAdapter(prisma, {
 			provider: "postgresql",
@@ -26,6 +34,19 @@ export function createAuth() {
 		trustedOrigins: [env.CORS_ORIGIN],
 		emailAndPassword: {
 			enabled: true,
+			/**
+			 * B5 (recuperação de senha). O link sempre é capturado (para o fluxo em
+			 * que o ADMIN mesmo entrega) e, se houver `RESEND_API_KEY`, também vai
+			 * por e-mail direto para a pessoa — as duas coisas não se excluem.
+			 */
+			sendResetPassword: async ({ user, url }) => {
+				recordResetLink(url);
+				await mailer.send({
+					to: user.email,
+					subject: "Redefinir sua senha",
+					text: `Clique no link para escolher uma nova senha: ${url}\n\nSe você não pediu isto, ignore este e-mail.`,
+				});
+			},
 		},
 		secret: env.BETTER_AUTH_SECRET,
 		baseURL: env.BETTER_AUTH_URL,

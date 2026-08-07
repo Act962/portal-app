@@ -9,6 +9,7 @@ export * from "./domain/authorization";
 export * from "./domain/errors";
 export * from "./domain/invitation";
 export * from "./domain/ports/invitation-repository";
+export * from "./domain/ports/mailer";
 export * from "./domain/ports/staff-repository";
 export * from "./domain/role";
 export * from "./domain/staff-member";

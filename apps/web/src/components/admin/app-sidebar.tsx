@@ -14,6 +14,7 @@ import {
 	SidebarRail,
 } from "@portal-app/ui/components/sidebar";
 import {
+	ChartLine,
 	Image as ImageIcon,
 	LayoutDashboard,
 	Megaphone,
@@ -23,6 +24,7 @@ import {
 	Settings,
 	Tags,
 	Users,
+	Vote,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -46,6 +48,9 @@ const ICONS: Record<NavIcon, typeof LayoutDashboard> = {
 	Megaphone,
 	Settings,
 	ScrollText,
+	Radio,
+	ChartLine,
+	Vote,
 };
 
 export function AppSidebar({

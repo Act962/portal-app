@@ -1,0 +1,22 @@
+// Contexto de Programação (Bloco 2). Grade SEMANAL recorrente da rádio — sem
+// exceção pontual (decisão do cliente). O id é gerado na aplicação
+// (IdGenerator); o @default(cuid()) é só conveniência para seeds/inserts
+// manuais, como no resto do DDD.
+
+model Program {
+  id        String @id @default(cuid())
+  name      String
+  host      String
+  // 0 (domingo) a 6 (sábado) — mesma convenção de `Date#getDay()`.
+  dayOfWeek Int
+  // "HH:MM" (24h). Guardado como texto: é o que a UI edita e exibe direto,
+  // sem fuso a resolver (a grade é sempre no horário local da rádio).
+  startTime String
+  endTime   String
+  order     Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("program")
+}

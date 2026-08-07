@@ -1,63 +1,39 @@
-import { cn } from "@portal-app/ui/lib/utils";
-
-import { SCHEDULE } from "@/data/radio";
-
-const STATUS_LABEL = {
-	"on-air": "NO AR",
-	live: "AO VIVO",
-} as const;
+import type { ProgramRow } from "@/data/queries";
+import { isProgramLive } from "@/lib/schedule";
 
 /**
- * Today's programming grid. `tone` switches it between the light sidebar card
- * and the navy band on the live page.
+ * Grade de um dia. Recebe os programas já filtrados e o `now` de quem chama —
+ * não lê o banco nem o relógio. Isso mantém a decisão de "quem está no ar" numa
+ * função pura e testável (`isProgramLive`) e deixa este arquivo com só a
+ * marcação.
  */
 export function ScheduleList({
-	tone = "light",
-	showHost = false,
+	programs,
+	now,
 }: {
-	tone?: "light" | "dark";
-	showHost?: boolean;
+	programs: ProgramRow[];
+	now: Date;
 }) {
-	const isDark = tone === "dark";
-
 	return (
 		<ul>
-			{SCHEDULE.map((program) => (
+			{programs.map((program) => (
 				<li
 					key={program.id}
-					className={cn(
-						"flex items-center gap-3 border-t py-2.5 first:border-t-0",
-						isDark ? "border-white/15" : "border-hairline",
-					)}
+					className="flex items-center gap-3 border-hairline border-t py-2.5 first:border-t-0"
 				>
-					<span
-						className={cn(
-							"w-10 shrink-0 font-mono text-[11.5px]",
-							isDark ? "text-on-navy-muted" : "text-brand-navy",
-						)}
-					>
-						{program.hour}
+					<span className="w-12 shrink-0 font-mono text-[11.5px] text-brand-navy">
+						{program.startTime}
 					</span>
 
 					<span className="min-w-0 flex-1">
-						<span
-							className={cn(
-								"block truncate font-semibold text-[13.5px]",
-								isDark ? "text-white" : "text-brand-navy",
-							)}
-						>
+						<span className="block truncate font-semibold text-[13.5px] text-brand-navy">
 							{program.name}
 						</span>
-						{showHost ? (
-							<span className="mt-0.5 block font-mono text-[9.5px] text-on-navy-dim">
-								{program.host}
-							</span>
-						) : null}
 					</span>
 
-					{program.status ? (
+					{isProgramLive(program, now) ? (
 						<span className="shrink-0 font-mono text-[8.5px] text-brand-red tracking-[0.1em]">
-							{STATUS_LABEL[program.status]}
+							NO AR
 						</span>
 					) : null}
 				</li>

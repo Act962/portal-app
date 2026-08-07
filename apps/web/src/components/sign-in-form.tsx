@@ -8,6 +8,7 @@ import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
+import { ForgotPasswordDialog } from "./forgot-password-dialog";
 import Loader from "./loader";
 
 export default function SignInForm({
@@ -117,6 +118,8 @@ export default function SignInForm({
 					)}
 				</form.Subscribe>
 			</form>
+
+			<ForgotPasswordDialog />
 
 			<p className="mt-4 text-center text-muted-foreground text-sm">
 				Ainda não tem acesso?{" "}

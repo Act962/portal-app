@@ -147,6 +147,13 @@ Coerente com o resto do sistema (ADR 0005) e útil na prática: quando o rodapé
 
 ### D11 — A rádio entra pelo `streamUrl`, e só
 
+> ⚠️ **Revogada depois da entrega.** A rádio se desvinculou do portal e a
+> transmissão ao vivo saiu do produto: o player, a página `/ao-vivo` e o campo
+> `radioStreamUrl` foram removidos (migration
+> `20260807181354_drop_radio_stream_url`). Sobraram `radioFrequency` e
+> `radioBand`, que são só a identidade exibida no cabeçalho e no rodapé. O texto
+> abaixo fica como registro do que se decidiu na época.
+
 Três campos: `radioStreamUrl`, `radioFrequency`, `radioBand`.
 
 É o corte de maior valor por esforço do Bloco B inteiro. Hoje o cliente **é uma
@@ -257,8 +264,8 @@ invalidação por evento entrar (dívida já registrada).
    rede, não só a página redireciona.
 3. Com o banco vazio de configurações, o portal renderiza **exatamente** como
    hoje (os defaults do `siteConfig`).
-4. Preencher `radioStreamUrl` faz o botão de play tocar a rádio; apagar volta ao
-   estado atual, sem erro no console.
+4. ~~Preencher `radioStreamUrl` faz o botão de play tocar a rádio; apagar volta
+   ao estado atual, sem erro no console.~~ (critério revogado — ver D11)
 5. Um item institucional sem `href` não vira `<a>` clicável.
 6. `href` inválido (`javascript:`, relativo, texto solto) é recusado no salvamento
    com mensagem em pt-BR.

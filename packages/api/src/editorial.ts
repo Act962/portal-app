@@ -87,6 +87,62 @@ export function dispatchEditorialEvents(): Promise<number> {
 	return dispatchOutbox(prisma, eventBus);
 }
 
+/**
+ * Volume de produção por autor e por editoria no período (A38/A39).
+ *
+ * Vive AQUI, na composição, e não no contexto de analytics: o dado é do
+ * editorial (matérias publicadas), e fazer `analytics` importar `editorial`
+ * quebraria `contextos-isolados`. É o mesmo arranjo do `ContentUsage` acima —
+ * a cola mora na raiz de composição.
+ *
+ * Conta pela data de PUBLICAÇÃO, não de criação: o que interessa a um
+ * relatório de produção é o que saiu no ar no período.
+ */
+export async function articleProductionBetween(
+	from: Date,
+	to: Date,
+): Promise<{
+	byAuthor: Array<{ name: string; articles: number }>;
+	bySection: Array<{ name: string; articles: number }>;
+}> {
+	const where = {
+		status: { in: ["PUBLICADA", "ATUALIZADA"] },
+		publishedAt: { gte: from, lte: to },
+	};
+
+	const [authorRows, sectionRows, sections] = await Promise.all([
+		prisma.article.groupBy({
+			by: ["authorName"],
+			where,
+			_count: { _all: true },
+		}),
+		prisma.article.groupBy({
+			by: ["sectionId"],
+			where,
+			_count: { _all: true },
+		}),
+		prisma.section.findMany({ select: { id: true, name: true } }),
+	]);
+
+	const sectionName = new Map(sections.map((s) => [s.id, s.name]));
+
+	return {
+		byAuthor: authorRows
+			.map((row) => ({ name: row.authorName, articles: row._count._all }))
+			.sort((a, b) => b.articles - a.articles),
+		bySection: sectionRows
+			.map((row) => ({
+				// Matéria sem editoria não deveria existir publicada, mas se
+				// existir é melhor aparecer rotulada do que sumir da soma.
+				name: row.sectionId
+					? (sectionName.get(row.sectionId) ?? "Editoria removida")
+					: "Sem editoria",
+				articles: row._count._all,
+			}))
+			.sort((a, b) => b.articles - a.articles),
+	};
+}
+
 /** Registro de auditoria mais recente (A35). DTO plano — o campo Json `detail`
  * fica de fora para não estourar a inferência de tipos do tRPC. */
 export async function listAuditLog(): Promise<

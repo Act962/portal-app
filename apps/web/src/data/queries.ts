@@ -2,7 +2,7 @@ import type { ArticleOrder } from "@/lib/sorting";
 
 import type { Article } from "./types";
 
-export type { HomeBlock } from "./read-model";
+export type { HomeBlock, ProgramRow } from "./read-model";
 /**
  * A camada de leitura do portal. Os componentes importam SÓ daqui.
  *
@@ -31,6 +31,7 @@ export {
 	getTag,
 	getTags,
 	getTicker,
+	loadSchedule,
 	loadSiteSettings,
 	searchArticles,
 } from "./read-model";

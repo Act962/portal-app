@@ -9,6 +9,7 @@ import type {
 import { InvitationAlreadyExists, NotInvited } from "../domain/errors";
 import { Invitation, normalizeEmail } from "../domain/invitation";
 import type { InvitationRepository } from "../domain/ports/invitation-repository";
+import type { Mailer } from "../domain/ports/mailer";
 import type { StaffMemberRepository } from "../domain/ports/staff-repository";
 import type { Role } from "../domain/role";
 
@@ -20,6 +21,9 @@ type Deps = {
 	invitations: InvitationRepository;
 	clock: Clock;
 	ids: IdGenerator;
+	mailer: Mailer;
+	/** Origem do painel, para compor o link de login no e-mail (ex: BETTER_AUTH_URL). */
+	appUrl: string;
 };
 
 export function listInvitations(
@@ -56,6 +60,15 @@ export async function inviteMember(
 	}
 
 	await deps.invitations.save(invitation.unwrap());
+
+	// Sem Mailer configurado isto é um NoopMailer — não falha, só não faz nada,
+	// e o "avise você mesmo" que já existe continua sendo o caminho.
+	await deps.mailer.send({
+		to: email,
+		subject: "Convite para a redação",
+		text: `Você foi convidado para o painel da redação. Crie sua conta em ${deps.appUrl}/login usando exatamente este e-mail (${email}).`,
+	});
+
 	return invitation;
 }
 

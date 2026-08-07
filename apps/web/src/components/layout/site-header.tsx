@@ -4,7 +4,6 @@ import { Menu, Search } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { LivePlayerPill } from "@/components/radio/live-player-pill";
 import { siteConfig } from "@/config/site";
 import { loadSiteSettings } from "@/data/queries";
 import { routes } from "@/lib/routes";
@@ -13,9 +12,8 @@ const ICON_BUTTON =
 	"flex size-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20";
 
 /**
- * Masthead. Two quite different designs share this markup:
- * navy and compact with icon actions on mobile, white and wide with the live
- * pill and a banner slot from `md` up.
+ * Masthead. Two quite different designs share this markup: navy and compact
+ * with icon actions on mobile, white and wide with a banner slot from `md` up.
  */
 export async function SiteHeader() {
 	const site = await loadSiteSettings();
@@ -48,8 +46,6 @@ export async function SiteHeader() {
 						</span>
 					</span>
 				</Link>
-
-				<LivePlayerPill className="hidden md:flex" />
 
 				<div className="flex-1" />
 

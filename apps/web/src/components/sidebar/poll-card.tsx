@@ -1,20 +1,21 @@
-"use client";
+import type { PollView } from "@/data/polls";
 
-import { cn } from "@portal-app/ui/lib/utils";
-import { useState } from "react";
-
-import type { Poll } from "@/data/types";
+import { PollForm } from "./poll-form";
 
 /**
- * Weekly poll. Percentages stay hidden until the reader answers, so the
- * existing result cannot bias the vote.
+ * Enquete da semana. SERVER component: quem decide se o resultado aparece é o
+ * servidor (as porcentagens só chegam depois do voto — ver `data/polls.ts`),
+ * não o CSS. Só o botão de votar é cliente (`PollForm`).
  *
- * Votes are local to the session — persistence arrives with the Engagement
- * context in Phase 6.
+ * Sem enquete publicada, o bloco inteiro some — melhor do que um card vazio
+ * dizendo "nenhuma enquete".
  */
-export function PollCard({ poll }: { poll: Poll }) {
-	const [votedFor, setVotedFor] = useState<string | null>(null);
-	const hasVoted = votedFor !== null;
+export function PollCard({ poll }: { poll: PollView | null }) {
+	if (!poll) {
+		return null;
+	}
+
+	const hasVoted = poll.votedFor !== null;
 
 	return (
 		<section className="rounded-card border border-hairline bg-surface p-4">
@@ -26,33 +27,21 @@ export function PollCard({ poll }: { poll: Poll }) {
 				{poll.question}
 			</p>
 
-			<div className="flex flex-col gap-1.5">
-				{poll.options.map((option) => (
-					<button
-						key={option.id}
-						type="button"
-						onClick={() => setVotedFor(option.id)}
-						aria-pressed={votedFor === option.id}
-						className={cn(
-							"flex min-h-11 items-center justify-between gap-3 rounded-control border px-3 font-semibold text-[13px] text-brand-navy transition-colors",
-							votedFor === option.id
-								? "border-brand-red bg-surface-alt"
-								: "border-hairline-strong hover:border-brand-red",
-						)}
-					>
-						<span>{option.label}</span>
-						<span className="font-mono text-[11px] text-meta">
-							{hasVoted ? `${option.percentage}%` : "—"}
-						</span>
-					</button>
-				))}
-			</div>
+			<PollForm
+				pollId={poll.id}
+				options={poll.options}
+				votedFor={poll.votedFor}
+			/>
 
 			<p aria-live="polite" className="mt-2.5 font-mono text-[9.5px] text-meta">
 				{hasVoted
-					? `Obrigado pelo voto · ${poll.totalVotes + 1} votos`
-					: `${poll.totalVotes} votos · resultado parcial`}
+					? `Obrigado pelo voto · ${poll.totalVotes} ${plural(poll.totalVotes)}`
+					: `${poll.totalVotes} ${plural(poll.totalVotes)} · vote para ver o resultado`}
 			</p>
 		</section>
 	);
+}
+
+function plural(total: number): string {
+	return total === 1 ? "voto" : "votos";
 }

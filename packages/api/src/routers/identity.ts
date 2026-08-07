@@ -1,5 +1,9 @@
+import { auth } from "@portal-app/auth";
+import { captureResetLink } from "@portal-app/auth/reset-link-capture";
+import { env } from "@portal-app/env/server";
 import {
 	AuthorProfile,
+	activateStaff,
 	bindStaffSections,
 	changeStaffRole,
 	deactivateStaff,
@@ -18,7 +22,12 @@ import { UuidGenerator } from "@portal-app/shared-kernel";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { requirePermission, router, staffProcedure } from "../index";
+import {
+	publicProcedure,
+	requirePermission,
+	router,
+	staffProcedure,
+} from "../index";
 import { invitationDeps, staffRepo } from "../staff";
 
 const inviteDeps = { ...invitationDeps, ids: new UuidGenerator() };
@@ -56,6 +65,16 @@ export const identityRouter = router({
 	/** O membro por trás da sessão atual — papel, editorias e perfil. */
 	me: staffProcedure.query(({ ctx }) => toDto(ctx.staff)),
 
+	/**
+	 * Público (a tela de login não tem sessão) — diz ao painel se vale a pena
+	 * oferecer a redefinição de senha por conta própria. Sem Mailer, o Better
+	 * Auth mandaria uma mensagem genérica sem entregar nada de verdade; melhor
+	 * a tela já orientar a falar com um admin do que fingir que enviou.
+	 */
+	capabilities: router({
+		mailerEnabled: publicProcedure.query(() => Boolean(env.RESEND_API_KEY)),
+	}),
+
 	users: router({
 		list: manage.query(async ({ ctx }) => {
 			const result = await listStaff(ctx.staff, { repo: staffRepo });
@@ -82,6 +101,44 @@ export const identityRouter = router({
 			.mutation(async ({ ctx, input }) =>
 				unwrap(await deactivateStaff(ctx.staff, input, { repo: staffRepo })),
 			),
+
+		activate: manage
+			.input(z.object({ staffId: z.string() }))
+			.mutation(async ({ ctx, input }) =>
+				unwrap(await activateStaff(ctx.staff, input, { repo: staffRepo })),
+			),
+
+		/**
+		 * B5 — o admin gera o link de redefinição e entrega manualmente (mesma
+		 * filosofia "avise você mesmo" do convite, enquanto não há Mailer). A
+		 * mensagem do Better-Auth é sempre genérica ("se o e-mail existir..."),
+		 * então o link só existe se `captureResetLink` conseguiu pegá-lo — o que
+		 * só acontece quando o e-mail é de fato de um usuário existente.
+		 */
+		resetPassword: manage
+			.input(z.object({ staffId: z.string() }))
+			.mutation(async ({ input }) => {
+				const staff = await staffRepo.findById(input.staffId);
+				if (!staff) {
+					throw new TRPCError({ code: "NOT_FOUND" });
+				}
+				const { url } = await captureResetLink(() =>
+					auth.api.requestPasswordReset({
+						body: {
+							email: staff.email,
+							redirectTo: `${env.BETTER_AUTH_URL}/reset-password`,
+						},
+					}),
+				);
+				if (!url) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message:
+							"Não existe conta de login para este e-mail (talvez o convite ainda não foi aceito).",
+					});
+				}
+				return { url };
+			}),
 	}),
 
 	/**

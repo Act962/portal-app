@@ -30,11 +30,9 @@ export const siteConfig = {
 	logo: "/brand/logo.svg",
 	locale: "pt-BR",
 
-	radio: {
-		frequency: d.radioFrequency,
-		band: d.radioBand,
-		streamUrl: d.radioStreamUrl,
-	},
+	// Sem bloco `radio`: o único leitor era a página /ao-vivo, que saiu com o
+	// player. A frequência e a faixa que o portal ainda mostra (cabeçalho,
+	// rodapé) vêm do read model — `loadSiteSettings()` —, não daqui.
 	contact: {
 		newsroom: d.contactNewsroom,
 		whatsapp: d.contactWhatsapp,

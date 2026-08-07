@@ -1,0 +1,32 @@
+// Contexto de Analytics (Bloco 4). Log DURÁVEL de visualizações — o Redis do
+// Bloco 3 cobre só as últimas 24h (contador rápido do "mais lidas"); o painel
+// de insights precisa de histórico por período.
+//
+// Sem FK para Article de propósito: guarda o SLUG, que é público e imutável
+// após a primeira publicação. Assim o histórico sobrevive a uma matéria
+// arquivada, e o contexto de analytics não depende do editorial.
+//
+// Sem dado pessoal (LGPD/N09): nem IP, nem user-agent, nem identificador de
+// leitor. Só o que a redação precisa para decidir pauta.
+
+model PageView {
+  // Gerado no CLIENTE (crypto.randomUUID) para o segundo beacon — o que fecha
+  // o tempo de leitura na saída da página — achar esta linha.
+  id          String   @id
+  articleSlug String
+  occurredAt  DateTime @default(now())
+
+  // Nulo enquanto o leitor não sai da página (ou se ele fecha a aba de um
+  // jeito que o browser não entrega o beacon final). Contar como zero puxaria
+  // toda média para baixo, então a agregação ignora os nulos.
+  readingSeconds Int?
+
+  // "direto" | "busca" | "social" | "interno" | "outro" — classificado no
+  // servidor a partir do referrer (o referrer cru NÃO é guardado).
+  source String @default("outro")
+
+  // As duas consultas do painel: série por período, e recorte por matéria.
+  @@index([occurredAt])
+  @@index([articleSlug, occurredAt])
+  @@map("page_view")
+}

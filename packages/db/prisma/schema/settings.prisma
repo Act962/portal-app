@@ -19,10 +19,11 @@ model SiteSettings {
   state       String
   logoMediaId String?
 
-  // Rádio (D11) — streamUrl é o que efetivamente põe a rádio no ar
+  // Rádio (D11) — só a identidade que o portal exibe. O `radioStreamUrl` saiu
+  // junto com o player de áudio: a transmissão ao vivo deixou de fazer parte do
+  // produto.
   radioFrequency String?
   radioBand      String?
-  radioStreamUrl String?
 
   // Contato
   contactNewsroom String?

@@ -9,12 +9,14 @@
     "start": "next start"
   },
   "dependencies": {
+    "@portal-app/analytics": "workspace:*",
     "@portal-app/api": "workspace:*",
     "@portal-app/auth": "workspace:*",
     "@portal-app/db": "workspace:*",
     "@portal-app/editorial": "workspace:*",
     "@portal-app/env": "workspace:*",
     "@portal-app/identity": "workspace:*",
+    "@portal-app/polls": "workspace:*",
     "@portal-app/settings": "workspace:*",
     "@portal-app/ui": "workspace:*",
     "@prisma/client": "catalog:",

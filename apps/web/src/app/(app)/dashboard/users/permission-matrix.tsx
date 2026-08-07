@@ -35,6 +35,12 @@ const ROWS: Array<{
 		admin: true,
 	},
 	{
+		action: "Gerenciar programação da rádio",
+		redator: false,
+		editor: false,
+		admin: true,
+	},
+	{
 		action: "Gerenciar usuários e papéis",
 		redator: false,
 		editor: false,
@@ -47,6 +53,10 @@ const ROWS: Array<{
 		admin: true,
 	},
 	{ action: "Ver auditoria", redator: false, editor: false, admin: true },
+	// Analytics editorial é insumo de pauta — por isso o editor vê, ao
+	// contrário da auditoria logo acima, que é governança.
+	{ action: "Ver insights", redator: false, editor: true, admin: true },
+	{ action: "Gerenciar enquetes", redator: false, editor: false, admin: true },
 ];
 
 function cell(value: boolean | "cond"): string {

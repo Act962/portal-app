@@ -15,9 +15,12 @@ export const ACTIONS = [
 	"article:publish",
 	"article:unpublish",
 	"taxonomy:manage",
+	"broadcast:manage",
+	"polls:manage",
 	"user:manage",
 	"settings:manage",
 	"audit:view",
+	"analytics:view",
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];

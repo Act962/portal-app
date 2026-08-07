@@ -103,35 +103,10 @@ export type Columnist = {
 	sectionSlug: string;
 };
 
-export type Program = {
-	id: string;
-	/** Display label, e.g. "06h". */
-	hour: string;
-	name: string;
-	host: string;
-	status?: "on-air" | "live";
-};
+// `LiveShow` e `TrackLogEntry` saíram junto com o player: a transmissão ao vivo
+// não faz mais parte do produto (a rádio se desvinculou). A grade de programação
+// continua, e o tipo dela é `ProgramView`, vindo do contexto `broadcast`.
 
-export type TrackLogEntry = {
-	at: string;
-	title: string;
-};
-
-export type LiveShow = {
-	name: string;
-	host: string;
-	schedule: string;
-	listeners: number;
-};
-
-export type PollOption = {
-	id: string;
-	label: string;
-	percentage: number;
-};
-
-export type Poll = {
-	question: string;
-	options: PollOption[];
-	totalVotes: number;
-};
+// A enquete migrou para o banco no Bloco 5 — o tipo do portal agora é
+// `PollView`, em `data/polls.ts` (a porcentagem é `number | null` lá, porque
+// o resultado só chega depois do voto).

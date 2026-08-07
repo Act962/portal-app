@@ -35,7 +35,6 @@ const updateSchema = z.object({
 
 	radioFrequency: z.string().nullable().optional(),
 	radioBand: z.string().nullable().optional(),
-	radioStreamUrl: z.string().nullable().optional(),
 
 	contactNewsroom: z.string().nullable().optional(),
 	contactWhatsapp: z.string().nullable().optional(),

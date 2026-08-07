@@ -10,6 +10,7 @@ import { ArticleTags } from "@/components/news/article-tags";
 import { Breadcrumbs } from "@/components/news/breadcrumbs";
 import { MostReadList } from "@/components/news/most-read-list";
 import { RelatedNews } from "@/components/news/related-news";
+import { ViewTracker } from "@/components/news/view-tracker";
 import { JsonLd } from "@/components/seo/json-ld";
 import { NewsletterCard } from "@/components/sidebar/newsletter-card";
 import { siteConfig } from "@/config/site";
@@ -93,6 +94,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
 	return (
 		<>
+			{/* `key`: uma leitura nova precisa de uma INSTÂNCIA nova, senão a
+			    navegação entre matérias reaproveitaria o mesmo id de
+			    visualização e a segunda leitura sobrescreveria a primeira. */}
+			<ViewTracker key={article.slug} slug={article.slug} />
 			<ContentWithSidebar
 				gap="article"
 				// The article opens with a breadcrumb, not a full-bleed band, so it

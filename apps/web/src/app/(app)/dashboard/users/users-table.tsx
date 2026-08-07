@@ -14,6 +14,15 @@ import { Avatar, AvatarFallback } from "@portal-app/ui/components/avatar";
 import { Badge } from "@portal-app/ui/components/badge";
 import { Button } from "@portal-app/ui/components/button";
 import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@portal-app/ui/components/dialog";
+import { Input } from "@portal-app/ui/components/input";
+import {
 	Select,
 	SelectContent,
 	SelectItem,
@@ -30,7 +39,7 @@ import {
 	TableRow,
 } from "@portal-app/ui/components/table";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserMinus } from "lucide-react";
+import { Copy, KeyRound, UserCheck, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -55,6 +64,10 @@ export function UsersTable() {
 	const queryClient = useQueryClient();
 	const users = useQuery(trpc.identity.users.list.queryOptions());
 	const [confirming, setConfirming] = useState<string | null>(null);
+	const [resetLink, setResetLink] = useState<{
+		email: string;
+		url: string;
+	} | null>(null);
 
 	const invalidate = () =>
 		queryClient.invalidateQueries({
@@ -74,6 +87,24 @@ export function UsersTable() {
 	const deactivate = useMutation(
 		trpc.identity.users.deactivate.mutationOptions({
 			onSuccess: invalidate,
+			onError,
+		}),
+	);
+	const activate = useMutation(
+		trpc.identity.users.activate.mutationOptions({
+			onSuccess: () => {
+				invalidate();
+				toast.success("Membro reativado.");
+			},
+			onError,
+		}),
+	);
+	const resetPassword = useMutation(
+		trpc.identity.users.resetPassword.mutationOptions({
+			onSuccess: (data, variables) => {
+				const email = list.find((u) => u.id === variables.staffId)?.email;
+				setResetLink({ email: email ?? "", url: data.url });
+			},
 			onError,
 		}),
 	);
@@ -170,16 +201,39 @@ export function UsersTable() {
 										)}
 									</TableCell>
 									<TableCell>
-										{user.active ? (
+										<div className="flex justify-end">
 											<Button
 												variant="ghost"
 												size="icon"
-												aria-label={`Desativar ${user.email}`}
-												onClick={() => setConfirming(user.id)}
+												aria-label={`Gerar link de redefinição de senha para ${user.email}`}
+												disabled={resetPassword.isPending}
+												onClick={() =>
+													resetPassword.mutate({ staffId: user.id })
+												}
 											>
-												<UserMinus className="size-4 text-destructive" />
+												<KeyRound className="size-4" />
 											</Button>
-										) : null}
+											{user.active ? (
+												<Button
+													variant="ghost"
+													size="icon"
+													aria-label={`Desativar ${user.email}`}
+													onClick={() => setConfirming(user.id)}
+												>
+													<UserMinus className="size-4 text-destructive" />
+												</Button>
+											) : (
+												<Button
+													variant="ghost"
+													size="icon"
+													aria-label={`Reativar ${user.email}`}
+													disabled={activate.isPending}
+													onClick={() => activate.mutate({ staffId: user.id })}
+												>
+													<UserCheck className="size-4" />
+												</Button>
+											)}
+										</div>
 									</TableCell>
 								</TableRow>
 							))
@@ -216,6 +270,51 @@ export function UsersTable() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			<Dialog
+				open={resetLink !== null}
+				onOpenChange={(open) => !open && setResetLink(null)}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>
+							Link de redefinição para {resetLink?.email}
+						</DialogTitle>
+						<DialogDescription>
+							Copie e entregue este link pelo canal que preferir (não é enviado
+							por e-mail automaticamente). Ele expira em 1 hora e só funciona
+							uma vez.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="flex items-center gap-2">
+						<Input
+							readOnly
+							aria-label="Link de redefinição"
+							value={resetLink?.url ?? ""}
+							className="text-xs"
+						/>
+						<Button
+							type="button"
+							variant="outline"
+							size="icon"
+							aria-label="Copiar link"
+							onClick={() => {
+								if (resetLink) {
+									navigator.clipboard.writeText(resetLink.url);
+									toast.success("Link copiado.");
+								}
+							}}
+						>
+							<Copy className="size-4" />
+						</Button>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setResetLink(null)}>
+							Fechar
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</>
 	);
 }

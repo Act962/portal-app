@@ -16,7 +16,10 @@ export type NavIcon =
 	| "Users"
 	| "Megaphone"
 	| "Settings"
-	| "ScrollText";
+	| "ScrollText"
+	| "Radio"
+	| "ChartLine"
+	| "Vote";
 
 export type NavItem = {
 	href: string;
@@ -45,6 +48,14 @@ export const ADMIN_NAV: NavGroup[] = [
 			},
 			{ href: "/dashboard/articles", label: "Matérias", icon: "Newspaper" },
 			{ href: "/dashboard/media", label: "Mídia", icon: "Image" },
+			// Fica na Redação, não em Administração: é insumo de pauta, e o
+			// EDITOR também enxerga.
+			{
+				href: "/dashboard/insights",
+				label: "Insights",
+				icon: "ChartLine",
+				action: "analytics:view",
+			},
 		],
 	},
 	{
@@ -55,6 +66,18 @@ export const ADMIN_NAV: NavGroup[] = [
 				label: "Editorias e tags",
 				icon: "Tags",
 				action: "taxonomy:manage",
+			},
+			{
+				href: "/dashboard/programacao",
+				label: "Programação",
+				icon: "Radio",
+				action: "broadcast:manage",
+			},
+			{
+				href: "/dashboard/enquetes",
+				label: "Enquetes",
+				icon: "Vote",
+				action: "polls:manage",
 			},
 			{
 				href: "/dashboard/users",
@@ -87,7 +110,10 @@ export const ROUTE_LABELS: Record<string, string> = {
 	"/dashboard": "Visão geral",
 	"/dashboard/articles": "Matérias",
 	"/dashboard/media": "Mídia",
+	"/dashboard/insights": "Insights",
 	"/dashboard/taxonomy": "Editorias e tags",
+	"/dashboard/programacao": "Programação",
+	"/dashboard/enquetes": "Enquetes",
 	"/dashboard/users": "Equipe",
 	"/dashboard/settings": "Configurações",
 	"/dashboard/audit": "Auditoria",

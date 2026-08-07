@@ -18,7 +18,7 @@ import { PollCard } from "@/components/sidebar/poll-card";
 import { ScheduleCard } from "@/components/sidebar/schedule-card";
 import { WhatsappCard } from "@/components/sidebar/whatsapp-card";
 import { COLUMNISTS } from "@/data/columnists";
-import { WEEKLY_POLL } from "@/data/poll";
+import { loadCurrentPoll } from "@/data/polls";
 import {
 	getHeadline,
 	getHomeBlocks,
@@ -32,7 +32,7 @@ import { routes } from "@/lib/routes";
 import { websiteSchema } from "@/lib/structured-data";
 
 export default async function HomePage() {
-	const [headline, blocks, mostRead, sections, secondary, latest] =
+	const [headline, blocks, mostRead, sections, secondary, latest, poll] =
 		await Promise.all([
 			getHeadline(),
 			getHomeBlocks(),
@@ -40,6 +40,7 @@ export default async function HomePage() {
 			getSections(),
 			getSecondaryStories(),
 			getLatest(),
+			loadCurrentPoll(),
 		]);
 
 	// Portal recém-migrado / sem publicações ainda: estado vazio honesto.
@@ -63,7 +64,7 @@ export default async function HomePage() {
 					<>
 						<MostReadList articles={mostRead} period="24H" />
 						<AdSlot format="sidebar" />
-						<PollCard poll={WEEKLY_POLL} />
+						<PollCard poll={poll} />
 
 						{/* A directory of sections replaces the desktop nav rail on a phone. */}
 						<section className="lg:hidden">

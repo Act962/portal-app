@@ -1,0 +1,54 @@
+// Contexto de Enquetes (Bloco 5). Voto ANÔNIMO por cookie, por decisão do
+// cliente: nada de conta de leitor. O `voterToken` é um identificador opaco
+// gerado no servidor e guardado num cookie httpOnly — não identifica pessoa,
+// só a mesma origem de voto (LGPD/N09).
+
+model Poll {
+  id        String    @id
+  question  String
+  // "RASCUNHO" | "PUBLICADA" | "FECHADA" — a máquina de estados vive no
+  // domínio; aqui é só o valor.
+  status    String    @default("RASCUNHO")
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  options PollOption[]
+  votes   PollVote[]
+
+  // A consulta do portal: "a enquete que está no ar".
+  @@index([status, publishedAt])
+  @@map("poll")
+}
+
+model PollOption {
+  id     String @id
+  pollId String
+  poll   Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  label  String
+  order  Int    @default(0)
+
+  votes PollVote[]
+
+  @@index([pollId])
+  @@map("poll_option")
+}
+
+model PollVote {
+  id         String @id
+  pollId     String
+  poll       Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  optionId   String
+  option     PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  // Cookie httpOnly do leitor. Opaco e sem vínculo com pessoa.
+  voterToken String
+
+  createdAt DateTime @default(now())
+
+  // A GARANTIA de "um voto por leitor". Fica aqui, e não numa checagem antes
+  // do insert, porque só o banco resiste a dois cliques simultâneos.
+  @@unique([pollId, voterToken])
+  @@index([optionId])
+  @@map("poll_vote")
+}

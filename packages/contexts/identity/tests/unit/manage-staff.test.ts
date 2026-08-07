@@ -1,5 +1,6 @@
 import {
 	AuthorProfile,
+	activateStaff,
 	bindStaffSections,
 	changeStaffRole,
 	deactivateStaff,
@@ -55,6 +56,15 @@ describe("gestão de usuários — autorização", () => {
 		);
 		expect(result).toBeErr(Forbidden);
 	});
+
+	it("um redator não pode reativar um membro", async () => {
+		const result = await activateStaff(
+			redator,
+			{ staffId: "redator-1" },
+			{ repo },
+		);
+		expect(result).toBeErr(Forbidden);
+	});
 });
 
 describe("gestão de usuários — efeitos", () => {
@@ -85,6 +95,33 @@ describe("gestão de usuários — efeitos", () => {
 		const loaded = await repo.findById("redator-1");
 		expect(loaded?.isActive()).toBe(false);
 		expect(loaded?.id).toBe("redator-1");
+	});
+
+	it("admin reativa um membro desativado, com o mesmo papel de antes", async () => {
+		const roleBefore = (await repo.findById("redator-1"))?.role;
+		await deactivateStaff(admin, { staffId: "redator-1" }, { repo });
+
+		const result = await activateStaff(
+			admin,
+			{ staffId: "redator-1" },
+			{ repo },
+		);
+
+		expect(result.isOk()).toBe(true);
+		const loaded = await repo.findById("redator-1");
+		expect(loaded?.isActive()).toBe(true);
+		expect(loaded?.role).toBe(roleBefore);
+	});
+
+	it("reativar um membro já ativo não tem efeito (idempotente)", async () => {
+		const result = await activateStaff(
+			admin,
+			{ staffId: "redator-1" },
+			{ repo },
+		);
+
+		expect(result.isOk()).toBe(true);
+		expect((await repo.findById("redator-1"))?.isActive()).toBe(true);
 	});
 
 	it("alterar um membro inexistente devolve StaffNotFound", async () => {

@@ -232,8 +232,8 @@ function Form({ initial }: { initial: Settings }) {
 						<CardHeader>
 							<CardTitle>Rádio</CardTitle>
 							<CardDescription>
-								O endereço da transmissão é o que faz o botão de play tocar. Sem
-								ele, o controle fica desabilitado no portal.
+								A frequência aparece sob o nome do veículo no cabeçalho e no
+								rodapé do portal.
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="grid gap-4 md:grid-cols-2">
@@ -249,14 +249,6 @@ function Form({ initial }: { initial: Settings }) {
 								onChange={(v) => set("radioBand", v)}
 								hint="Ex.: 93,9 FM"
 							/>
-							<div className="md:col-span-2">
-								<Text
-									label="Endereço da transmissão ao vivo"
-									value={draft.radioStreamUrl ?? ""}
-									onChange={(v) => set("radioStreamUrl", v)}
-									hint="A URL do stream, começando com https://. Peça ao serviço que hospeda a transmissão."
-								/>
-							</div>
 						</CardContent>
 					</Card>
 				</TabsContent>

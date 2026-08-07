@@ -71,7 +71,6 @@ describe("SiteSettings.fromStored — porta de leitura, nunca falha", () => {
 			logoMediaId: "media-1",
 			radioFrequency: "101,1 MHz",
 			radioBand: "101,1 FM",
-			radioStreamUrl: "https://stream.radionova.com/live",
 			contactNewsroom: "(86) 1111-1111",
 			contactWhatsapp: "(86) 9 2222-2222",
 			contactEmail: "oi@radionova.com",
@@ -135,30 +134,11 @@ describe("SiteSettings.update — porta de escrita, valida", () => {
 		expect(result.unwrapErr()).toBeInstanceOf(InvalidUrl);
 	});
 
-	it("recusa stream de rádio inválido", () => {
-		const result = current().update({ radioStreamUrl: "não é url" }, NOW);
-
-		expect(result.unwrapErr()).toBeInstanceOf(InvalidUrl);
-	});
-
-	it("aceita stream válido — é o que põe a rádio no ar (D11)", () => {
-		const settings = current();
-		const result = settings.update(
-			{ radioStreamUrl: "https://stream.fm7cidades.com/live" },
-			NOW,
-		);
-
-		expect(result.isOk()).toBe(true);
-		expect(settings.data.radioStreamUrl).toBe(
-			"https://stream.fm7cidades.com/live",
-		);
-	});
-
 	it("campo opcional em branco vira null", () => {
 		const settings = current();
-		settings.update({ radioStreamUrl: "  ", legal: "" }, NOW);
+		settings.update({ radioBand: "  ", legal: "" }, NOW);
 
-		expect(settings.data.radioStreamUrl).toBeNull();
+		expect(settings.data.radioBand).toBeNull();
 		expect(settings.data.legal).toBeNull();
 	});
 

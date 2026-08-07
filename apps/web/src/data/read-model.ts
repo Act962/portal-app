@@ -1,4 +1,5 @@
 import "server-only";
+import { viewCounter } from "@portal-app/api/analytics";
 import {
 	articleDeps,
 	dispatchEditorialEvents,
@@ -73,6 +74,40 @@ export const loadSiteSettings = cache(
 
 		return { ...data, logoUrl };
 	},
+);
+
+export type ProgramRow = {
+	id: string;
+	name: string;
+	host: string;
+	dayOfWeek: number;
+	startTime: string;
+	endTime: string;
+};
+
+/**
+ * Grade da rádio (Bloco 2) — pequena o bastante (uma semana de programas) para
+ * carregar inteira e filtrar/computar "no ar agora" na camada de exibição, em
+ * vez de uma query por dia da semana.
+ */
+export const loadSchedule = cache(
+	async (): Promise<ProgramRow[]> =>
+		safely(
+			"schedule",
+			() =>
+				prisma.program.findMany({
+					orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }, { order: "asc" }],
+					select: {
+						id: true,
+						name: true,
+						host: true,
+						dayOfWeek: true,
+						startTime: true,
+						endTime: true,
+					},
+				}),
+			[],
+		),
 );
 
 type SectionRow = {
@@ -306,8 +341,26 @@ const loadPublished = cache(async (): Promise<Article[]> => {
 			}),
 		[] as ArticleRow[],
 	);
-	return rows.map((row, index) =>
+	const articles = rows.map((row, index) =>
 		mapArticle(row, sectionById, tagSlugs, media, index === 0),
+	);
+
+	// "Mais lidas" (P05/Bloco 3): o rank vem do Redis, não da recência. Cache
+	// frio/Redis fora do ar devolve `[]` (N03) — sem rank nenhum atribuído, e
+	// `getMostRead`/`sortArticles("lidas")` caem no fallback por recência.
+	const topSlugs = await safely(
+		"most-read-rank",
+		() => viewCounter.topSlugs(5, new Date()),
+		[] as string[],
+	);
+	if (topSlugs.length === 0) {
+		return articles;
+	}
+	const rankBySlug = new Map(topSlugs.map((slug, index) => [slug, index + 1]));
+	return articles.map((article) =>
+		rankBySlug.has(article.slug)
+			? { ...article, mostReadRank: rankBySlug.get(article.slug) }
+			: article,
 	);
 });
 
@@ -371,7 +424,13 @@ export async function getTicker(limit = 4): Promise<Article[]> {
 
 /** Sem contadores ainda (Etapa 5/Redis): "mais lidas" cai para as recentes. */
 export async function getMostRead(): Promise<Article[]> {
-	return (await loadPublished()).slice(0, 5);
+	const all = await loadPublished();
+	const ranked = all
+		.filter((a) => a.mostReadRank !== undefined)
+		.sort((a, b) => (a.mostReadRank as number) - (b.mostReadRank as number));
+	// Cache frio (site novo, Redis fora do ar): nada tem rank ainda — melhor
+	// mostrar as mais recentes do que uma lista vazia.
+	return ranked.length > 0 ? ranked : all.slice(0, 5);
 }
 
 export async function getArticlesBySection(

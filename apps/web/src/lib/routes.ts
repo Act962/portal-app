@@ -15,7 +15,6 @@ export const routes = {
 	menu: "/menu" as Route,
 	latest: "/ultimas" as Route,
 	search: "/busca" as Route,
-	live: "/ao-vivo" as Route,
 	section: (slug: string) => `/${slug}` as Route,
 	article: (sectionSlug: string, slug: string) =>
 		`/${sectionSlug}/${slug}` as Route,

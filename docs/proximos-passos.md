@@ -45,7 +45,8 @@ Ordem sugerida; cada etapa é mergeável e verificável.
 - [x] Página de tag `/tag/{slug}` (P09): rota nova em `(site)`, lista por tag; as
       chips de tag da matéria agora apontam para cá (antes iam para a busca).
 - [x] Navegação/menu completo (P11): o menu ganhou o bloco NAVEGAÇÃO
-      (Início/Últimas/Ao vivo/Busca).
+      (Início/Últimas/Ao vivo/Busca). O item "Ao vivo" saiu depois, junto do
+      player — a rádio se desvinculou do portal.
 - [ ] **Paciência: paginação por cursor (P12) adiada.** Hoje o read model carrega
       tudo em memória, então cursor sobre array em memória não traz o ganho real
       (evitar `OFFSET` no banco) e uma UI de "carregar mais" é pior para SEO que

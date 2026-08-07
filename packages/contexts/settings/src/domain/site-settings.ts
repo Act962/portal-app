@@ -26,7 +26,6 @@ export type SiteSettingsData = {
 	// Rádio (D11)
 	radioFrequency: string | null;
 	radioBand: string | null;
-	radioStreamUrl: string | null;
 
 	// Contato
 	contactNewsroom: string | null;
@@ -62,7 +61,6 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
 
 	radioFrequency: "93,9 MHz",
 	radioBand: "93,9 FM",
-	radioStreamUrl: null,
 
 	contactNewsroom: "(86) 3343-1107",
 	contactWhatsapp: "(86) 9 9999-0000",
@@ -149,7 +147,6 @@ export class SiteSettings extends AggregateRoot<string> {
 
 			radioFrequency: nullableText(row.radioFrequency) ?? d.radioFrequency,
 			radioBand: nullableText(row.radioBand) ?? d.radioBand,
-			radioStreamUrl: nullableText(row.radioStreamUrl),
 
 			contactNewsroom: nullableText(row.contactNewsroom) ?? d.contactNewsroom,
 			contactWhatsapp: nullableText(row.contactWhatsapp) ?? d.contactWhatsapp,
@@ -229,7 +226,6 @@ function normalize(
 		logoMediaId: blankToNull(data.logoMediaId),
 		radioFrequency: blankToNull(data.radioFrequency),
 		radioBand: blankToNull(data.radioBand),
-		radioStreamUrl: blankToNull(data.radioStreamUrl),
 		contactNewsroom: blankToNull(data.contactNewsroom),
 		contactWhatsapp: blankToNull(data.contactWhatsapp),
 		contactEmail: blankToNull(data.contactEmail),
@@ -250,10 +246,6 @@ function normalize(
 	// og:url e endereço no sitemap, onde caminho relativo não significa nada.
 	if (!isHttpUrl(out.url)) {
 		return err(new InvalidUrl("url", out.url));
-	}
-
-	if (out.radioStreamUrl && !isHttpUrl(out.radioStreamUrl)) {
-		return err(new InvalidUrl("radioStreamUrl", out.radioStreamUrl));
 	}
 
 	if (out.contactEmail && !isEmail(out.contactEmail)) {

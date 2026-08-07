@@ -64,6 +64,13 @@ function canEditor(
 		case "article:create":
 		case "article:submit":
 			return true;
+		// Analytics editorial (A38) serve para decidir PAUTA — e é o editor quem
+		// decide pauta. Diferente da auditoria (`audit:view`, só ADMIN), que é
+		// registro de governança, não insumo de redação. Sem recorte por
+		// editoria: o painel mostra o desempenho do portal inteiro, e um editor
+		// que só enxerga a própria editoria não consegue comparar.
+		case "analytics:view":
+			return true;
 		case "article:edit-own":
 			return ownsResource(staff, resource);
 		case "article:edit-any":

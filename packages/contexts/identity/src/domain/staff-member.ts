@@ -105,6 +105,11 @@ export class StaffMember extends AggregateRoot<string> {
 		this.state = { ...this.state, status: "INATIVO" };
 	}
 
+	/** Reativa um membro desativado, devolvendo o acesso ao painel. */
+	activate(): void {
+		this.state = { ...this.state, status: "ATIVO" };
+	}
+
 	bindSections(sectionIds: readonly string[]): void {
 		this.state = { ...this.state, sectionIds: [...sectionIds] };
 	}

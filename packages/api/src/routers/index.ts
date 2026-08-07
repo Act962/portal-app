@@ -1,7 +1,10 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+import { analyticsRouter } from "./analytics";
+import { broadcastRouter } from "./broadcast";
 import { editorialRouter } from "./editorial";
 import { identityRouter } from "./identity";
 import { mediaRouter } from "./media";
+import { pollsRouter } from "./polls";
 import { settingsRouter } from "./settings";
 import { taxonomyRouter } from "./taxonomy";
 
@@ -20,5 +23,8 @@ export const appRouter = router({
 	media: mediaRouter,
 	editorial: editorialRouter,
 	settings: settingsRouter,
+	broadcast: broadcastRouter,
+	analytics: analyticsRouter,
+	polls: pollsRouter,
 });
 export type AppRouter = typeof appRouter;
