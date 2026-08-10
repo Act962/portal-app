@@ -63,6 +63,7 @@ type MediaRow = {
 	height: number | null;
 	focalX: number | null;
 	focalY: number | null;
+	folderId: string | null;
 };
 
 function toPersistence(asset: MediaAsset) {
@@ -81,6 +82,7 @@ function toPersistence(asset: MediaAsset) {
 		height: dim?.height ?? null,
 		focalX: focal?.x ?? null,
 		focalY: focal?.y ?? null,
+		folderId: asset.folderId,
 	};
 }
 
@@ -96,6 +98,7 @@ function toDomain(row: MediaRow): MediaAsset {
 		altText: row.altText,
 		dimensions: row.width !== null && row.height !== null ? { width: row.width, height: row.height } : null,
 		focalPoint: row.focalX !== null && row.focalY !== null ? { x: row.focalX, y: row.focalY } : null,
+		folderId: row.folderId,
 	});
 }
 
@@ -104,6 +107,10 @@ function whereFrom(query?: MediaQuery) {
 	const term = query?.search?.trim();
 	return {
 		...(query?.ids ? { id: { in: [...query.ids] } } : {}),
+		// `undefined` = sem filtro; `null` = só o que está fora de pasta.
+		...(query && "folderId" in query
+			? { folderId: query.folderId ?? null }
+			: {}),
 		type: query?.type,
 		...(term
 			? {

@@ -25,6 +25,7 @@ function prismaHarness(): Harness {
 		repo: new PrismaMediaRepository(prisma),
 		reset: async () => {
 			await prisma.mediaAsset.deleteMany();
+			await prisma.mediaFolder.deleteMany();
 		},
 	};
 }
@@ -42,6 +43,19 @@ function imageAt(id: string, storageKey: string, filename: string): MediaAsset {
 		dimensions: { width: 1600, height: 900 },
 		focalPoint: { x: 0.4, y: 0.6 },
 	}).unwrap();
+}
+
+/**
+ * A pasta precisa EXISTIR antes de um asset apontar para ela — no Prisma, por
+ * causa da FK. No fake não há tabela, então é no-op. Sem isto o teste do filtro
+ * passaria no fake e quebraria no adapter real por violação de chave.
+ */
+async function prismaOnlyFolder(id: string, name: string): Promise<void> {
+	await prisma.mediaFolder.upsert({
+		where: { id },
+		create: { id, name },
+		update: {},
+	});
 }
 
 function contract(label: string, make: () => Harness): void {
@@ -84,6 +98,38 @@ function contract(label: string, make: () => Harness): void {
 			await h.repo.delete("a1");
 
 			expect(await h.repo.findById("a1")).toBeNull();
+		});
+
+		// O filtro por pasta tem TRÊS estados, e o do meio é o que engana: `null`
+		// não é "sem filtro", é "só o que está fora de pasta". Fake e SQL divergem
+		// com facilidade aqui — um usa `=== null`, o outro precisa de `IS NULL`.
+		it("filtra por pasta, incluindo o estado SEM PASTA", async () => {
+			await prismaOnlyFolder("f-1", "Esportes");
+			const dentro = imageAt("m-1", "uploads/1/a.jpg", "a.jpg");
+			dentro.moveTo("f-1");
+			await h.repo.save(dentro);
+			await h.repo.save(imageAt("m-2", "uploads/2/b.jpg", "b.jpg"));
+
+			expect((await h.repo.list({ folderId: "f-1" })).map((a) => a.id)).toEqual([
+				"m-1",
+			]);
+			expect((await h.repo.list({ folderId: null })).map((a) => a.id)).toEqual([
+				"m-2",
+			]);
+			// Sem a chave, nenhum filtro: os dois voltam.
+			expect(await h.repo.list()).toHaveLength(2);
+		});
+
+		it("count respeita o filtro de pasta", async () => {
+			await prismaOnlyFolder("f-1", "Esportes");
+			const dentro = imageAt("m-1", "uploads/1/a.jpg", "a.jpg");
+			dentro.moveTo("f-1");
+			await h.repo.save(dentro);
+			await h.repo.save(imageAt("m-2", "uploads/2/b.jpg", "b.jpg"));
+
+			expect(await h.repo.count({ folderId: "f-1" })).toBe(1);
+			expect(await h.repo.count({ folderId: null })).toBe(1);
+			expect(await h.repo.count()).toBe(2);
 		});
 
 		it("busca inexistente devolve null", async () => {

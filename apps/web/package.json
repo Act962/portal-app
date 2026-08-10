@@ -16,6 +16,7 @@
     "@portal-app/editorial": "workspace:*",
     "@portal-app/env": "workspace:*",
     "@portal-app/identity": "workspace:*",
+    "@portal-app/media": "workspace:*",
     "@portal-app/polls": "workspace:*",
     "@portal-app/settings": "workspace:*",
     "@portal-app/ui": "workspace:*",

@@ -192,11 +192,13 @@ nenhum só aparecem no olho.
       sem `check-types` — o pacote dos routers e das permissões nunca passa pelo
       `tsc` no CI. O que o `apps/web` importa é verificado de carona; o resto,
       não. Ligar pode revelar erros acumulados, então merece commit próprio.
-- [ ] **Excluir imagem da biblioteca**: o router de mídia só tem
-      `requestUpload`, `register`, `library` e `get`. Um envio errado fica lá
-      para sempre e a biblioteca só cresce. Precisa apagar no storage **e** na
-      linha do banco, e antes disso checar se alguma matéria usa a imagem —
-      capa ou bloco do corpo — senão o portal passa a servir imagem quebrada.
+- [x] ~~**Excluir imagem da biblioteca**~~ ✅ Resolvido junto do upgrade da
+      biblioteca ([spec 06](./specs/06-biblioteca-de-midia.md)): pastas,
+      documentos (PDF/DOC/XLS/CSV/TXT), exclusão e ações em lote sobre uma
+      seleção. A checagem de uso que faltava virou a porta `MediaUsage`, com o
+      adapter na raiz de composição perguntando ao editorial se a mídia é capa
+      **ou** bloco do corpo — e vale para rascunho também.
+      **Pendente de aceite visual**: a tela nova não foi aberta por um humano.
 - [ ] **Mais recursos de edição no TipTap** — pedido do cliente em 07/08, junto
       da correção da tipografia do editor. O que já entrou naquele commit foi só
       o que **não** custa domínio novo: `Typography` (aspas curvas, travessão,

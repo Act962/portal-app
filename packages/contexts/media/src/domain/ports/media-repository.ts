@@ -14,6 +14,13 @@ export type MediaQuery = {
 	 * página, e a imagem de uma matéria antiga simplesmente não carregaria.
 	 */
 	ids?: readonly string[];
+	/**
+	 * Filtro por pasta. Três estados, e a diferença importa:
+	 * - ausente (`undefined`) → todas as pastas, sem filtro;
+	 * - `null` → só o que está FORA de qualquer pasta ("Sem pasta", D2);
+	 * - id → só aquela pasta.
+	 */
+	folderId?: string | null;
 };
 
 /**
@@ -84,6 +91,11 @@ export class InMemoryMediaRepository implements MediaRepository {
 		const term = query?.search?.trim().toLowerCase();
 		return [...this.store.values()]
 			.filter((asset) => (query?.ids ? query.ids.includes(asset.id) : true))
+			.filter((asset) =>
+				query && "folderId" in query
+					? asset.folderId === (query.folderId ?? null)
+					: true,
+			)
 			.filter((asset) => (query?.type ? asset.type === query.type : true))
 			.filter((asset) => (term ? matches(asset, term) : true))
 			.sort((a, b) => (this.order.get(b.id) ?? 0) - (this.order.get(a.id) ?? 0));

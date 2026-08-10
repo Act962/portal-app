@@ -19,8 +19,31 @@ model MediaAsset {
   focalX     Float?
   focalY     Float?
 
+  // Pasta onde o arquivo está. Nulo é estado VÁLIDO: "sem pasta" (D2).
+  //
+  // `Restrict` é a SEGUNDA linha de defesa do invariante "pasta com arquivo não
+  // se exclui" (D3): mesmo que a regra da aplicação falhe, ou alguém apague
+  // direto no banco, o Postgres recusa.
+  folderId String?
+  folder   MediaFolder? @relation(fields: [folderId], references: [id], onDelete: Restrict)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([folderId])
   @@map("media_asset")
+}
+
+// Pastas da biblioteca (spec 06, D1). PLANAS — sem `parentId`, sem caminho.
+model MediaFolder {
+  id   String @id @default(cuid())
+  // O nome é a identidade para quem usa; duas "Eleições 2026" não ajudam.
+  name String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assets MediaAsset[]
+
+  @@map("media_folder")
 }

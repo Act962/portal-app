@@ -19,6 +19,8 @@ type MediaAssetState = {
 	credit: Credit;
 	altText: AltText | null;
 	focalPoint: FocalPoint | null;
+	/** Pasta onde o arquivo está. `null` é estado VÁLIDO — "sem pasta" (D2). */
+	folderId: string | null;
 };
 
 type CreateInput = {
@@ -32,6 +34,7 @@ type CreateInput = {
 	altText?: string | null;
 	dimensions?: { width: number; height: number } | null;
 	focalPoint?: { x: number; y: number } | null;
+	folderId?: string | null;
 };
 
 export type MediaAssetError =
@@ -117,6 +120,7 @@ export class MediaAsset extends AggregateRoot<string> {
 				credit: credit.value,
 				altText,
 				focalPoint,
+				folderId: input.folderId ?? null,
 			}),
 		);
 	}
@@ -164,6 +168,21 @@ export class MediaAsset extends AggregateRoot<string> {
 
 	get focalPoint(): FocalPoint | null {
 		return this.state.focalPoint;
+	}
+
+	get folderId(): string | null {
+		return this.state.folderId;
+	}
+
+	/**
+	 * Move para uma pasta, ou para fora de todas (`null`).
+	 *
+	 * Não devolve `Result`: mover não tem como falhar no domínio. Se a pasta
+	 * existe é pergunta de PERSISTÊNCIA — quem responde é a aplicação, que tem o
+	 * repositório à mão; o agregado não sai consultando banco para se validar.
+	 */
+	moveTo(folderId: string | null): void {
+		this.state = { ...this.state, folderId };
 	}
 
 	isImage(): boolean {
