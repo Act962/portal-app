@@ -167,6 +167,29 @@ export function listFolders(deps: Pick<Deps, "folders">): Promise<Folder[]> {
 	return deps.folders.list();
 }
 
+/**
+ * As pastas com QUANTOS arquivos cada uma tem.
+ *
+ * A contagem não é enfeite: é ela que torna previsível a recusa de excluir
+ * pasta cheia (D3). Sem o número na tela, o editor clica em excluir e só então
+ * descobre que há 12 arquivos lá dentro.
+ *
+ * Uma consulta por pasta. São dez gavetas, não dez mil (D1) — trocar por um
+ * `groupBy` seria otimizar o que não dói.
+ */
+export async function listFoldersWithCount(
+	deps: Pick<Deps, "folders">,
+): Promise<Array<{ id: string; name: string; assetCount: number }>> {
+	const folders = await deps.folders.list();
+	return Promise.all(
+		folders.map(async (folder) => ({
+			id: folder.id,
+			name: folder.name,
+			assetCount: await deps.folders.countAssets(folder.id),
+		})),
+	);
+}
+
 // ---------------------------------------------------------------------------
 // Exclusão e movimentação (spec 06)
 // ---------------------------------------------------------------------------

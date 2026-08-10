@@ -34,6 +34,8 @@ import {
 	ImagePlus,
 	Pencil,
 	Search,
+	LayoutGrid,
+	List,
 	Trash2,
 	Upload,
 	X,
@@ -59,6 +61,7 @@ type Picked = {
 /** Filtro de pasta: todas, sem pasta, ou o id de uma. */
 const ALL = "__all__";
 const NONE = "__none__";
+const VIEW_STORAGE_KEY = "portal:media-view";
 
 /**
  * Prepara o arquivo escolhido. Imagem tem preview e dimensões reais lidas aqui
@@ -139,7 +142,14 @@ export function MediaManager() {
 	const queryClient = useQueryClient();
 	const [search, setSearch] = useState("");
 	const [page, setPage] = useState(1);
-	const [folderId, setFolderId] = useState<string>(ALL);
+	/**
+	 * Começa na RAIZ, não em "Todas" — modelo de gerenciador de arquivos: o que
+	 * está solto aparece aqui, o que está em pasta só aparece ao entrar nela.
+	 * "Todas" continua existindo como saída de emergência, para quando o editor
+	 * não lembra onde guardou.
+	 */
+	const [folderId, setFolderId] = useState<string>(NONE);
+	const [view, setView] = useState<"grid" | "list">("grid");
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
 	const library = useQuery(
@@ -155,6 +165,23 @@ export function MediaManager() {
 
 	// Buscou, volta para a primeira página — senão a busca feita na página 3
 	// devolve vazio e parece que não achou nada.
+	/**
+	 * A preferência de visualização sobrevive à sessão. Lida no efeito, e não no
+	 * inicializador do `useState`: `localStorage` não existe no servidor, e ler
+	 * ali faria o HTML renderizado divergir do hidratado.
+	 */
+	useEffect(() => {
+		const saved = window.localStorage.getItem(VIEW_STORAGE_KEY);
+		if (saved === "grid" || saved === "list") {
+			setView(saved);
+		}
+	}, []);
+
+	const changeView = (next: "grid" | "list") => {
+		setView(next);
+		window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+	};
+
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reagir à busca e à pasta, não a `page`
 	useEffect(() => {
 		setPage(1);
@@ -343,6 +370,13 @@ export function MediaManager() {
 		}
 	};
 
+	/** Na lista, a coluna de pasta diz onde o arquivo mora — é o que a grade
+	 *  não mostra e o que faz a visão de LISTA valer a pena em "Todas". */
+	const folderNameOf = (id: string | null) =>
+		id === null
+			? "Sem pasta"
+			: ((folders.data ?? []).find((f) => f.id === id)?.name ?? "—");
+
 	const toggleSelected = (id: string) =>
 		setSelectedIds((current) => {
 			const next = new Set(current);
@@ -417,12 +451,10 @@ export function MediaManager() {
 
 			{/* Pastas como FILTRO, não como navegação: a biblioteca continua sendo
 			    uma tela só, e "Todas" nunca fica longe de um clique. */}
+			{/* Raiz primeiro, pastas no meio, "Todas" no fim: a ordem conta a
+			    história de onde se está e para onde se pode ir. "Todas" é a saída,
+			    não o ponto de partida. */}
 			<div className="flex flex-wrap items-center gap-1.5">
-				<FolderChip
-					label="Todas"
-					active={folderId === ALL}
-					onClick={() => setFolderId(ALL)}
-				/>
 				<FolderChip
 					label="Sem pasta"
 					active={folderId === NONE}
@@ -432,6 +464,7 @@ export function MediaManager() {
 					<FolderChip
 						key={folder.id}
 						label={folder.name}
+						count={folder.assetCount}
 						active={folderId === folder.id}
 						onClick={() => setFolderId(folder.id)}
 						onRename={() => {
@@ -445,6 +478,12 @@ export function MediaManager() {
 						onDelete={() => setConfirmFolderDelete(folder.id)}
 					/>
 				))}
+				<span className="mx-1 h-4 w-px bg-border" />
+				<FolderChip
+					label="Todas"
+					active={folderId === ALL}
+					onClick={() => setFolderId(ALL)}
+				/>
 			</div>
 
 			<div className="flex items-center justify-between gap-2">
@@ -457,9 +496,27 @@ export function MediaManager() {
 						className="pl-8"
 					/>
 				</div>
-				<span className="shrink-0 text-muted-foreground text-sm">
-					{total} {total === 1 ? "arquivo" : "arquivos"}
-				</span>
+				<div className="flex shrink-0 items-center gap-3">
+					<span className="text-muted-foreground text-sm">
+						{total} {total === 1 ? "arquivo" : "arquivos"}
+					</span>
+					<div className="flex rounded-lg border p-0.5">
+						<ViewButton
+							label="Em grade"
+							active={view === "grid"}
+							onClick={() => changeView("grid")}
+						>
+							<LayoutGrid className="size-4" />
+						</ViewButton>
+						<ViewButton
+							label="Em lista"
+							active={view === "list"}
+							onClick={() => changeView("list")}
+						>
+							<List className="size-4" />
+						</ViewButton>
+					</div>
+				</div>
 			</div>
 
 			{/* Barra de ações da seleção. Só existe quando há seleção — uma barra
@@ -525,11 +582,86 @@ export function MediaManager() {
 			) : assets.length === 0 ? (
 				<div className="rounded-lg border border-dashed py-16 text-center">
 					<p className="font-medium">
-						{search ? "Nenhuma imagem com esse termo." : "Nenhuma mídia ainda."}
+						{search
+							? "Nenhum arquivo com esse termo."
+							: folderId === NONE
+								? "Nenhum arquivo solto."
+								: folderId === ALL
+									? "Nenhuma mídia ainda."
+									: "Esta pasta está vazia."}
 					</p>
 					<p className="mt-1 text-muted-foreground text-sm">
-						Envie a primeira para usá-la como capa ou dentro do texto.
+						{/* A raiz vazia é o ESTADO DE SUCESSO de quem organizou tudo — e
+						    seria assustadora sem explicação ("cadê meus arquivos?"). */}
+						{!search && folderId === NONE && total === 0 ? (
+							<>
+								Tudo está guardado em pastas.{" "}
+								<button
+									type="button"
+									className="cursor-pointer underline"
+									onClick={() => setFolderId(ALL)}
+								>
+									Ver todas
+								</button>
+								.
+							</>
+						) : (
+							"Envie o primeiro para usá-lo como capa ou dentro do texto."
+						)}
 					</p>
+				</div>
+			) : view === "list" ? (
+				/* Lista: densa, com os metadados à vista. É a visão de quem PROCURA
+				   — grade é a visão de quem RECONHECE. */
+				<div className="overflow-hidden rounded-lg border">
+					{assets.map((asset) => {
+						const isSelected = selectedIds.has(asset.id);
+						return (
+							<div
+								key={asset.id}
+								className={cn(
+									"flex items-center gap-3 border-b px-3 py-2 last:border-b-0",
+									isSelected && "bg-brand-red/5",
+								)}
+							>
+								<input
+									type="checkbox"
+									className="size-3.5 shrink-0 cursor-pointer"
+									checked={isSelected}
+									aria-label={`Selecionar ${asset.filename}`}
+									onChange={() => toggleSelected(asset.id)}
+								/>
+								<button
+									type="button"
+									onClick={() => setDetail(asset.id)}
+									className="flex min-w-0 flex-1 items-center gap-3 text-left"
+								>
+									{asset.type === "IMAGE" ? (
+										<img
+											src={asset.url}
+											alt=""
+											className="size-10 shrink-0 rounded border object-cover"
+										/>
+									) : (
+										<span className="flex size-10 shrink-0 items-center justify-center rounded border bg-muted text-muted-foreground">
+											<FileText className="size-4" />
+										</span>
+									)}
+									<span className="min-w-0 flex-1">
+										<span className="block truncate font-medium text-sm">
+											{asset.filename}
+										</span>
+										<span className="block truncate text-muted-foreground text-xs">
+											{asset.credit}
+										</span>
+									</span>
+									<span className="hidden shrink-0 text-muted-foreground text-xs sm:block">
+										{folderNameOf(asset.folderId)}
+									</span>
+								</button>
+							</div>
+						);
+					})}
 				</div>
 			) : (
 				<div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -990,12 +1122,15 @@ function ConfirmDialog({
  */
 function FolderChip({
 	label,
+	count,
 	active,
 	onClick,
 	onRename,
 	onDelete,
 }: {
 	label: string;
+	/** Quantos arquivos há dentro. Torna previsível a recusa de excluir cheia. */
+	count?: number;
 	active: boolean;
 	onClick: () => void;
 	onRename?: () => void;
@@ -1010,8 +1145,22 @@ function FolderChip({
 					: "hover:border-brand-red/50",
 			)}
 		>
-			<button type="button" onClick={onClick} className="cursor-pointer">
+			<button
+				type="button"
+				onClick={onClick}
+				className="flex cursor-pointer items-center gap-1.5"
+			>
 				{label}
+				{count !== undefined ? (
+					<span
+						className={cn(
+							"rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
+							active ? "bg-brand-red/15" : "bg-muted text-muted-foreground",
+						)}
+					>
+						{count}
+					</span>
+				) : null}
 			</button>
 			{onRename && onDelete ? (
 				<span
@@ -1039,5 +1188,35 @@ function FolderChip({
 				</span>
 			) : null}
 		</span>
+	);
+}
+
+/** Botão do alternador de visualização. Ícone só, com rótulo acessível. */
+function ViewButton({
+	label,
+	active,
+	onClick,
+	children,
+}: {
+	label: string;
+	active: boolean;
+	onClick: () => void;
+	children: React.ReactNode;
+}) {
+	return (
+		<button
+			type="button"
+			aria-label={label}
+			aria-pressed={active}
+			onClick={onClick}
+			className={cn(
+				"flex size-7 cursor-pointer items-center justify-center rounded-md transition",
+				active
+					? "bg-muted text-foreground"
+					: "text-muted-foreground hover:text-foreground",
+			)}
+		>
+			{children}
+		</button>
 	);
 }

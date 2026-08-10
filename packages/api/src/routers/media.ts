@@ -5,7 +5,7 @@ import {
 	deleteAssets,
 	deleteFolder,
 	getAsset,
-	listFolders,
+	listFoldersWithCount,
 	listLibrary,
 	MEDIA_TYPES,
 	type MediaAsset,
@@ -143,12 +143,7 @@ export const mediaRouter = router({
 		}),
 
 	folders: router({
-		list: staffProcedure.query(async () =>
-			(await listFolders(mediaDeps)).map((folder) => ({
-				id: folder.id,
-				name: folder.name,
-			})),
-		),
+		list: staffProcedure.query(() => listFoldersWithCount(mediaDeps)),
 
 		create: staffProcedure
 			.input(z.object({ name: z.string() }))

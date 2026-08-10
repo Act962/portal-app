@@ -142,6 +142,34 @@ tentativa e erro qual arquivo trava a operação, refazendo a seleção a cada
 rodada. O relatório resolve numa passada: "3 excluídos, 3 não: em uso por
 matéria".
 
+### D9 — A biblioteca abre na RAIZ, e tem duas visualizações
+
+Emenda do cliente (2026-08-10), depois de ver a primeira versão.
+
+**Modelo de gerenciador de arquivos.** A tela abre mostrando o que está SOLTO;
+o que está guardado só aparece ao entrar na pasta. "Todas" continua existindo,
+mas como saída de emergência — para quando o editor não lembra onde guardou —
+e não como ponto de partida. A ordem dos chips conta essa história: raiz,
+pastas, e "Todas" separada no fim.
+
+O risco dessa escolha é a raiz vazia depois que tudo estiver organizado, que
+lida como "cadê meus arquivos?". Por isso o estado vazio da raiz é específico:
+"Tudo está guardado em pastas" com um atalho para "Todas". É o único estado
+vazio da tela que é **sinal de sucesso**, não de falta.
+
+**Grade e lista.** Grade é a visão de quem RECONHECE — a foto que se procura é
+lembrada visualmente. Lista é a visão de quem PROCURA — nome, crédito e pasta à
+vista, mais itens por tela. Nenhuma das duas serve aos dois casos, e escolher
+uma só seria decidir pelo usuário qual é o trabalho dele hoje.
+
+A preferência é gravada no `localStorage`: alternar a cada visita é o tipo de
+atrito que faz a pessoa parar de usar o recurso. Lida no efeito, nunca no
+inicializador do `useState` — `localStorage` não existe no servidor.
+
+**Contagem por pasta no chip.** Não é enfeite: é o que torna previsível a recusa
+de excluir pasta cheia (D3). Sem o número, o editor clica em excluir e só então
+descobre que havia 12 arquivos lá dentro.
+
 ### D8 — Confirmação com CONSEQUÊNCIA, não com "tem certeza?"
 
 Requisito do cliente. Mas o diálogo diz o que vai acontecer e é irreversível:
