@@ -197,6 +197,36 @@ nenhum só aparecem no olho.
       para sempre e a biblioteca só cresce. Precisa apagar no storage **e** na
       linha do banco, e antes disso checar se alguma matéria usa a imagem —
       capa ou bloco do corpo — senão o portal passa a servir imagem quebrada.
+- [ ] **Mais recursos de edição no TipTap** — pedido do cliente em 07/08, junto
+      da correção da tipografia do editor. O que já entrou naquele commit foi só
+      o que **não** custa domínio novo: `Typography` (aspas curvas, travessão,
+      reticências) e `CharacterCount` (contagem no rodapé), mais o modo tela
+      cheia.
+
+      **O que sobra exige mudar o domínio**, e é por isso que ficou de fora: o
+      `StarterKit` desliga `codeBlock`, `code`, `strike`, `underline` e
+      `horizontalRule` de propósito — ligá-los sem o resto da cadeia geraria
+      conteúdo que o serializador **descarta em silêncio**, e o jornalista
+      perderia o que escreveu sem nenhum aviso.
+
+      Cada recurso novo é a mesma cadeia de quatro passos, e nenhum deles é
+      opcional:
+
+      1. tipo novo na união `Block` (`packages/contexts/editorial/src/domain/body.ts`)
+         e na `BlockInput`, com validação;
+      2. ida e volta em `serialize.ts` (`docToBlocks` e `blocksToDoc`);
+      3. renderização em `block-renderer.tsx`, que é o que o leitor vê;
+      4. tolerância na leitura (`fromRaw` nunca falha — o portal serve conteúdo
+         antigo e não pode explodir por formato novo).
+
+      Candidatos, do mais barato ao mais caro: **divisória** (`horizontalRule`,
+      bloco sem conteúdo), **destaque/`mark`** e **sublinhado** (marcas inline,
+      entram na união `InlineNode`), **âncora com sumário** (precisa de id
+      estável por título), **tabela** (o mais caro — bloco aninhado, e ainda
+      exige decidir o comportamento no celular).
+
+      **Decisão pendente do cliente:** quais destes a redação realmente usa. Não
+      vale construir os cinco para descobrir que ninguém usa tabela.
 
 ---
 
