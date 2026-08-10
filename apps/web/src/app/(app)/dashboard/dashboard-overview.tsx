@@ -49,18 +49,23 @@ const CARDS = [
 ];
 
 export function DashboardOverview({ role }: { role: string }) {
-	const list = useQuery(trpc.editorial.articles.list.queryOptions({}));
-	const articles = list.data ?? [];
+	// Duas consultas em vez de uma, agora que a lista é paginada: os cartões
+	// contam o BANCO INTEIRO (`counts`), a tabela mostra só as 6 do topo. Contar
+	// sobre a página diria "3 publicadas" com 300 no banco — errado e sem aviso.
+	const list = useQuery(
+		trpc.editorial.articles.list.queryOptions({ perPage: 6 }),
+	);
+	const counts = useQuery(trpc.editorial.articles.counts.queryOptions());
 
-	const countOf = (status: EditorialStatus) =>
-		articles.filter((a) =>
-			status === "PUBLICADA"
-				? a.status === "PUBLICADA" || a.status === "ATUALIZADA"
-				: a.status === status,
-		).length;
+	const countOf = (status: EditorialStatus) => {
+		const by = counts.data ?? {};
+		return status === "PUBLICADA"
+			? (by.PUBLICADA ?? 0) + (by.ATUALIZADA ?? 0)
+			: (by[status] ?? 0);
+	};
 
-	// A lista já vem ordenada do repositório; aqui é só o recorte do topo.
-	const recent = articles.slice(0, 6);
+	// A lista já vem ordenada do repositório; o recorte agora é do servidor.
+	const recent = list.data?.items ?? [];
 
 	return (
 		<div className="flex flex-col gap-6">

@@ -60,7 +60,7 @@ describe("registerAsset (invariantes A29)", () => {
 		);
 
 		expect(result.unwrapErr()).toBeInstanceOf(MissingCredit);
-		expect(await listLibrary({}, { repo })).toHaveLength(0);
+		expect((await listLibrary({}, { repo })).items).toHaveLength(0);
 	});
 });
 
@@ -94,27 +94,30 @@ describe("listLibrary (busca + filtro)", () => {
 
 	it("lista do mais recente ao mais antigo", async () => {
 		const all = await listLibrary({}, { repo });
-		expect(all.map((a) => a.filename)).toEqual(["edital.pdf", "entrevista.jpg", "estadio.jpg"]);
+		expect(all.items.map((a) => a.filename)).toEqual(["edital.pdf", "entrevista.jpg", "estadio.jpg"]);
+		expect(all.total).toBe(3);
 	});
 
 	it("filtra por tipo", async () => {
 		const docs = await listLibrary({ type: "DOCUMENT" }, { repo });
-		expect(docs).toHaveLength(1);
-		expect(docs[0]?.filename).toBe("edital.pdf");
+		expect(docs.items).toHaveLength(1);
+		expect(docs.items[0]?.filename).toBe("edital.pdf");
+		// O total acompanha o FILTRO, não a biblioteca inteira.
+		expect(docs.total).toBe(1);
 	});
 
 	it("busca por nome de arquivo", async () => {
 		const found = await listLibrary({ search: "estadio" }, { repo });
-		expect(found.map((a) => a.filename)).toEqual(["estadio.jpg"]);
+		expect(found.items.map((a) => a.filename)).toEqual(["estadio.jpg"]);
 	});
 
 	it("busca por legenda", async () => {
 		const found = await listLibrary({ search: "coletiva" }, { repo });
-		expect(found.map((a) => a.filename)).toEqual(["entrevista.jpg"]);
+		expect(found.items.map((a) => a.filename)).toEqual(["entrevista.jpg"]);
 	});
 
 	it("busca por crédito", async () => {
 		const found = await listLibrary({ search: "prefeitura" }, { repo });
-		expect(found.map((a) => a.filename)).toEqual(["edital.pdf"]);
+		expect(found.items.map((a) => a.filename)).toEqual(["edital.pdf"]);
 	});
 });

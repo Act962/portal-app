@@ -307,7 +307,14 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       data-slot="sidebar-inset"
       className={cn(
-        "relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
+        // `min-w-0` não é enfeite: sem ele, um item flex NÃO encolhe abaixo da
+        // largura intrínseca do próprio conteúdo (`min-width: auto` é o padrão).
+        // Uma tabela larga empurrava este `<main>` para além da viewport e a
+        // PÁGINA INTEIRA ganhava rolagem horizontal — o cabeçalho e a barra
+        // lateral saíam do lugar junto. Aparecia entre ~800px e ~1100px, onde a
+        // lateral já está expandida mas a tela ainda é estreita: exatamente um
+        // tablet deitado.
+        "relative flex w-full min-w-0 flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
         className
       )}
       {...props}

@@ -1,3 +1,4 @@
+import type { PageRequest } from "@portal-app/shared-kernel";
 import type { PrismaClient } from "@portal-app/db/client";
 
 import { MediaAsset } from "../domain/media-asset";
@@ -35,24 +36,17 @@ export class PrismaMediaRepository implements MediaRepository {
 		await this.prisma.mediaAsset.delete({ where: { id } });
 	}
 
-	async list(query?: MediaQuery): Promise<MediaAsset[]> {
-		const term = query?.search?.trim();
+	async list(query?: MediaQuery, page?: PageRequest): Promise<MediaAsset[]> {
 		const rows = await this.prisma.mediaAsset.findMany({
-			where: {
-				type: query?.type,
-				...(term
-					? {
-							OR: [
-								{ filename: { contains: term, mode: "insensitive" } },
-								{ caption: { contains: term, mode: "insensitive" } },
-								{ credit: { contains: term, mode: "insensitive" } },
-							],
-						}
-					: {}),
-			},
+			where: whereFrom(query),
 			orderBy: { createdAt: "desc" },
+			...(page ? { take: page.limit, skip: page.offset } : {}),
 		});
 		return rows.map(toDomain);
+	}
+
+	count(query?: MediaQuery): Promise<number> {
+		return this.prisma.mediaAsset.count({ where: whereFrom(query) });
 	}
 }
 
@@ -103,4 +97,22 @@ function toDomain(row: MediaRow): MediaAsset {
 		dimensions: row.width !== null && row.height !== null ? { width: row.width, height: row.height } : null,
 		focalPoint: row.focalX !== null && row.focalY !== null ? { x: row.focalX, y: row.focalY } : null,
 	});
+}
+
+/** O `where` do filtro, em um lugar só — `list` e `count` precisam concordar. */
+function whereFrom(query?: MediaQuery) {
+	const term = query?.search?.trim();
+	return {
+		...(query?.ids ? { id: { in: [...query.ids] } } : {}),
+		type: query?.type,
+		...(term
+			? {
+					OR: [
+						{ filename: { contains: term, mode: "insensitive" as const } },
+						{ caption: { contains: term, mode: "insensitive" as const } },
+						{ credit: { contains: term, mode: "insensitive" as const } },
+					],
+				}
+			: {}),
+	};
 }

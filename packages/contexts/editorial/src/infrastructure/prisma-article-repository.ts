@@ -1,3 +1,4 @@
+import type { PageRequest } from "@portal-app/shared-kernel";
 import type { PrismaClient } from "@portal-app/db/client";
 
 import { Article } from "../domain/article";
@@ -55,18 +56,19 @@ export class PrismaArticleRepository implements ArticleRepository {
 		await this.prisma.article.delete({ where: { id } });
 	}
 
-	async list(filter?: ArticleFilter): Promise<Article[]> {
-		const term = filter?.search?.trim();
+	async list(filter?: ArticleFilter, page?: PageRequest): Promise<Article[]> {
 		const rows = await this.prisma.article.findMany({
-			where: {
-				status: filter?.status,
-				sectionId: filter?.sectionId,
-				authorId: filter?.authorId,
-				...(term ? { headline: { contains: term, mode: "insensitive" } } : {}),
-			},
+			where: whereFrom(filter),
 			orderBy: { createdAt: "desc" },
+			// `take`/`skip` no BANCO. Trazer tudo e cortar em memória gastaria a
+			// mesma consulta pesada que a paginação existe para evitar.
+			...(page ? { take: page.limit, skip: page.offset } : {}),
 		});
 		return rows.map(toDomain);
+	}
+
+	count(filter?: ArticleFilter): Promise<number> {
+		return this.prisma.article.count({ where: whereFrom(filter) });
 	}
 
 	async listDueScheduled(now: Date): Promise<Article[]> {
@@ -153,4 +155,21 @@ function toDomain(row: ArticleRow): Article {
 		firstPublishedAt: row.firstPublishedAt,
 		rejectionReason: row.rejectionReason,
 	});
+}
+
+/**
+ * O `where` do filtro, em um lugar só. `list` e `count` PRECISAM concordar:
+ * se divergirem, o total diz uma coisa e a lista mostra outra, e a última
+ * página fica vazia sem explicação.
+ */
+function whereFrom(filter?: ArticleFilter) {
+	const term = filter?.search?.trim();
+	return {
+		status: filter?.status,
+		sectionId: filter?.sectionId,
+		authorId: filter?.authorId,
+		...(term
+			? { headline: { contains: term, mode: "insensitive" as const } }
+			: {}),
+	};
 }

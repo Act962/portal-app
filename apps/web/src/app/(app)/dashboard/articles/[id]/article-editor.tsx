@@ -1,5 +1,6 @@
 "use client";
 
+import { MAX_PAGE_SIZE } from "@portal-app/shared-kernel";
 import type { Block, EditorialStatus } from "@portal-app/editorial";
 import {
 	Alert,
@@ -51,7 +52,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, ImageIcon, Loader2, Tag } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/admin/page-header";
@@ -89,7 +90,29 @@ export function ArticleEditor({ id }: { id: string }) {
 	const article = useQuery(trpc.editorial.articles.get.queryOptions({ id }));
 	const sections = useQuery(trpc.taxonomy.sections.list.queryOptions());
 	const tags = useQuery(trpc.taxonomy.tags.list.queryOptions());
-	const media = useQuery(trpc.media.library.queryOptions({}));
+	// Só as mídias que ESTA matéria referencia (capa + imagens do corpo), pelo
+	// id. Antes pedia a biblioteca inteira, o que passou a ser uma página: com
+	// paginação, a imagem de uma matéria antiga simplesmente não carregaria.
+	const referencedMediaIds = useMemo(() => {
+		const ids = new Set<string>();
+		if (article.data?.cover?.mediaId) {
+			ids.add(article.data.cover.mediaId);
+		}
+		for (const block of article.data?.body ?? []) {
+			if (block.type === "image") {
+				ids.add(block.mediaId);
+			}
+		}
+		return [...ids];
+	}, [article.data]);
+
+	const media = useQuery({
+		...trpc.media.library.queryOptions({
+			ids: referencedMediaIds,
+			perPage: MAX_PAGE_SIZE,
+		}),
+		enabled: referencedMediaIds.length > 0,
+	});
 
 	const articleKey = trpc.editorial.articles.get.queryKey({ id });
 	type ArticleDto = NonNullable<typeof article.data>;
@@ -159,10 +182,11 @@ export function ArticleEditor({ id }: { id: string }) {
 		}
 	}, [article.data]);
 
-	const mediaById = new Map((media.data ?? []).map((a) => [a.id, a]));
+	const mediaAssets = media.data?.items ?? [];
+	const mediaById = new Map(mediaAssets.map((a) => [a.id, a]));
 	const imageUrls: Record<string, string> = {};
 	const mediaInfo: Record<string, { url: string; altText: string }> = {};
-	for (const asset of media.data ?? []) {
+	for (const asset of mediaAssets) {
 		imageUrls[asset.id] = asset.url;
 		mediaInfo[asset.id] = { url: asset.url, altText: asset.altText ?? "" };
 	}

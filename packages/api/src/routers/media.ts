@@ -1,3 +1,4 @@
+import { DEFAULT_PAGE_SIZE, toPageRequest } from "@portal-app/shared-kernel";
 import {
 	getAsset,
 	listLibrary,
@@ -79,12 +80,26 @@ export const mediaRouter = router({
 				.object({
 					search: z.string().optional(),
 					type: z.enum(MEDIA_TYPES).optional(),
+					ids: z.array(z.string()).optional(),
+					page: z.number().int().optional(),
+					perPage: z.number().int().optional(),
 				})
 				.optional(),
 		)
-		.query(async ({ input }) =>
-			(await listLibrary(input ?? {}, mediaDeps)).map(assetDto),
-		),
+		.query(async ({ input }) => {
+			const { page, perPage, ...query } = input ?? {};
+			const result = await listLibrary(
+				query,
+				mediaDeps,
+				toPageRequest({ page, perPage }),
+			);
+			return {
+				items: result.items.map(assetDto),
+				total: result.total,
+				page: page ?? 1,
+				perPage: perPage ?? DEFAULT_PAGE_SIZE,
+			};
+		}),
 
 	get: staffProcedure
 		.input(z.object({ id: z.string() }))

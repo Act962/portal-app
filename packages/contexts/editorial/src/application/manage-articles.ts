@@ -1,5 +1,13 @@
 import { can, Forbidden, type ResourceRef, type StaffMember } from "@portal-app/identity";
-import { type Clock, type IdGenerator, type Result, err, ok } from "@portal-app/shared-kernel";
+import {
+	type Clock,
+	type IdGenerator,
+	type Page,
+	type PageRequest,
+	type Result,
+	err,
+	ok,
+} from "@portal-app/shared-kernel";
 
 import { Article } from "../domain/article";
 import type { BlockInput } from "../domain/body";
@@ -200,8 +208,24 @@ export function archive(
 	);
 }
 
-export function listArticles(filter: ArticleFilter, deps: Pick<Deps, "repo">): Promise<Article[]> {
-	return deps.repo.list(filter);
+/**
+ * Uma PÁGINA da lista editorial (A10). Devolve o total junto porque a tela
+ * precisa dizer "de N" — e porque descobrir que a página pedida não existe só
+ * ao receber lista vazia é pior do que saber o total de saída.
+ *
+ * As duas consultas correm em paralelo: são independentes, e serializá-las
+ * dobraria a latência da tela mais usada do painel à toa.
+ */
+export async function listArticles(
+	filter: ArticleFilter,
+	deps: Pick<Deps, "repo">,
+	page?: PageRequest,
+): Promise<Page<Article>> {
+	const [items, total] = await Promise.all([
+		deps.repo.list(filter, page),
+		deps.repo.count(filter),
+	]);
+	return { items, total };
 }
 
 /** Todas as agendadas — alimenta o calendário editorial (A15). */

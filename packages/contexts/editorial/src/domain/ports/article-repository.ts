@@ -1,3 +1,5 @@
+import type { PageRequest } from "@portal-app/shared-kernel";
+
 import type { Article } from "../article";
 import type { EditorialStatus } from "../editorial-status";
 
@@ -23,7 +25,15 @@ export interface ArticleRepository {
 	findBySlug(slug: string): Promise<Article | null>;
 	save(article: Article): Promise<void>;
 	delete(id: string): Promise<void>;
-	list(filter?: ArticleFilter): Promise<Article[]>;
+	/**
+	 * Lista com filtro e, opcionalmente, uma FATIA. Sem `page`, devolve tudo —
+	 * é o que o poller e o calendário editorial precisam. Com `page`, o corte
+	 * acontece no BANCO: paginar depois de trazer tudo para a memória é a
+	 * paginação que não resolve nada.
+	 */
+	list(filter?: ArticleFilter, page?: PageRequest): Promise<Article[]>;
+	/** Quantas matérias satisfazem o filtro, ignorando a fatia. */
+	count(filter?: ArticleFilter): Promise<number>;
 	/** Agendadas cujo horário já chegou (`scheduledAt <= now`) — para o poller. */
 	listDueScheduled(now: Date): Promise<Article[]>;
 	countPublishedInSection(sectionId: string): Promise<number>;
@@ -64,15 +74,29 @@ export class InMemoryArticleRepository implements ArticleRepository {
 		return Promise.resolve();
 	}
 
-	list(filter?: ArticleFilter): Promise<Article[]> {
+	list(filter?: ArticleFilter, page?: PageRequest): Promise<Article[]> {
+		const result = this.matching(filter);
+		if (!page) {
+			return Promise.resolve(result);
+		}
+		return Promise.resolve(
+			result.slice(page.offset, page.offset + page.limit),
+		);
+	}
+
+	count(filter?: ArticleFilter): Promise<number> {
+		return Promise.resolve(this.matching(filter).length);
+	}
+
+	/** O filtro e a ordem, sem a fatia — para `list` e `count` não divergirem. */
+	private matching(filter?: ArticleFilter): Article[] {
 		const term = filter?.search?.trim().toLowerCase();
-		const result = [...this.store.values()]
+		return [...this.store.values()]
 			.filter((a) => (filter?.status ? a.status === filter.status : true))
 			.filter((a) => (filter?.sectionId ? a.sectionId === filter.sectionId : true))
 			.filter((a) => (filter?.authorId ? a.byline.authorId === filter.authorId : true))
 			.filter((a) => (term ? a.headline.toLowerCase().includes(term) : true))
 			.sort((a, b) => (this.order.get(b.id) ?? 0) - (this.order.get(a.id) ?? 0));
-		return Promise.resolve(result);
 	}
 
 	listDueScheduled(now: Date): Promise<Article[]> {

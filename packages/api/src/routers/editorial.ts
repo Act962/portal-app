@@ -16,13 +16,18 @@ import {
 	submitForReview,
 	updateArticle,
 } from "@portal-app/editorial";
-import type { Result } from "@portal-app/shared-kernel";
+import {
+	DEFAULT_PAGE_SIZE,
+	type Result,
+	toPageRequest,
+} from "@portal-app/shared-kernel";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import {
 	articleDeps,
 	dispatchEditorialEvents,
+	countArticlesByStatus,
 	listAuditLog,
 } from "../editorial";
 import { requirePermission, router, staffProcedure } from "../index";
@@ -142,12 +147,31 @@ export const editorialRouter = router({
 						sectionId: z.string().optional(),
 						authorId: z.string().optional(),
 						search: z.string().optional(),
+						/** 1-based, como a UI conta. `toPageRequest` normaliza e limita. */
+						page: z.number().int().optional(),
+						perPage: z.number().int().optional(),
 					})
 					.optional(),
 			)
-			.query(async ({ input }) =>
-				(await listArticles(input ?? {}, articleDeps)).map(articleDto),
-			),
+			.query(async ({ input }) => {
+				const { page, perPage, ...filter } = input ?? {};
+				const result = await listArticles(
+					filter,
+					articleDeps,
+					toPageRequest({ page, perPage }),
+				);
+				return {
+					items: result.items.map(articleDto),
+					total: result.total,
+					page: page ?? 1,
+					perPage: perPage ?? DEFAULT_PAGE_SIZE,
+				};
+			}),
+
+		/** Contagem por status — os cartões da visão geral. Separado do `list`
+		 * porque aquele agora devolve uma PÁGINA: contar no cliente contaria só
+		 * os 20 da tela. */
+		counts: staffProcedure.query(() => countArticlesByStatus()),
 
 		get: staffProcedure
 			.input(z.object({ id: z.string() }))
@@ -250,6 +274,22 @@ export const editorialRouter = router({
 	 * `audit:view` (ADMIN) lê — a página já redirecionava, mas a procedure
 	 * estava aberta a qualquer membro ativo pela rede. */
 	audit: router({
-		list: requirePermission("audit:view").query(() => listAuditLog()),
+		list: requirePermission("audit:view")
+			.input(
+				z
+					.object({
+						page: z.number().int().optional(),
+						perPage: z.number().int().optional(),
+					})
+					.optional(),
+			)
+			.query(async ({ input }) => {
+				const result = await listAuditLog(toPageRequest(input));
+				return {
+					...result,
+					page: input?.page ?? 1,
+					perPage: input?.perPage ?? DEFAULT_PAGE_SIZE,
+				};
+			}),
 	}),
 });

@@ -3,6 +3,7 @@ import { type ArticleRepository, SyncEventBus } from "@portal-app/editorial";
 import { dispatchOutbox } from "@portal-app/editorial/infrastructure/outbox-relay";
 import { PrismaArticleRepository } from "@portal-app/editorial/infrastructure/prisma-article-repository";
 import { SystemClock, UuidGenerator } from "@portal-app/shared-kernel";
+import type { Page, PageRequest } from "@portal-app/shared-kernel";
 import type { ContentUsage } from "@portal-app/taxonomy";
 
 /**
@@ -143,26 +144,72 @@ export async function articleProductionBetween(
 	};
 }
 
-/** Registro de auditoria mais recente (A35). DTO plano — o campo Json `detail`
- * fica de fora para não estourar a inferência de tipos do tRPC. */
-export async function listAuditLog(): Promise<
-	Array<{
+/**
+ * Uma PÁGINA da auditoria (A35). DTO plano — o campo Json `detail` fica de fora
+ * para não estourar a inferência de tipos do tRPC.
+ *
+ * Antes trazia `take: 100` fixo e sem total: passados 100 eventos, a tela
+ * simplesmente parava de mostrar o resto, sem dizer que havia mais. Numa tabela
+ * que só cresce e existe para prestar contas, truncar em silêncio é o pior
+ * comportamento possível.
+ *
+ * O `headline` vem RESOLVIDO daqui. A tela antes cruzava `aggregateId` contra a
+ * lista de matérias no cliente — o que só funcionava enquanto essa lista fosse
+ * completa. Com a lista paginada, o título sumiria para tudo que estivesse fora
+ * da primeira página.
+ */
+export async function listAuditLog(page: PageRequest): Promise<
+	Page<{
 		id: string;
 		action: string;
 		aggregateId: string;
+		headline: string | null;
 		occurredAt: Date;
 		createdAt: Date;
 	}>
 > {
-	const rows = await prisma.auditLog.findMany({
-		orderBy: { createdAt: "desc" },
-		take: 100,
+	const [rows, total] = await Promise.all([
+		prisma.auditLog.findMany({
+			orderBy: { createdAt: "desc" },
+			take: page.limit,
+			skip: page.offset,
+		}),
+		prisma.auditLog.count(),
+	]);
+
+	// Só os títulos DESTA página — uma consulta, não uma por linha.
+	const articles = await prisma.article.findMany({
+		where: { id: { in: [...new Set(rows.map((row) => row.aggregateId))] } },
+		select: { id: true, headline: true },
 	});
-	return rows.map((row) => ({
-		id: row.id,
-		action: row.action,
-		aggregateId: row.aggregateId,
-		occurredAt: row.occurredAt,
-		createdAt: row.createdAt,
-	}));
+	const headlines = new Map(articles.map((a) => [a.id, a.headline]));
+
+	return {
+		items: rows.map((row) => ({
+			id: row.id,
+			action: row.action,
+			aggregateId: row.aggregateId,
+			// Nulo quando o evento não é de matéria, ou quando a matéria foi
+			// apagada — a auditoria sobrevive ao que auditou, de propósito.
+			headline: headlines.get(row.aggregateId) ?? null,
+			occurredAt: row.occurredAt,
+			createdAt: row.createdAt,
+		})),
+		total,
+	};
+}
+
+/**
+ * Quantas matérias em cada status — os cartões da visão geral.
+ *
+ * Existe porque a lista virou paginada: contar no cliente passaria a contar só
+ * a página, e o painel mostraria "3 publicadas" com 300 no banco. Um `groupBy`,
+ * não sete `count`.
+ */
+export async function countArticlesByStatus(): Promise<Record<string, number>> {
+	const rows = await prisma.article.groupBy({
+		by: ["status"],
+		_count: { _all: true },
+	});
+	return Object.fromEntries(rows.map((row) => [row.status, row._count._all]));
 }

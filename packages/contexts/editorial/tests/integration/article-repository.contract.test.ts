@@ -129,6 +129,50 @@ function contract(label: string, make: () => Harness): void {
 			expect(await h.repo.findById("nao-existe")).toBeNull();
 			expect(await h.repo.findBySlug("nao-existe")).toBeNull();
 		});
+
+		// A paginação do painel depende de as duas implementações fatiarem a MESMA
+		// lista, na MESMA ordem. Se divergirem, uma matéria aparece em duas páginas
+		// e outra em nenhuma — e ninguém percebe até alguém procurar por ela.
+		it("fatia a lista na mesma ordem, sem repetir nem pular", async () => {
+			for (let i = 1; i <= 5; i++) {
+				await h.repo.save(draft(`art-${i}`, `slug-${i}`, "cidades", []));
+			}
+
+			const todos = await h.repo.list();
+			const p1 = await h.repo.list(undefined, { limit: 2, offset: 0 });
+			const p2 = await h.repo.list(undefined, { limit: 2, offset: 2 });
+			const p3 = await h.repo.list(undefined, { limit: 2, offset: 4 });
+
+			expect(p1).toHaveLength(2);
+			expect(p2).toHaveLength(2);
+			expect(p3).toHaveLength(1);
+			expect([...p1, ...p2, ...p3].map((a) => a.id)).toEqual(
+				todos.map((a) => a.id),
+			);
+		});
+
+		it("página além do fim volta vazia, não estoura", async () => {
+			await h.repo.save(draft("art-1", "x", "cidades", []));
+
+			expect(await h.repo.list(undefined, { limit: 10, offset: 500 })).toEqual(
+				[],
+			);
+		});
+
+		// `count` tem de responder sobre o filtro INTEIRO, não sobre a fatia —
+		// é ele que diz "de 27" no rodapé.
+		it("count ignora a paginação e respeita o filtro", async () => {
+			for (let i = 1; i <= 3; i++) {
+				await h.repo.save(draft(`art-${i}`, `slug-${i}`, "cidades", []));
+			}
+			await h.repo.save(publish(draft("art-9", "publicada", "cidades", [])));
+
+			expect(await h.repo.count()).toBe(4);
+			expect(await h.repo.count({ status: "PUBLICADA" })).toBe(1);
+			// A fatia não muda o total.
+			await h.repo.list(undefined, { limit: 1, offset: 0 });
+			expect(await h.repo.count()).toBe(4);
+		});
 	});
 }
 

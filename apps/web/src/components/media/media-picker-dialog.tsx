@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
 import {
 	Dialog,
 	DialogContent,
@@ -11,8 +12,9 @@ import { Input } from "@portal-app/ui/components/input";
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { PaginationBar } from "@/components/admin/pagination-bar";
 import { trpc } from "@/utils/trpc";
 
 /**
@@ -32,15 +34,26 @@ export function MediaPickerDialog({
 	title?: string;
 }) {
 	const [search, setSearch] = useState("");
+	const [page, setPage] = useState(1);
 	const library = useQuery({
 		...trpc.media.library.queryOptions({
 			type: "IMAGE",
 			...(search.trim() ? { search: search.trim() } : {}),
+			page,
 		}),
 		enabled: open,
 	});
 
-	const items = library.data ?? [];
+	// Buscar reinicia a paginação; reabrir o diálogo também, senão ele volta na
+	// página 4 de uma busca antiga.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reagir à busca e à abertura, não a `page`
+	useEffect(() => {
+		setPage(1);
+	}, [search, open]);
+
+	const items = library.data?.items ?? [];
+	const total = library.data?.total ?? 0;
+	const perPage = library.data?.perPage ?? DEFAULT_PAGE_SIZE;
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -101,6 +114,14 @@ export function MediaPickerDialog({
 						</div>
 					)}
 				</div>
+
+				<PaginationBar
+					page={page}
+					perPage={perPage}
+					total={total}
+					onPageChange={setPage}
+					unidade={{ singular: "imagem", plural: "imagens" }}
+				/>
 			</DialogContent>
 		</Dialog>
 	);

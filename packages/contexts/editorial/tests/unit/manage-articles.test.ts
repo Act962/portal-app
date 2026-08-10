@@ -50,7 +50,7 @@ describe("createDraft", () => {
 		const article = await draftBy(staff("REDATOR", "red"));
 		expect(article.byline.authorId).toBe("red");
 		expect(article.status).toBe("RASCUNHO");
-		expect(await listArticles({}, deps)).toHaveLength(1);
+		expect((await listArticles({}, deps)).items).toHaveLength(1);
 	});
 
 	it("staff inativo é barrado (Forbidden)", async () => {

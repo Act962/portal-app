@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
 import { Button } from "@portal-app/ui/components/button";
 import {
 	Dialog,
@@ -22,7 +23,9 @@ import {
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImagePlus, Search, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { PaginationBar } from "@/components/admin/pagination-bar";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/admin/page-header";
@@ -82,9 +85,20 @@ type Asset = { id: string; url: string; filename: string; credit: string };
 export function MediaManager() {
 	const queryClient = useQueryClient();
 	const [search, setSearch] = useState("");
+	const [page, setPage] = useState(1);
 	const library = useQuery(
-		trpc.media.library.queryOptions(search ? { search } : {}),
+		trpc.media.library.queryOptions({
+			...(search ? { search } : {}),
+			page,
+		}),
 	);
+
+	// Buscou, volta para a primeira página — senão a busca feita na página 3
+	// devolve vazio e parece que não achou nada.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reagir à busca, não a `page`
+	useEffect(() => {
+		setPage(1);
+	}, [search]);
 
 	const requestUpload = useMutation(trpc.media.requestUpload.mutationOptions());
 	const register = useMutation(trpc.media.register.mutationOptions());
@@ -159,7 +173,9 @@ export function MediaManager() {
 	};
 
 	const busy = progress !== null;
-	const assets = library.data ?? [];
+	const assets = library.data?.items ?? [];
+	const total = library.data?.total ?? 0;
+	const perPage = library.data?.perPage ?? DEFAULT_PAGE_SIZE;
 	const selected = assets.find((a) => a.id === detail);
 
 	return (
@@ -218,7 +234,7 @@ export function MediaManager() {
 					/>
 				</div>
 				<span className="shrink-0 text-muted-foreground text-sm">
-					{assets.length} {assets.length === 1 ? "imagem" : "imagens"}
+					{total} {total === 1 ? "imagem" : "imagens"}
 				</span>
 			</div>
 
@@ -268,6 +284,14 @@ export function MediaManager() {
 					))}
 				</div>
 			)}
+
+			<PaginationBar
+				page={page}
+				perPage={perPage}
+				total={total}
+				onPageChange={setPage}
+				unidade={{ singular: "imagem", plural: "imagens" }}
+			/>
 
 			{/* Cadastro do que foi escolhido */}
 			<Dialog

@@ -49,7 +49,10 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+import { PaginationBar } from "@/components/admin/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/admin/page-header";
@@ -65,6 +68,7 @@ export function ArticlesList() {
 	const [status, setStatus] = useState<string>(ALL);
 	const [sectionId, setSectionId] = useState<string>(ALL);
 	const [search, setSearch] = useState("");
+	const [page, setPage] = useState(1);
 	const [headline, setHeadline] = useState("");
 	const [creating, setCreating] = useState(false);
 
@@ -73,6 +77,7 @@ export function ArticlesList() {
 			...(status === ALL ? {} : { status: status as EditorialStatus }),
 			...(sectionId === ALL ? {} : { sectionId }),
 			...(search.trim() ? { search: search.trim() } : {}),
+			page,
 		}),
 	);
 	// Leitura liberada a qualquer membro ativo desde a correção de permissão —
@@ -97,10 +102,19 @@ export function ArticlesList() {
 		}),
 	);
 
+	// Mudou o filtro, volta para a primeira página. Sem isto, filtrar estando na
+	// página 5 devolve lista vazia — e parece que o filtro não achou nada.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reagir à MUDANÇA dos filtros, não ao valor de `page`
+	useEffect(() => {
+		setPage(1);
+	}, [status, sectionId, search]);
+
 	const sectionName = (id: string | null) =>
 		sections.data?.find((s) => s.id === id)?.name ?? "—";
 
-	const articles = list.data ?? [];
+	const articles = list.data?.items ?? [];
+	const total = list.data?.total ?? 0;
+	const perPage = list.data?.perPage ?? DEFAULT_PAGE_SIZE;
 	const hasFilters =
 		status !== ALL || sectionId !== ALL || search.trim() !== "";
 
@@ -361,6 +375,14 @@ export function ArticlesList() {
 						)}
 					</TableBody>
 				</Table>
+
+				<PaginationBar
+					page={page}
+					perPage={perPage}
+					total={total}
+					onPageChange={setPage}
+					unidade={{ singular: "matéria", plural: "matérias" }}
+				/>
 			</div>
 		</>
 	);

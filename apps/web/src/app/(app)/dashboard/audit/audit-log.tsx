@@ -10,10 +10,14 @@ import {
 	TableHeader,
 	TableRow,
 } from "@portal-app/ui/components/table";
+import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
 import { useQuery } from "@tanstack/react-query";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { useState } from "react";
+
+import { PaginationBar } from "@/components/admin/pagination-bar";
 import { trpc } from "@/utils/trpc";
 
 /** Os eventos do domínio em português — `ArticlePublished` é nome de código. */
@@ -31,13 +35,16 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export function AuditLog() {
-	const audit = useQuery(trpc.editorial.audit.list.queryOptions());
-	const articles = useQuery(trpc.editorial.articles.list.queryOptions({}));
+	const [page, setPage] = useState(1);
+	const audit = useQuery(trpc.editorial.audit.list.queryOptions({ page }));
 
-	const headlineOf = (id: string) =>
-		articles.data?.find((a) => a.id === id)?.headline;
-
-	const entries = audit.data ?? [];
+	// O título vem RESOLVIDO do servidor. Antes esta tela cruzava o
+	// `aggregateId` contra a lista de matérias no cliente — o que só funcionava
+	// enquanto aquela lista viesse inteira. Paginada, o título sumiria para tudo
+	// que estivesse fora da primeira página.
+	const entries = audit.data?.items ?? [];
+	const total = audit.data?.total ?? 0;
+	const perPage = audit.data?.perPage ?? DEFAULT_PAGE_SIZE;
 
 	return (
 		<div className="rounded-lg border">
@@ -69,7 +76,7 @@ export function AuditLog() {
 						</TableRow>
 					) : (
 						entries.map((entry) => {
-							const headline = headlineOf(entry.aggregateId);
+							const headline = entry.headline;
 							return (
 								<TableRow key={entry.id}>
 									<TableCell className="text-muted-foreground">
@@ -102,6 +109,14 @@ export function AuditLog() {
 					)}
 				</TableBody>
 			</Table>
+
+			<PaginationBar
+				page={page}
+				perPage={perPage}
+				total={total}
+				onPageChange={setPage}
+				unidade={{ singular: "registro", plural: "registros" }}
+			/>
 		</div>
 	);
 }

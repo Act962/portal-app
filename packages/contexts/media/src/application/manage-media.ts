@@ -1,3 +1,4 @@
+import type { Page, PageRequest } from "@portal-app/shared-kernel";
 import { type IdGenerator, type Result, err, ok } from "@portal-app/shared-kernel";
 
 import { MediaAsset, type MediaAssetError } from "../domain/media-asset";
@@ -54,11 +55,16 @@ export async function registerAsset(
 	return ok(created.value);
 }
 
-export function listLibrary(
+export async function listLibrary(
 	query: MediaQuery,
 	deps: Pick<Deps, "repo">,
-): Promise<MediaAsset[]> {
-	return deps.repo.list(query);
+	page?: PageRequest,
+): Promise<Page<MediaAsset>> {
+	const [items, total] = await Promise.all([
+		deps.repo.list(query, page),
+		deps.repo.count(query),
+	]);
+	return { items, total };
 }
 
 export function getAsset(id: string, deps: Pick<Deps, "repo">): Promise<MediaAsset | null> {
