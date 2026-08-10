@@ -1136,10 +1136,22 @@ function FolderChip({
 	onRename?: () => void;
 	onDelete?: () => void;
 }) {
+	// Renomear e excluir aparecem só na pasta ATIVA — e não no hover.
+	//
+	// Duas razões, e a segunda é a que decide: `opacity-0` esconde mas RESERVA o
+	// espaço, então todo chip inativo carregava um vão morto do tamanho de dois
+	// botões. E ação revelada por hover simplesmente não existe em tela de
+	// toque: no tablet ninguém alcançaria renomear nem excluir.
+	//
+	// Selecionar a pasta primeiro, agir depois, é o mesmo gesto de uma aba.
+	const showActions = active && onRename !== undefined && onDelete !== undefined;
+
 	return (
 		<span
 			className={cn(
-				"group inline-flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-sm transition",
+				"inline-flex items-center gap-1 rounded-full border py-1 pl-3 text-sm transition",
+				// Sem botões, o padding volta a ser simétrico — é o que tira o vão.
+				showActions ? "pr-1" : "pr-3",
 				active
 					? "border-brand-red bg-brand-red/10 text-brand-red"
 					: "hover:border-brand-red/50",
@@ -1162,13 +1174,8 @@ function FolderChip({
 					</span>
 				) : null}
 			</button>
-			{onRename && onDelete ? (
-				<span
-					className={cn(
-						"flex items-center gap-0.5 transition",
-						active ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-					)}
-				>
+			{showActions ? (
+				<span className="flex items-center gap-0.5">
 					<button
 						type="button"
 						aria-label={`Renomear ${label}`}
