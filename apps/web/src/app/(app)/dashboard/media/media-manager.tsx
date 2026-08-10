@@ -6,7 +6,7 @@ import {
 	mediaTypeFromMime,
 } from "@portal-app/media";
 import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
-import { Button } from "@portal-app/ui/components/button";
+import { Button, buttonVariants } from "@portal-app/ui/components/button";
 import {
 	Dialog,
 	DialogContent,
@@ -29,6 +29,7 @@ import { Skeleton } from "@portal-app/ui/components/skeleton";
 import { cn } from "@portal-app/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+	ExternalLink,
 	FileText,
 	FolderPlus,
 	ImagePlus,
@@ -928,6 +929,31 @@ export function MediaManager() {
 										<span className="text-sm">Documento</span>
 									</div>
 								)}
+								{/* Documento não tem miniatura: sem isto, o painel de detalhe é o
+								    único lugar do painel onde o CONTEÚDO do arquivo é
+								    inalcançável — dá para ver o nome e o crédito, mas não o que
+								    está escrito dentro. Nova aba, e não navegação: sair da
+								    biblioteca para conferir um PDF perderia o recorte, a página
+								    e a seleção. Vale para imagem também, onde abre em tamanho
+								    real.
+								    `rel="noopener"` porque o destino é outro domínio (o R2):
+								    sem ele a página aberta recebe `window.opener` e pode
+								    redirecionar a nossa aba. */}
+								{/* Âncora crua com a APARÊNCIA de botão, e não o componente
+								    `Button`: o Base UI supõe `<button>` nativo e, mesmo com
+								    `nativeButton={false}`, carimba `role="button"` — o leitor de
+								    tela anunciaria "botão" onde há um link, e o usuário perde a
+								    pista de que aquilo navega. `buttonVariants` dá o mesmo
+								    visual sem mexer na semântica. */}
+								<a
+									href={selected.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									className={cn(buttonVariants({ variant: "outline" }))}
+								>
+									<ExternalLink className="size-4" />
+									Abrir em nova aba
+								</a>
 								<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
 									<dt className="text-muted-foreground">Texto alternativo</dt>
 									<dd>{selected.altText || "—"}</dd>

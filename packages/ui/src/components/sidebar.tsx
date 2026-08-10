@@ -557,6 +557,21 @@ function SidebarMenuButton({
   )
 }
 
+/**
+ * ⚠️ `showOnHover` deixa a ação INALCANÇÁVEL em tela de toque.
+ *
+ * A classe é `md:opacity-0` + `group-hover/menu-item:opacity-100`: a partir de
+ * `md` — que inclui todo tablet — o botão só aparece com o cursor em cima, e
+ * dedo não produz hover. Quem usa o painel no tablet não tem como acionar a
+ * ação; ela existe, ocupa espaço e não responde.
+ *
+ * (`opacity-0` também RESERVA o espaço do botão, então esconder assim nem
+ * devolve o layout — foi o que aconteceu nos chips de pasta da biblioteca de
+ * mídia.)
+ *
+ * Se precisar de ação por item, revele-a no item ATIVO/selecionado, ou deixe-a
+ * sempre visível. Hover pode ser realce, nunca o único caminho.
+ */
 function SidebarMenuAction({
   className,
   render,
