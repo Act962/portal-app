@@ -18,14 +18,14 @@ configurações do veículo, grade de programação, enquete com voto anônimo,
 ## 🔧 Configuração de produção — não é código
 
 **O maior retorno por esforço do projeto inteiro está aqui.** São variáveis de
-ambiente e uma política de bucket; o código correspondente já está escrito,
-testado e no ar. Enquanto não forem cadastradas, quatro funcionalidades prontas
-não valem nada — e três delas falham **em silêncio**, que é o pior modo de
-falhar.
+ambiente; o código correspondente já está escrito, testado e no ar. Enquanto não
+forem cadastradas, funcionalidades prontas não valem nada — e falham **em
+silêncio**, que é o pior modo de falhar: a seção continua na tela, o botão
+continua lá, só o comportamento está errado.
 
 | Variável / ajuste | Sem isso | Onde |
 |---|---|---|
-| `CRON_SECRET` | A rota do agendamento responde **503** e a matéria marcada para as 6h não sai sozinha | [`deploy.md`](./deploy.md) §3 |
+| `INNGEST_SIGNING_KEY` + `INNGEST_EVENT_KEY` | O agendador não conecta e a matéria marcada para as 6h só sai quando alguém abrir o portal (a publicação na leitura cobre) | [`deploy.md`](./deploy.md) §3.1 |
 | ~~CORS de `PUT` no bucket R2~~ | ✅ **Configurado em 2026-08-07** (`PUT` liberado para o domínio da Vercel e para `localhost`). Falta só o teste real: subir uma imagem pelo painel em produção. Ao trocar para domínio próprio, **adicione a origem nova** — senão o upload volta a travar em 0% | [`deploy.md`](./deploy.md) §2 |
 | `REDIS_URL` | "Mais lidas" degrada para "mais recentes" **sem avisar**: a seção continua na tela, com a ordem errada | `packages/env/src/server.ts` |
 | `RESEND_API_KEY` | Convite e redefinição de senha ficam no "avise você mesmo" (funciona, mas é manual) — opcional por desenho | `packages/contexts/identity/src/infrastructure/create-mailer.ts` |
@@ -67,7 +67,7 @@ nenhum só aparecem no olho.
 | B4 | ~~R2 em produção~~ | ✅ **Código pronto** (o adapter S3 serve R2 sem mudança). O que falta é configuração, não código: variáveis e o **CORS de `PUT`** no bucket — ver seção 🔧. | [`deploy.md`](./deploy.md) §2 |
 | B5 | ~~Sem recuperação de senha~~ | ✅ **Resolvido (MVP)**: o admin gera o link de redefinição em "Equipe" → "Pessoas" e entrega manualmente (mesmo padrão "avise você mesmo" do convite) — usa o fluxo nativo do Better Auth, capturado via `captureResetLink` (`AsyncLocalStorage`, sem precisar de tabela nova). O login ganhou "Esqueci minha senha", que hoje só orienta a procurar um admin — sem Mailer configurado (ver Bloco B abaixo), não há como entregar o link com segurança para quem esqueceu. | `packages/auth/src/index.ts`, `packages/auth/src/reset-link-capture.ts`, `packages/api/src/routers/identity.ts` (`users.resetPassword`), `apps/web/src/app/(app)/reset-password/` |
 | B6 | ~~"Anúncios" e "Configurações" davam 404~~ | ✅ **Resolvido**: os dois itens saíram da navegação até as telas existirem. Apontavam para rotas inexistentes, e só o ADMIN — o dono do portal — os enxergava. | `apps/web/src/lib/admin-nav.ts` |
-| B7 | ~~Agendamento não publicava sozinho~~ | ✅ **Resolvido**: `GET /api/cron/publish-scheduled`, autenticado por `CRON_SECRET`, agendado no `vercel.json` a cada 5 min. Antes, o único gatilho era um clique no painel — matéria marcada para as 6h esperava alguém lembrar. | [`deploy.md`](./deploy.md) §3 |
+| B7 | ~~Agendamento não publicava sozinho~~ | ✅ **Resolvido**: a tarefa `publish-scheduled` roda a cada 5 min pelo **Inngest** (ADR 0007). Nasceu como cron da Vercel batendo em `/api/cron/[task]`, que continua existindo como agendador alternativo — mas o `crons` do `vercel.json` foi removido em 07/08, para haver um motorista só. Antes disso o único gatilho era um clique no painel. | [`deploy.md`](./deploy.md) §3 |
 
 ---
 
@@ -212,7 +212,6 @@ nenhum só aparecem no olho.
 | **Gate de lint (`biome ci`)** | Scaffold nunca formatado | Estilo diverge entre arquivos |
 | **Branch protection no `main`** | Precisa do owner (`Act962`) | Push direto em `main` é possível — foi o que aconteceu na entrega de 2026-08-07 |
 | **Editor visual da home (P06)** | Home compõe por recência | Não dá para destacar manualmente uma matéria |
-| **Cron da Vercel ainda ligado junto com o Inngest** | Rede de segurança durante a transição — as tarefas são idempotentes, então os dois disparando não duplicam nada | Enquanto os dois existirem, a periodicidade vive em dois lugares (o `vercel.json` e o `cron` da tarefa) e nada avisa quando divergem. **Apagar o bloco `crons` do `vercel.json`** depois de confirmar o Inngest em produção resolve — ver [`deploy.md`](./deploy.md) §3.1 |
 | **`EventBus` síncrono não tem retry** | O Inngest entrou como AGENDADOR; o adapter do despacho de eventos não foi escrito — ver [`adr/0007`](./adr/0007-eventos-e-agendamento-atras-de-portas.md) | Um consumidor que falhe perde a rodada. O evento não some (a linha do outbox fica sem `processedAt`), mas nada tenta de novo sozinho. Agora é barato: o cliente Inngest e a rota `/api/inngest` já existem |
 | **O job de e2e do CI não sobe Redis** | O serviço nunca foi adicionado ao `ci.yml` | O e2e roda sempre com "mais lidas" degradado para "mais recentes". O fallback está sendo exercitado por acidente, e o ranking de verdade **não é testado em lugar nenhum** |
 | **Actions do CI em Node 20** | `checkout@v4`, `setup-node@v4`, `cache@v4`, `pnpm/action-setup@v4` | O GitHub já depreciou e força para Node 24. Funciona hoje; quebra sem aviso quando a compatibilidade sair |

@@ -41,12 +41,13 @@ pooler, a migração usa a direta. É o passo que mais dá problema quando pulad
 
 ### 3 · Gere os segredos
 
-Dois, um para cada finalidade — não reaproveite o mesmo valor:
-
 ```bash
 openssl rand -base64 32   # BETTER_AUTH_SECRET
-openssl rand -base64 24   # CRON_SECRET
 ```
+
+> `CRON_SECRET` **não é mais necessária** — o agendamento é do Inngest, e o
+> `crons` do `vercel.json` foi removido. Ela só volta a fazer falta se você
+> trocar de agendador (§3).
 
 ### 4 · Vercel — variáveis de ambiente
 
@@ -59,7 +60,6 @@ Em *Settings → Environment Variables*, ambiente **Production**:
 | `BETTER_AUTH_SECRET` | o que saiu do passo 3 |
 | `BETTER_AUTH_URL` | `https://seu-dominio` |
 | `CORS_ORIGIN` | `https://seu-dominio` |
-| `CRON_SECRET` | outro segredo gerado (mín. 16 caracteres) — ver §3 |
 | `S3_ENDPOINT` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
 | `S3_REGION` | `auto` |
 | `S3_ACCESS_KEY_ID` | do token do passo 2 |
@@ -231,23 +231,24 @@ carregar no portal, está certo. Se o envio travar em 0%, é CORS.
 
 ## 3. Publicação automática das matérias agendadas
 
-O painel deixa marcar uma matéria para sair às 6h. Quem efetivamente publica é
-um **gatilho externo** batendo nesta rota:
+O painel deixa marcar uma matéria para sair às 6h. Quem publica de fato é o
+**Inngest** (§3.1), que executa a tarefa `publish-scheduled` a cada 5 minutos.
 
-```
-GET /api/cron/publish-scheduled
-Authorization: Bearer $CRON_SECRET
-```
+A tarefa publica tudo que venceu, despacha os eventos (auditoria inclusa) e
+devolve `{"published": N, "ids": [...]}`. É idempotente: rodar de novo sem nada
+vencido devolve `0`.
 
-Ela publica tudo que venceu, despacha os eventos (auditoria inclusa) e responde
-`{"published": N, "ids": [...]}`. É idempotente: chamar de novo sem nada vencido
-devolve `0`.
+**Há ainda um terceiro gatilho, sempre ativo:** a primeira renderização de
+página depois do horário publica as vencidas
+(`publishDueScheduledOnRead`, em `apps/web/src/data/read-model.ts`). Ou seja, o
+agendador cobre o caso do portal sem visitante — com tráfego, a matéria sai de
+qualquer jeito.
 
-O agendamento já está versionado no `vercel.json` — a cada 5 minutos:
-
-```json
-"crons": [{ "path": "/api/cron/publish-scheduled", "schedule": "*/5 * * * *" }]
-```
+> **O `crons` do `vercel.json` foi REMOVIDO** (2026-08-07), por decisão: um
+> agendador só, uma fonte de periodicidade só, e nada de 503 no log. Com isso
+> `CRON_SECRET` deixou de ser necessária em produção — ela só protege a rota
+> `/api/cron/[task]`, que ninguém dispara hoje. Ela continua existindo para quem
+> quiser trocar de agendador sem mexer em código (ver abaixo).
 
 ### Trocar de agendador, ou adicionar uma tarefa
 
@@ -262,7 +263,7 @@ sem tocar em código de negócio:
 | Agendador | Como ligar |
 |---|---|
 | **Inngest** (adotado) | já escrito — `packages/api/src/inngest.ts` + a rota `/api/inngest`. Ver §3.1 |
-| **Cron da Vercel** (rede de segurança) | uma entrada em `crons` no `vercel.json` por tarefa |
+| **Cron da Vercel** | reponha o bloco `crons` no `vercel.json` (uma entrada por tarefa) **e** cadastre `CRON_SECRET` |
 | **`node-cron`** / VPS | no boot: `for (const t of scheduler.tasks()) cron.schedule(t.cron, () => scheduler.run(t.name))` |
 | **crontab do sistema** | `curl -H "Authorization: Bearer $CRON_SECRET" https://dominio/api/cron/<tarefa>` |
 
@@ -298,33 +299,18 @@ assume nuvem e a rota responde 500 pedindo chave de assinatura.
 4. Faça o deploy e confirme no painel do Inngest que a função
    `publish-scheduled` aparece com o gatilho `*/5 * * * *`.
 
-> **O cron da Vercel continua ligado de propósito.** Enquanto o Inngest não
-> estiver confirmado em produção, ele é a rede de segurança — as tarefas são
-> idempotentes, então os dois caminhos disparando não duplicam nada (a segunda
-> execução não acha o que publicar e devolve `0`). Depois de confirmar,
-> **apague o bloco `crons` do `vercel.json`**: aí a periodicidade passa a ter
-> uma fonte só, e o aviso abaixo deixa de valer.
+> **A periodicidade tem uma fonte só:** o `cron` declarado na tarefa, em
+> `packages/api/src/scheduler.ts`. O Inngest lê dali. Isto deixou de ser
+> verdade se você repuser o `crons` do `vercel.json` — a Vercel lê o arquivo,
+> não o registro, e nada avisa quando os dois divergem.
 
-> ⚠️ **A periodicidade fica em dois lugares enquanto o driver for a Vercel.** A
-> tarefa declara o `cron` no registro, mas a Vercel lê o `vercel.json` — os dois
-> precisam bater, e nada valida isso automaticamente. Ao mudar a frequência de
-> uma tarefa, mude nos dois. Com `node-cron` ou Inngest o problema some: eles
-> leem o `cron` do próprio registro.
+### Se um dia voltar para o cron da Vercel
 
-> ⚠️ **Cadastre `CRON_SECRET` na Vercel.** Sem a variável a rota responde **503 e
-> não publica nada** — de propósito: um endpoint que muda o portal não pode ficar
-> aberto na internet. Com a variável cadastrada, a Vercel manda o header sozinha.
-
-### Se o plano for Hobby
-
-O plano Hobby da Vercel **só aceita cron uma vez por dia** — o deploy recusa o
-`*/5`. Duas saídas:
-
-- trocar o schedule por algo diário (`"0 9 * * *"`), aceitando que agendar só
-  funciona naquele horário; ou
-- **dirigir de fora**: qualquer agendador que faça um GET com o header serve —
-  cron-job.org, um `curl` no crontab de um VPS, um `node-cron`. A rota foi feita
-  burra exatamente para isso, e essa saída não amarra o produto à Vercel.
+O plano **Hobby só aceita cron uma vez por dia** — o deploy recusa o `*/5`. Foi
+uma das razões para o Inngest. Se ainda assim quiser voltar, além de repor o
+`crons` e a `CRON_SECRET`, ou você aceita um horário só (`"0 9 * * *"`) ou
+dirige de fora — cron-job.org, `curl` no crontab de um VPS, `node-cron`. A rota
+`/api/cron/[task]` é burra de propósito para isso:
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" https://seu-dominio/api/cron/publish-scheduled
@@ -368,7 +354,7 @@ capa em cada matéria.
 
 1. [ ] Variáveis cadastradas na Vercel: `DATABASE_URL` (**com** `-pooler`),
        `DIRECT_URL` (**sem** `-pooler`), `BETTER_AUTH_SECRET`,
-       `BETTER_AUTH_URL`, `CORS_ORIGIN`, `CRON_SECRET`, `S3_*`.
+       `BETTER_AUTH_URL`, `CORS_ORIGIN`, `S3_*`, `REDIS_URL`.
 2. [ ] `BETTER_AUTH_SECRET` com no mínimo 32 caracteres, **gerado para produção**
        (`openssl rand -base64 32`) — nunca o do `.env.example`.
 3. [ ] `BETTER_AUTH_URL` e `CORS_ORIGIN` apontando para o domínio real.
@@ -376,8 +362,8 @@ capa em cada matéria.
 5. [ ] `prisma migrate status` sem migrations pendentes.
 6. [ ] CORS do bucket liberando `PUT` do domínio do painel.
 7. [ ] `S3_PUBLIC_URL` apontando para o bucket (é o prefixo das imagens).
-8. [ ] `CRON_SECRET` cadastrada — confira chamando a rota do §3 à mão: tem de
-       responder `{"published":0,...}`, e **não** `503`.
+8. [ ] Uma matéria agendada para daqui a poucos minutos publicou sozinha —
+       é o teste de que o Inngest está de fato dirigindo.
 9. [ ] `INNGEST_SIGNING_KEY` e `INNGEST_EVENT_KEY` cadastradas, e a app
        sincronizada no painel do Inngest — confira que `publish-scheduled`
        aparece lá com o gatilho `*/5 * * * *`. **Não** defina `INNGEST_DEV`
