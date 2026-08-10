@@ -490,6 +490,13 @@ export function ArticleEditor({ id }: { id: string }) {
 							<div>
 								<Label className="text-xs">Editoria</Label>
 								<Select
+									items={[
+										{ value: NO_SECTION, label: "— sem editoria —" },
+										...(sections.data ?? []).map((section) => ({
+											value: section.id,
+											label: section.name,
+										})),
+									]}
 									value={sectionId || NO_SECTION}
 									onValueChange={(value) =>
 										setSectionId(value === NO_SECTION ? "" : (value ?? ""))

@@ -348,6 +348,10 @@ function ProgramForm({
 			<div className="flex flex-col gap-1.5">
 				<Label>Dia da semana</Label>
 				<Select
+					items={DAY_LABELS.map((label, day) => ({
+						value: String(day),
+						label,
+					}))}
 					value={form.dayOfWeek}
 					onValueChange={(value) => value && onChange({ ...form, dayOfWeek: value })}
 				>

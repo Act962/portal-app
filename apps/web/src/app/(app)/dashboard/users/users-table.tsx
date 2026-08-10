@@ -161,6 +161,10 @@ export function UsersTable() {
 									</TableCell>
 									<TableCell>
 										<Select
+											items={ROLES.map((r) => ({
+												value: r,
+												label: ROLE_LABELS[r],
+											}))}
 											value={user.role}
 											disabled={!user.active}
 											onValueChange={(value) =>

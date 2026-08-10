@@ -196,6 +196,13 @@ export function ArticlesList() {
 				</div>
 
 				<Select
+					items={[
+						{ value: ALL, label: "Todos os status" },
+						...EDITORIAL_STATUSES.map((s) => ({
+							value: s,
+							label: STATUS_LABELS[s],
+						})),
+					]}
 					value={status}
 					onValueChange={(value) => setStatus(value ?? ALL)}
 				>
@@ -213,6 +220,13 @@ export function ArticlesList() {
 				</Select>
 
 				<Select
+					items={[
+						{ value: ALL, label: "Todas as editorias" },
+						...(sections.data ?? []).map((section) => ({
+							value: section.id,
+							label: section.name,
+						})),
+					]}
 					value={sectionId}
 					onValueChange={(value) => setSectionId(value ?? ALL)}
 				>

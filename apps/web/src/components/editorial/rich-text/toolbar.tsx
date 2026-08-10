@@ -6,6 +6,7 @@
 
 import { Button } from "@portal-app/ui/components/button";
 import { Separator } from "@portal-app/ui/components/separator";
+import { cn } from "@portal-app/ui/lib/utils";
 import {
 	Tooltip,
 	TooltipContent,
@@ -23,6 +24,8 @@ import {
 	Link2Off,
 	List,
 	ListOrdered,
+	Maximize2,
+	Minimize2,
 	Pilcrow,
 	Quote,
 	Redo2,
@@ -31,6 +34,9 @@ import {
 
 type ToolbarProps = {
 	editor: Editor;
+	/** Editor ocupando a tela inteira. */
+	expanded: boolean;
+	onToggleExpanded: () => void;
 	onPickImage: () => void;
 	onAddEmbed: () => void;
 	onSetLink: () => void;
@@ -105,6 +111,8 @@ function ToolButton({
  */
 export function Toolbar({
 	editor,
+	expanded,
+	onToggleExpanded,
 	onPickImage,
 	onAddEmbed,
 	onSetLink,
@@ -112,7 +120,16 @@ export function Toolbar({
 	const state = useToolbarState(editor);
 
 	return (
-		<div className="sticky top-14 z-10 flex flex-wrap items-center gap-1 border-b bg-background/95 p-1.5 backdrop-blur">
+		<div
+			className={cn(
+				"z-10 flex flex-wrap items-center gap-1 border-b bg-background/95 p-1.5 backdrop-blur",
+				// Encaixotado, a barra gruda abaixo do cabeçalho do painel. Em tela
+				// cheia ela JÁ é o topo — `sticky top-14` a empurraria para fora.
+				// Sem o `overflow-hidden` do container, o canto arredondado precisa vir
+				// daqui — senão a barra passa reto pela borda da caixa.
+				!expanded && "sticky top-14 rounded-t-lg",
+			)}
+		>
 			<ToolButton
 				label="Negrito"
 				shortcut="Ctrl+B"
@@ -218,6 +235,21 @@ export function Toolbar({
 				onClick={() => editor.chain().focus().redo().run()}
 			>
 				<Redo2 className="size-4" />
+			</ToolButton>
+
+			<Separator orientation="vertical" className="mx-1 h-6" />
+
+			<ToolButton
+				label={expanded ? "Sair da tela cheia" : "Escrever em tela cheia"}
+				shortcut={expanded ? "Esc" : undefined}
+				active={expanded}
+				onClick={onToggleExpanded}
+			>
+				{expanded ? (
+					<Minimize2 className="size-4" />
+				) : (
+					<Maximize2 className="size-4" />
+				)}
 			</ToolButton>
 		</div>
 	);

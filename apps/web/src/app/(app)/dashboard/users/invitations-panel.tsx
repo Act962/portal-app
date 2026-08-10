@@ -113,6 +113,10 @@ export function InvitationsPanel() {
 						<div className="flex flex-col gap-1.5 sm:w-52">
 							<Label>Papel</Label>
 							<Select
+								items={ROLES.map((item) => ({
+									value: item,
+									label: ROLE_LABELS[item],
+								}))}
 								value={role}
 								onValueChange={(value) => value && setRole(value as Role)}
 							>

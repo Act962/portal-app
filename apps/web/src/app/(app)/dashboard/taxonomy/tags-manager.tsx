@@ -234,6 +234,7 @@ export function TagsManager() {
 					</CardHeader>
 					<CardContent className="flex flex-wrap items-end gap-2">
 						<Select
+							items={list.map((tag) => ({ value: tag.id, label: tag.name }))}
 							value={sourceId}
 							onValueChange={(value) => setSourceId(value ?? "")}
 						>
@@ -252,6 +253,9 @@ export function TagsManager() {
 						<span className="pb-2 text-muted-foreground text-sm">vira</span>
 
 						<Select
+							items={list
+								.filter((tag) => tag.id !== sourceId)
+								.map((tag) => ({ value: tag.id, label: tag.name }))}
 							value={targetId}
 							onValueChange={(value) => setTargetId(value ?? "")}
 						>

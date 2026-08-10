@@ -6,6 +6,20 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@portal-app/ui/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
+/**
+ * ⚠️ Passe `items` sempre que o VALOR for diferente do texto exibido.
+ *
+ * O `<SelectValue>` resolve o rótulo pelo `items` do Root — e não pelos
+ * `<SelectItem>`, que só existem no DOM depois de o popup abrir. Sem `items`,
+ * o gatilho mostra o valor CRU: um `<Select value={secao.id}>` exibe o UUID em
+ * vez do nome da editoria, e um de papel exibe "REDATOR" em vez de "Redator".
+ *
+ * Falha silenciosa e por tela: aconteceu em 8 selects do painel de uma vez.
+ *
+ * ```tsx
+ * <Select items={secoes.map((s) => ({ value: s.id, label: s.name }))} …>
+ * ```
+ */
 const Select = SelectPrimitive.Root
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {

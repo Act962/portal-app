@@ -9,7 +9,6 @@
     "start": "next start"
   },
   "dependencies": {
-    "inngest": "catalog:",
     "@portal-app/analytics": "workspace:*",
     "@portal-app/api": "workspace:*",
     "@portal-app/auth": "workspace:*",
@@ -25,6 +24,8 @@
     "@tanstack/react-form": "^1.33.2",
     "@tanstack/react-query": "^5.101.4",
     "@tiptap/core": "^3.29.2",
+    "@tiptap/extension-character-count": "^3.29.2",
+    "@tiptap/extension-typography": "^3.29.2",
     "@tiptap/extensions": "^3.29.2",
     "@tiptap/pm": "^3.29.2",
     "@tiptap/react": "^3.29.2",
@@ -35,6 +36,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "inngest": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
     "next-themes": "catalog:",

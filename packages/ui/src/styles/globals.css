@@ -4,6 +4,13 @@
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
+/* As classes `prose` do editor de matéria e do renderizador de corpo. Sem este
+   plugin elas não existem — e como o `preflight` do Tailwind zera margem e
+   tamanho de h2/h3/ul/ol, o editor mostrava título e lista IDÊNTICOS a
+   parágrafo. O texto estava certo; só não se via a formatação enquanto
+   escrevia. */
+@plugin "@tailwindcss/typography";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -238,4 +245,65 @@
 		width: 0;
 		height: 0;
 	}
+}
+
+/* ---------------------------------------------------------------------------
+   Editor de matéria (TipTap)
+
+   O prometido do editor é WYSIWYG: o que a redação vê enquanto escreve tem de
+   ser o que sai no portal. Por isso estes ajustes espelham o
+   `block-renderer.tsx`, que é quem desenha o corpo publicado — mudou lá, muda
+   aqui. Ficam em CSS, e não em classes utilitárias no componente, porque o
+   conteúdo do editor é gerado pelo ProseMirror: não há onde pendurar classe.
+   --------------------------------------------------------------------------- */
+.article-editor {
+	/* O corpo publicado usa a serifada; escrever na mesma fonte é metade do
+	   WYSIWYG. */
+	--tw-prose-body: var(--color-foreground);
+	--tw-prose-headings: var(--color-foreground);
+	--tw-prose-links: var(--color-brand-red);
+	--tw-prose-quotes: var(--color-foreground);
+	--tw-prose-bullets: var(--color-muted-foreground);
+	--tw-prose-counters: var(--color-muted-foreground);
+}
+
+.article-editor .ProseMirror {
+	font-family: var(--font-serif);
+	line-height: 1.7;
+}
+
+.article-editor h2,
+.article-editor h3 {
+	font-family: var(--font-heading);
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+
+.article-editor blockquote {
+	border-left-color: var(--color-brand-red);
+	font-style: italic;
+}
+
+/* O cursor precisa de um lugar para pousar depois de uma imagem ou de um
+   embed no fim do documento — sem isto não há como escrever após o último
+   bloco que não é texto. */
+.article-editor .ProseMirror > *:last-child {
+	margin-bottom: 0;
+}
+
+/* Placeholder do TipTap: só na primeira linha vazia, e some ao digitar. */
+.article-editor .ProseMirror p.is-editor-empty:first-child::before {
+	content: attr(data-placeholder);
+	float: left;
+	height: 0;
+	pointer-events: none;
+	color: var(--color-muted-foreground);
+}
+
+/* Nó selecionado (imagem, embed) — o feedback de "isto está selecionado" que
+   o ProseMirror não dá sozinho. */
+.article-editor .ProseMirror .ProseMirror-selectednode {
+	outline: 2px solid var(--color-ring);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm, 0.25rem);
 }
