@@ -26,7 +26,7 @@ falhar.
 | Variável / ajuste | Sem isso | Onde |
 |---|---|---|
 | `CRON_SECRET` | A rota do agendamento responde **503** e a matéria marcada para as 6h não sai sozinha | [`deploy.md`](./deploy.md) §3 |
-| CORS de `PUT` no bucket R2 | O envio de imagem trava em 0% — o upload vai do navegador **direto** para o R2 | [`deploy.md`](./deploy.md) §2 |
+| ~~CORS de `PUT` no bucket R2~~ | ✅ **Configurado em 2026-08-07** (`PUT` liberado para o domínio da Vercel e para `localhost`). Falta só o teste real: subir uma imagem pelo painel em produção. Ao trocar para domínio próprio, **adicione a origem nova** — senão o upload volta a travar em 0% | [`deploy.md`](./deploy.md) §2 |
 | `REDIS_URL` | "Mais lidas" degrada para "mais recentes" **sem avisar**: a seção continua na tela, com a ordem errada | `packages/env/src/server.ts` |
 | `RESEND_API_KEY` | Convite e redefinição de senha ficam no "avise você mesmo" (funciona, mas é manual) — opcional por desenho | `packages/contexts/identity/src/infrastructure/create-mailer.ts` |
 
