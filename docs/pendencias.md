@@ -15,20 +15,22 @@ configurações do veículo, grade de programação, enquete com voto anônimo,
 
 ---
 
-## 🔧 Configuração de produção — não é código
+## 🔧 Configuração de produção — ✅ CONCLUÍDA (2026-08-07)
 
-**O maior retorno por esforço do projeto inteiro está aqui.** São variáveis de
-ambiente; o código correspondente já está escrito, testado e no ar. Enquanto não
-forem cadastradas, funcionalidades prontas não valem nada — e falham **em
-silêncio**, que é o pior modo de falhar: a seção continua na tela, o botão
-continua lá, só o comportamento está errado.
+Variáveis cadastradas na Vercel e R2 configurado; portal no ar e funcionando.
+Ficam registrados só os pontos que **não** se provam olhando a tela:
 
-| Variável / ajuste | Sem isso | Onde |
-|---|---|---|
-| `INNGEST_SIGNING_KEY` + `INNGEST_EVENT_KEY` | O agendador não conecta e a matéria marcada para as 6h só sai quando alguém abrir o portal (a publicação na leitura cobre) | [`deploy.md`](./deploy.md) §3.1 |
-| ~~CORS de `PUT` no bucket R2~~ | ✅ **Configurado em 2026-08-07** (`PUT` liberado para o domínio da Vercel e para `localhost`). Falta só o teste real: subir uma imagem pelo painel em produção. Ao trocar para domínio próprio, **adicione a origem nova** — senão o upload volta a travar em 0% | [`deploy.md`](./deploy.md) §2 |
-| `REDIS_URL` | "Mais lidas" degrada para "mais recentes" **sem avisar**: a seção continua na tela, com a ordem errada | `packages/env/src/server.ts` |
-| `RESEND_API_KEY` | Convite e redefinição de senha ficam no "avise você mesmo" (funciona, mas é manual) — opcional por desenho | `packages/contexts/identity/src/infrastructure/create-mailer.ts` |
+- **"Mais lidas" com `REDIS_URL` errada não parece quebrada** — a seção continua
+  ali, listando as mais recentes. A conferência é comportamental: abrir uma
+  matéria antiga várias vezes e ver se ela sobe no ranking em até 24h.
+- **Agendamento** — a prova é uma matéria marcada para dali a poucos minutos
+  saindo sozinha, e a execução aparecendo no painel do Inngest. "O deploy subiu"
+  não prova nada aqui.
+- **Domínio próprio quebra o upload de imagem.** No dia em que trocar o
+  `*.vercel.app` pelo domínio da rádio, a origem nova precisa entrar no CORS do
+  bucket R2 — senão o envio volta a travar em 0%, com o mesmo sintoma de antes.
+- `RESEND_API_KEY` segue **opcional**: sem ela, convite e redefinição de senha
+  continuam no "avise você mesmo", que funciona mas é manual.
 
 ---
 
