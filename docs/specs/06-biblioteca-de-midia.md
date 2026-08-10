@@ -142,20 +142,13 @@ tentativa e erro qual arquivo trava a operação, refazendo a seleção a cada
 rodada. O relatório resolve numa passada: "3 excluídos, 3 não: em uso por
 matéria".
 
-### D9 — A biblioteca abre na RAIZ, e tem duas visualizações
+### D9 — A biblioteca abre em "TODAS", e tem duas visualizações
 
-Emenda do cliente (2026-08-10), depois de ver a primeira versão.
+Emenda do cliente (2026-08-10), depois de ver a primeira versão. **Revista no
+mesmo dia**, ver D10.
 
-**Modelo de gerenciador de arquivos.** A tela abre mostrando o que está SOLTO;
-o que está guardado só aparece ao entrar na pasta. "Todas" continua existindo,
-mas como saída de emergência — para quando o editor não lembra onde guardou —
-e não como ponto de partida. A ordem dos chips conta essa história: raiz,
-pastas, e "Todas" separada no fim.
-
-O risco dessa escolha é a raiz vazia depois que tudo estiver organizado, que
-lida como "cadê meus arquivos?". Por isso o estado vazio da raiz é específico:
-"Tudo está guardado em pastas" com um atalho para "Todas". É o único estado
-vazio da tela que é **sinal de sucesso**, não de falta.
+**Todas é o ponto de partida.** A ordem dos chips: "Todas", barra separadora,
+pastas, e "Sem pasta" no fim.
 
 **Grade e lista.** Grade é a visão de quem RECONHECE — a foto que se procura é
 lembrada visualmente. Lista é a visão de quem PROCURA — nome, crédito e pasta à
@@ -169,6 +162,30 @@ inicializador do `useState` — `localStorage` não existe no servidor.
 **Contagem por pasta no chip.** Não é enfeite: é o que torna previsível a recusa
 de excluir pasta cheia (D3). Sem o número, o editor clica em excluir e só então
 descobre que havia 12 arquivos lá dentro.
+
+### D10 — O recorte de abertura não pode ser o único que ESVAZIA
+
+Emenda do cliente (2026-08-10), sobre a própria D9: a versão anterior abria na
+RAIZ, no modelo de gerenciador de arquivos — o que está solto aparece, o que
+está em pasta só ao entrar nela.
+
+O defeito é de direção. A raiz é o único recorte da tela que **encolhe à medida
+que a redação se organiza**: quanto melhor o uso da feature, mais vazia fica a
+primeira coisa que se vê. Quem guardou tudo em pastas abre a biblioteca e não
+encontra arquivo nenhum. Estado vazio como recompensa por fazer certo é o pior
+primeiro contato possível, e nenhum texto explicativo desfaz o susto de chegar e
+não ver o próprio acervo — o usuário reage à tela antes de ler a legenda.
+
+"Todas" tem a propriedade oposta: **cresce com o uso**, e é o único recorte que
+nunca mente sobre o tamanho do acervo. Abrir nele responde de cara a pergunta
+que traz o editor à tela ("o que eu tenho?"), e deixa a escolha de recorte para
+quem já sabe o que procura.
+
+"Sem pasta" não some — vira o recorte de quem quer ARRUMAR, a fila do que ainda
+não foi guardado, e por isso fecha a fileira em vez de abri-la. O estado vazio
+dela ("Tudo está guardado em pastas", com atalho para "Todas") continua sendo o
+único estado vazio da tela que é **sinal de sucesso**, e agora está no lugar
+certo: numa visão que se procura de propósito, não numa que se recebe ao chegar.
 
 ### D8 — Confirmação com CONSEQUÊNCIA, não com "tem certeza?"
 
@@ -232,6 +249,8 @@ enviar imagem pode organizar e apagar.
 9. Mover seleção para uma pasta não pede confirmação; excluir pede.
 10. Filtrar por pasta mostra só o que está nela; "Sem pasta" é um filtro
     possível.
+11. A tela abre em "Todas": com o acervo inteiro guardado em pastas, quem chega
+    ainda vê os arquivos (D10).
 
 ---
 

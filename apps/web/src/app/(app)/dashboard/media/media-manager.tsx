@@ -16,7 +16,6 @@ import {
 	DialogTitle,
 } from "@portal-app/ui/components/dialog";
 import { Input } from "@portal-app/ui/components/input";
-import { cn } from "@portal-app/ui/lib/utils";
 import { Label } from "@portal-app/ui/components/label";
 import { Progress } from "@portal-app/ui/components/progress";
 import {
@@ -27,25 +26,24 @@ import {
 	SheetTitle,
 } from "@portal-app/ui/components/sheet";
 import { Skeleton } from "@portal-app/ui/components/skeleton";
+import { cn } from "@portal-app/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	FileText,
 	FolderPlus,
 	ImagePlus,
-	Pencil,
-	Search,
 	LayoutGrid,
 	List,
+	Pencil,
+	Search,
 	Trash2,
 	Upload,
 	X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-
-import { PaginationBar } from "@/components/admin/pagination-bar";
 import { toast } from "sonner";
-
 import { PageHeader } from "@/components/admin/page-header";
+import { PaginationBar } from "@/components/admin/pagination-bar";
 import { trpc } from "@/utils/trpc";
 
 type Picked = {
@@ -143,12 +141,17 @@ export function MediaManager() {
 	const [search, setSearch] = useState("");
 	const [page, setPage] = useState(1);
 	/**
-	 * Começa na RAIZ, não em "Todas" — modelo de gerenciador de arquivos: o que
-	 * está solto aparece aqui, o que está em pasta só aparece ao entrar nela.
-	 * "Todas" continua existindo como saída de emergência, para quando o editor
-	 * não lembra onde guardou.
+	 * Começa em "Todas". A primeira versão abria na RAIZ, como um gerenciador de
+	 * arquivos — mas aqui a raiz é o único recorte que ESVAZIA à medida que a
+	 * redação se organiza: quem guardou tudo em pastas abre a biblioteca e não vê
+	 * arquivo nenhum. Estado vazio como recompensa por fazer certo é o pior
+	 * primeiro contato que uma tela pode ter, e nenhum texto explicativo desfaz o
+	 * susto de chegar e não ver o próprio acervo.
+	 *
+	 * "Sem pasta" continua a um clique, e é o recorte de quem quer ARRUMAR — a
+	 * fila do que ainda não foi guardado.
 	 */
-	const [folderId, setFolderId] = useState<string>(NONE);
+	const [folderId, setFolderId] = useState<string>(ALL);
 	const [view, setView] = useState<"grid" | "list">("grid");
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -195,7 +198,9 @@ export function MediaManager() {
 
 	const refreshLibrary = () =>
 		Promise.all([
-			queryClient.invalidateQueries({ queryKey: trpc.media.library.queryKey() }),
+			queryClient.invalidateQueries({
+				queryKey: trpc.media.library.queryKey(),
+			}),
 			queryClient.invalidateQueries({
 				queryKey: trpc.media.folders.list.queryKey(),
 			}),
@@ -357,7 +362,9 @@ export function MediaManager() {
 							focalPoint: focal,
 						}
 					: {}),
-				...(folderId !== ALL ? { folderId: folderId === NONE ? null : folderId } : {}),
+				...(folderId !== ALL
+					? { folderId: folderId === NONE ? null : folderId }
+					: {}),
 			});
 			await queryClient.invalidateQueries({
 				queryKey: trpc.media.library.queryKey(),
@@ -450,16 +457,17 @@ export function MediaManager() {
 			</button>
 
 			{/* Pastas como FILTRO, não como navegação: a biblioteca continua sendo
-			    uma tela só, e "Todas" nunca fica longe de um clique. */}
-			{/* Raiz primeiro, pastas no meio, "Todas" no fim: a ordem conta a
-			    história de onde se está e para onde se pode ir. "Todas" é a saída,
-			    não o ponto de partida. */}
+			    uma tela só, e nenhum recorte fica longe de um clique.
+			    "Todas" primeiro, porque é onde a tela abre, e a barra separa o TUDO
+			    dos recortes. "Sem pasta" fecha a fileira por ser a fila de
+			    arrumação — o que ainda não foi guardado. */}
 			<div className="flex flex-wrap items-center gap-1.5">
 				<FolderChip
-					label="Sem pasta"
-					active={folderId === NONE}
-					onClick={() => setFolderId(NONE)}
+					label="Todas"
+					active={folderId === ALL}
+					onClick={() => setFolderId(ALL)}
 				/>
+				<span className="mx-1 h-4 w-px bg-border" />
 				{(folders.data ?? []).map((folder) => (
 					<FolderChip
 						key={folder.id}
@@ -478,11 +486,10 @@ export function MediaManager() {
 						onDelete={() => setConfirmFolderDelete(folder.id)}
 					/>
 				))}
-				<span className="mx-1 h-4 w-px bg-border" />
 				<FolderChip
-					label="Todas"
-					active={folderId === ALL}
-					onClick={() => setFolderId(ALL)}
+					label="Sem pasta"
+					active={folderId === NONE}
+					onClick={() => setFolderId(NONE)}
 				/>
 			</div>
 
@@ -778,37 +785,37 @@ export function MediaManager() {
 										</span>
 									</div>
 								) : (
-								/* O ponto focal decide o que sobra quando a foto é cortada
+									/* O ponto focal decide o que sobra quando a foto é cortada
 								   para 16:9 na home ou para o quadrado do celular. */
-								<button
-									type="button"
-									className="relative block w-full overflow-hidden rounded-md border"
-									onClick={(event) => {
-										const rect = event.currentTarget.getBoundingClientRect();
-										setFocal({
-											x: Number(
-												((event.clientX - rect.left) / rect.width).toFixed(3),
-											),
-											y: Number(
-												((event.clientY - rect.top) / rect.height).toFixed(3),
-											),
-										});
-									}}
-								>
-									{/* biome-ignore lint/a11y/useAltText: preview local; o alt é cadastrado ao lado */}
-									<img
-										src={picked.previewUrl}
-										alt=""
-										className="block max-h-72 w-full object-contain"
-									/>
-									<span
-										className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-brand-red shadow"
-										style={{
-											left: `${focal.x * 100}%`,
-											top: `${focal.y * 100}%`,
+									<button
+										type="button"
+										className="relative block w-full overflow-hidden rounded-md border"
+										onClick={(event) => {
+											const rect = event.currentTarget.getBoundingClientRect();
+											setFocal({
+												x: Number(
+													((event.clientX - rect.left) / rect.width).toFixed(3),
+												),
+												y: Number(
+													((event.clientY - rect.top) / rect.height).toFixed(3),
+												),
+											});
 										}}
-									/>
-								</button>
+									>
+										{/* biome-ignore lint/a11y/useAltText: preview local; o alt é cadastrado ao lado */}
+										<img
+											src={picked.previewUrl}
+											alt=""
+											className="block max-h-72 w-full object-contain"
+										/>
+										<span
+											className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-brand-red shadow"
+											style={{
+												left: `${focal.x * 100}%`,
+												top: `${focal.y * 100}%`,
+											}}
+										/>
+									</button>
 								)}
 								{picked.previewUrl !== null ? (
 									<p className="mt-1.5 text-muted-foreground text-xs">
@@ -1144,7 +1151,8 @@ function FolderChip({
 	// toque: no tablet ninguém alcançaria renomear nem excluir.
 	//
 	// Selecionar a pasta primeiro, agir depois, é o mesmo gesto de uma aba.
-	const showActions = active && onRename !== undefined && onDelete !== undefined;
+	const showActions =
+		active && onRename !== undefined && onDelete !== undefined;
 
 	return (
 		<span
