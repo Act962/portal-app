@@ -36,8 +36,8 @@ Ficam registrados só os pontos que **não** se provam olhando a tela:
 
 ## 👀 Aceite visual pendente
 
-Cinco telas existem, passam nos testes automatizados e **nunca foram abertas por
-um humano**. Testes provam comportamento, não legibilidade: espaçamento, ordem
+Seis telas existem, passam nos testes automatizados e **nunca foram abertas por
+um humano** de ponta a ponta. Testes provam comportamento, não legibilidade: espaçamento, ordem
 dos campos, texto de estado vazio e o que a tela comunica quando não há dado
 nenhum só aparecem no olho.
 
@@ -52,6 +52,12 @@ nenhum só aparecem no olho.
       leitor anônimo → conferir que o resultado só aparece depois do voto.
 - [ ] **Configurações** (`/dashboard/settings`) — a aba "Rádio" mudou: sobraram
       frequência e faixa, o campo de transmissão saiu junto com o player.
+- [ ] **Biblioteca de mídia** (`/dashboard/media`) — pastas, grade/lista e ações
+      em lote já foram vistas. Falta o caminho do arquivo em si: enviar um PDF,
+      abrir pelo "Abrir em nova aba", e tentar **excluir uma imagem que é capa**
+      de matéria (a recusa da D4). Atenção: com o `.env` local como está
+      (dívida técnica abaixo), o arquivo enviado localmente dá 404 ao abrir —
+      **isso é a configuração, não a tela**.
 
 ---
 
@@ -249,6 +255,7 @@ nenhum só aparecem no olho.
 | **`EventBus` síncrono não tem retry** | O Inngest entrou como AGENDADOR; o adapter do despacho de eventos não foi escrito — ver [`adr/0007`](./adr/0007-eventos-e-agendamento-atras-de-portas.md) | Um consumidor que falhe perde a rodada. O evento não some (a linha do outbox fica sem `processedAt`), mas nada tenta de novo sozinho. Agora é barato: o cliente Inngest e a rota `/api/inngest` já existem |
 | **O job de e2e do CI não sobe Redis** | O serviço nunca foi adicionado ao `ci.yml` | O e2e roda sempre com "mais lidas" degradado para "mais recentes". O fallback está sendo exercitado por acidente, e o ranking de verdade **não é testado em lugar nenhum** |
 | **Actions do CI em Node 20** | `checkout@v4`, `setup-node@v4`, `cache@v4`, `pnpm/action-setup@v4` | O GitHub já depreciou e força para Node 24. Funciona hoje; quebra sem aviso quando a compatibilidade sair |
+| **`.env` local escreve no MinIO e lê do R2** | Decisão do cliente (2026-08-10): não mexer agora. Produção conferida e correta | `apps/web/.env` tem só `S3_PUBLIC_URL` (do R2); os outros seis `S3_*` caem no default do `packages/env`, que é MinIO. O PUT vai para `localhost:9000/portal-media`, a leitura monta `pub-….r2.dev/<chave>` — **todo upload feito localmente pelo app fica inalcançável (404)**, sem erro em lugar nenhum. As imagens antigas funcionam por serem de chave plana, postas no bucket do R2 à mão. Corrigir é completar o `.env` com um dos dois blocos do `.env.example` — os sete valores têm de vir do mesmo lado |
 
 ---
 
