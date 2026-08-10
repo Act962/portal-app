@@ -19,6 +19,7 @@
     "@portal-app/media": "workspace:*",
     "@portal-app/polls": "workspace:*",
     "@portal-app/settings": "workspace:*",
+    "@portal-app/taxonomy": "workspace:*",
     "@portal-app/ui": "workspace:*",
     "@prisma/client": "catalog:",
     "@swc/helpers": "^0.5.23",

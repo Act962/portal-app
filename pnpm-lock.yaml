@@ -162,6 +162,9 @@ importers:
       '@portal-app/settings':
         specifier: workspace:*
         version: link:../../packages/contexts/settings
+      '@portal-app/taxonomy':
+        specifier: workspace:*
+        version: link:../../packages/contexts/taxonomy
       '@portal-app/ui':
         specifier: workspace:*
         version: link:../../packages/ui

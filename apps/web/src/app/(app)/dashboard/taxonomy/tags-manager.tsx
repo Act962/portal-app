@@ -100,8 +100,13 @@ export function TagsManager() {
 					onSubmit={(event) => {
 						event.preventDefault();
 						if (name.trim()) {
-							create.mutate({ name: name.trim() });
-							setName("");
+							// Limpa só no SUCESSO. Limpar junto com o `mutate` levava embora
+							// o texto quando o nome era repetido: o toast dizia o problema e
+							// o campo já estava vazio, obrigando a digitar tudo de novo.
+							create.mutate(
+								{ name: name.trim() },
+								{ onSuccess: () => setName("") },
+							);
 						}
 					}}
 				>

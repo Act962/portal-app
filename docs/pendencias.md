@@ -119,10 +119,22 @@ nenhum só aparecem no olho.
       informação sobre o veículo, não dependiam do player.
 
 ### Bloco C — Banners e anúncios
+
+> **Confirmado pelo cliente em 2026-08-10: anúncios/banners ESTÃO no contrato.**
+> Deixa de ser escopo em dúvida e passa a ser entrega devida. É o maior item
+> aberto — contexto novo, migration, tela de painel e troca do placeholder no
+> portal. Os **9 pontos de veiculação já existem** e reservam altura (o
+> `AdSlot` está em 5 formatos, em home/editoria/matéria/últimas/tag/autor e no
+> cabeçalho), então o portal não muda de layout: o que falta é ter o que servir.
+
 - [ ] Contexto `advertising` com `Campaign` (imagem, link, posição, período,
       ativo) + migration. O `AdSlot` do portal hoje é **placeholder estático**;
       passa a receber a campanha de um RSC novo (`AdPlacement`), porque
       `packages/ui` não pode consultar banco.
+- [ ] Decidir antes de escrever: **uma campanha por posição ou rodízio?** e
+      **segmenta por editoria ou é global?** As duas mudam o modelo, não só a
+      tela. Sem resposta, o caminho mais curto é uma campanha ativa por posição,
+      escolhida pela mais recente.
 - [ ] Métricas de impressão/clique ficam para depois (exigem rota de tracking e
       cuidado com cache).
 

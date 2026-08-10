@@ -1,5 +1,6 @@
 "use client";
 
+import { Slug } from "@portal-app/taxonomy";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -12,7 +13,16 @@ import {
 } from "@portal-app/ui/components/alert-dialog";
 import { Badge } from "@portal-app/ui/components/badge";
 import { Button } from "@portal-app/ui/components/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@portal-app/ui/components/dialog";
 import { Input } from "@portal-app/ui/components/input";
+import { Label } from "@portal-app/ui/components/label";
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import { Switch } from "@portal-app/ui/components/switch";
 import {
@@ -23,12 +33,15 @@ import {
 	TableHeader,
 	TableRow,
 } from "@portal-app/ui/components/table";
+import { Textarea } from "@portal-app/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { trpc } from "@/utils/trpc";
+
+const DEFAULT_COLOR = "#2563eb";
 
 export function SectionsManager() {
 	const queryClient = useQueryClient();
@@ -70,12 +83,36 @@ export function SectionsManager() {
 		}),
 	);
 
+	const [creating, setCreating] = useState(false);
 	const [name, setName] = useState("");
-	const [color, setColor] = useState("#2563eb");
+	const [description, setDescription] = useState("");
+	const [color, setColor] = useState(DEFAULT_COLOR);
 	const [confirming, setConfirming] = useState<string | null>(null);
 
 	const list = sections.data ?? [];
 	const target = list.find((s) => s.id === confirming);
+
+	/**
+	 * O endereço vem do MESMO objeto de valor que o servidor usa (`Slug`), e não
+	 * de uma cópia da regra aqui. Um preview que normaliza diferente do domínio é
+	 * pior que preview nenhum: promete `/politica-local` e grava outra coisa.
+	 */
+	const slugResult = Slug.create(name);
+	const slug = slugResult.isOk() ? slugResult.unwrap().value : null;
+
+	/**
+	 * Aviso de endereço repetido antes de enviar. O servidor continua sendo a
+	 * autoridade — isto só evita a viagem de ida e volta para descobrir algo que
+	 * a lista já carregada sabe responder.
+	 */
+	const slugTaken = slug !== null && list.some((s) => s.slug === slug);
+
+	const openCreate = () => {
+		setName("");
+		setDescription("");
+		setColor(DEFAULT_COLOR);
+		setCreating(true);
+	};
 
 	/** Sobe/desce trocando a posição e persistindo a ordem completa. */
 	const move = (index: number, direction: -1 | 1) => {
@@ -95,34 +132,18 @@ export function SectionsManager() {
 
 	return (
 		<div className="flex flex-col gap-4">
-			<form
-				className="flex flex-wrap items-center gap-2"
-				onSubmit={(event) => {
-					event.preventDefault();
-					if (name.trim()) {
-						create.mutate({ name: name.trim(), color });
-						setName("");
-					}
-				}}
-			>
-				<Input
-					value={name}
-					onChange={(event) => setName(event.target.value)}
-					placeholder="Nome da nova editoria"
-					className="max-w-xs"
-				/>
-				<input
-					type="color"
-					value={color}
-					onChange={(event) => setColor(event.target.value)}
-					aria-label="Cor da editoria"
-					className="h-9 w-12 cursor-pointer rounded-md border bg-transparent"
-				/>
-				<Button type="submit" disabled={!name.trim() || create.isPending}>
+			{/* Criar editoria saiu do inline para um diálogo. Editoria não é registro
+			    corriqueiro: define a navegação do portal, a URL pública e — como não
+			    existe tela de edição — tudo o que se preenche aqui é PERMANENTE. Um
+			    campo solto ao lado de um botão convida a criar sem pensar; o diálogo
+			    dá espaço para o endereço e a descrição, que o inline não comportava e
+			    que ninguém consegue corrigir depois. */}
+			<div className="flex justify-end">
+				<Button onClick={openCreate}>
 					<Plus className="size-4" />
-					Adicionar
+					Nova editoria
 				</Button>
-			</form>
+			</div>
 
 			<div className="rounded-lg border">
 				<Table>
@@ -152,6 +173,12 @@ export function SectionsManager() {
 										As editorias organizam o portal e são exigidas para
 										publicar.
 									</p>
+									{/* Com a criação atrás de um diálogo, o vazio precisa
+									    oferecer a saída — senão a tela só informa o problema. */}
+									<Button className="mt-4" onClick={openCreate}>
+										<Plus className="size-4" />
+										Criar a primeira
+									</Button>
 								</TableCell>
 							</TableRow>
 						) : (
@@ -227,6 +254,129 @@ export function SectionsManager() {
 					</TableBody>
 				</Table>
 			</div>
+
+			<Dialog
+				open={creating}
+				onOpenChange={(open) => !open && setCreating(false)}
+			>
+				<DialogContent>
+					<form
+						onSubmit={(event) => {
+							event.preventDefault();
+							create.mutate(
+								{
+									name: name.trim(),
+									color,
+									// Só manda descrição se houver: string vazia gravaria uma
+									// meta description em branco, que é pior que ausente.
+									...(description.trim()
+										? { description: description.trim() }
+										: {}),
+								},
+								{
+									onSuccess: (section) => {
+										setCreating(false);
+										toast.success(`Editoria “${section.name}” criada.`);
+									},
+									// Em erro o diálogo FICA aberto com o que foi digitado. A
+									// versão inline limpava o campo junto com o `mutate`, então
+									// um nome repetido levava embora o texto e o contexto.
+								},
+							);
+						}}
+					>
+						<DialogHeader>
+							<DialogTitle>Nova editoria</DialogTitle>
+							<DialogDescription>
+								Editorias organizam o portal, aparecem na navegação e são
+								exigidas para publicar.
+							</DialogDescription>
+						</DialogHeader>
+
+						<div className="flex flex-col gap-4 py-4">
+							<div className="flex flex-col gap-2">
+								<Label htmlFor="section-name">Nome</Label>
+								<div className="flex items-center gap-2">
+									{/* biome-ignore lint/a11y/noAutofocus: primeiro campo do diálogo */}
+									<Input
+										autoFocus
+										id="section-name"
+										value={name}
+										onChange={(event) => setName(event.target.value)}
+										placeholder="Ex.: Política"
+									/>
+									<input
+										type="color"
+										value={color}
+										onChange={(event) => setColor(event.target.value)}
+										aria-label="Cor da editoria"
+										className="h-9 w-12 shrink-0 cursor-pointer rounded-md border bg-transparent"
+									/>
+								</div>
+								{/* O endereço é derivado do nome e NÃO muda depois. Sem mostrá-lo
+								    aqui, o editor só descobre a URL do portal depois de criar. */}
+								<p className="text-muted-foreground text-xs">
+									{slug ? (
+										<>
+											Endereço no portal:{" "}
+											<code className="rounded bg-muted px-1 py-0.5 font-mono">
+												/{slug}
+											</code>{" "}
+											— não muda depois.
+										</>
+									) : (
+										"O endereço no portal é gerado a partir do nome."
+									)}
+								</p>
+								{slugTaken ? (
+									<p className="text-destructive text-xs">
+										Já existe uma editoria em <code>/{slug}</code>. Escolha
+										outro nome.
+									</p>
+								) : null}
+							</div>
+
+							<div className="flex flex-col gap-2">
+								<Label htmlFor="section-description">
+									Descrição{" "}
+									<span className="font-normal text-muted-foreground">
+										(opcional)
+									</span>
+								</Label>
+								<Textarea
+									id="section-description"
+									value={description}
+									onChange={(event) => setDescription(event.target.value)}
+									placeholder="Uma frase sobre o que sai nesta editoria."
+									rows={3}
+								/>
+								{/* Não é enfeite: é a meta description e o texto que aparece ao
+								    compartilhar a página da editoria. O form inline não tinha
+								    onde pedi-la, então toda editoria nascia sem. */}
+								<p className="text-muted-foreground text-xs">
+									Aparece no Google e ao compartilhar o link da editoria.
+								</p>
+							</div>
+						</div>
+
+						<DialogFooter>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => setCreating(false)}
+							>
+								Cancelar
+							</Button>
+							<Button
+								type="submit"
+								disabled={slug === null || slugTaken || create.isPending}
+							>
+								Criar editoria
+							</Button>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
 
 			<AlertDialog
 				open={confirming !== null}
