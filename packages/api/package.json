@@ -15,6 +15,7 @@
     "@portal-app/analytics": "workspace:*",
     "@portal-app/auth": "workspace:*",
     "@portal-app/broadcast": "workspace:*",
+    "@portal-app/columnists": "workspace:*",
     "@portal-app/db": "workspace:*",
     "@portal-app/editorial": "workspace:*",
     "@portal-app/env": "workspace:*",

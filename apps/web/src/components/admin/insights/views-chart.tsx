@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { formatDayLabel } from "@/lib/insights-format";
 
+import { yAxisTicks } from "./scale";
+
 type Point = { day: string; views: number };
 
 const WIDTH = 720;
@@ -51,8 +53,7 @@ export function ViewsChart({ data }: { data: Point[] }) {
 	const last = data[data.length - 1];
 	const active = hover !== null ? data[hover] : null;
 
-	// Três marcas no eixo Y: base, meio e topo. Mais que isso vira grade densa.
-	const ticks = [0, Math.round(max / 2), max];
+	const ticks = yAxisTicks(max);
 
 	return (
 		<div className="relative">

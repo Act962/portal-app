@@ -141,6 +141,9 @@ importers:
       '@portal-app/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@portal-app/columnists':
+        specifier: workspace:*
+        version: link:../../packages/contexts/columnists
       '@portal-app/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -280,6 +283,9 @@ importers:
       '@portal-app/broadcast':
         specifier: workspace:*
         version: link:../contexts/broadcast
+      '@portal-app/columnists':
+        specifier: workspace:*
+        version: link:../contexts/columnists
       '@portal-app/db':
         specifier: workspace:*
         version: link:../db
@@ -389,6 +395,25 @@ importers:
         version: 6.0.3
 
   packages/contexts/broadcast:
+    dependencies:
+      '@portal-app/db':
+        specifier: workspace:*
+        version: link:../../db
+      '@portal-app/shared-kernel':
+        specifier: workspace:*
+        version: link:../../shared-kernel
+    devDependencies:
+      '@portal-app/config':
+        specifier: workspace:*
+        version: link:../../config
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
+  packages/contexts/columnists:
     dependencies:
       '@portal-app/db':
         specifier: workspace:*

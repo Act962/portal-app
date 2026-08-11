@@ -19,6 +19,7 @@ import {
 	LayoutDashboard,
 	Megaphone,
 	Newspaper,
+	PenLine,
 	Radio,
 	ScrollText,
 	Settings,
@@ -51,6 +52,7 @@ const ICONS: Record<NavIcon, typeof LayoutDashboard> = {
 	Radio,
 	ChartLine,
 	Vote,
+	PenLine,
 };
 
 export function AppSidebar({

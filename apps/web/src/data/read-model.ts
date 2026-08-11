@@ -15,6 +15,7 @@ import type {
 	ArticleBlock,
 	Author,
 	AuthorSocials,
+	Columnist,
 	Cover,
 	InlineNode,
 	Section,
@@ -244,6 +245,45 @@ const loadAuthorIndex = cache(
 		return index;
 	},
 );
+
+/**
+ * Perfis de colunista, indexados pelo slug da ASSINATURA.
+ *
+ * Existe porque o perfil de quem assina só vinha do `StaffMember`, e colunista
+ * pode não ter conta nenhuma — é o caso da coluna de gente de fora. Traz ativos
+ * e inativos: sair do bloco da home não é sair do portal, e a página
+ * `/autor/{slug}` de quem está em recesso continua valendo.
+ */
+type ColumnistProfile = {
+	slug: string;
+	name: string;
+	beat: string;
+	blurb: string;
+	photoMediaId: string | null;
+	order: number;
+	active: boolean;
+};
+
+const loadColumnists = cache(async (): Promise<Map<string, ColumnistProfile>> => {
+	const rows = await safely(
+		"columnists",
+		() =>
+			prisma.columnist.findMany({
+				orderBy: [{ order: "asc" }, { name: "asc" }],
+				select: {
+					slug: true,
+					name: true,
+					beat: true,
+					blurb: true,
+					photoMediaId: true,
+					order: true,
+					active: true,
+				},
+			}),
+		[] as ColumnistProfile[],
+	);
+	return new Map(rows.map((c) => [c.slug, c]));
+});
 
 const PUBLIC_BASE = env.S3_PUBLIC_URL.replace(/\/+$/, "");
 
@@ -501,20 +541,75 @@ export async function getAllArticles(): Promise<Article[]> {
  * pelos agregados). Autor sem perfil (ou fora da lista) degrada para o nome só.
  */
 export async function getAuthor(slug: string): Promise<Author> {
-	const [index, staff] = await Promise.all([loadAuthorIndex(), loadStaff()]);
+	const [index, staff, columnists, media] = await Promise.all([
+		loadAuthorIndex(),
+		loadStaff(),
+		loadColumnists(),
+		loadMedia(),
+	]);
+	const columnist = columnists.get(slug);
 	const entry = index.get(slug);
+
+	// Sem matéria assinada com este slug, o perfil de colunista ainda vale: o
+	// registro costuma ser criado ANTES da primeira coluna sair.
 	if (!entry) {
-		return { slug, name: deslug(slug), role: "Redação" };
+		return columnist
+			? columnistAuthor(columnist, media)
+			: { slug, name: deslug(slug), role: "Redação" };
 	}
+
+	// A precedência é do StaffMember: quem tem conta mantém o perfil da Equipe
+	// como fonte única, e o registro de colunista só completa quem não tem.
 	const profile = staff.get(entry.authorId);
+	if (profile) {
+		return {
+			slug,
+			name: entry.name,
+			role: profile.title || "Redação",
+			bio: profile.bio || undefined,
+			photoUrl: profile.photoUrl ?? undefined,
+			socials: profile.socials,
+		};
+	}
+
+	return columnist
+		? // O nome vem do índice (a assinatura mais recente), não do cadastro:
+			// é o que o leitor viu na matéria.
+			{ ...columnistAuthor(columnist, media), name: entry.name }
+		: { slug, name: entry.name, role: "Redação" };
+}
+
+function columnistAuthor(
+	columnist: ColumnistProfile,
+	media: Map<string, MediaInfo>,
+): Author {
 	return {
-		slug,
-		name: entry.name,
-		role: profile?.title || "Redação",
-		bio: profile?.bio || undefined,
-		photoUrl: profile?.photoUrl ?? undefined,
-		socials: profile?.socials,
+		slug: columnist.slug,
+		name: columnist.name,
+		// A marca da coluna ocupa o lugar do cargo — é o que identifica a pessoa
+		// para o leitor quando ela não é da redação.
+		role: columnist.beat || "Colunista",
+		bio: columnist.blurb || undefined,
+		photoUrl: columnist.photoMediaId
+			? media.get(columnist.photoMediaId)?.url
+			: undefined,
 	};
+}
+
+/**
+ * O bloco de colunistas da home: só os que estão no ar, na ordem da curadoria.
+ */
+export async function getColumnists(): Promise<Columnist[]> {
+	const [columnists, media] = await Promise.all([loadColumnists(), loadMedia()]);
+	return [...columnists.values()]
+		.filter((c) => c.active)
+		.map((c) => ({
+			slug: c.slug,
+			name: c.name,
+			beat: c.beat,
+			blurb: c.blurb,
+			photoUrl: c.photoMediaId ? media.get(c.photoMediaId)?.url : undefined,
+		}));
 }
 
 export async function getAuthors(): Promise<Author[]> {

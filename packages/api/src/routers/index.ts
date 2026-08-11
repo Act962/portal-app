@@ -1,6 +1,7 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
 import { analyticsRouter } from "./analytics";
 import { broadcastRouter } from "./broadcast";
+import { columnistsRouter } from "./columnists";
 import { editorialRouter } from "./editorial";
 import { identityRouter } from "./identity";
 import { mediaRouter } from "./media";
@@ -24,6 +25,7 @@ export const appRouter = router({
 	editorial: editorialRouter,
 	settings: settingsRouter,
 	broadcast: broadcastRouter,
+	columnists: columnistsRouter,
 	analytics: analyticsRouter,
 	polls: pollsRouter,
 });

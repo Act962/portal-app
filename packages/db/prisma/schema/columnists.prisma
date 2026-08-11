@@ -1,0 +1,41 @@
+// Contexto de Colunistas. O registro é a CURADORIA de quem aparece no bloco da
+// home — não é uma conta, e de propósito: colunista pode ser gente de fora, que
+// manda o texto e não entra no painel.
+//
+// A chave é o `slug` da ASSINATURA, não um usuário. O portal já identifica
+// autor por `slugify(authorName)` sobre as matérias publicadas, então um nome
+// que nunca teve login já tem `/autor/{slug}`, listagem e SEO — o que faltava
+// era só o perfil (foto, bio, cargo). É isso que esta tabela guarda.
+//
+// Quem TEM conta continua tirando o perfil do StaffMember: a precedência é
+// dele, e este registro só completa o que falta. Por isso não há relação com
+// `user` aqui — ligar as duas coisas por chave estrangeira obrigaria o
+// colunista a existir como usuário, que é exatamente o que se quer evitar.
+
+model Columnist {
+  id String @id @default(cuid())
+
+  // Igual ao `slugify` do nome com que a pessoa ASSINA a matéria. É o que
+  // amarra este registro às matérias dela, e por isso é imutável depois de
+  // criado — mudar aqui órfãna a página de autor que já está indexada.
+  slug String @unique
+
+  name String
+  // A marca da coluna ("Bastidores da Política"). Vazio é válido: nem toda
+  // assinatura em destaque tem coluna com nome próprio.
+  beat  String @default("")
+  blurb String @default("")
+
+  // Foto do perfil. Aponta para a biblioteca de mídia em vez de guardar URL:
+  // é o mesmo caminho da capa da matéria, e sobrevive a troca de storage.
+  photoMediaId String?
+
+  // Ordem no bloco da home. Desempate manual, como na grade e nas editorias.
+  order  Int     @default(0)
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("columnist")
+}

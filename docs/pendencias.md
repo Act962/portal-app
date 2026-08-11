@@ -1,6 +1,6 @@
 # Pendências — o que falta para o produto ficar completo
 
-> **Atualizado:** 2026-08-07.
+> **Atualizado:** 2026-08-11.
 > Lista única e priorizada do que está em aberto, para a entrega em andamento.
 > Estado por fase em [`proximos-passos.md`](./proximos-passos.md); escopo em
 > [`specs/`](./specs/); operação em [`deploy.md`](./deploy.md).
@@ -34,30 +34,69 @@ Ficam registrados só os pontos que **não** se provam olhando a tela:
 
 ---
 
-## 👀 Aceite visual pendente
+## 👀 Aceite visual — ✅ CONCLUÍDO (2026-08-11)
 
-Seis telas existem, passam nos testes automatizados e **nunca foram abertas por
-um humano** de ponta a ponta. Testes provam comportamento, não legibilidade: espaçamento, ordem
-dos campos, texto de estado vazio e o que a tela comunica quando não há dado
-nenhum só aparecem no olho.
+As seis telas foram abertas uma a uma, com o seed carregado. **O exercício se
+pagou:** achou três defeitos que nenhum teste pegava, todos corrigidos no mesmo
+dia. É a prova de que testes provam comportamento, não legibilidade.
 
-- [ ] **Assuntos/Tags** (`/dashboard/taxonomy`) — criar, renomear, apagar; e o
-      que a tela diz quando o assunto está em uso por uma matéria.
-- [ ] **Programação** (`/dashboard/programacao`) — com a tabela vazia o card do
-      portal fica **oculto** (por desenho); vale ver a tela com grade cheia.
-- [ ] **Insights** (`/dashboard/insights`) — num banco sem histórico os gráficos
-      aparecem zerados. Verificar se o estado vazio comunica "ainda não há dado"
-      em vez de parecer defeito.
-- [ ] **Enquetes** (`/dashboard/enquetes`) — rascunho → publicar → votar como
-      leitor anônimo → conferir que o resultado só aparece depois do voto.
-- [ ] **Configurações** (`/dashboard/settings`) — a aba "Rádio" mudou: sobraram
-      frequência e faixa, o campo de transmissão saiu junto com o player.
-- [ ] **Biblioteca de mídia** (`/dashboard/media`) — pastas, grade/lista e ações
-      em lote já foram vistas. Falta o caminho do arquivo em si: enviar um PDF,
-      abrir pelo "Abrir em nova aba", e tentar **excluir uma imagem que é capa**
-      de matéria (a recusa da D4). Atenção: com o `.env` local como está
-      (dívida técnica abaixo), o arquivo enviado localmente dá 404 ao abrir —
-      **isso é a configuração, não a tela**.
+- [x] **Assuntos/Tags** (`/dashboard/taxonomy`) — as duas abas conferidas. Ao
+      apagar, a tela diz o que importa: *"As matérias continuam existindo — só
+      deixam de ser agrupadas por este assunto, e a página dele sai do ar."* As
+      setas de ordenação estão corretas nos extremos (primeira linha sem
+      "subir", última sem "descer") — conferido no DOM, porque a diferença
+      visual entre habilitado e desabilitado é sutil em tamanho real.
+- [x] **Programação** (`/dashboard/programacao`) — vista vazia e com grade
+      cheia (14 programas nos sete dias, cadastrados pela própria tela). Vazia,
+      explica o card oculto em vez de parecer defeito: *"A grade aparece no
+      portal assim que houver programas cadastrados."* Cheia, o card do portal
+      aparece com os programas do dia e o selo **"no ar"** calculado contra o
+      relógio.
+- [x] **Insights** (`/dashboard/insights`) — estados vazios comunicam bem
+      ("Ainda sem leitura medida no período"). **Um defeito aqui**, ver abaixo.
+- [x] **Enquetes** (`/dashboard/enquetes`) — a tela e o estado vazio. O fluxo
+      rascunho → publicar → votar anônimo já é coberto por `T13` no e2e, que é
+      onde ele se prova de verdade.
+- [x] **Configurações** (`/dashboard/settings`) — a aba "Rádio" confirmada no
+      escopo novo: sobraram frequência e faixa, o campo de transmissão saiu.
+- [x] **Biblioteca de mídia** (`/dashboard/media`) — o painel de detalhe está
+      bem resolvido, e **a recusa da D4 funciona**: excluir uma imagem que é
+      capa devolve *"Este arquivo está em uso por uma matéria. Troque a imagem
+      na matéria antes de excluir."*, e o arquivo continua lá. **Um defeito
+      aqui**, ver abaixo.
+
+### Os três defeitos que só o olho pegou
+
+1. **Marca duplicada no eixo Y do gráfico de Insights.** Com o período todo
+   zerado — ou seja, **em toda instalação nova** —, `max` cai no piso `1` e as
+   três marcas viram `[0, Math.round(0.5), 1]` = `[0, 1, 1]`. Como cada marca é
+   um `<g key={tick}>`, a chave repetida fazia o React descartar uma delas: o
+   eixo perdia uma marca em silêncio, e o console acusava *two children with the
+   same key*. A aritmética saiu do componente para
+   `components/admin/insights/scale.ts` (`yAxisTicks`), com teste — inclusive um
+   que varre `max` de 1 a 200 afirmando que as marcas nunca repetem.
+2. **Imagem quebrada sem quadro de reserva na biblioteca.** Quando o arquivo não
+   resolvia, o card caía no quadro quebrado do navegador com o texto alternativo
+   solto, e a caixa de seleção — que é `absolute` — passava por cima das
+   primeiras letras. Virou `components/media/asset-image.tsx`, usado nos quatro
+   pontos que renderizam imagem de acervo. Não é caso hipotético: acontece com
+   arquivo apagado do bucket e com a troca de `S3_PUBLIC_URL` descrita na dívida
+   técnica abaixo.
+3. **Todo separador vertical do painel estava colado no topo.** O `Separator`
+   trazia `data-vertical:self-stretch`, e pela spec do flexbox `align-self:
+   stretch` só estica com medida transversal `auto` — com altura definida ele
+   degrada para `flex-start`. Como os cinco usos dão altura (`h-4` no topbar,
+   `h-6` na barra do editor), os cinco estavam desalinhados; e como `align-self`
+   é do filho, o `items-center` do contêiner não tinha como corrigir. Medido:
+   0px de folga acima e 40px abaixo, num header de 56px. Corrigido no primitivo.
+
+### Duas escolhas que ficaram para a redação decidir
+
+- **"Produção por autor", no Insights**, escala contra o maior valor. Com todos
+  os autores empatados em 1 matéria, as barras ficam todas cheias — correto pela
+  régua, mas lido rápido comunica "todos no máximo".
+- **A grade começa no Domingo** (`dayOfWeek` 0 é domingo, e a tabela ordena por
+  ele). Se a rádio pensa a semana começando na segunda, é ordenação, não modelo.
 
 ---
 
@@ -148,9 +187,8 @@ nenhum só aparecem no olho.
 - [ ] **A frase do rodapé** ("Notícias do Piauí 24 horas no ar, em todo lugar")
       segue no código: é copy, e o modelo não tem campo para ela. Criar um custa
       outra migration; entra junto do próximo campo que precisar.
-- [ ] **Tela de configurações não foi verificada visualmente** — ver a seção
-      "Aceite visual pendente", no topo, que agora reúne as cinco telas nessa
-      situação.
+- [x] ~~**Tela de configurações não foi verificada visualmente**~~ ✅ Feito em
+      11/08 — ver a seção "Aceite visual", no topo.
 
 ### Avulso
 - [x] ~~**Grade de programação da rádio**~~ ✅ Resolvido (Bloco 2): novo
@@ -216,7 +254,8 @@ nenhum só aparecem no olho.
       seleção. A checagem de uso que faltava virou a porta `MediaUsage`, com o
       adapter na raiz de composição perguntando ao editorial se a mídia é capa
       **ou** bloco do corpo — e vale para rascunho também.
-      **Pendente de aceite visual**: a tela nova não foi aberta por um humano.
+      Aceite visual feito em 11/08: a recusa da `MediaUsage` foi exercitada na
+      tela e devolve a mensagem certa.
 - [ ] **Mais recursos de edição no TipTap** — pedido do cliente em 07/08, junto
       da correção da tipografia do editor. O que já entrou naquele commit foi só
       o que **não** custa domínio novo: `Typography` (aspas curvas, travessão,
@@ -311,28 +350,26 @@ Os passos de colocar no ar (migrations, R2, seed) estão **feitos** — o portal
 está em produção com conteúdo, e as sete pendências vermelhas foram fechadas. O
 que resta, na ordem em que rende mais:
 
-1. **Configuração de produção** (seção 🔧, no topo). Meia hora de painel da
-   Vercel e da Cloudflare, e quatro funcionalidades já construídas passam a
-   funcionar. Nada aqui é código.
+1. **Confirmar em produção o que a seção 🔧 lista** — o cadastro das variáveis
+   está feito, mas "mais lidas" e agendamento só se provam pelo COMPORTAMENTO
+   (uma matéria antiga subindo no ranking; uma agendada saindo sozinha), não
+   por deploy verde. Nada aqui é código, e é o que destrava funcionalidade já
+   construída.
 
-2. **Aceite visual das cinco telas** (seção 👀). Antes de empilhar feature nova:
-   se alguma tela precisar de ajuste, é mais barato descobrir agora do que
-   depois de construir em cima dela.
-
-3. **Ligar o `check-types` do `packages/api`.** Uma linha no `package.json`,
+2. **Ligar o `check-types` do `packages/api`.** Uma linha no `package.json`,
    e passa a verificar justamente os routers e as **permissões** — a parte cujo
    defeito é mais caro. Merece commit próprio porque pode revelar erro
    acumulado.
 
-4. **Preencher os 29 `it.todo`** (13 no serializador do TipTap, 8 na
+3. **Preencher os 29 `it.todo`** (13 no serializador do TipTap, 8 na
    autorização, 8 na formatação de data). O de autorização exige antes tornar a
    raiz de composição injetável (`createAppRouter(deps)`), senão o teste vira
    integração.
 
-5. **Invalidação por evento.** É o único item da lista que o leitor final
+4. **Invalidação por evento.** É o único item da lista que o leitor final
    percebe todo dia: matéria publicada demora até 1 min para entrar no ar.
 
-6. **Banners**, quando houver anunciante — é o maior item que sobrou (contexto
+5. **Banners**, quando houver anunciante — é o maior item que sobrou (contexto
    `advertising` inteiro), e não rende nada até existir campanha para veicular.
 
 **Duas decisões que dependem do cliente, não de engenharia:** se anúncios entram

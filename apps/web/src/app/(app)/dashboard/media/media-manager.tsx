@@ -45,6 +45,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/admin/page-header";
 import { PaginationBar } from "@/components/admin/pagination-bar";
+import { AssetImage } from "@/components/media/asset-image";
 import { trpc } from "@/utils/trpc";
 
 type Picked = {
@@ -645,7 +646,7 @@ export function MediaManager() {
 									className="flex min-w-0 flex-1 items-center gap-3 text-left"
 								>
 									{asset.type === "IMAGE" ? (
-										<img
+										<AssetImage
 											src={asset.url}
 											alt=""
 											className="size-10 shrink-0 rounded border object-cover"
@@ -704,9 +705,10 @@ export function MediaManager() {
 									className="block w-full text-left"
 								>
 									{asset.type === "IMAGE" ? (
-										<img
+										<AssetImage
 											src={asset.url}
 											alt={asset.altText ?? asset.filename}
+											label="Imagem indisponível"
 											className="aspect-video w-full object-cover"
 											style={
 												asset.focalPoint
@@ -918,10 +920,12 @@ export function MediaManager() {
 							</SheetHeader>
 							<div className="flex flex-col gap-4 p-4">
 								{selected.type === "IMAGE" ? (
-									<img
+									<AssetImage
 										src={selected.url}
 										alt={selected.altText ?? ""}
+										label="Imagem indisponível no armazenamento"
 										className="w-full rounded-md border"
+										fallbackClassName="aspect-video"
 									/>
 								) : (
 									<div className="flex flex-col items-center gap-2 rounded-md border border-dashed p-10 text-muted-foreground">

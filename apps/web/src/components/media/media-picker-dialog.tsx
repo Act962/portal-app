@@ -15,6 +15,7 @@ import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PaginationBar } from "@/components/admin/pagination-bar";
+import { AssetImage } from "@/components/media/asset-image";
 import { trpc } from "@/utils/trpc";
 
 /**
@@ -98,9 +99,10 @@ export function MediaPickerDialog({
 									onClick={() => onSelect(asset.id)}
 									className="group overflow-hidden rounded-lg border text-left transition hover:border-brand-red hover:ring-2 hover:ring-brand-red/30"
 								>
-									<img
+									<AssetImage
 										src={asset.url}
 										alt={asset.altText ?? ""}
+										label="Imagem indisponível"
 										style={{
 											objectPosition: `${(asset.focalPoint?.x ?? 0.5) * 100}% ${(asset.focalPoint?.y ?? 0.5) * 100}%`,
 										}}
