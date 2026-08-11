@@ -1,48 +1,41 @@
 # portal-app
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Self, TRPC, and more.
+Portal de notícias da **Rádio 7 Cidades**. Monorepo Turborepo/pnpm: Next.js
+(App Router) + tRPC + Prisma/PostgreSQL, com DDD em contextos delimitados.
 
-## Features
+Nasceu de um scaffold [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack)
+e divergiu bastante dele — o banco virou PostgreSQL (ADR 0002) e o domínio
+ganhou contextos próprios em `packages/contexts/`.
 
-- **TypeScript** - For type safety and improved developer experience
-- **Next.js** - Full-stack React framework
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **tRPC** - End-to-end type-safe APIs
-- **Prisma** - TypeScript-first ORM
-- **MongoDB** - Database engine
-- **Authentication** - Better-Auth
-- **Biome** - Linting and formatting
-- **Turborepo** - Optimized monorepo build system
+## Stack
 
-## Getting Started
+| | |
+|---|---|
+| Framework | Next.js 16 (App Router), React 19 com React Compiler |
+| API | tRPC, tipada ponta a ponta |
+| Banco | PostgreSQL 17 via Prisma 7 (driver adapter, sem Rust) |
+| Auth | Better-Auth (e-mail/senha) |
+| Mídia | R2 em produção, MinIO no dev — mesmo adapter S3 |
+| Agendamento | Inngest, atrás da porta `Scheduler` |
+| UI | shadcn/ui em `packages/ui`, Tailwind v4 |
+| Qualidade | Biome, Vitest (unidade + integração), Playwright, dependency-cruiser |
 
-First, install the dependencies:
+## Como rodar
 
-```bash
-pnpm install
-```
+O guia completo — pré-requisitos, containers, `.env`, primeiro acesso e o que
+fazer quando algo não sobe — está em **[`docs/setup.md`](docs/setup.md)**.
 
-## Database Setup
-
-This project uses MongoDB with Prisma.
-
-1. Make sure you have MongoDB set up.
-2. Update your `apps/web/.env` file with your MongoDB connection URI.
-
-3. Apply the schema to your database:
+O caminho curto, numa máquina que já tem Node 22, pnpm 10.24.0 e Docker:
 
 ```bash
-pnpm run db:push
+cp apps/web/.env.example apps/web/.env && pnpm install && pnpm db:start && pnpm db:migrate && pnpm dev
 ```
 
-Then, run the development server:
+O `.env` vem antes do `install` de propósito: o postinstall roda
+`prisma generate`, que lê a `DATABASE_URL`.
 
-```bash
-pnpm run dev
-```
-
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
+Portal em <http://localhost:3001>, painel em `/dashboard`. O **primeiro usuário
+cadastrado nasce ADMIN**.
 
 ## UI Customization
 
@@ -74,27 +67,54 @@ If you want to add app-specific blocks instead of shared primitives, run the sha
 
 - Run checks: `pnpm run check`
 
-## Project Structure
+## Estrutura
 
 ```
 portal-app/
-├── apps/
-│   └── web/         # Fullstack application (Next.js)
+├── apps/web/                 # A única app: portal público + painel + rota tRPC
 ├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+│   ├── contexts/             # Domínio, por contexto delimitado
+│   │   ├── editorial/        #   matérias (core domain)
+│   │   ├── taxonomy/         #   editorias e tags
+│   │   ├── media/            #   biblioteca de arquivos
+│   │   ├── identity/         #   equipe, papéis e convites
+│   │   ├── broadcast/        #   grade de programação
+│   │   ├── polls/            #   enquetes
+│   │   ├── analytics/        #   audiência
+│   │   └── settings/         #   configuração do veículo
+│   ├── shared-kernel/        # Result, Entity, portas Clock/IdGenerator — zero dep externa
+│   ├── api/                  # Routers tRPC e raízes de composição
+│   ├── auth/ db/ env/        # Better-Auth · Prisma · env tipado
+│   ├── ui/                   # shadcn/ui compartilhado
+│   └── config/               # tsconfig base
+└── docs/                     # Specs, ADRs, roadmap — a fonte da verdade
 ```
 
-## Available Scripts
+Cada contexto separa `domain/`, `application/` e `infrastructure/`, e as regras
+que impedem uma camada de importar a outra são executáveis: `pnpm depcruise`.
 
-- `pnpm run dev`: Start all applications in development mode
-- `pnpm run build`: Build all applications
-- `pnpm run dev:web`: Start only the web application
-- `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm run db:push`: Push schema changes to database
-- `pnpm run db:generate`: Generate database client/types
-- `pnpm run db:migrate`: Run database migrations
-- `pnpm run db:studio`: Open database studio UI
-- `pnpm run check`: Run Biome formatting and linting
+## Comandos
+
+A lista completa está em [`docs/setup.md`](docs/setup.md) e no
+[`CLAUDE.md`](CLAUDE.md). Os do dia a dia:
+
+| | |
+|---|---|
+| `pnpm dev` | Sobe tudo (web na 3001) |
+| `pnpm check` | Biome, corrigindo o que dá |
+| `pnpm check-types` | `tsc --noEmit` em todos os workspaces |
+| `pnpm test` | Unidade + integração |
+| `pnpm db:migrate` | **A** forma de mudar o schema |
+| `pnpm db:studio` | Prisma Studio |
+
+> `pnpm db:push` existe, mas grava no banco **sem gerar migration** — a mudança
+> fica invisível para os outros ambientes. Use só para experimento descartável.
+
+## Documentação
+
+- [`docs/setup.md`](docs/setup.md) — subir numa máquina nova
+- [`docs/architecture.md`](docs/architecture.md) — camadas, contextos e as regras aplicadas
+- [`docs/roadmap.md`](docs/roadmap.md) — em que fase o projeto está
+- [`docs/pendencias.md`](docs/pendencias.md) — o que falta, e por quê
+- [`docs/deploy.md`](docs/deploy.md) — produção
+- [`docs/adr/`](docs/adr) — decisões com data e alternativa descartada
