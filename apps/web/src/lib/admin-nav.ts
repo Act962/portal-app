@@ -19,7 +19,8 @@ export type NavIcon =
 	| "ScrollText"
 	| "Radio"
 	| "ChartLine"
-	| "Vote";
+	| "Vote"
+	| "PenLine";
 
 export type NavItem = {
 	href: string;
@@ -74,6 +75,12 @@ export const ADMIN_NAV: NavGroup[] = [
 				action: "broadcast:manage",
 			},
 			{
+				href: "/dashboard/colunistas",
+				label: "Colunistas",
+				icon: "PenLine",
+				action: "columnists:manage",
+			},
+			{
 				href: "/dashboard/enquetes",
 				label: "Enquetes",
 				icon: "Vote",
@@ -113,6 +120,7 @@ export const ROUTE_LABELS: Record<string, string> = {
 	"/dashboard/insights": "Insights",
 	"/dashboard/taxonomy": "Editorias e tags",
 	"/dashboard/programacao": "Programação",
+	"/dashboard/colunistas": "Colunistas",
 	"/dashboard/enquetes": "Enquetes",
 	"/dashboard/users": "Equipe",
 	"/dashboard/settings": "Configurações",

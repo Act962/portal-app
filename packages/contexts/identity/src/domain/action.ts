@@ -16,6 +16,7 @@ export const ACTIONS = [
 	"article:unpublish",
 	"taxonomy:manage",
 	"broadcast:manage",
+	"columnists:manage",
 	"polls:manage",
 	"user:manage",
 	"settings:manage",
