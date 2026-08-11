@@ -17,6 +17,15 @@ import {
 	CardTitle,
 } from "@portal-app/ui/components/card";
 import {
+	Combobox,
+	ComboboxCollection,
+	ComboboxContent,
+	ComboboxEmpty,
+	ComboboxInput,
+	ComboboxItem,
+	ComboboxList,
+} from "@portal-app/ui/components/combobox";
+import {
 	Dialog,
 	DialogContent,
 	DialogFooter,
@@ -175,7 +184,6 @@ export function ArticleEditor({ id }: { id: string }) {
 	const status = article.data?.status as EditorialStatus | undefined;
 
 	const bylineId = useId();
-	const bylineListId = useId();
 
 	/**
 	 * O endereço do perfil vem do MESMO objeto de valor do domínio, e não de uma
@@ -550,26 +558,68 @@ export function ArticleEditor({ id }: { id: string }) {
 								{/*
 								  Entrada livre COM sugestões, e não um seletor fechado: a
 								  matéria pode ser assinada por quem não tem conta — é assim que
-								  a coluna de gente de fora entra no portal. As sugestões são os
-								  colunistas cadastrados, que é o caso comum de assinar com
-								  outro nome.
+								  a coluna de gente de fora entra no portal.
 
-								  `datalist` nativo em vez do `Combobox` do Base UI porque este
-								  é o primeiro combobox do app: estrear o componente aqui, com
-								  valor livre, custaria mais do que o campo vale.
+								  `selectionMode="none"` é o que sustenta as duas coisas ao mesmo
+								  tempo: não há "valor selecionado", só o TEXTO, que continua
+								  sendo nosso (`inputValue` controlado). Escolher da lista
+								  preenche o campo; digitar um nome que não está nela é
+								  igualmente válido, e a lista vazia avisa que é assinatura nova
+								  em vez de parecer erro.
 								*/}
-								<Input
-									id={bylineId}
-									list={bylineListId}
-									className="mt-1.5"
-									value={authorName}
-									onChange={(event) => setAuthorName(event.target.value)}
-								/>
-								<datalist id={bylineListId}>
-									{(columnists.data ?? []).map((columnist) => (
-										<option key={columnist.id} value={columnist.name} />
-									))}
-								</datalist>
+								<Combobox
+									items={(columnists.data ?? []).map((columnist) => columnist.name)}
+									inputValue={authorName}
+									/*
+									  O Base UI APAGA o campo ao fechar a lista quando
+									  `selectionMode="none"` — faz sentido para caixa de busca,
+									  que é o caso de uso original do modo, e é ruína aqui: bastava
+									  digitar uma assinatura nova e apertar Esc para o campo
+									  esvaziar e o autosave começar a devolver 400
+									  (`BylineRequired`).
+
+									  O modo continua certo — "não há valor selecionado, o texto É
+									  o valor" é exatamente este campo. Só descartamos a limpeza
+									  automática. Nenhum caminho legítimo de limpar se perde: o
+									  botão de limpar não é renderizado (`showClear` é false), então
+									  `input-clear` só chega por fechamento.
+									*/
+									onInputValueChange={(value, details) => {
+										if (details.reason === "input-clear") {
+											return;
+										}
+										setAuthorName(value);
+									}}
+									/*
+									  Sem filtrar pelo texto digitado (`filter={null}`), ao
+									  contrário do padrão. Aqui o campo quase sempre já vem
+									  preenchido — com o nome de quem está escrevendo —, e filtrar
+									  por ele deixaria a lista VAZIA exatamente no momento em que
+									  ela é necessária: quando o jornalista quer trocar a
+									  assinatura para um colunista. Pareceria defeito.
+
+									  A troca é aceitável porque a lista é a dos colunistas
+									  cadastrados, que são poucos por natureza. Se um dia passar de
+									  algumas dezenas, aí sim vale voltar a filtrar.
+									*/
+									filter={null}
+								>
+									<ComboboxInput id={bylineId} className="mt-1.5 w-full" />
+									<ComboboxContent>
+										<ComboboxEmpty>
+											Nenhum colunista cadastrado ainda.
+										</ComboboxEmpty>
+										<ComboboxList>
+											<ComboboxCollection>
+												{(name: string) => (
+													<ComboboxItem key={name} value={name}>
+														{name}
+													</ComboboxItem>
+												)}
+											</ComboboxCollection>
+										</ComboboxList>
+									</ComboboxContent>
+								</Combobox>
 								{/*
 								  O endereço é derivado do que está escrito, e é irreversível na
 								  prática: um acento a mais cria OUTRA página de autor, com o
