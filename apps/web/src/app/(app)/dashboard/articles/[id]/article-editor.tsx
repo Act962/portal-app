@@ -1,5 +1,6 @@
 "use client";
 
+import { Slug } from "@portal-app/columnists";
 import { MAX_PAGE_SIZE } from "@portal-app/shared-kernel";
 import type { Block, EditorialStatus } from "@portal-app/editorial";
 import {
@@ -52,7 +53,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, ImageIcon, Loader2, Tag } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/admin/page-header";
@@ -90,6 +91,9 @@ export function ArticleEditor({ id }: { id: string }) {
 	const article = useQuery(trpc.editorial.articles.get.queryOptions({ id }));
 	const sections = useQuery(trpc.taxonomy.sections.list.queryOptions());
 	const tags = useQuery(trpc.taxonomy.tags.list.queryOptions());
+	// Sugestões de assinatura. Leitura pública, então vale para REDATOR também —
+	// diferente da lista de equipe, que exige `user:manage`.
+	const columnists = useQuery(trpc.columnists.list.queryOptions());
 	// Só as mídias que ESTA matéria referencia (capa + imagens do corpo), pelo
 	// id. Antes pedia a biblioteca inteira, o que passou a ser uma página: com
 	// paginação, a imagem de uma matéria antiga simplesmente não carregaria.
@@ -153,6 +157,7 @@ export function ArticleEditor({ id }: { id: string }) {
 	);
 
 	const [headline, setHeadline] = useState("");
+	const [authorName, setAuthorName] = useState("");
 	const [kicker, setKicker] = useState("");
 	const [standfirst, setStandfirst] = useState("");
 	const [sectionId, setSectionId] = useState("");
@@ -169,10 +174,26 @@ export function ArticleEditor({ id }: { id: string }) {
 	const loaded = useRef(false);
 	const status = article.data?.status as EditorialStatus | undefined;
 
+	const bylineId = useId();
+	const bylineListId = useId();
+
+	/**
+	 * O endereço do perfil vem do MESMO objeto de valor do domínio, e não de uma
+	 * cópia da regra aqui — mesma razão da tela de editorias e da de colunistas.
+	 */
+	const bylineSlugResult = Slug.create(authorName);
+	const bylineSlug = bylineSlugResult.isOk()
+		? bylineSlugResult.unwrap().value
+		: null;
+	const knownColumnist =
+		bylineSlug !== null &&
+		(columnists.data ?? []).some((columnist) => columnist.slug === bylineSlug);
+
 	useEffect(() => {
 		if (article.data && !loaded.current) {
 			loaded.current = true;
 			setHeadline(article.data.headline);
+			setAuthorName(article.data.byline.name);
 			setKicker(article.data.kicker);
 			setStandfirst(article.data.standfirst);
 			setSectionId(article.data.sectionId ?? "");
@@ -208,6 +229,7 @@ export function ArticleEditor({ id }: { id: string }) {
 				{
 					id,
 					headline,
+					authorName,
 					kicker,
 					standfirst,
 					sectionId: sectionId || null,
@@ -240,7 +262,17 @@ export function ArticleEditor({ id }: { id: string }) {
 				clearTimeout(timer.current);
 			}
 		};
-	}, [headline, kicker, standfirst, sectionId, tagIds, coverId, blocks, id]);
+	}, [
+		headline,
+		authorName,
+		kicker,
+		standfirst,
+		sectionId,
+		tagIds,
+		coverId,
+		blocks,
+		id,
+	]);
 
 	if (article.isLoading) {
 		return (
@@ -511,6 +543,51 @@ export function ArticleEditor({ id }: { id: string }) {
 							<CardTitle className="text-base">Organização</CardTitle>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3">
+							<div>
+								<Label className="text-xs" htmlFor={bylineId}>
+									Assinatura
+								</Label>
+								{/*
+								  Entrada livre COM sugestões, e não um seletor fechado: a
+								  matéria pode ser assinada por quem não tem conta — é assim que
+								  a coluna de gente de fora entra no portal. As sugestões são os
+								  colunistas cadastrados, que é o caso comum de assinar com
+								  outro nome.
+
+								  `datalist` nativo em vez do `Combobox` do Base UI porque este
+								  é o primeiro combobox do app: estrear o componente aqui, com
+								  valor livre, custaria mais do que o campo vale.
+								*/}
+								<Input
+									id={bylineId}
+									list={bylineListId}
+									className="mt-1.5"
+									value={authorName}
+									onChange={(event) => setAuthorName(event.target.value)}
+								/>
+								<datalist id={bylineListId}>
+									{(columnists.data ?? []).map((columnist) => (
+										<option key={columnist.id} value={columnist.name} />
+									))}
+								</datalist>
+								{/*
+								  O endereço é derivado do que está escrito, e é irreversível na
+								  prática: um acento a mais cria OUTRA página de autor, com o
+								  histórico partido em duas. Mostrar para onde vai é o que
+								  transforma o erro de digitação em algo visível.
+								*/}
+								<p className="mt-1 text-muted-foreground text-xs">
+									{bylineSlug === null ? (
+										"A matéria precisa de uma assinatura."
+									) : (
+										<>
+											Perfil: <span className="font-mono">/autor/{bylineSlug}</span>
+											{knownColumnist ? " · colunista cadastrado" : null}
+										</>
+									)}
+								</p>
+							</div>
+
 							<div>
 								<Label className="text-xs">Editoria</Label>
 								<Select
