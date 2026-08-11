@@ -95,12 +95,18 @@ export type Video = {
 	duration: string;
 };
 
+/**
+ * Colunista em destaque na home. O `slug` é o da ASSINATURA — o cartão leva
+ * para `/autor/{slug}`, que já lista as matérias da pessoa, tenha ela conta no
+ * painel ou não. Antes o cartão apontava para a EDITORIA, e a página do
+ * colunista ficava inalcançável a partir da home.
+ */
 export type Columnist = {
 	slug: string;
 	name: string;
 	beat: string;
 	blurb: string;
-	sectionSlug: string;
+	photoUrl?: string;
 };
 
 // `LiveShow` e `TrackLogEntry` saíram junto com o player: a transmissão ao vivo

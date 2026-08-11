@@ -17,9 +17,9 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { PollCard } from "@/components/sidebar/poll-card";
 import { ScheduleCard } from "@/components/sidebar/schedule-card";
 import { WhatsappCard } from "@/components/sidebar/whatsapp-card";
-import { COLUMNISTS } from "@/data/columnists";
 import { loadCurrentPoll } from "@/data/polls";
 import {
+	getColumnists,
 	getHeadline,
 	getHomeBlocks,
 	getLatest,
@@ -32,16 +32,25 @@ import { routes } from "@/lib/routes";
 import { websiteSchema } from "@/lib/structured-data";
 
 export default async function HomePage() {
-	const [headline, blocks, mostRead, sections, secondary, latest, poll] =
-		await Promise.all([
-			getHeadline(),
-			getHomeBlocks(),
-			getMostRead(),
-			getSections(),
-			getSecondaryStories(),
-			getLatest(),
-			loadCurrentPoll(),
-		]);
+	const [
+		headline,
+		blocks,
+		mostRead,
+		sections,
+		secondary,
+		latest,
+		poll,
+		columnists,
+	] = await Promise.all([
+		getHeadline(),
+		getHomeBlocks(),
+		getMostRead(),
+		getSections(),
+		getSecondaryStories(),
+		getLatest(),
+		loadCurrentPoll(),
+		getColumnists(),
+	]);
 
 	// Portal recém-migrado / sem publicações ainda: estado vazio honesto.
 	if (!headline) {
@@ -125,7 +134,12 @@ export default async function HomePage() {
 
 			<Container>
 				<VideoShowcase videos={VIDEOS} />
-				<ColumnistGrid columnists={COLUMNISTS} />
+				{/* Sem colunista cadastrado o bloco não aparece — mesma decisão da
+				    grade de programação: seção vazia com título é pior que seção
+				    nenhuma. */}
+				{columnists.length > 0 ? (
+					<ColumnistGrid columnists={columnists} />
+				) : null}
 			</Container>
 
 			<JsonLd schema={websiteSchema()} />

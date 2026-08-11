@@ -19,6 +19,7 @@ export {
 	getArticlesByTag,
 	getAuthor,
 	getAuthors,
+	getColumnists,
 	getHeadline,
 	getHomeBlocks,
 	getLatest,
