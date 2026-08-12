@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
 import { loadSiteSettings } from "@/data/queries";
@@ -98,18 +99,36 @@ const loadCoordinates = cache(async (): Promise<Coordinates | null> => {
 	return coordinates;
 });
 
-/** `null` quando não há o que mostrar — o cabeçalho omite a temperatura. */
-export const loadWeather = cache(async (): Promise<Weather | null> => {
-	const coordinates = await loadCoordinates();
-	if (!coordinates) {
-		return null;
-	}
+/**
+ * `null` quando não há o que mostrar — o cabeçalho omite a temperatura.
+ *
+ * `unstable_cache` por fora, pela mesma razão das cotações: **o Next não
+ * guarda resposta que falhou**, então sem esta camada uma API fora do ar
+ * custaria uma tentativa POR VISITA. Aqui pesa mais do que lá — a faixa de
+ * cotações está só na home, o cabeçalho está em TODA página —, e o caso ruim
+ * não é a API cair e sim ficar LENTA: cada leitor pagaria os 3 segundos do
+ * timeout, em qualquer página que abrisse.
+ *
+ * O que fica em cache é o resultado, inclusive o `null`.
+ */
+const fetchWeather = unstable_cache(
+	async (): Promise<Weather | null> => {
+		const coordinates = await loadCoordinates();
+		if (!coordinates) {
+			return null;
+		}
 
-	const url =
-		`${FORECAST}?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}` +
-		"&current=temperature_2m,weather_code&timezone=America%2FFortaleza";
+		const url =
+			`${FORECAST}?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}` +
+			"&current=temperature_2m,weather_code&timezone=America%2FFortaleza";
 
-	return parseWeather(await fetchJson(url, WEATHER_REVALIDATE, "a previsão"));
-});
+		return parseWeather(await fetchJson(url, WEATHER_REVALIDATE, "a previsão"));
+	},
+	["tempo-cabecalho"],
+	{ revalidate: WEATHER_REVALIDATE },
+);
+
+/** `cache()` do React deduplica dentro de um render; o de cima, entre visitas. */
+export const loadWeather = cache((): Promise<Weather | null> => fetchWeather());
 
 export type { Weather };
