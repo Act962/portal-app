@@ -23,11 +23,11 @@ import {
 } from "@portal-app/ui/components/tabs";
 import { Textarea } from "@portal-app/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImageIcon, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 
-import { MediaPickerDialog } from "@/components/media/media-picker-dialog";
+import { ImageField } from "@/components/media/image-field";
 import { trpc } from "@/utils/trpc";
 
 /** Exatamente o que `settings.get` devolve — o mesmo tipo do agregado. */
@@ -54,7 +54,6 @@ export function SettingsForm() {
 function Form({ initial }: { initial: Settings }) {
 	const queryClient = useQueryClient();
 	const [draft, setDraft] = useState<Settings>(initial);
-	const [pickingLogo, setPickingLogo] = useState(false);
 
 	const save = useMutation(
 		trpc.settings.update.mutationOptions({
@@ -144,30 +143,12 @@ function Form({ initial }: { initial: Settings }) {
 
 							<div className="flex flex-col gap-2 md:col-span-2">
 								<Label>Logo</Label>
-								<div className="flex items-center gap-3">
-									<Button
-										type="button"
-										variant="outline"
-										onClick={() => setPickingLogo(true)}
-									>
-										<ImageIcon className="size-4" />
-										{draft.logoMediaId
-											? "Trocar logo"
-											: "Escolher da biblioteca"}
-									</Button>
-									{draft.logoMediaId ? (
-										<Button
-											type="button"
-											variant="ghost"
-											onClick={() => set("logoMediaId", null)}
-										>
-											Remover
-										</Button>
-									) : null}
-								</div>
-								<p className="text-muted-foreground text-xs">
-									Sem logo escolhido, o portal usa o arquivo padrão.
-								</p>
+								<ImageField
+									mediaId={draft.logoMediaId}
+									onChange={(mediaId) => set("logoMediaId", mediaId)}
+									pickerTitle="Escolher o logo"
+									hint="Sem logo escolhido, o portal usa o arquivo padrão."
+								/>
 							</div>
 						</CardContent>
 					</Card>
@@ -303,16 +284,6 @@ function Form({ initial }: { initial: Settings }) {
 					Vale para o site inteiro. O portal atualiza em até 1 minuto.
 				</p>
 			</div>
-
-			<MediaPickerDialog
-				open={pickingLogo}
-				onOpenChange={setPickingLogo}
-				title="Escolher o logo"
-				onSelect={(mediaId) => {
-					set("logoMediaId", mediaId);
-					setPickingLogo(false);
-				}}
-			/>
 		</form>
 	);
 }

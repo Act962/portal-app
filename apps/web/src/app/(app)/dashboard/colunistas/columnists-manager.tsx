@@ -1,6 +1,7 @@
 "use client";
 
 import { Slug } from "@portal-app/columnists";
+import { MAX_PAGE_SIZE } from "@portal-app/shared-kernel";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -35,18 +36,13 @@ import {
 } from "@portal-app/ui/components/table";
 import { Textarea } from "@portal-app/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-	ArrowDown,
-	ArrowUp,
-	ImageIcon,
-	Pencil,
-	Plus,
-	Trash2,
-} from "lucide-react";
-import { useId, useState } from "react";
+import { ImageIcon, Pencil, Plus, Trash2 } from "lucide-react";
+import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { MediaPickerDialog } from "@/components/media/media-picker-dialog";
+import { SortableRow, SortableRows } from "@/components/admin/sortable-rows";
+import { AssetImage } from "@/components/media/asset-image";
+import { ImageField } from "@/components/media/image-field";
 import { trpc } from "@/utils/trpc";
 
 type ColumnistDto = {
@@ -114,8 +110,39 @@ export function ColumnistsManager() {
 			onError,
 		}),
 	);
+	/**
+	 * Reordenar é a única ação daqui que o usuário vê ANTES de o servidor
+	 * responder — a linha já está sob o dedo, no lugar novo. Sem escrever no
+	 * cache aqui, ela voltaria ao lugar antigo até a resposta chegar e então
+	 * saltaria de novo. Em erro, desfaz e diz o porquê.
+	 */
 	const reorder = useMutation(
-		trpc.columnists.reorder.mutationOptions({ onSuccess: invalidate, onError }),
+		trpc.columnists.reorder.mutationOptions({
+			onMutate: async ({ orders }) => {
+				const queryKey = trpc.columnists.list.queryKey();
+				await queryClient.cancelQueries({ queryKey });
+				const previous = queryClient.getQueryData(queryKey);
+				const position = new Map(orders.map((o) => [o.id, o.order]));
+				queryClient.setQueryData(queryKey, (old) =>
+					old
+						? [...old].sort(
+								(a, b) =>
+									(position.get(a.id) ?? a.order) -
+									(position.get(b.id) ?? b.order),
+							)
+						: old,
+				);
+				return { previous };
+			},
+			onError: (error, _input, context) => {
+				queryClient.setQueryData(
+					trpc.columnists.list.queryKey(),
+					context?.previous,
+				);
+				onError(error);
+			},
+			onSettled: invalidate,
+		}),
 	);
 	const remove = useMutation(
 		trpc.columnists.delete.mutationOptions({
@@ -131,6 +158,29 @@ export function ColumnistsManager() {
 	const target = list.find((c) => c.id === confirming);
 
 	/**
+	 * As fotos da lista, buscadas de uma vez pelos ids — não uma consulta por
+	 * linha. A tabela mostrava só nome e endereço, então não havia como conferir
+	 * QUEM está no bloco da home sem abrir cada um; e quem escolhia a foto errada
+	 * não descobria nem abrindo, porque o diálogo também não a mostrava.
+	 */
+	const photoIds = useMemo(
+		() => [
+			...new Set(list.map((c) => c.photoMediaId).filter((id) => id !== null)),
+		],
+		[list],
+	);
+	const photos = useQuery({
+		...trpc.media.library.queryOptions({
+			ids: photoIds,
+			perPage: MAX_PAGE_SIZE,
+		}),
+		enabled: photoIds.length > 0,
+	});
+	const photoById = new Map(
+		(photos.data?.items ?? []).map((asset) => [asset.id, asset]),
+	);
+
+	/**
 	 * O endereço vem do MESMO objeto de valor que o servidor usa (`Slug`), e não
 	 * de uma cópia da regra aqui — mesma razão da tela de editorias: preview que
 	 * normaliza diferente promete um endereço e grava outro.
@@ -144,25 +194,12 @@ export function ColumnistsManager() {
 	 */
 	const slugTaken = slug !== null && list.some((c) => c.slug === slug);
 
-	/** Sobe/desce trocando a posição e persistindo a ordem completa. */
-	const move = (index: number, direction: -1 | 1) => {
-		const to = index + direction;
-		if (to < 0 || to >= list.length) {
-			return;
-		}
-		const reordered = [...list];
-		const [moved] = reordered.splice(index, 1);
-		if (!moved) {
-			return;
-		}
-		reordered.splice(to, 0, moved);
+	/** Persiste a ordem COMPLETA — a posição de um item só existe em relação
+	 *  aos outros, e gravar só o que se moveu deixaria buracos na sequência. */
+	const persistOrder = (ids: string[]) =>
 		reorder.mutate({
-			orders: reordered.map((columnist, position) => ({
-				id: columnist.id,
-				order: position,
-			})),
+			orders: ids.map((id, position) => ({ id, order: position })),
 		});
-	};
 
 	const openEdit = (columnist: ColumnistDto) => {
 		setForm({
@@ -244,107 +281,128 @@ export function ColumnistsManager() {
 			</Dialog>
 
 			<div className="rounded-lg border">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead className="w-24">Ordem</TableHead>
-							<TableHead>Colunista</TableHead>
-							<TableHead>Coluna</TableHead>
-							<TableHead className="w-24">No ar</TableHead>
-							<TableHead className="w-20" />
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{columnists.isLoading ? (
-							["a", "b", "c"].map((k) => (
-								<TableRow key={k}>
-									<TableCell colSpan={5}>
-										<Skeleton className="h-6 w-full" />
-									</TableCell>
-								</TableRow>
-							))
-						) : list.length === 0 ? (
+				<SortableRows
+					items={list}
+					onReorder={persistOrder}
+					labelOf={(id) => list.find((item) => item.id === id)?.name ?? id}
+				>
+					<Table>
+						<TableHeader>
 							<TableRow>
-								<TableCell colSpan={5} className="py-12 text-center">
-									<p className="font-medium">Nenhum colunista ainda.</p>
-									<p className="mt-1 text-muted-foreground text-sm">
-										O bloco de colunistas só aparece na home quando houver pelo
-										menos um no ar.
-									</p>
-								</TableCell>
+								<TableHead className="w-12">
+									<span className="sr-only">Ordem</span>
+								</TableHead>
+								<TableHead>Colunista</TableHead>
+								<TableHead>Coluna</TableHead>
+								<TableHead className="w-24">No ar</TableHead>
+								<TableHead className="w-20" />
 							</TableRow>
-						) : (
-							list.map((columnist, index) => (
-								<TableRow key={columnist.id}>
-									<TableCell>
-										<div className="flex">
-											<Button
-												variant="ghost"
-												size="icon"
-												aria-label={`Subir ${columnist.name}`}
-												disabled={index === 0 || reorder.isPending}
-												onClick={() => move(index, -1)}
-											>
-												<ArrowUp className="size-4" />
-											</Button>
-											<Button
-												variant="ghost"
-												size="icon"
-												aria-label={`Descer ${columnist.name}`}
-												disabled={
-													index === list.length - 1 || reorder.isPending
-												}
-												onClick={() => move(index, 1)}
-											>
-												<ArrowDown className="size-4" />
-											</Button>
-										</div>
-									</TableCell>
-									<TableCell>
-										<span className="block font-medium">{columnist.name}</span>
-										{/* O endereço é o que amarra o perfil às matérias — vale
-										    mostrar, para a redação conferir a assinatura. */}
-										<span className="block font-mono text-muted-foreground text-xs">
-											/autor/{columnist.slug}
-										</span>
-									</TableCell>
-									<TableCell className="text-muted-foreground">
-										{columnist.beat || "—"}
-									</TableCell>
-									<TableCell>
-										<Switch
-											checked={columnist.active}
-											aria-label={`${columnist.active ? "Tirar" : "Pôr"} ${columnist.name} no ar`}
-											onCheckedChange={(active) =>
-												setActive.mutate({ id: columnist.id, active })
-											}
-										/>
-									</TableCell>
-									<TableCell>
-										<div className="flex justify-end">
-											<Button
-												variant="ghost"
-												size="icon"
-												aria-label={`Editar ${columnist.name}`}
-												onClick={() => openEdit(columnist)}
-											>
-												<Pencil className="size-4" />
-											</Button>
-											<Button
-												variant="ghost"
-												size="icon"
-												aria-label={`Excluir ${columnist.name}`}
-												onClick={() => setConfirming(columnist.id)}
-											>
-												<Trash2 className="size-4 text-destructive" />
-											</Button>
-										</div>
+						</TableHeader>
+						<TableBody>
+							{columnists.isLoading ? (
+								["a", "b", "c"].map((k) => (
+									<TableRow key={k}>
+										<TableCell colSpan={5}>
+											<Skeleton className="h-6 w-full" />
+										</TableCell>
+									</TableRow>
+								))
+							) : list.length === 0 ? (
+								<TableRow>
+									<TableCell colSpan={5} className="py-12 text-center">
+										<p className="font-medium">Nenhum colunista ainda.</p>
+										<p className="mt-1 text-muted-foreground text-sm">
+											O bloco de colunistas só aparece na home quando houver
+											pelo menos um no ar.
+										</p>
 									</TableCell>
 								</TableRow>
-							))
-						)}
-					</TableBody>
-				</Table>
+							) : (
+								list.map((columnist) => (
+									<SortableRow
+										key={columnist.id}
+										id={columnist.id}
+										label={columnist.name}
+									>
+										{(handle) => (
+											<>
+												<TableCell>{handle}</TableCell>
+												<TableCell>
+													<span className="flex items-center gap-3">
+														{(() => {
+															const photo = columnist.photoMediaId
+																? photoById.get(columnist.photoMediaId)
+																: undefined;
+															return photo ? (
+																<AssetImage
+																	src={photo.url}
+																	alt=""
+																	className="size-9 shrink-0 rounded-md border object-cover"
+																	style={{
+																		objectPosition: `${(photo.focalPoint?.x ?? 0.5) * 100}% ${(photo.focalPoint?.y ?? 0.5) * 100}%`,
+																	}}
+																/>
+															) : (
+																<span
+																	aria-hidden
+																	className="flex size-9 shrink-0 items-center justify-center rounded-md border border-dashed text-muted-foreground"
+																>
+																	<ImageIcon className="size-4" />
+																</span>
+															);
+														})()}
+														<span className="min-w-0">
+															<span className="block font-medium">
+																{columnist.name}
+															</span>
+															{/* O endereço é o que amarra o perfil às matérias —
+												    vale mostrar, para a redação conferir a assinatura. */}
+															<span className="block font-mono text-muted-foreground text-xs">
+																/autor/{columnist.slug}
+															</span>
+														</span>
+													</span>
+												</TableCell>
+												<TableCell className="text-muted-foreground">
+													{columnist.beat || "—"}
+												</TableCell>
+												<TableCell>
+													<Switch
+														checked={columnist.active}
+														aria-label={`${columnist.active ? "Tirar" : "Pôr"} ${columnist.name} no ar`}
+														onCheckedChange={(active) =>
+															setActive.mutate({ id: columnist.id, active })
+														}
+													/>
+												</TableCell>
+												<TableCell>
+													<div className="flex justify-end">
+														<Button
+															variant="ghost"
+															size="icon"
+															aria-label={`Editar ${columnist.name}`}
+															onClick={() => openEdit(columnist)}
+														>
+															<Pencil className="size-4" />
+														</Button>
+														<Button
+															variant="ghost"
+															size="icon"
+															aria-label={`Excluir ${columnist.name}`}
+															onClick={() => setConfirming(columnist.id)}
+														>
+															<Trash2 className="size-4 text-destructive" />
+														</Button>
+													</div>
+												</TableCell>
+											</>
+										)}
+									</SortableRow>
+								))
+							)}
+						</TableBody>
+					</Table>
+				</SortableRows>
 			</div>
 
 			<Dialog
@@ -421,7 +479,6 @@ function ColumnistForm({
 	const nameId = useId();
 	const beatId = useId();
 	const blurbId = useId();
-	const [pickingPhoto, setPickingPhoto] = useState(false);
 
 	return (
 		<form className="flex flex-col gap-3" onSubmit={onSubmit}>
@@ -477,41 +534,19 @@ function ColumnistForm({
 
 			<div className="flex flex-col gap-1.5">
 				<Label>Foto</Label>
-				<div className="flex items-center gap-2">
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => setPickingPhoto(true)}
-					>
-						<ImageIcon className="size-4" />
-						{form.photoMediaId ? "Trocar foto" : "Escolher da biblioteca"}
-					</Button>
-					{form.photoMediaId ? (
-						<Button
-							type="button"
-							variant="ghost"
-							onClick={() => onChange({ ...form, photoMediaId: null })}
-						>
-							Remover
-						</Button>
-					) : null}
-				</div>
-				<p className="text-muted-foreground text-xs">
-					Sem foto, o cartão da home mostra o espaço reservado.
-				</p>
+				{/* Quadrada: é retrato de pessoa, e é assim que o cartão da home a
+				    recorta. Um preview 16:9 aqui prometeria um enquadramento que o
+				    portal não usa. */}
+				<ImageField
+					mediaId={form.photoMediaId}
+					onChange={(photoMediaId) => onChange({ ...form, photoMediaId })}
+					pickerTitle="Escolher a foto do colunista"
+					aspect="square"
+					hint="Sem foto, o cartão da home mostra o espaço reservado."
+				/>
 			</div>
 
 			<DialogFooter>{children}</DialogFooter>
-
-			<MediaPickerDialog
-				open={pickingPhoto}
-				onOpenChange={setPickingPhoto}
-				title="Escolher a foto do colunista"
-				onSelect={(mediaId) => {
-					onChange({ ...form, photoMediaId: mediaId });
-					setPickingPhoto(false);
-				}}
-			/>
 		</form>
 	);
 }
