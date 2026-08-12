@@ -78,7 +78,10 @@ export function sitemapIndex(paths: string[]): string {
 export type UrlEntry = {
 	loc: string;
 	lastmod?: string;
-	changefreq?: "hourly" | "daily" | "weekly" | "monthly";
+	// Os valores do protocolo de sitemaps. `yearly` entrou com as páginas de
+	// Privacidade e Termos — documentos que mudam de ano em ano, e para os quais
+	// `monthly` seria uma promessa falsa ao rastreador.
+	changefreq?: "hourly" | "daily" | "weekly" | "monthly" | "yearly";
 	priority?: string;
 };
 
