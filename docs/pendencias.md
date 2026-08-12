@@ -45,24 +45,25 @@ até alguém agir**:
    `ERR_BLOCKED_BY_ORB`. Alguém precisa decidir qual dos dois é o combinado e
    corrigir o doc — hoje ele manda o próximo desenvolvedor para o lado errado.
 
-### Área de patrocinadores — decisão do cliente pendente
+### Área de patrocinadores — ADIADA pelo cliente (12/08)
 
-A faixa "TV 7 Cidades" saiu da home (era fixture: quatro vídeos com duração
-inventada e "MAIS VÍDEOS" apontando para a busca). **O cliente pediu que o
-espaço fique reservado para uma área de PATROCINADORES.**
+O espaço da antiga "TV 7 Cidades" chegou a ser reservado para uma faixa de
+patrocinadores, mas **o cliente decidiu adiar** e o lugar foi ocupado pela
+faixa de cotações. Fica registrado o que já estava pensado, para não se
+redescobrir depois:
 
-Não é o mesmo que o Bloco C (banners/`advertising`), e vale não confundir os
-dois antes de escrever qualquer coisa:
-
-- **Banner** é peça publicitária com período, criativo e posição — o `AdSlot`
-  já reserva 9 lugares, e o que falta é o contexto `advertising`.
-- **Patrocinador** é uma FAIXA DE MARCAS: logo, nome e link, sem período nem
-  criativo, geralmente permanente enquanto durar o contrato.
-
-Se forem a mesma coisa para a rádio, isto vira uma posição a mais no
-`advertising` e não custa contexto novo. Se forem diferentes, é um cadastro
-próprio — mais barato que o de banners, porque não tem agendamento nem
-métrica. **A pergunta ao cliente é essa**, e ela decide o tamanho do trabalho.
+- Não é o mesmo que o Bloco C (banners/`advertising`), e confundir os dois é o
+  erro caro aqui. **Banner** é peça publicitária com período, criativo e
+  posição — o `AdSlot` já reserva 9 lugares e o que falta é o contexto
+  `advertising`. **Patrocinador** é uma FAIXA DE MARCAS: logo, nome e link,
+  sem período nem criativo, permanente enquanto durar o contrato.
+- Se forem a mesma coisa para a rádio, vira uma posição a mais no
+  `advertising` e não custa contexto novo. Se forem diferentes, é um cadastro
+  próprio — mais barato que o de banners, por não ter agendamento nem métrica.
+  **É essa a pergunta que decide o tamanho do trabalho.**
+- **Onde ficaria agora:** o lugar de antes está tomado. O candidato natural é
+  logo ABAIXO da faixa de cotações, antes dos colunistas — é o mesmo nível da
+  página e não briga com a cobertura, que ocupa o topo.
 
 ---
 
@@ -312,10 +313,27 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
       contaria contra a média; (b) a partir da segunda página da mesma aba a
       origem é "interno", porque em navegação client-side o `document.referrer`
       congela no que trouxe o leitor ao site.
+- [x] ~~**Faixa de cotações na home**~~ ✅ Entregue em 12/08, a pedido do
+      cliente, no espaço que a "TV 7 Cidades" deixou. Dólar, Euro e Bitcoin da
+      [AwesomeAPI](https://docs.awesomeapi.com.br/api-de-moedas), lidos no
+      SERVIDOR — no cliente seria uma requisição por visitante, e a API sem
+      chave para em 100; daqui, com o `revalidate = 60` do grupo `(site)`, é no
+      máximo uma por minuto para o site inteiro, seja qual for a audiência. Por
+      isso também dispensa chave. Mesma regra do Inngest, do Redis e do Mailer:
+      SaaS é peça trocável. Timeout de 3s porque o caso comum não é a API cair
+      e sim FICAR LENTA; falha, timeout, HTTP de erro ou JSON torto degradam
+      para lista vazia e a seção some — exercitado trocando o host por um
+      inexistente. A leitura do payload é módulo puro com 26 testes
+      (`lib/quotes.ts`), porque a API manda todo valor como STRING e
+      `Number("")` é 0 — um zero falso na faixa leria como "o dólar vale nada".
 - [ ] **Temperatura do topo é `"32°C"` fixo** (`top-bar.tsx`). **Fica na tela**
       por decisão do cliente (D12) — troca-se por dado real quando houver uma
       porta `Weather` com provedor. Até lá é dívida consciente: valor fixo que
       parece dado ao vivo engana o leitor (32 °C inclusive quando chove).
+      **O caminho agora está aberto:** a faixa de cotações é exatamente esse
+      arranjo funcionando — módulo puro testado, leitura no servidor com
+      timeout e degradação silenciosa. Uma porta `Weather` é o mesmo desenho
+      com outro provedor, e não mais uma decisão de arquitetura.
 - [ ] **`packages/api` não é verificado**: o `package.json` tem `"scripts": {}`,
       sem `check-types` — o pacote dos routers e das permissões nunca passa pelo
       `tsc` no CI. O que o `apps/web` importa é verificado de carona; o resto,
@@ -456,6 +474,31 @@ para o mesmo lugar.
 
 ---
 
+## ⚠️ Data e fuso: o defeito que já voltou três vezes
+
+Vale isolar, porque deixou de ser coincidência e o próximo é previsível:
+
+1. **A data do cabeçalho parada em 3 de agosto** e toda matéria como "há 1 min"
+   — medidas contra um instante congelado em vez do relógio (detalhado abaixo).
+2. **A data de revisão das páginas legais um dia atrasada** (12/08) —
+   `2026-08-12` é DATA DE CALENDÁRIO, o JS a parseia como meia-noite UTC, e
+   formatá-la em `America/Fortaleza` (UTC−3) devolve 21h do dia anterior.
+3. **A hora da cotação, 3 horas errada** (12/08) — a AwesomeAPI manda
+   `"2021-04-13 08:57:27"` em UTC−3 e **não diz isso na string**; `new Date`
+   cru usa o fuso de quem executa, que na Vercel é UTC.
+
+**A regra que os três violam é a mesma:** toda data que entra ou sai do sistema
+precisa do fuso EXPLÍCITO, e o padrão do JavaScript nunca é o que se espera.
+Data de calendário formata-se em UTC (não há instante a converter); string de
+terceiro carrega o offset da fonte, escrito à mão se preciso.
+
+Nenhum dos três deu erro, aviso ou teste vermelho — os três **mostraram um
+número plausível e errado**, que é o modo mais caro de falhar. As correções
+estão em `lib/format.ts`, `components/layout/legal-page.tsx` e
+`lib/quotes.ts` (esta com teste fixando o offset da fonte).
+
+---
+
 ## Corrigido de passagem (achado ao semear)
 
 Três coisas só apareceram quando o portal passou a ter conteúdo real — com as
@@ -495,16 +538,20 @@ que resta, na ordem em que rende mais:
    defeito é mais caro. Merece commit próprio porque pode revelar erro
    acumulado.
 
-3. **Preencher os 29 `it.todo`** (13 no serializador do TipTap, 8 na
-   autorização, 8 na formatação de data). O de autorização exige antes tornar a
-   raiz de composição injetável (`createAppRouter(deps)`), senão o teste vira
-   integração.
+3. **Preencher os `it.todo`** (serializador do TipTap, autorização dos routers,
+   formatação de data). O de autorização exige antes tornar a raiz de
+   composição injetável (`createAppRouter(deps)`), senão o teste vira
+   integração. **Os de data subiram de prioridade:** o defeito de fuso já
+   voltou três vezes (ver a seção própria acima), e é a família que falha
+   mostrando um número plausível em vez de quebrar.
 
 4. **Invalidação por evento.** É o único item da lista que o leitor final
    percebe todo dia: matéria publicada demora até 1 min para entrar no ar.
 
-5. **Banners**, quando houver anunciante — é o maior item que sobrou (contexto
-   `advertising` inteiro), e não rende nada até existir campanha para veicular.
+5. **Banners e patrocinadores**, quando houver anunciante. É o maior item que
+   sobrou (contexto `advertising` inteiro) e não rende nada até existir
+   campanha para veicular — os patrocinadores foram adiados pelo cliente em
+   12/08, e o espaço que tinham na home é hoje a faixa de cotações.
 
 **Duas decisões que dependem do cliente, não de engenharia:** se anúncios entram
 agora ou quando aparecer o primeiro anunciante; e o que "colunistas" significa —
