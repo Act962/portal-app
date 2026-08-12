@@ -180,6 +180,17 @@
 	--color-meta: #96918a;
 	--color-meta-soft: #a8a49c;
 
+	/* Alta e baixa das cotações. Vivem SOBRE O NAVY, então são as versões
+	   claras — o `--color-brand-red` normal (#ed1b24) fica escuro demais no
+	   fundo azul e a queda sumiria. A baixa reaproveita o vermelho suave que já
+	   existe para navy, em vez de inventar um segundo vermelho quase igual.
+
+	   Cor nunca é o único sinal: quem diz alta ou baixa é a SETA ao lado do
+	   número — a distinção entre verde e vermelho é justamente a que falta para
+	   a forma mais comum de daltonismo. */
+	--color-market-up: #3fd67e;
+	--color-market-down: var(--color-brand-red-soft);
+
 	/* Text on navy surfaces */
 	--color-on-navy: #ffffff;
 	--color-on-navy-muted: #8fa6c0;
