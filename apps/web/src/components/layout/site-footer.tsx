@@ -72,6 +72,27 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 								<SiteLink link={item} className={LINK} />
 							</li>
 						))}
+
+						{/*
+						  Privacidade e Termos ficam FORA da lista configurável, e de
+						  propósito. As duas páginas são rotas estáticas do código, então o
+						  link para elas também é do código: entrando por
+						  `site.institutional` eles poderiam ser apagados ou reapontados
+						  para um endereço errado pela tela de Configurações — e são
+						  justamente as duas que precisam estar sempre alcançáveis.
+						  Também é o que os faz aparecer em produção sem depender de
+						  alguém editar a linha de configuração que já existe lá.
+						*/}
+						<li>
+							<Link href={routes.privacy} className={LINK}>
+								Política de Privacidade
+							</Link>
+						</li>
+						<li>
+							<Link href={routes.terms} className={LINK}>
+								Termos de Uso
+							</Link>
+						</li>
 					</ul>
 				</nav>
 
