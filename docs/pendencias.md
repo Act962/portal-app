@@ -31,10 +31,18 @@ produção até alguém agir**:
 2. **O rodapé de PRODUÇÃO ainda tem os links mortos.** Os defaults mudaram
    (`institutional` agora traz só Colunistas e Enquetes; `legal` virou `null`),
    mas **default só vale para banco sem linha** — e produção tem linha. Lá
-   continuam os seis itens com `href: ""` e a string
-   "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE USO", que agora vai
-   aparecer DUPLICADA ao lado dos links novos de Privacidade e Termos.
-   Conserto: abrir Configurações → Rodapé e limpar. É clique, não deploy.
+   continuam:
+   - os seis institucionais com `href: ""`, que o `SiteLink` degrada para texto
+     inerte (D9) — não dão clique morto, mas anunciam serviços que não existem;
+   - a string `legal` "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE USO",
+     que **parece um menu e é texto impresso**. Pior agora do que antes: as
+     páginas de Privacidade e Termos EXISTEM e estão logo acima, em
+     "Institucional", então o leitor vê os mesmos três nomes duas vezes — uma
+     clicável e outra não.
+
+   Conserto: abrir Configurações → Rodapé, limpar os institucionais que não
+   têm destino e esvaziar a linha legal (ou trocá-la pela razão social, que é
+   para o que o campo passou a servir). É clique, não deploy.
 
 3. **A licença da Open-Meteo (temperatura do cabeçalho) precisa de decisão.**
    O plano gratuito é declarado para uso NÃO COMERCIAL e o portal é de uma
@@ -486,6 +494,26 @@ arquivo enviado localmente dá 404** — inclusive `logo_armaze_m_carvalho_verme
 que está no MinIO agora. O caminho de render foi conferido com um asset do R2 e
 funciona. Para testar upload de ponta a ponta, os sete `S3_*` precisam apontar
 para o mesmo lugar.
+
+---
+
+## Corrigido nesta rodada (12/08), fora do que foi pedido
+
+Dois defeitos que apareceram enquanto se mexia em outra coisa. Ficam
+registrados porque os dois têm a mesma forma — **estado que mora de um lado e
+espaço que mora do outro** — e é a forma que tende a voltar:
+
+- **Fechar a âncora de anúncio no celular deixava 68px de branco.** O banner
+  era `fixed`, logo fora do fluxo, e quem abria espaço para ele era um
+  `pb-[68px]` no wrapper do layout. Esse wrapper é Server Component e o estado
+  de "fechado" mora no `AnchorAd`, que é cliente: fechar removia o banner e o
+  padding ficava. O número mágico ainda estava errado — o banner mede 63px.
+  Corrigido virando `sticky bottom-0` dentro da coluna: o espaço passa a ser
+  DELE e some junto. Medido antes (68px sobrando) e depois (0).
+- **A foto do autor na assinatura da matéria nunca aparecia** — quadro
+  hachurado fixo no HTML, sem condição, com o `author.photoUrl` chegando
+  preenchido na prop ao lado. Ver a linha do colunista, acima: é o mesmo
+  defeito de fundo.
 
 ---
 
