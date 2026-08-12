@@ -150,6 +150,19 @@ function Form({ initial }: { initial: Settings }) {
 									hint="Sem logo escolhido, o portal usa o arquivo padrão."
 								/>
 							</div>
+
+							<div className="flex flex-col gap-2 md:col-span-2">
+								<Label>Ícone da aba (favicon)</Label>
+								{/* Quadrado: é assim que o navegador o recorta, e um preview
+								    16:9 aqui prometeria um enquadramento que a aba não usa. */}
+								<ImageField
+									mediaId={draft.faviconMediaId}
+									onChange={(mediaId) => set("faviconMediaId", mediaId)}
+									pickerTitle="Escolher o ícone da aba"
+									aspect="square"
+									hint="O ícone pequeno da aba do navegador. Use uma imagem QUADRADA e simples — ela é exibida a 16 pixels, onde texto e detalhe fino somem. Sem ícone escolhido, o portal usa o padrão."
+								/>
+							</div>
 						</CardContent>
 					</Card>
 				</TabsContent>

@@ -22,6 +22,12 @@ export type SiteSettingsData = {
 	city: string;
 	state: string;
 	logoMediaId: string | null;
+	/**
+	 * O ícone da ABA do navegador. Separado do logo de propósito: o logo é
+	 * horizontal e legível a 200px, o favicon é quadrado e precisa funcionar a
+	 * 16px. Reaproveitar um no outro dá borrão em algum dos dois lugares.
+	 */
+	faviconMediaId: string | null;
 
 	// Rádio (D11)
 	radioFrequency: string | null;
@@ -58,6 +64,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
 	city: "Piracuruca",
 	state: "PI",
 	logoMediaId: null,
+	faviconMediaId: null,
 
 	radioFrequency: "93,9 MHz",
 	radioBand: "93,9 FM",
@@ -151,6 +158,7 @@ export class SiteSettings extends AggregateRoot<string> {
 			city: text(row.city, d.city),
 			state: text(row.state, d.state),
 			logoMediaId: nullableText(row.logoMediaId),
+			faviconMediaId: nullableText(row.faviconMediaId),
 
 			radioFrequency: nullableText(row.radioFrequency) ?? d.radioFrequency,
 			radioBand: nullableText(row.radioBand) ?? d.radioBand,
@@ -231,6 +239,7 @@ function normalize(
 		city: data.city.trim(),
 		state: data.state.trim(),
 		logoMediaId: blankToNull(data.logoMediaId),
+		faviconMediaId: blankToNull(data.faviconMediaId),
 		radioFrequency: blankToNull(data.radioFrequency),
 		radioBand: blankToNull(data.radioBand),
 		contactNewsroom: blankToNull(data.contactNewsroom),

@@ -56,7 +56,7 @@ export function PollResultCard({ poll }: { poll: PollView }) {
 							>
 								<div
 									className={cn(
-										"h-full rounded-full",
+										"poll-bar h-full rounded-full",
 										isTop ? "bg-brand-red" : "bg-brand-navy/35",
 									)}
 									style={{ width: `${percentage}%` }}

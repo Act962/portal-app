@@ -69,6 +69,7 @@ describe("SiteSettings.fromStored — porta de leitura, nunca falha", () => {
 			city: "Teresina",
 			state: "PI",
 			logoMediaId: "media-1",
+			faviconMediaId: "media-2",
 			radioFrequency: "101,1 MHz",
 			radioBand: "101,1 FM",
 			contactNewsroom: "(86) 1111-1111",
@@ -277,5 +278,33 @@ describe("auditoria (D10)", () => {
 
 		expect(settings.data.url).toBe(DEFAULT_SITE_SETTINGS.url);
 		expect(settings.pullEvents()).toHaveLength(0);
+	});
+});
+
+describe("favicon", () => {
+	it("nasce ausente — o portal cai no arquivo de public/", () => {
+		expect(DEFAULT_SITE_SETTINGS.faviconMediaId).toBeNull();
+	});
+
+	it("é campo PRÓPRIO, não o logo reusado", () => {
+		// O logo é horizontal e legível a 200px; o favicon é quadrado e precisa
+		// funcionar a 16px. Servir um como o outro borra em algum dos dois
+		// lugares — por isso são duas colunas, e este teste é o que impede
+		// alguém de "simplificar" juntando-as.
+		const settings = SiteSettings.fromStored({
+			logoMediaId: "logo",
+			faviconMediaId: "icone",
+		});
+
+		expect(settings.data.logoMediaId).toBe("logo");
+		expect(settings.data.faviconMediaId).toBe("icone");
+	});
+
+	it("vazio na tela vira ausência, e volta ao ícone padrão", () => {
+		const settings = SiteSettings.fromStored({ faviconMediaId: "icone" });
+
+		settings.update({ faviconMediaId: "" }, NOW).unwrap();
+
+		expect(settings.data.faviconMediaId).toBeNull();
 	});
 });

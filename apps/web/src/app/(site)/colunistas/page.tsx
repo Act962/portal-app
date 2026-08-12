@@ -65,7 +65,7 @@ export default async function ColumnistsPage() {
 						{columnists.map((columnist) => (
 							<li
 								key={columnist.slug}
-								className="flex flex-col rounded-card border border-hairline bg-surface p-4.5 transition-colors hover:border-brand-navy"
+								className="flex flex-col rounded-card border border-hairline bg-surface p-4.5 transition-[colors,transform,box-shadow] duration-200 hover:-translate-y-px hover:border-brand-navy hover:shadow-sm"
 							>
 								<Link
 									href={routes.author(columnist.slug)}

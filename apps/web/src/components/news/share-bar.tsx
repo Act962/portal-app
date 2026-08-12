@@ -83,7 +83,12 @@ export function ShareBar({ url, title }: ShareBarProps) {
 				className={CHIP}
 			>
 				{copied ? (
-					<Check className="size-4 text-brand-red" />
+					// `zoom-in-50` do tw-animate-css: o "certo" chega crescendo, o que
+					// dá ao ícone o mesmo peso de confirmação que o texto "LINK COPIADO"
+					// tinha antes de virar símbolo. Sem isso a troca é instantânea e
+					// passa despercebida — que é justamente o risco de trocar palavra
+					// por ícone num aviso.
+					<Check className="zoom-in-50 size-4 animate-in text-brand-red duration-200" />
 				) : (
 					<Link2 className="size-4" />
 				)}

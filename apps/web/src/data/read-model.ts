@@ -56,7 +56,9 @@ const prisma = createPrismaClient();
  * função não devolve `null` e ninguém precisa tratar "ainda não configurado".
  */
 export const loadSiteSettings = cache(
-	async (): Promise<SiteSettingsData & { logoUrl: string | null }> => {
+	async (): Promise<
+		SiteSettingsData & { logoUrl: string | null; faviconUrl: string | null }
+	> => {
 		// `safely` como todos os outros loaders: o build do CI prerenderiza SEM
 		// banco, e sem esta tolerância a página inteira quebra na geração. O
 		// fallback `null` cai nos defaults pelo `fromStored` (D7) — que é
@@ -70,11 +72,16 @@ export const loadSiteSettings = cache(
 
 		// O agregado guarda o ID da mídia, não a URL (D8) — resolver é trabalho da
 		// leitura, e a biblioteca já está em cache neste render.
+		const media =
+			data.logoMediaId || data.faviconMediaId ? await loadMedia() : null;
 		const logoUrl = data.logoMediaId
-			? ((await loadMedia()).get(data.logoMediaId)?.url ?? null)
+			? (media?.get(data.logoMediaId)?.url ?? null)
+			: null;
+		const faviconUrl = data.faviconMediaId
+			? (media?.get(data.faviconMediaId)?.url ?? null)
 			: null;
 
-		return { ...data, logoUrl };
+		return { ...data, logoUrl, faviconUrl };
 	},
 );
 

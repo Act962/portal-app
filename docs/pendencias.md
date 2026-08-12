@@ -1,6 +1,6 @@
 # Pendências — o que falta para o produto ficar completo
 
-> **Atualizado:** 2026-08-11.
+> **Atualizado:** 2026-08-12.
 > Lista única e priorizada do que está em aberto, para a entrega em andamento.
 > Estado por fase em [`proximos-passos.md`](./proximos-passos.md); escopo em
 > [`specs/`](./specs/); operação em [`deploy.md`](./deploy.md).
@@ -12,6 +12,57 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS. Em
 volta disso: equipe e permissões com convite por e-mail e redefinição de senha,
 configurações do veículo, grade de programação, enquete com voto anônimo,
 "mais lidas" por audiência real e o painel de insights.
+
+---
+
+## 🚨 Precisa de ação humana — desta rodada (2026-08-12)
+
+Três coisas que o código não resolve sozinho e que **ficam erradas em produção
+até alguém agir**:
+
+1. **O texto legal precisa de revisão de quem responde pelo veículo.**
+   `/privacidade` e `/termos` foram escritos descrevendo o que o portal
+   REALMENTE faz — sem conta de leitor, sem newsletter, log de leitura sem IP
+   nem user-agent (N09), voto por token anônimo. É um rascunho tecnicamente
+   fiel, **não é peça jurídica revisada**. Enquanto ninguém da parte do
+   cliente ler e aprovar, o portal publica um documento com efeito de LGPD que
+   passou só pelo desenvolvimento.
+
+2. **O rodapé de PRODUÇÃO ainda tem os links mortos.** Os defaults mudaram
+   (`institutional` agora traz só Colunistas e Enquetes; `legal` virou `null`),
+   mas **default só vale para banco sem linha** — e produção tem linha. Lá
+   continuam os seis itens com `href: ""` e a string
+   "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE USO", que agora vai
+   aparecer DUPLICADA ao lado dos links novos de Privacidade e Termos.
+   Conserto: abrir Configurações → Rodapé e limpar. É clique, não deploy.
+
+3. **`setup.md` §3.2 e a linha do `.env` na dívida técnica estão invertidos.**
+   Eles dizem que a `S3_PUBLIC_URL` local aponta para o R2 (para as capas do
+   seed aparecerem). No `.env` desta máquina os sete `S3_*` apontam para o
+   MinIO — o oposto. O efeito também inverteu: upload local funciona e abre
+   normalmente; quem dá 404 agora são **as capas do seed**, que moram no R2.
+   Conferido no navegador: `uploads/…` responde 200, as chaves do seed dão
+   `ERR_BLOCKED_BY_ORB`. Alguém precisa decidir qual dos dois é o combinado e
+   corrigir o doc — hoje ele manda o próximo desenvolvedor para o lado errado.
+
+### Área de patrocinadores — decisão do cliente pendente
+
+A faixa "TV 7 Cidades" saiu da home (era fixture: quatro vídeos com duração
+inventada e "MAIS VÍDEOS" apontando para a busca). **O cliente pediu que o
+espaço fique reservado para uma área de PATROCINADORES.**
+
+Não é o mesmo que o Bloco C (banners/`advertising`), e vale não confundir os
+dois antes de escrever qualquer coisa:
+
+- **Banner** é peça publicitária com período, criativo e posição — o `AdSlot`
+  já reserva 9 lugares, e o que falta é o contexto `advertising`.
+- **Patrocinador** é uma FAIXA DE MARCAS: logo, nome e link, sem período nem
+  criativo, geralmente permanente enquanto durar o contrato.
+
+Se forem a mesma coisa para a rádio, isto vira uma posição a mais no
+`advertising` e não custa contexto novo. Se forem diferentes, é um cadastro
+próprio — mais barato que o de banners, porque não tem agendamento nem
+métrica. **A pergunta ao cliente é essa**, e ela decide o tamanho do trabalho.
 
 ---
 
@@ -178,6 +229,15 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
       cuidado com cache).
 
 ### Sobrou da spec 05b (configurações)
+- [x] ~~**Favicon fixo no código**~~ ✅ Resolvido em 12/08: `faviconMediaId` nas
+      Configurações, campo próprio na aba Identidade. Coluna separada do
+      `logoMediaId` de propósito — o logo é horizontal e legível a 200px, o
+      favicon é quadrado e precisa funcionar a 16px. O arquivo saiu de
+      `app/favicon.ico` para `public/brand/favicon.ico`: aquele caminho é
+      CONVENÇÃO do Next e é injetado no `<head>` automaticamente, sem o banco
+      poder sobrepô-lo — com os dois presentes saíam duas tags `icon` e o
+      navegador escolhia. Agora é uma tag só, do `generateMetadata`, com o
+      arquivo de `public/` como fallback explícito.
 - [ ] **SEO e feeds ainda leem do arquivo**: `lib/structured-data.ts`,
       `lib/feed.ts`, `robots.ts`, `sitemap*.xml` e as rotas de RSS usam
       `siteConfig.url/name/description/locale`. O `<title>` e o `og:*` da raiz
@@ -213,9 +273,21 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
       nova encerra a anterior (o portal mostra uma por vez).
       No portal, o card é **RSC** e só o botão de votar é cliente, via Server
       Action — o grupo `(site)` continua sem `QueryClientProvider`.
-- [ ] **Colunistas e vídeos da home** ainda são fixture. São conteúdo, não
-      configuração: colunista provavelmente é autor com destaque; vídeo é
-      feature nova.
+- [x] ~~**Colunistas e vídeos da home** ainda são fixture~~ ✅ Resolvido dos
+      dois lados, em direções opostas (12/08). **Colunista** ganhou contato
+      público (redes e e-mail) reusando `beat`/`blurb` como profissão e sobre,
+      mais a página `/colunistas` — índice que leva ao `/autor/{slug}` que já
+      existia, em vez de uma rota de coluna própria que competiria com ela no
+      Google. **Vídeo** foi REMOVIDO: não havia player, página nem cadastro
+      atrás daqueles quatro itens. Volta como contexto próprio se voltar.
+- [x] ~~**Foto do colunista some fora da home**~~ ✅ Resolvido (12/08). Não era
+      upload: a precedência entre `StaffMember` e o cadastro de colunista era
+      TUDO-OU-NADA no `getAuthor`, e bastava a pessoa ter conta no painel para
+      o registro inteiro ser descartado — inclusive a foto, e mesmo com o
+      perfil da Equipe vazio, que é o caso do primeiro admin. Agora a fusão é
+      campo a campo. A assinatura da matéria tinha um segundo defeito irmão: o
+      quadro hachurado estava fixo no HTML, sem condição, então nunca mostrava
+      foto. Virou `AuthorAvatar`, usado nos três lugares.
 - [x] ~~**"Mais lidas" não é mais lidas**~~ ✅ Resolvido (Bloco 3): novo
       contexto `packages/contexts/analytics` com `ViewCounterPort` (Redis,
       janela móvel de 24h — sorted set por matéria, não balde que zera à
@@ -312,6 +384,24 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
 
 ## 🟢 Refinamentos de UX (não bloqueiam)
 
+- [x] ~~Ícones no lugar do nome das redes sociais~~ ✅ Feito em 12/08, nos três
+      lugares (compartilhar da matéria, perfil do autor, barra do topo), com
+      `react-icons/fa6` — família única, porque misturar famílias nunca fecha o
+      alinhamento óptico, e o Simple Icons não tem LinkedIn. O rótulo das redes
+      do veículo é texto livre digitado nas Configurações, então
+      `resolveNetwork` só casa por correspondência EXATA e devolve `null`
+      quando não reconhece — aí o texto continua aparecendo. Casar por "contém"
+      poria o logo do X em "Siga no X", que pode levar a qualquer lugar.
+      Todo ícone é `aria-hidden` com o nome acessível no elemento que o
+      envolve: sem isso a troca deixaria os links MUDOS para leitor de tela.
+- [x] ~~Animações discretas~~ ✅ Feito em 12/08, **sem biblioteca** — o que
+      "discreto" pede cabe em CSS. O que entrou: guarda global de
+      `prefers-reduced-motion` (a fundação, e não existia nenhuma no projeto),
+      barra do resultado de enquete crescendo por `scaleX` (não por `width`,
+      que reflui a cada quadro), transição na borda da navegação — que trocava
+      de cor com PISCADA —, elevação de 1px nos cartões de colunista e o
+      "certo" do link copiado chegando com `zoom-in`, porque trocar palavra por
+      símbolo num aviso arrisca justamente passar despercebido.
 - [ ] Aviso de edição concorrente (dois jornalistas na mesma matéria) — precisa
       de versionamento otimista no agregado.
 - [ ] Histórico e diff visual de versões.

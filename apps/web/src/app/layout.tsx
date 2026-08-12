@@ -37,6 +37,17 @@ export async function generateMetadata(): Promise<Metadata> {
 			url: site.url,
 		},
 		twitter: { card: "summary_large_image" },
+		/*
+		 * O ícone da aba, vindo das Configurações (item do cliente).
+		 *
+		 * Precisou sair do `app/favicon.ico`: aquele arquivo é uma CONVENÇÃO de
+		 * arquivo do Next — ele o injeta sozinho no `<head>`, e não há como o
+		 * banco sobrepô-lo; com os dois presentes, saíam duas tags `icon` e o
+		 * navegador escolhia. O arquivo virou `public/brand/favicon.ico` e é o
+		 * fallback explícito daqui, o que também mantém o portal com ícone quando
+		 * o banco está fora do ar (`loadSiteSettings` degrada para os defaults).
+		 */
+		icons: { icon: site.faviconUrl ?? "/brand/favicon.ico" },
 		robots: {
 			index: true,
 			follow: true,
