@@ -1,10 +1,14 @@
-import { AggregateRoot, type Result, err, ok } from "@portal-app/shared-kernel";
+import { AggregateRoot, err, ok, type Result } from "@portal-app/shared-kernel";
 
 import { AltText } from "./alt-text";
 import { Caption } from "./caption";
 import { Credit } from "./credit";
 import { Dimensions } from "./dimensions";
-import type { InvalidDimensions, InvalidFocalPoint, MissingCredit } from "./errors";
+import type {
+	InvalidDimensions,
+	InvalidFocalPoint,
+	MissingCredit,
+} from "./errors";
 import { MissingAltText, MissingDimensions } from "./errors";
 import { FocalPoint } from "./focal-point";
 import type { MediaType } from "./media-type";
@@ -71,7 +75,10 @@ export class MediaAsset extends AggregateRoot<string> {
 
 		let dimensions: Dimensions | null = null;
 		if (input.dimensions) {
-			const dim = Dimensions.create(input.dimensions.width, input.dimensions.height);
+			const dim = Dimensions.create(
+				input.dimensions.width,
+				input.dimensions.height,
+			);
 			if (dim.isErr()) {
 				return err(dim.error);
 			}
@@ -172,6 +179,82 @@ export class MediaAsset extends AggregateRoot<string> {
 
 	get folderId(): string | null {
 		return this.state.folderId;
+	}
+
+	/**
+	 * Corrige os metadados de um arquivo JÁ na biblioteca.
+	 *
+	 * Existe porque o cadastro era de mão única: alt-text errado (ou o de uma
+	 * imagem que entrou antes de a regra existir) só tinha uma saída — excluir e
+	 * subir de novo, o que quebra toda matéria que já usa o arquivo. Corrigir o
+	 * metadado não mexe no arquivo, então não há nada a proteger ali.
+	 *
+	 * O que NÃO se edita: `storageKey`, `type`, `mimeType` e `dimensions`. Esses
+	 * descrevem o BYTE que está no armazenamento, não a curadoria — trocá-los aqui
+	 * faria o registro mentir sobre o arquivo.
+	 *
+	 * Os invariantes A29 continuam valendo na edição, e é o ponto principal: sem
+	 * isto, dava para esvaziar o alt-text de uma imagem por este caminho e furar,
+	 * pela porta dos fundos, a regra que o `create` protege.
+	 *
+	 * Campo ausente (`undefined`) é "não mexer"; `null` no alt/ponto focal é
+	 * "apagar" — e apagar o alt de uma IMAGEM é justamente o que o invariante
+	 * recusa.
+	 */
+	updateDetails(input: {
+		credit?: string;
+		caption?: string | null;
+		altText?: string | null;
+		focalPoint?: { x: number; y: number } | null;
+	}): Result<void, MediaAssetError> {
+		let credit = this.state.credit;
+		if (input.credit !== undefined) {
+			const next = Credit.create(input.credit);
+			if (next.isErr()) {
+				return err(next.error);
+			}
+			credit = next.value;
+		}
+
+		let altText = this.state.altText;
+		if (input.altText !== undefined) {
+			altText = null;
+			if ((input.altText ?? "").trim() !== "") {
+				const next = AltText.create(input.altText as string);
+				/* v8 ignore next 3 -- texto já não-vazio aqui; guarda por completude de tipo */
+				if (next.isErr()) {
+					return err(next.error);
+				}
+				altText = next.value;
+			}
+			if (this.state.type === "IMAGE" && altText === null) {
+				return err(new MissingAltText());
+			}
+		}
+
+		let focalPoint = this.state.focalPoint;
+		if (input.focalPoint !== undefined) {
+			focalPoint = null;
+			if (input.focalPoint) {
+				const next = FocalPoint.create(input.focalPoint.x, input.focalPoint.y);
+				if (next.isErr()) {
+					return err(next.error);
+				}
+				focalPoint = next.value;
+			}
+		}
+
+		this.state = {
+			...this.state,
+			credit,
+			altText,
+			focalPoint,
+			caption:
+				input.caption !== undefined
+					? Caption.create(input.caption)
+					: this.state.caption,
+		};
+		return ok(undefined);
 	}
 
 	/**

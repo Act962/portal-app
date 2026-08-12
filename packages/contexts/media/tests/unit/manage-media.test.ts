@@ -2,11 +2,14 @@ import { SequentialIdGenerator } from "@portal-app/shared-kernel";
 import {
 	InMemoryMediaRepository,
 	InMemoryMediaStorage,
+	MediaAssetNotFound,
+	MissingAltText,
 	MissingCredit,
 	getAsset,
 	listLibrary,
 	registerAsset,
 	requestUpload,
+	updateAssetDetails,
 } from "@portal-app/media";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -119,5 +122,56 @@ describe("listLibrary (busca + filtro)", () => {
 	it("busca por crédito", async () => {
 		const found = await listLibrary({ search: "prefeitura" }, { repo });
 		expect(found.items.map((a) => a.filename)).toEqual(["edital.pdf"]);
+	});
+});
+
+describe("updateAssetDetails", () => {
+	it("corrige os metadados e persiste", async () => {
+		const asset = (
+			await registerAsset({ ...image, storageKey: "k1" }, { repo, ids })
+		).unwrap();
+
+		const updated = (
+			await updateAssetDetails(
+				{
+					id: asset.id,
+					credit: "Foto: Bruno",
+					altText: "Arquibancada lotada",
+					caption: "Final do campeonato",
+				},
+				{ repo },
+			)
+		).unwrap();
+
+		expect(updated.credit.value).toBe("Foto: Bruno");
+		// Relido do repositório: o teste morreria se o caso de uso mudasse o
+		// agregado em memória e esquecesse de gravar.
+		const saved = await getAsset(asset.id, { repo });
+		expect(saved?.altText?.value).toBe("Arquibancada lotada");
+		expect(saved?.caption.value).toBe("Final do campeonato");
+	});
+
+	it("recusa arquivo inexistente", async () => {
+		const result = await updateAssetDetails(
+			{ id: "nao-existe", credit: "Foto: Bruno" },
+			{ repo },
+		);
+
+		expect(result.unwrapErr()).toBeInstanceOf(MediaAssetNotFound);
+	});
+
+	it("propaga a recusa do domínio e NÃO grava", async () => {
+		const asset = (
+			await registerAsset({ ...image, storageKey: "k2" }, { repo, ids })
+		).unwrap();
+
+		const result = await updateAssetDetails(
+			{ id: asset.id, altText: "" },
+			{ repo },
+		);
+
+		expect(result.unwrapErr()).toBeInstanceOf(MissingAltText);
+		const saved = await getAsset(asset.id, { repo });
+		expect(saved?.altText?.value).toBe("Torcida");
 	});
 });

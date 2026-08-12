@@ -1,5 +1,10 @@
 import type { Page, PageRequest } from "@portal-app/shared-kernel";
-import { type IdGenerator, type Result, err, ok } from "@portal-app/shared-kernel";
+import {
+	err,
+	type IdGenerator,
+	ok,
+	type Result,
+} from "@portal-app/shared-kernel";
 
 import {
 	FolderNameTaken,
@@ -7,13 +12,16 @@ import {
 	FolderNotFound,
 	MediaAssetNotFound,
 	MediaInUse,
-	MissingFolderName,
+	type MissingFolderName,
 } from "../domain/errors";
 import { Folder } from "../domain/folder";
 import { MediaAsset, type MediaAssetError } from "../domain/media-asset";
 import type { MediaType } from "../domain/media-type";
 import type { FolderRepository } from "../domain/ports/folder-repository";
-import type { MediaQuery, MediaRepository } from "../domain/ports/media-repository";
+import type {
+	MediaQuery,
+	MediaRepository,
+} from "../domain/ports/media-repository";
 import type { MediaStorage } from "../domain/ports/media-storage";
 import type { MediaUsage } from "../domain/ports/media-usage";
 
@@ -81,8 +89,47 @@ export async function listLibrary(
 	return { items, total };
 }
 
-export function getAsset(id: string, deps: Pick<Deps, "repo">): Promise<MediaAsset | null> {
+export function getAsset(
+	id: string,
+	deps: Pick<Deps, "repo">,
+): Promise<MediaAsset | null> {
 	return deps.repo.findById(id);
+}
+
+type UpdateDetailsInput = {
+	id: string;
+	credit?: string;
+	caption?: string | null;
+	altText?: string | null;
+	focalPoint?: { x: number; y: number } | null;
+};
+
+/**
+ * Corrige os metadados de um arquivo já cadastrado.
+ *
+ * Não toca no armazenamento: o objeto lá continua o mesmo byte, e é só o
+ * registro que muda. Por isso não há aqui nada da dança de ordem que a exclusão
+ * exige (D5) — não há duas coisas para sair de sincronia.
+ *
+ * A validação é toda do agregado, inclusive a recusa de deixar uma IMAGEM sem
+ * alt-text. É o mesmo invariante do cadastro, e ele precisa valer nos dois
+ * caminhos: senão a edição vira o furo por onde a regra escapa.
+ */
+export async function updateAssetDetails(
+	input: UpdateDetailsInput,
+	deps: Pick<Deps, "repo">,
+): Promise<Result<MediaAsset, MediaAssetNotFound | MediaAssetError>> {
+	const { id, ...details } = input;
+	const asset = await deps.repo.findById(id);
+	if (!asset) {
+		return err(new MediaAssetNotFound(id));
+	}
+	const updated = asset.updateDetails(details);
+	if (updated.isErr()) {
+		return err(updated.error);
+	}
+	await deps.repo.save(asset);
+	return ok(asset);
 }
 
 /**
@@ -90,7 +137,11 @@ export function getAsset(id: string, deps: Pick<Deps, "repo">): Promise<MediaAss
  * saneado sobrevive só para legibilidade/download. Sem data — determinístico.
  */
 function buildStorageKey(id: string, filename: string): string {
-	const safe = filename.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+	const safe = filename
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9._-]+/g, "-")
+		.replace(/^-+|-+$/g, "");
 	return `uploads/${id}/${safe || "arquivo"}`;
 }
 
