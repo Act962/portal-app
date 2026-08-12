@@ -113,27 +113,17 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 						DIREITOS RESERVADOS
 					</span>
 					{/*
-					  Estas três eram uma STRING de configuração — "PRINCÍPIOS EDITORIAIS
-					  · PRIVACIDADE · TERMOS DE USO" — impressa como texto solto, sem
-					  link nenhum. O leitor lia "Privacidade" no rodapé e não tinha como
-					  chegar lá. Agora as duas que existem são links; o campo `legal`
-					  segue disponível para a linha de razão social, que é o que ele
-					  deveria ter sido desde o início.
+					  Privacidade e Termos NÃO ficam aqui — estão em "Institucional",
+					  logo acima, e repeti-los a 200px de distância era ruído.
+					  Esta faixa trazia "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE
+					  USO" como uma STRING de configuração, impressa sem link nenhum: o
+					  leitor lia "Privacidade" e não tinha como chegar lá. Sobrou o campo
+					  `legal` para a linha de razão social, que é o que ele deveria ter
+					  sido desde o início.
 					*/}
-					<span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-						<Link href={routes.privacy} className={LINK}>
-							PRIVACIDADE
-						</Link>
-						<span aria-hidden className="text-on-navy-rule">
-							·
-						</span>
-						<Link href={routes.terms} className={LINK}>
-							TERMOS DE USO
-						</Link>
-						{site.legal ? (
-							<span className="hidden md:inline">· {site.legal}</span>
-						) : null}
-					</span>
+					{site.legal ? (
+						<span className="hidden md:inline">{site.legal}</span>
+					) : null}
 				</Container>
 			</div>
 		</footer>
