@@ -3,18 +3,22 @@ import { Container } from "@portal-app/ui/components/container";
 import { SiteLink } from "@/components/layout/site-link";
 import { SocialLinkList } from "@/components/social/social-link-list";
 import { loadSiteSettings } from "@/data/queries";
+import { loadWeather } from "@/data/weather";
 import { formatLongDate } from "@/lib/format";
-
-/**
- * Valor fixo, mantido em tela por decisão do cliente (spec 05b, D12): o
- * cabeçalho fica visualmente completo agora e troca-se por dado real quando
- * houver uma porta `Weather`. A contrapartida está registrada — 32 °C todo dia,
- * inclusive quando chove.
- */
-const CURRENT_TEMPERATURE = "32°C";
+import { formatTemperature } from "@/lib/weather";
 
 export async function TopBar() {
-	const site = await loadSiteSettings();
+	// A temperatura era `"32°C"` ESCRITO NO CÓDIGO (D12) — um valor que parecia
+	// dado ao vivo e mentia todo dia, inclusive quando chovia. Agora vem da
+	// Open-Meteo, para a cidade das Configurações. Quando não há leitura, o
+	// trecho some: cidade e estado seguem sozinhos, e é melhor não dizer nada
+	// sobre o tempo do que dizer um número inventado.
+	const [site, weather] = await Promise.all([
+		loadSiteSettings(),
+		// Em paralelo, não em série: é rede a um terceiro, e o cabeçalho está em
+		// TODA página do portal.
+		loadWeather(),
+	]);
 	// A data de HOJE, não a de um instante herdado das fixtures — que deixava o
 	// cabeçalho parado em 3 de agosto de 2026 em todas as páginas. É o mesmo
 	// defeito que fazia toda matéria aparecer como "há 1 min".
@@ -42,7 +46,22 @@ export async function TopBar() {
 				</span>
 
 				<span>
-					{site.city.toUpperCase()} — {site.state} · {CURRENT_TEMPERATURE}
+					{site.city.toUpperCase()} — {site.state}
+					{weather ? (
+						<>
+							{" · "}
+							{/* A condição fica no `title` e no texto invisível, não na
+							    barra: ela é estreita, e "Predominantemente claro" ao lado
+							    da data empurraria as redes para a segunda linha. Quem usa
+							    leitor de tela recebe a frase inteira. */}
+							<span title={weather.condition ?? undefined}>
+								{formatTemperature(weather.temperature)}
+							</span>
+							{weather.condition ? (
+								<span className="sr-only">, {weather.condition}</span>
+							) : null}
+						</>
+					) : null}
 				</span>
 
 				<div className="flex-1" />

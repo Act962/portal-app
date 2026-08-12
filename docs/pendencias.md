@@ -17,8 +17,8 @@ configurações do veículo, grade de programação, enquete com voto anônimo,
 
 ## 🚨 Precisa de ação humana — desta rodada (2026-08-12)
 
-Três coisas que o código não resolve sozinho e que **ficam erradas em produção
-até alguém agir**:
+Quatro coisas que o código não resolve sozinho e que **ficam erradas em
+produção até alguém agir**:
 
 1. **O texto legal precisa de revisão de quem responde pelo veículo.**
    `/privacidade` e `/termos` foram escritos descrevendo o que o portal
@@ -36,7 +36,14 @@ até alguém agir**:
    aparecer DUPLICADA ao lado dos links novos de Privacidade e Termos.
    Conserto: abrir Configurações → Rodapé e limpar. É clique, não deploy.
 
-3. **`setup.md` §3.2 e a linha do `.env` na dívida técnica estão invertidos.**
+3. **A licença da Open-Meteo (temperatura do cabeçalho) precisa de decisão.**
+   O plano gratuito é declarado para uso NÃO COMERCIAL e o portal é de uma
+   rádio comercial. Não é volume — é licença. Ou assina o plano comercial
+   deles, ou troca de provedor (INMET e CPTEC/INPE são públicos e brasileiros).
+   A troca custa pouco: só `data/weather.ts` conhece a fonte, e o módulo puro
+   com os testes continua valendo.
+
+4. **`setup.md` §3.2 e a linha do `.env` na dívida técnica estão invertidos.**
    Eles dizem que a `S3_PUBLIC_URL` local aponta para o R2 (para as capas do
    seed aparecerem). No `.env` desta máquina os sete `S3_*` apontam para o
    MinIO — o oposto. O efeito também inverteu: upload local funciona e abre
@@ -326,14 +333,22 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
       inexistente. A leitura do payload é módulo puro com 26 testes
       (`lib/quotes.ts`), porque a API manda todo valor como STRING e
       `Number("")` é 0 — um zero falso na faixa leria como "o dólar vale nada".
-- [ ] **Temperatura do topo é `"32°C"` fixo** (`top-bar.tsx`). **Fica na tela**
-      por decisão do cliente (D12) — troca-se por dado real quando houver uma
-      porta `Weather` com provedor. Até lá é dívida consciente: valor fixo que
-      parece dado ao vivo engana o leitor (32 °C inclusive quando chove).
-      **O caminho agora está aberto:** a faixa de cotações é exatamente esse
-      arranjo funcionando — módulo puro testado, leitura no servidor com
-      timeout e degradação silenciosa. Uma porta `Weather` é o mesmo desenho
-      com outro provedor, e não mais uma decisão de arquitetura.
+- [x] ~~**Temperatura do topo é `"32°C"` fixo**~~ ✅ Resolvido em 12/08 (D12
+      encerrada). Vem da [Open-Meteo](https://open-meteo.com/en/docs), sem
+      chave, para a cidade CONFIGURADA — não uma coordenada escrita no código:
+      se o veículo mudar de praça o cabeçalho acompanha sem deploy, e ninguém
+      precisa saber latitude para configurar um portal. A geocodificação é
+      cacheada por 30 dias (coordenada de cidade não muda) e a previsão por 15
+      minutos, que é o passo de atualização da fonte. Sem leitura, o trecho
+      SOME — cidade e estado seguem sozinhos, sem o "·" órfão. **A dívida era
+      real e mensurável:** no dia da troca marcava 36 °C, quatro graus acima do
+      valor fixo.
+      **Pendência de LICENÇA, não de código:** o plano gratuito da Open-Meteo é
+      declarado para uso NÃO COMERCIAL, e o portal de uma rádio comercial
+      provavelmente não se enquadra. O volume não é o problema (uma requisição
+      por minuto para o site inteiro) — é a licença. O cliente precisa decidir
+      entre assinar o plano comercial deles ou trocar de provedor; a troca é
+      barata, porque só `data/weather.ts` conhece a fonte.
 - [ ] **`packages/api` não é verificado**: o `package.json` tem `"scripts": {}`,
       sem `check-types` — o pacote dos routers e das permissões nunca passa pelo
       `tsc` no CI. O que o `apps/web` importa é verificado de carona; o resto,
