@@ -253,11 +253,17 @@ export function ArticleBodyEditor({
 				{/* Só o modo expandido rola por dentro. Encaixotado, quem rola é a
 				    página — e um `overflow-y-auto` aqui recriaria o mesmo contexto de
 				    rolagem que quebra o `sticky` da barra. */}
-				<div className={cn(expanded ? "flex-1 overflow-y-auto" : "min-h-[24rem]")}>
-					{/* A largura de leitura vale mesmo em tela cheia: linha de 1400px
-					    é ilegível, e o corpo publicado sai em coluna estreita. Escrever
-					    na medida em que se lê é o resto do WYSIWYG. */}
-					<div className={cn(expanded && "mx-auto w-full max-w-[68ch]")}>
+				<div
+					className={cn(expanded ? "flex-1 overflow-y-auto" : "min-h-[24rem]")}
+				>
+					{/* A largura de leitura continua valendo em tela cheia — linha de
+					    1400px é ilegível, e o corpo publicado sai em coluna estreita —,
+					    mas 68ch era apertado demais: descontado o `px-6` do editor,
+					    sobrava menos texto por linha do que numa folha A4, e a tela
+					    cheia acabava dando MENOS espaço útil que a caixa normal em
+					    monitor largo. 88ch põe a coluna na medida de um editor de
+					    documento, que é a régua com que a redação já está acostumada. */}
+					<div className={cn(expanded && "mx-auto w-full max-w-[88ch]")}>
 						<EditorContent editor={editor} />
 					</div>
 				</div>
