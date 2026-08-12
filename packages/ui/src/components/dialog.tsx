@@ -52,8 +52,17 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
+        // `sm:max-w-lg` no lugar de `sm:max-w-sm`: os diálogos do painel são
+        // FORMULÁRIOS (colunista, editoria, mídia), não avisos de uma linha, e
+        // 24rem espremia rótulo, campo e explicação numa coluna estreita demais
+        // para ler. As telas que precisam de mais passam a própria classe.
+        //
+        // A altura tem teto e rola por dentro. Sem isso o diálogo simplesmente
+        // CRESCE além da janela — e como ele é `fixed` e centrado, o que
+        // transborda sai da tela sem barra de rolagem nenhuma: o botão de salvar
+        // fica inalcançável, e nada indica por quê.
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-lg data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
