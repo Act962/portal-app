@@ -10,6 +10,18 @@ import { useState } from "react";
  * Dismissible by design: an anchor that cannot be closed eats the bottom of
  * every screen and is the kind of thing that gets a site penalised for
  * intrusive interstitials.
+ *
+ * `sticky` e NÃO `fixed`, e essa é a diferença que conserta o defeito. Com
+ * `fixed` o banner sai do fluxo, então alguém precisa abrir espaço para ele em
+ * outro lugar — era um `pb-[68px]` no wrapper do layout, que é um Server
+ * Component e não sabe que este aqui foi fechado. Fechar o banner deixava os
+ * 68px de branco para trás. (E o número já estava errado: o banner mede 63px.)
+ *
+ * Sendo `sticky`, o espaço é DELE: ocupa o lugar no fim da coluna e gruda no
+ * rodapé da janela enquanto se rola. Fechar remove o elemento, e o espaço vai
+ * junto — sem estado compartilhado, sem componente cliente novo na moldura do
+ * grupo `(site)`, e sem medida escrita à mão para alguém errar de novo quando
+ * a altura do banner mudar.
  */
 export function AnchorAd() {
 	const [dismissed, setDismissed] = useState(false);
@@ -21,7 +33,7 @@ export function AnchorAd() {
 	return (
 		<aside
 			aria-label="Publicidade"
-			className="fixed inset-x-0 bottom-0 z-30 border-[#e0ddd6] border-t bg-surface-alt md:hidden"
+			className="sticky bottom-0 z-30 border-[#e0ddd6] border-t bg-surface-alt md:hidden"
 		>
 			<Container className="flex items-center gap-2.5 py-1.5">
 				<div className="hatch-muted flex h-[50px] flex-1 items-center justify-center rounded-card border border-[#cfcac1] border-dashed font-mono text-[#9c968c] text-[9.5px]">
