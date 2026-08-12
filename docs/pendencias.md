@@ -316,9 +316,53 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
       de versionamento otimista no agregado.
 - [ ] Histórico e diff visual de versões.
 - [ ] Busca `⌘K` no painel (o componente já existe, falta ligar).
-- [ ] Arrastar-e-soltar para reordenar editorias (hoje é por setas, funcional).
+- [x] ~~Arrastar-e-soltar para reordenar editorias~~ ✅ Feito em 11/08 — ver
+      "Ajustes de UI no painel", abaixo. Vale para colunistas também.
 - [ ] Upload de **vários** arquivos de uma vez (hoje é um por vez).
 - [ ] Perfil de autor editável pelo próprio redator (o backend já suporta).
+
+---
+
+## Ajustes de UI no painel — ✅ CONCLUÍDO (2026-08-11)
+
+Rodada pedida pelo cliente depois do aceite visual. Oito itens; o nono (convite
+por e-mail da tela de Equipe) ficou de fora por depender do domínio.
+
+**Dois eram defeito, não acabamento:**
+
+| # | Defeito | Causa | Correção |
+|---|---|---|---|
+| 7 | "A imagem de capa precisa de texto alternativo" **mesmo com a imagem tendo alt-text** — e a matéria não publicava | A `Cover` guarda uma cópia do alt-text, e quem a preenchia era a TELA. O autosave dispara 1s depois do clique, quando o asset recém-escolhido ainda não chegou ao cliente: gravava `""`. Nada mandava salvar de novo, então a pendência era permanente | `resolveCover` no `routers/editorial.ts` lê o alt-text do próprio `MediaAsset`. Quem sabe o alt-text de um arquivo é o arquivo. Efeito colateral bom: corrigir o alt na biblioteca sincroniza a matéria no salvamento seguinte. As matérias já travadas curam sozinhas ao abrir |
+| 8 | Não dava para editar metadado de mídia depois de criada | Só existia `register`. Alt-text errado só saía excluindo e subindo de novo — o que quebra toda matéria que já usa o arquivo | `MediaAsset.updateDetails` (mantendo A29: imagem não pode perder o alt-text), `updateAssetDetails`, `media.update` e modo de edição no painel de detalhe. Com teste de domínio e de aplicação |
+
+**O resto era acabamento:**
+
+- **1, 4, 5 — campo de imagem** (`components/media/image-field.tsx`): preview do
+  que está escolhido, **envio direto do computador** (arrastar ou clicar, sem
+  passar pela Biblioteca) e escolha do acervo. Usado no logo (Configurações) e na
+  foto do colunista; a lista de colunistas ganhou miniatura. O arquivo continua
+  indo para o acervo — é lá que ele vive —, mas a tarefa não passa mais por
+  aquela tela. Crédito e alt-text são pedidos no envio: são invariantes do
+  `MediaAsset`, não burocracia de tela.
+- **3 — diálogos maiores**: `sm:max-w-sm` → `sm:max-w-lg`, e teto de altura com
+  rolagem interna. Sem o teto, diálogo alto crescia para fora da janela **sem
+  barra de rolagem** e o botão de salvar ficava inalcançável. O painel de detalhe
+  da mídia tinha o mesmo furo.
+- **6 — arrastar-e-soltar** (`components/admin/sortable-rows.tsx`, dnd-kit) em
+  colunistas e editorias, no lugar das setas. Teclado atendido (espaço levanta,
+  setas movem, espaço solta) com anúncio em português. A ordem é aplicada no
+  cache antes da resposta — a linha já está sob o dedo no lugar novo.
+- **9 — largura em tela cheia**: `68ch` → `88ch`. Descontado o `px-6`, sobrava
+  menos texto por linha do que numa folha A4, e a tela cheia dava menos espaço
+  útil que a caixa normal em monitor largo.
+
+**"A foto do colunista não aparece" (item 5) tinha DUAS causas**, e só uma era
+código. A outra é a troca consciente do `.env` local (linha da dívida técnica,
+abaixo): o upload vai para o MinIO e a leitura monta URL do R2, então **todo
+arquivo enviado localmente dá 404** — inclusive `logo_armaze_m_carvalho_vermelho.png`,
+que está no MinIO agora. O caminho de render foi conferido com um asset do R2 e
+funciona. Para testar upload de ponta a ponta, os sete `S3_*` precisam apontar
+para o mesmo lugar.
 
 ---
 
