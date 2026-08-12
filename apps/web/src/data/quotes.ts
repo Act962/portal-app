@@ -9,9 +9,16 @@ import { HOME_PAIRS, parseQuotes, type Quote } from "@/lib/quotes";
  * SERVIDOR, e não o navegador do leitor. Buscar no cliente seria uma requisição
  * POR VISITANTE: a API sem chave para em 100, e um pico de audiência — que num
  * portal de notícias é o dia em que tudo importa — derrubaria a faixa
- * justamente quando há mais gente olhando. Daqui, com o `revalidate` de 60s do
- * grupo `(site)`, é no máximo UMA requisição por minuto para o site inteiro,
- * qualquer que seja o número de leitores.
+ * justamente quando há mais gente olhando.
+ *
+ * Quem segura o volume é o `next: { revalidate }` DESTE fetch, e não o
+ * `revalidate = 60` do grupo `(site)`. A distinção importa: a home é
+ * renderizada sob demanda (`ƒ` no build, porque o card de enquete lê cookie),
+ * então o cache de PÁGINA não a cobre — cada visita executa este código. O que
+ * evita a chamada externa é o Data Cache do Next, verificado no build de
+ * produção: seis visitas seguidas deixaram UMA entrada em
+ * `.next/cache/fetch-cache`, não seis. Uma requisição por minuto para o site
+ * inteiro, qualquer que seja a audiência.
  *
  * Sem chave de API de propósito: no volume acima ela não é necessária, e uma
  * credencial a menos é uma credencial a menos para vazar ou expirar. Se um dia

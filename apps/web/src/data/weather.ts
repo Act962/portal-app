@@ -20,11 +20,16 @@ import {
  * o veículo mudar de praça, o cabeçalho acompanha sem deploy — e ninguém
  * precisa saber latitude para configurar um portal de notícias.
  *
+ * O cabeçalho está em TODA página do portal, e a home é renderizada sob
+ * demanda — então quem evita a chamada externa a cada visita é o Data Cache do
+ * Next (`next: { revalidate }` abaixo), não o cache de página. Verificado no
+ * build de produção: seis visitas seguidas deixaram UMA entrada por endpoint em
+ * `.next/cache/fetch-cache`. Na prática, quatro chamadas por hora.
+ *
  * **Licença:** o plano gratuito da Open-Meteo é declarado para uso NÃO
  * COMERCIAL. O portal de uma rádio comercial provavelmente não se enquadra, e
  * isso é decisão do cliente, não técnica — registrado em `docs/pendencias.md`.
- * O volume não é o problema (uma requisição por minuto para o site inteiro);
- * a licença é.
+ * O volume não é o problema; a licença é.
  */
 const FORECAST = "https://api.open-meteo.com/v1/forecast";
 const GEOCODING = "https://geocoding-api.open-meteo.com/v1/search";
