@@ -1,9 +1,9 @@
 import {
 	type Clock,
-	type IdGenerator,
-	type Result,
 	err,
+	type IdGenerator,
 	ok,
+	type Result,
 } from "@portal-app/shared-kernel";
 
 import type {
@@ -17,11 +17,11 @@ import type {
 	TooFewOptions,
 } from "../domain/errors";
 import { PollNotFound } from "../domain/errors";
+import { Poll } from "../domain/poll";
 import type {
 	PollRepository,
 	VoteTally,
 } from "../domain/ports/poll-repository";
-import { Poll } from "../domain/poll";
 
 /**
  * Casos de uso das enquetes. A AUTORIZAÇÃO fica na fronteira da API
@@ -164,7 +164,9 @@ export async function currentPoll(
 	}
 	const [tally, votedFor] = await Promise.all([
 		deps.repo.tally(poll.id),
-		voterToken ? deps.repo.findVote(poll.id, voterToken) : Promise.resolve(null),
+		voterToken
+			? deps.repo.findVote(poll.id, voterToken)
+			: Promise.resolve(null),
 	]);
 	return {
 		poll,
@@ -172,6 +174,40 @@ export async function currentPoll(
 		totalVotes: tally.reduce((total, item) => total + item.votes, 0),
 		votedFor,
 	};
+}
+
+/**
+ * O arquivo das enquetes ENCERRADAS, com o resultado de cada uma.
+ *
+ * Aqui o número aparece para todo mundo, sem exigir voto — e não é exceção à
+ * regra do `currentPoll`: aquela regra existe para o resultado não INFLUENCIAR
+ * o voto, e numa enquete fechada não há mais voto para influenciar.
+ *
+ * Rascunho fica de fora: nunca esteve no ar.
+ *
+ * Filtra sobre `list()` em vez de ganhar um método de porta próprio. São
+ * poucas enquetes — uma por vez no portal —, e um `findClosed` custaria porta,
+ * adapter, fake e teste de contrato para economizar uma varredura de dezenas
+ * de linhas. Quando o arquivo crescer a ponto de doer, aí sim.
+ */
+export async function closedPolls(
+	deps: Pick<Deps, "repo">,
+): Promise<PollResult[]> {
+	const polls = (await deps.repo.list()).filter(
+		(poll) => poll.status === "FECHADA",
+	);
+
+	return Promise.all(
+		polls.map(async (poll) => {
+			const tally = await deps.repo.tally(poll.id);
+			return {
+				poll,
+				tally,
+				totalVotes: tally.reduce((total, item) => total + item.votes, 0),
+				votedFor: null,
+			};
+		}),
+	);
 }
 
 /** Resultado de uma enquete específica — usado pelo painel. */
@@ -196,7 +232,10 @@ export async function vote(
 	input: { pollId: string; optionId: string; voterToken: string },
 	deps: Deps,
 ): Promise<
-	Result<PollResult, PollNotFound | PollNotOpen | OptionNotInPoll | AlreadyVoted>
+	Result<
+		PollResult,
+		PollNotFound | PollNotOpen | OptionNotInPoll | AlreadyVoted
+	>
 > {
 	const poll = await deps.repo.findById(input.pollId);
 	if (!poll) {

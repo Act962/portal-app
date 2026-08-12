@@ -1,6 +1,6 @@
 # Pendências — o que falta para o produto ficar completo
 
-> **Atualizado:** 2026-08-11.
+> **Atualizado:** 2026-08-12.
 > Lista única e priorizada do que está em aberto, para a entrega em andamento.
 > Estado por fase em [`proximos-passos.md`](./proximos-passos.md); escopo em
 > [`specs/`](./specs/); operação em [`deploy.md`](./deploy.md).
@@ -12,6 +12,73 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS. Em
 volta disso: equipe e permissões com convite por e-mail e redefinição de senha,
 configurações do veículo, grade de programação, enquete com voto anônimo,
 "mais lidas" por audiência real e o painel de insights.
+
+---
+
+## 🚨 Precisa de ação humana — desta rodada (2026-08-12)
+
+Quatro coisas que o código não resolve sozinho e que **ficam erradas em
+produção até alguém agir**:
+
+1. **O texto legal precisa de revisão de quem responde pelo veículo.**
+   `/privacidade` e `/termos` foram escritos descrevendo o que o portal
+   REALMENTE faz — sem conta de leitor, sem newsletter, log de leitura sem IP
+   nem user-agent (N09), voto por token anônimo. É um rascunho tecnicamente
+   fiel, **não é peça jurídica revisada**. Enquanto ninguém da parte do
+   cliente ler e aprovar, o portal publica um documento com efeito de LGPD que
+   passou só pelo desenvolvimento.
+
+2. **O rodapé de PRODUÇÃO ainda tem os links mortos.** Os defaults mudaram
+   (`institutional` agora traz só Colunistas e Enquetes; `legal` virou `null`),
+   mas **default só vale para banco sem linha** — e produção tem linha. Lá
+   continuam:
+   - os seis institucionais com `href: ""`, que o `SiteLink` degrada para texto
+     inerte (D9) — não dão clique morto, mas anunciam serviços que não existem;
+   - a string `legal` "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE USO",
+     que **parece um menu e é texto impresso**. Pior agora do que antes: as
+     páginas de Privacidade e Termos EXISTEM e estão logo acima, em
+     "Institucional", então o leitor vê os mesmos três nomes duas vezes — uma
+     clicável e outra não.
+
+   Conserto: abrir Configurações → Rodapé, limpar os institucionais que não
+   têm destino e esvaziar a linha legal (ou trocá-la pela razão social, que é
+   para o que o campo passou a servir). É clique, não deploy.
+
+3. **A licença da Open-Meteo (temperatura do cabeçalho) precisa de decisão.**
+   O plano gratuito é declarado para uso NÃO COMERCIAL e o portal é de uma
+   rádio comercial. Não é volume — é licença. Ou assina o plano comercial
+   deles, ou troca de provedor (INMET e CPTEC/INPE são públicos e brasileiros).
+   A troca custa pouco: só `data/weather.ts` conhece a fonte, e o módulo puro
+   com os testes continua valendo.
+
+4. **`setup.md` §3.2 e a linha do `.env` na dívida técnica estão invertidos.**
+   Eles dizem que a `S3_PUBLIC_URL` local aponta para o R2 (para as capas do
+   seed aparecerem). No `.env` desta máquina os sete `S3_*` apontam para o
+   MinIO — o oposto. O efeito também inverteu: upload local funciona e abre
+   normalmente; quem dá 404 agora são **as capas do seed**, que moram no R2.
+   Conferido no navegador: `uploads/…` responde 200, as chaves do seed dão
+   `ERR_BLOCKED_BY_ORB`. Alguém precisa decidir qual dos dois é o combinado e
+   corrigir o doc — hoje ele manda o próximo desenvolvedor para o lado errado.
+
+### Área de patrocinadores — ADIADA pelo cliente (12/08)
+
+O espaço da antiga "TV 7 Cidades" chegou a ser reservado para uma faixa de
+patrocinadores, mas **o cliente decidiu adiar** e o lugar foi ocupado pela
+faixa de cotações. Fica registrado o que já estava pensado, para não se
+redescobrir depois:
+
+- Não é o mesmo que o Bloco C (banners/`advertising`), e confundir os dois é o
+  erro caro aqui. **Banner** é peça publicitária com período, criativo e
+  posição — o `AdSlot` já reserva 9 lugares e o que falta é o contexto
+  `advertising`. **Patrocinador** é uma FAIXA DE MARCAS: logo, nome e link,
+  sem período nem criativo, permanente enquanto durar o contrato.
+- Se forem a mesma coisa para a rádio, vira uma posição a mais no
+  `advertising` e não custa contexto novo. Se forem diferentes, é um cadastro
+  próprio — mais barato que o de banners, por não ter agendamento nem métrica.
+  **É essa a pergunta que decide o tamanho do trabalho.**
+- **Onde ficaria agora:** o lugar de antes está tomado. O candidato natural é
+  logo ABAIXO da faixa de cotações, antes dos colunistas — é o mesmo nível da
+  página e não briga com a cobertura, que ocupa o topo.
 
 ---
 
@@ -178,6 +245,15 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
       cuidado com cache).
 
 ### Sobrou da spec 05b (configurações)
+- [x] ~~**Favicon fixo no código**~~ ✅ Resolvido em 12/08: `faviconMediaId` nas
+      Configurações, campo próprio na aba Identidade. Coluna separada do
+      `logoMediaId` de propósito — o logo é horizontal e legível a 200px, o
+      favicon é quadrado e precisa funcionar a 16px. O arquivo saiu de
+      `app/favicon.ico` para `public/brand/favicon.ico`: aquele caminho é
+      CONVENÇÃO do Next e é injetado no `<head>` automaticamente, sem o banco
+      poder sobrepô-lo — com os dois presentes saíam duas tags `icon` e o
+      navegador escolhia. Agora é uma tag só, do `generateMetadata`, com o
+      arquivo de `public/` como fallback explícito.
 - [ ] **SEO e feeds ainda leem do arquivo**: `lib/structured-data.ts`,
       `lib/feed.ts`, `robots.ts`, `sitemap*.xml` e as rotas de RSS usam
       `siteConfig.url/name/description/locale`. O `<title>` e o `og:*` da raiz
@@ -213,9 +289,21 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
       nova encerra a anterior (o portal mostra uma por vez).
       No portal, o card é **RSC** e só o botão de votar é cliente, via Server
       Action — o grupo `(site)` continua sem `QueryClientProvider`.
-- [ ] **Colunistas e vídeos da home** ainda são fixture. São conteúdo, não
-      configuração: colunista provavelmente é autor com destaque; vídeo é
-      feature nova.
+- [x] ~~**Colunistas e vídeos da home** ainda são fixture~~ ✅ Resolvido dos
+      dois lados, em direções opostas (12/08). **Colunista** ganhou contato
+      público (redes e e-mail) reusando `beat`/`blurb` como profissão e sobre,
+      mais a página `/colunistas` — índice que leva ao `/autor/{slug}` que já
+      existia, em vez de uma rota de coluna própria que competiria com ela no
+      Google. **Vídeo** foi REMOVIDO: não havia player, página nem cadastro
+      atrás daqueles quatro itens. Volta como contexto próprio se voltar.
+- [x] ~~**Foto do colunista some fora da home**~~ ✅ Resolvido (12/08). Não era
+      upload: a precedência entre `StaffMember` e o cadastro de colunista era
+      TUDO-OU-NADA no `getAuthor`, e bastava a pessoa ter conta no painel para
+      o registro inteiro ser descartado — inclusive a foto, e mesmo com o
+      perfil da Equipe vazio, que é o caso do primeiro admin. Agora a fusão é
+      campo a campo. A assinatura da matéria tinha um segundo defeito irmão: o
+      quadro hachurado estava fixo no HTML, sem condição, então nunca mostrava
+      foto. Virou `AuthorAvatar`, usado nos três lugares.
 - [x] ~~**"Mais lidas" não é mais lidas**~~ ✅ Resolvido (Bloco 3): novo
       contexto `packages/contexts/analytics` com `ViewCounterPort` (Redis,
       janela móvel de 24h — sorted set por matéria, não balde que zera à
@@ -240,10 +328,35 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
       contaria contra a média; (b) a partir da segunda página da mesma aba a
       origem é "interno", porque em navegação client-side o `document.referrer`
       congela no que trouxe o leitor ao site.
-- [ ] **Temperatura do topo é `"32°C"` fixo** (`top-bar.tsx`). **Fica na tela**
-      por decisão do cliente (D12) — troca-se por dado real quando houver uma
-      porta `Weather` com provedor. Até lá é dívida consciente: valor fixo que
-      parece dado ao vivo engana o leitor (32 °C inclusive quando chove).
+- [x] ~~**Faixa de cotações na home**~~ ✅ Entregue em 12/08, a pedido do
+      cliente, no espaço que a "TV 7 Cidades" deixou. Dólar, Euro e Bitcoin da
+      [AwesomeAPI](https://docs.awesomeapi.com.br/api-de-moedas), lidos no
+      SERVIDOR — no cliente seria uma requisição por visitante, e a API sem
+      chave para em 100; daqui, com o `revalidate = 60` do grupo `(site)`, é no
+      máximo uma por minuto para o site inteiro, seja qual for a audiência. Por
+      isso também dispensa chave. Mesma regra do Inngest, do Redis e do Mailer:
+      SaaS é peça trocável. Timeout de 3s porque o caso comum não é a API cair
+      e sim FICAR LENTA; falha, timeout, HTTP de erro ou JSON torto degradam
+      para lista vazia e a seção some — exercitado trocando o host por um
+      inexistente. A leitura do payload é módulo puro com 26 testes
+      (`lib/quotes.ts`), porque a API manda todo valor como STRING e
+      `Number("")` é 0 — um zero falso na faixa leria como "o dólar vale nada".
+- [x] ~~**Temperatura do topo é `"32°C"` fixo**~~ ✅ Resolvido em 12/08 (D12
+      encerrada). Vem da [Open-Meteo](https://open-meteo.com/en/docs), sem
+      chave, para a cidade CONFIGURADA — não uma coordenada escrita no código:
+      se o veículo mudar de praça o cabeçalho acompanha sem deploy, e ninguém
+      precisa saber latitude para configurar um portal. A geocodificação é
+      cacheada por 30 dias (coordenada de cidade não muda) e a previsão por 15
+      minutos, que é o passo de atualização da fonte. Sem leitura, o trecho
+      SOME — cidade e estado seguem sozinhos, sem o "·" órfão. **A dívida era
+      real e mensurável:** no dia da troca marcava 36 °C, quatro graus acima do
+      valor fixo.
+      **Pendência de LICENÇA, não de código:** o plano gratuito da Open-Meteo é
+      declarado para uso NÃO COMERCIAL, e o portal de uma rádio comercial
+      provavelmente não se enquadra. O volume não é o problema (uma requisição
+      por minuto para o site inteiro) — é a licença. O cliente precisa decidir
+      entre assinar o plano comercial deles ou trocar de provedor; a troca é
+      barata, porque só `data/weather.ts` conhece a fonte.
 - [ ] **`packages/api` não é verificado**: o `package.json` tem `"scripts": {}`,
       sem `check-types` — o pacote dos routers e das permissões nunca passa pelo
       `tsc` no CI. O que o `apps/web` importa é verificado de carona; o resto,
@@ -312,6 +425,24 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
 
 ## 🟢 Refinamentos de UX (não bloqueiam)
 
+- [x] ~~Ícones no lugar do nome das redes sociais~~ ✅ Feito em 12/08, nos três
+      lugares (compartilhar da matéria, perfil do autor, barra do topo), com
+      `react-icons/fa6` — família única, porque misturar famílias nunca fecha o
+      alinhamento óptico, e o Simple Icons não tem LinkedIn. O rótulo das redes
+      do veículo é texto livre digitado nas Configurações, então
+      `resolveNetwork` só casa por correspondência EXATA e devolve `null`
+      quando não reconhece — aí o texto continua aparecendo. Casar por "contém"
+      poria o logo do X em "Siga no X", que pode levar a qualquer lugar.
+      Todo ícone é `aria-hidden` com o nome acessível no elemento que o
+      envolve: sem isso a troca deixaria os links MUDOS para leitor de tela.
+- [x] ~~Animações discretas~~ ✅ Feito em 12/08, **sem biblioteca** — o que
+      "discreto" pede cabe em CSS. O que entrou: guarda global de
+      `prefers-reduced-motion` (a fundação, e não existia nenhuma no projeto),
+      barra do resultado de enquete crescendo por `scaleX` (não por `width`,
+      que reflui a cada quadro), transição na borda da navegação — que trocava
+      de cor com PISCADA —, elevação de 1px nos cartões de colunista e o
+      "certo" do link copiado chegando com `zoom-in`, porque trocar palavra por
+      símbolo num aviso arrisca justamente passar despercebido.
 - [ ] Aviso de edição concorrente (dois jornalistas na mesma matéria) — precisa
       de versionamento otimista no agregado.
 - [ ] Histórico e diff visual de versões.
@@ -366,6 +497,51 @@ para o mesmo lugar.
 
 ---
 
+## Corrigido nesta rodada (12/08), fora do que foi pedido
+
+Dois defeitos que apareceram enquanto se mexia em outra coisa. Ficam
+registrados porque os dois têm a mesma forma — **estado que mora de um lado e
+espaço que mora do outro** — e é a forma que tende a voltar:
+
+- **Fechar a âncora de anúncio no celular deixava 68px de branco.** O banner
+  era `fixed`, logo fora do fluxo, e quem abria espaço para ele era um
+  `pb-[68px]` no wrapper do layout. Esse wrapper é Server Component e o estado
+  de "fechado" mora no `AnchorAd`, que é cliente: fechar removia o banner e o
+  padding ficava. O número mágico ainda estava errado — o banner mede 63px.
+  Corrigido virando `sticky bottom-0` dentro da coluna: o espaço passa a ser
+  DELE e some junto. Medido antes (68px sobrando) e depois (0).
+- **A foto do autor na assinatura da matéria nunca aparecia** — quadro
+  hachurado fixo no HTML, sem condição, com o `author.photoUrl` chegando
+  preenchido na prop ao lado. Ver a linha do colunista, acima: é o mesmo
+  defeito de fundo.
+
+---
+
+## ⚠️ Data e fuso: o defeito que já voltou três vezes
+
+Vale isolar, porque deixou de ser coincidência e o próximo é previsível:
+
+1. **A data do cabeçalho parada em 3 de agosto** e toda matéria como "há 1 min"
+   — medidas contra um instante congelado em vez do relógio (detalhado abaixo).
+2. **A data de revisão das páginas legais um dia atrasada** (12/08) —
+   `2026-08-12` é DATA DE CALENDÁRIO, o JS a parseia como meia-noite UTC, e
+   formatá-la em `America/Fortaleza` (UTC−3) devolve 21h do dia anterior.
+3. **A hora da cotação, 3 horas errada** (12/08) — a AwesomeAPI manda
+   `"2021-04-13 08:57:27"` em UTC−3 e **não diz isso na string**; `new Date`
+   cru usa o fuso de quem executa, que na Vercel é UTC.
+
+**A regra que os três violam é a mesma:** toda data que entra ou sai do sistema
+precisa do fuso EXPLÍCITO, e o padrão do JavaScript nunca é o que se espera.
+Data de calendário formata-se em UTC (não há instante a converter); string de
+terceiro carrega o offset da fonte, escrito à mão se preciso.
+
+Nenhum dos três deu erro, aviso ou teste vermelho — os três **mostraram um
+número plausível e errado**, que é o modo mais caro de falhar. As correções
+estão em `lib/format.ts`, `components/layout/legal-page.tsx` e
+`lib/quotes.ts` (esta com teste fixando o offset da fonte).
+
+---
+
 ## Corrigido de passagem (achado ao semear)
 
 Três coisas só apareceram quando o portal passou a ter conteúdo real — com as
@@ -405,16 +581,20 @@ que resta, na ordem em que rende mais:
    defeito é mais caro. Merece commit próprio porque pode revelar erro
    acumulado.
 
-3. **Preencher os 29 `it.todo`** (13 no serializador do TipTap, 8 na
-   autorização, 8 na formatação de data). O de autorização exige antes tornar a
-   raiz de composição injetável (`createAppRouter(deps)`), senão o teste vira
-   integração.
+3. **Preencher os `it.todo`** (serializador do TipTap, autorização dos routers,
+   formatação de data). O de autorização exige antes tornar a raiz de
+   composição injetável (`createAppRouter(deps)`), senão o teste vira
+   integração. **Os de data subiram de prioridade:** o defeito de fuso já
+   voltou três vezes (ver a seção própria acima), e é a família que falha
+   mostrando um número plausível em vez de quebrar.
 
 4. **Invalidação por evento.** É o único item da lista que o leitor final
    percebe todo dia: matéria publicada demora até 1 min para entrar no ar.
 
-5. **Banners**, quando houver anunciante — é o maior item que sobrou (contexto
-   `advertising` inteiro), e não rende nada até existir campanha para veicular.
+5. **Banners e patrocinadores**, quando houver anunciante. É o maior item que
+   sobrou (contexto `advertising` inteiro) e não rende nada até existir
+   campanha para veicular — os patrocinadores foram adiados pelo cliente em
+   12/08, e o espaço que tinham na home é hoje a faixa de cotações.
 
 **Duas decisões que dependem do cliente, não de engenharia:** se anúncios entram
 agora ou quando aparecer o primeiro anunciante; e o que "colunistas" significa —

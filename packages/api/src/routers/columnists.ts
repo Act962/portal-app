@@ -21,6 +21,21 @@ import { publicProcedure, requirePermission, router } from "../index";
  */
 const manage = requirePermission("columnists:manage");
 
+/**
+ * As quatro redes conhecidas. Chave fora desta lista é DESCARTADA aqui, antes
+ * do domínio: o `list` é público, e um Json aberto viraria um campo livre que o
+ * portal renderiza como link — ou seja, injeção de URL arbitrária por quem tem
+ * acesso ao painel.
+ */
+const socialsSchema = z
+	.object({
+		twitter: z.string().optional(),
+		instagram: z.string().optional(),
+		linkedin: z.string().optional(),
+		website: z.string().optional(),
+	})
+	.strict();
+
 function columnistDto(columnist: Columnist) {
 	return {
 		id: columnist.id,
@@ -29,6 +44,8 @@ function columnistDto(columnist: Columnist) {
 		beat: columnist.beat,
 		blurb: columnist.blurb,
 		photoMediaId: columnist.photoMediaId,
+		socials: columnist.socials,
+		email: columnist.email,
 		order: columnist.order,
 		active: columnist.isActive,
 	};
@@ -66,6 +83,8 @@ export const columnistsRouter = router({
 				beat: z.string().optional(),
 				blurb: z.string().optional(),
 				photoMediaId: z.string().nullish(),
+				socials: socialsSchema.optional(),
+				email: z.string().nullish(),
 			}),
 		)
 		.mutation(async ({ input }) =>
@@ -80,6 +99,8 @@ export const columnistsRouter = router({
 				beat: z.string().optional(),
 				blurb: z.string().optional(),
 				photoMediaId: z.string().nullish(),
+				socials: socialsSchema.optional(),
+				email: z.string().nullish(),
 			}),
 		)
 		.mutation(async ({ input }) =>

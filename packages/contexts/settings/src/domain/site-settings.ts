@@ -22,6 +22,12 @@ export type SiteSettingsData = {
 	city: string;
 	state: string;
 	logoMediaId: string | null;
+	/**
+	 * O ícone da ABA do navegador. Separado do logo de propósito: o logo é
+	 * horizontal e legível a 200px, o favicon é quadrado e precisa funcionar a
+	 * 16px. Reaproveitar um no outro dá borrão em algum dos dois lugares.
+	 */
+	faviconMediaId: string | null;
 
 	// Rádio (D11)
 	radioFrequency: string | null;
@@ -58,6 +64,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
 	city: "Piracuruca",
 	state: "PI",
 	logoMediaId: null,
+	faviconMediaId: null,
 
 	radioFrequency: "93,9 MHz",
 	radioBand: "93,9 FM",
@@ -72,13 +79,15 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
 		{ label: "Facebook", href: "https://facebook.com" },
 		{ label: "YouTube", href: "https://youtube.com" },
 	],
+	// Só o que EXISTE. Eram seis itens, todos com `href: ""` — o `SiteLink` os
+	// degradava para texto inerte (D9), o que evita o clique morto mas ainda
+	// anuncia no rodapé seis serviços que o portal não tem. Restaram os dois
+	// que viraram página de verdade; os outros voltam quando a página existir,
+	// e enquanto isso qualquer um pode ser recadastrado pela tela de
+	// Configurações.
 	institutional: [
-		{ label: "Quem somos", href: "" },
-		{ label: "Anuncie na 7 Cidades", href: "" },
-		{ label: "Programação", href: "" },
-		{ label: "Locutores e colunistas", href: "" },
-		{ label: "Enquetes", href: "" },
-		{ label: "Fale com a redação", href: "" },
+		{ label: "Colunistas", href: "/colunistas" },
+		{ label: "Enquetes", href: "/enquetes" },
 	],
 	popularSearches: [
 		"Concurso público",
@@ -89,7 +98,12 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
 		"Programação",
 	],
 
-	legal: "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE USO",
+	// A linha da razão social, ao lado do copyright. Trazia
+	// "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE USO", que PARECIA um
+	// menu de links e era só texto impresso — as três não levavam a lugar
+	// nenhum. Privacidade e Termos agora são links de verdade no rodapé; este
+	// campo volta a ser o que o nome dele diz.
+	legal: null,
 };
 
 const REQUIRED_FIELDS = [
@@ -144,6 +158,7 @@ export class SiteSettings extends AggregateRoot<string> {
 			city: text(row.city, d.city),
 			state: text(row.state, d.state),
 			logoMediaId: nullableText(row.logoMediaId),
+			faviconMediaId: nullableText(row.faviconMediaId),
 
 			radioFrequency: nullableText(row.radioFrequency) ?? d.radioFrequency,
 			radioBand: nullableText(row.radioBand) ?? d.radioBand,
@@ -224,6 +239,7 @@ function normalize(
 		city: data.city.trim(),
 		state: data.state.trim(),
 		logoMediaId: blankToNull(data.logoMediaId),
+		faviconMediaId: blankToNull(data.faviconMediaId),
 		radioFrequency: blankToNull(data.radioFrequency),
 		radioBand: blankToNull(data.radioBand),
 		contactNewsroom: blankToNull(data.contactNewsroom),

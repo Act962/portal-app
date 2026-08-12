@@ -19,6 +19,11 @@ model SiteSettings {
   state       String
   logoMediaId String?
 
+  // Ícone da aba do navegador. Coluna própria, e não o `logoMediaId` reusado:
+  // o logo é horizontal e legível a 200px, o favicon é quadrado e precisa
+  // funcionar a 16px. Servir um como o outro borra em algum dos dois lugares.
+  faviconMediaId String?
+
   // Rádio (D11) — só a identidade que o portal exibe. O `radioStreamUrl` saiu
   // junto com o player de áudio: a transmissão ao vivo deixou de fazer parte do
   // produto.

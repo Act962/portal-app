@@ -30,6 +30,15 @@ model Columnist {
   // é o mesmo caminho da capa da matéria, e sobrevive a troca de storage.
   photoMediaId String?
 
+  // Contato PÚBLICO — o que sai no perfil para o leitor. As quatro chaves de
+  // `socials` são as mesmas do `staff_member`, porque a página de autor monta
+  // um perfil só, ora de um lado ora do outro.
+  //
+  // `email` NÃO é credencial e por isso não é único: dois colunistas podem
+  // publicar o mesmo endereço da redação. O e-mail de login vive no `identity`.
+  socials Json    @default("{}")
+  email   String?
+
   // Ordem no bloco da home. Desempate manual, como na grade e nas editorias.
   order  Int     @default(0)
   active Boolean @default(true)

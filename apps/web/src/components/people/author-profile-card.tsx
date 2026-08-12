@@ -1,9 +1,13 @@
+import { AuthorAvatar } from "@/components/people/author-avatar";
+import { SocialIcon } from "@/components/social/social-icon";
 import type { Author } from "@/data/types";
+import type { Network } from "@/lib/social-networks";
 
 /**
- * Cabeçalho da página de autor: foto, nome, cargo, bio e redes. É a peça de
- * E-E-A-T (P10) — dá rosto e credenciais a quem assina, o que o Google usa para
- * aferir autoridade. Autor sem perfil preenchido mostra só nome e cargo padrão.
+ * Cabeçalho da página de autor: foto, nome, cargo, bio, redes e contato. É a
+ * peça de E-E-A-T (P10) — dá rosto e credenciais a quem assina, o que o Google
+ * usa para aferir autoridade. Autor sem perfil preenchido mostra só nome e
+ * cargo padrão.
  */
 const SOCIAL_LABELS = {
 	twitter: "Twitter",
@@ -12,29 +16,33 @@ const SOCIAL_LABELS = {
 	website: "Site",
 } as const;
 
+type SocialKey = keyof typeof SOCIAL_LABELS;
+
+/**
+ * As quatro chaves do perfil já SÃO redes conhecidas — aqui não há adivinhação
+ * de rótulo como na barra do topo, porque o domínio só aceita estas quatro.
+ * `website` vira o globo.
+ */
+const SOCIAL_NETWORK: Record<SocialKey, Network> = {
+	twitter: "twitter",
+	instagram: "instagram",
+	linkedin: "linkedin",
+	website: "website",
+};
+
 export function AuthorProfileCard({ author }: { author: Author }) {
-	const socials = Object.entries(author.socials ?? {}).filter(([, href]) =>
-		Boolean(href),
+	const socials = Object.entries(author.socials ?? {}).filter(
+		(entry): entry is [SocialKey, string] =>
+			Boolean(entry[1]) && entry[0] in SOCIAL_LABELS,
 	);
 
 	return (
 		<div className="-mx-4 mb-4 flex gap-4 bg-brand-navy px-4 py-5 md:mx-0 md:mb-5 md:items-center md:gap-6 md:border-brand-navy md:border-b-[3px] md:bg-transparent md:px-0 md:pt-0 md:pb-5">
-			{author.photoUrl ? (
-				// A otimização por host (next/image + remotePatterns) entra na Etapa 7;
-				// aqui a foto do perfil é servida direta do S3/R2.
-				<img
-					src={author.photoUrl}
-					alt={author.name}
-					width={112}
-					height={112}
-					className="size-[72px] shrink-0 rounded-full object-cover md:size-28"
-				/>
-			) : (
-				<div
-					aria-hidden
-					className="hatch-light size-[72px] shrink-0 rounded-full md:size-28"
-				/>
-			)}
+			<AuthorAvatar
+				photoUrl={author.photoUrl}
+				name={author.name}
+				className="size-[72px] shrink-0 rounded-full md:size-28"
+			/>
 
 			<div className="min-w-0 flex-1">
 				<p className="mb-1 font-mono text-[9px] text-on-navy-muted uppercase tracking-[0.16em] md:text-[10px] md:text-meta">
@@ -51,10 +59,10 @@ export function AuthorProfileCard({ author }: { author: Author }) {
 					</p>
 				) : null}
 
-				{socials.length > 0 ? (
+				{socials.length > 0 || author.email ? (
 					<nav
-						aria-label={`Redes de ${author.name}`}
-						className="mt-3 flex flex-wrap items-center gap-2"
+						aria-label={`Contato de ${author.name}`}
+						className="mt-3 flex flex-wrap items-center gap-3"
 					>
 						{socials.map(([key, href]) => (
 							<a
@@ -62,11 +70,35 @@ export function AuthorProfileCard({ author }: { author: Author }) {
 								href={href}
 								target="_blank"
 								rel="me noopener noreferrer"
-								className="font-mono text-[10px] text-on-navy-muted uppercase tracking-[0.12em] underline-offset-2 hover:text-white hover:underline md:text-meta md:hover:text-brand-red"
+								// Sem o rótulo visível, o nome acessível é o que sobra — e
+								// precisa dizer DE QUEM é o perfil, porque "Instagram" solto
+								// numa lista de links não identifica destino nenhum.
+								aria-label={`${author.name} no ${SOCIAL_LABELS[key]}`}
+								className="text-on-navy-muted transition-colors hover:text-white md:text-meta md:hover:text-brand-red"
 							>
-								{SOCIAL_LABELS[key as keyof typeof SOCIAL_LABELS]}
+								<SocialIcon
+									network={SOCIAL_NETWORK[key]}
+									className="size-[17px]"
+								/>
 							</a>
 						))}
+
+						{/*
+						  O e-mail é o único que não vira só ícone: ele é um endereço que
+						  o leitor pode querer COPIAR, não apenas clicar — e um envelope
+						  mudo não dá como copiar coisa nenhuma.
+						*/}
+						{author.email ? (
+							<a
+								href={`mailto:${author.email}`}
+								className="flex items-center gap-1.5 text-on-navy-muted transition-colors hover:text-white md:text-meta md:hover:text-brand-red"
+							>
+								<SocialIcon network="email" className="size-[15px]" />
+								<span className="font-mono text-[10px] md:text-[11px]">
+									{author.email}
+								</span>
+							</a>
+						) : null}
 					</nav>
 				) : null}
 			</div>

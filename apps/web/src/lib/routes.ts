@@ -15,6 +15,10 @@ export const routes = {
 	menu: "/menu" as Route,
 	latest: "/ultimas" as Route,
 	search: "/busca" as Route,
+	columnists: "/colunistas" as Route,
+	polls: "/enquetes" as Route,
+	privacy: "/privacidade" as Route,
+	terms: "/termos" as Route,
 	section: (slug: string) => `/${slug}` as Route,
 	article: (sectionSlug: string, slug: string) =>
 		`/${sectionSlug}/${slug}` as Route,

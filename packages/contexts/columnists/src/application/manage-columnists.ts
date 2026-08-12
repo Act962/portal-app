@@ -6,8 +6,10 @@ import {
 } from "@portal-app/shared-kernel";
 
 import { Columnist } from "../domain/columnist";
+import type { SocialLinks } from "../domain/contact";
 import {
 	ColumnistNotFound,
+	type InvalidColumnistEmail,
 	type InvalidSlug,
 	type NameRequired,
 	SlugTaken,
@@ -31,6 +33,8 @@ type CreateInput = {
 	beat?: string;
 	blurb?: string;
 	photoMediaId?: string | null;
+	socials?: SocialLinks;
+	email?: string | null;
 };
 
 export function listColumnists(deps: Pick<Deps, "repo">): Promise<Columnist[]> {
@@ -40,7 +44,12 @@ export function listColumnists(deps: Pick<Deps, "repo">): Promise<Columnist[]> {
 export async function createColumnist(
 	input: CreateInput,
 	deps: Deps,
-): Promise<Result<Columnist, NameRequired | InvalidSlug | SlugTaken>> {
+): Promise<
+	Result<
+		Columnist,
+		NameRequired | InvalidSlug | SlugTaken | InvalidColumnistEmail
+	>
+> {
 	// Novo colunista entra no fim do bloco (desempate manual, como a grade e as
 	// editorias).
 	const order = (await deps.repo.list()).length;
@@ -72,9 +81,13 @@ export async function updateColumnist(
 		beat?: string;
 		blurb?: string;
 		photoMediaId?: string | null;
+		socials?: SocialLinks;
+		email?: string | null;
 	},
 	deps: Pick<Deps, "repo">,
-): Promise<Result<Columnist, NameRequired | ColumnistNotFound>> {
+): Promise<
+	Result<Columnist, NameRequired | ColumnistNotFound | InvalidColumnistEmail>
+> {
 	const columnist = await deps.repo.findById(input.id);
 	if (!columnist) {
 		return err(new ColumnistNotFound(input.id));

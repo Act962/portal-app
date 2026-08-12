@@ -32,6 +32,7 @@ const updateSchema = z.object({
 	city: z.string().optional(),
 	state: z.string().optional(),
 	logoMediaId: z.string().nullable().optional(),
+	faviconMediaId: z.string().nullable().optional(),
 
 	radioFrequency: z.string().nullable().optional(),
 	radioBand: z.string().nullable().optional(),

@@ -39,7 +39,10 @@ export function MainNav({ sections }: { sections: Section[] }) {
 										href={href}
 										aria-current={isActive ? "page" : undefined}
 										className={cn(
-											"flex items-center whitespace-nowrap border-b-[3px] pt-2.5 pb-2 font-bold text-[12.5px] text-brand-navy uppercase tracking-[0.04em] hover:border-brand-red hover:text-brand-red md:py-3.5 md:text-[13px] md:text-white md:tracking-[0.06em] md:hover:text-brand-red-soft",
+											// A borda inferior já mudava de cor no hover; o que faltava
+											// era a transição — sem ela a marca vermelha PISCA para
+											// dentro e para fora a cada passada do mouse pela barra.
+											"flex items-center whitespace-nowrap border-b-[3px] pt-2.5 pb-2 font-bold text-[12.5px] text-brand-navy uppercase tracking-[0.04em] transition-colors duration-200 hover:border-brand-red hover:text-brand-red md:py-3.5 md:text-[13px] md:text-white md:tracking-[0.06em] md:hover:text-brand-red-soft",
 											isActive ? "border-brand-red" : "border-transparent",
 										)}
 									>

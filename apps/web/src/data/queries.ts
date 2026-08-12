@@ -20,6 +20,7 @@ export {
 	getAuthor,
 	getAuthors,
 	getColumnists,
+	getColumnistsWithLatest,
 	getHeadline,
 	getHomeBlocks,
 	getLatest,

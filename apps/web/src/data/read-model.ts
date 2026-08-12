@@ -16,6 +16,7 @@ import type {
 	Author,
 	AuthorSocials,
 	Columnist,
+	ColumnistListing,
 	Cover,
 	InlineNode,
 	Section,
@@ -55,7 +56,9 @@ const prisma = createPrismaClient();
  * função não devolve `null` e ninguém precisa tratar "ainda não configurado".
  */
 export const loadSiteSettings = cache(
-	async (): Promise<SiteSettingsData & { logoUrl: string | null }> => {
+	async (): Promise<
+		SiteSettingsData & { logoUrl: string | null; faviconUrl: string | null }
+	> => {
 		// `safely` como todos os outros loaders: o build do CI prerenderiza SEM
 		// banco, e sem esta tolerância a página inteira quebra na geração. O
 		// fallback `null` cai nos defaults pelo `fromStored` (D7) — que é
@@ -69,11 +72,16 @@ export const loadSiteSettings = cache(
 
 		// O agregado guarda o ID da mídia, não a URL (D8) — resolver é trabalho da
 		// leitura, e a biblioteca já está em cache neste render.
+		const media =
+			data.logoMediaId || data.faviconMediaId ? await loadMedia() : null;
 		const logoUrl = data.logoMediaId
-			? ((await loadMedia()).get(data.logoMediaId)?.url ?? null)
+			? (media?.get(data.logoMediaId)?.url ?? null)
+			: null;
+		const faviconUrl = data.faviconMediaId
+			? (media?.get(data.faviconMediaId)?.url ?? null)
 			: null;
 
-		return { ...data, logoUrl };
+		return { ...data, logoUrl, faviconUrl };
 	},
 );
 
@@ -97,7 +105,11 @@ export const loadSchedule = cache(
 			"schedule",
 			() =>
 				prisma.program.findMany({
-					orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }, { order: "asc" }],
+					orderBy: [
+						{ dayOfWeek: "asc" },
+						{ startTime: "asc" },
+						{ order: "asc" },
+					],
 					select: {
 						id: true,
 						name: true,
@@ -260,30 +272,36 @@ type ColumnistProfile = {
 	beat: string;
 	blurb: string;
 	photoMediaId: string | null;
+	socials: unknown;
+	email: string | null;
 	order: number;
 	active: boolean;
 };
 
-const loadColumnists = cache(async (): Promise<Map<string, ColumnistProfile>> => {
-	const rows = await safely(
-		"columnists",
-		() =>
-			prisma.columnist.findMany({
-				orderBy: [{ order: "asc" }, { name: "asc" }],
-				select: {
-					slug: true,
-					name: true,
-					beat: true,
-					blurb: true,
-					photoMediaId: true,
-					order: true,
-					active: true,
-				},
-			}),
-		[] as ColumnistProfile[],
-	);
-	return new Map(rows.map((c) => [c.slug, c]));
-});
+const loadColumnists = cache(
+	async (): Promise<Map<string, ColumnistProfile>> => {
+		const rows = await safely(
+			"columnists",
+			() =>
+				prisma.columnist.findMany({
+					orderBy: [{ order: "asc" }, { name: "asc" }],
+					select: {
+						slug: true,
+						name: true,
+						beat: true,
+						blurb: true,
+						photoMediaId: true,
+						socials: true,
+						email: true,
+						order: true,
+						active: true,
+					},
+				}),
+			[] as ColumnistProfile[],
+		);
+		return new Map(rows.map((c) => [c.slug, c]));
+	},
+);
 
 const PUBLIC_BASE = env.S3_PUBLIC_URL.replace(/\/+$/, "");
 
@@ -558,31 +576,49 @@ export async function getAuthor(slug: string): Promise<Author> {
 			: { slug, name: deslug(slug), role: "Redação" };
 	}
 
-	// A precedência é do StaffMember: quem tem conta mantém o perfil da Equipe
-	// como fonte única, e o registro de colunista só completa quem não tem.
+	// A precedência é do StaffMember, mas CAMPO A CAMPO — e essa é a diferença
+	// que importa. Antes ela era tudo-ou-nada: bastava a pessoa ter conta para o
+	// registro de colunista ser ignorado inteiro, inclusive a foto, mesmo com o
+	// perfil da Equipe vazio. Como a home lê o registro direto
+	// (`getColumnists`), o sintoma era a foto aparecer SÓ na home e sumir na
+	// página de autor e na assinatura — sem erro em lugar nenhum.
+	//
+	// Quem tem conta continua mandando no que preencheu; o registro de colunista
+	// completa as lacunas em vez de ser descartado por elas.
 	const profile = staff.get(entry.authorId);
+	const fallback = columnist ? columnistAuthor(columnist, media) : undefined;
+
 	if (profile) {
 		return {
 			slug,
 			name: entry.name,
-			role: profile.title || "Redação",
-			bio: profile.bio || undefined,
-			photoUrl: profile.photoUrl ?? undefined,
-			socials: profile.socials,
+			role: profile.title || fallback?.role || "Redação",
+			bio: profile.bio || fallback?.bio,
+			photoUrl: profile.photoUrl ?? fallback?.photoUrl,
+			// Redes e e-mail vêm em BLOCO da fonte que tiver alguma coisa: mesclar
+			// chave a chave misturaria o Instagram pessoal do cadastro de
+			// colunista com o LinkedIn corporativo da Equipe num perfil só.
+			socials: hasAny(profile.socials) ? profile.socials : fallback?.socials,
+			email: fallback?.email,
 		};
 	}
 
-	return columnist
+	return fallback
 		? // O nome vem do índice (a assinatura mais recente), não do cadastro:
 			// é o que o leitor viu na matéria.
-			{ ...columnistAuthor(columnist, media), name: entry.name }
+			{ ...fallback, name: entry.name }
 		: { slug, name: entry.name, role: "Redação" };
+}
+
+function hasAny(socials: AuthorSocials | undefined): boolean {
+	return Boolean(socials && Object.keys(socials).length > 0);
 }
 
 function columnistAuthor(
 	columnist: ColumnistProfile,
 	media: Map<string, MediaInfo>,
 ): Author {
+	const socials = (columnist.socials ?? {}) as AuthorSocials;
 	return {
 		slug: columnist.slug,
 		name: columnist.name,
@@ -593,6 +629,8 @@ function columnistAuthor(
 		photoUrl: columnist.photoMediaId
 			? media.get(columnist.photoMediaId)?.url
 			: undefined,
+		socials: hasAny(socials) ? socials : undefined,
+		email: columnist.email ?? undefined,
 	};
 }
 
@@ -600,7 +638,10 @@ function columnistAuthor(
  * O bloco de colunistas da home: só os que estão no ar, na ordem da curadoria.
  */
 export async function getColumnists(): Promise<Columnist[]> {
-	const [columnists, media] = await Promise.all([loadColumnists(), loadMedia()]);
+	const [columnists, media] = await Promise.all([
+		loadColumnists(),
+		loadMedia(),
+	]);
 	return [...columnists.values()]
 		.filter((c) => c.active)
 		.map((c) => ({
@@ -610,6 +651,37 @@ export async function getColumnists(): Promise<Columnist[]> {
 			blurb: c.blurb,
 			photoUrl: c.photoMediaId ? media.get(c.photoMediaId)?.url : undefined,
 		}));
+}
+
+/**
+ * A página `/colunistas`: o mesmo perfil da home, mais a coluna mais recente de
+ * cada um e quantas a pessoa já assinou.
+ *
+ * O índice existe para dar DESTINO ao "Locutores e colunistas" do rodapé, que
+ * até aqui era texto morto. Cada cartão continua levando a `/autor/{slug}`, e
+ * não a uma página de coluna própria: aquela URL já está indexada e já lista as
+ * matérias: duplicar criaria duas páginas competindo pela mesma pessoa.
+ *
+ * Sem consulta nova — `loadPublished` já está em cache neste render, e o filtro
+ * é em memória. Uma query por colunista seria N+1 para ganhar nada.
+ */
+export async function getColumnistsWithLatest(): Promise<ColumnistListing[]> {
+	const [columnists, published] = await Promise.all([
+		getColumnists(),
+		loadPublished(),
+	]);
+
+	return columnists.map((columnist) => {
+		const articles = published.filter(
+			(article) => article.authorSlug === columnist.slug,
+		);
+		return {
+			...columnist,
+			// `loadPublished` já vem por recência, então a primeira é a mais nova.
+			latest: articles[0],
+			articleCount: articles.length,
+		};
+	});
 }
 
 export async function getAuthors(): Promise<Author[]> {

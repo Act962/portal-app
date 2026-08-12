@@ -22,6 +22,14 @@ export async function GET() {
 	const entries: UrlEntry[] = [
 		{ loc: abs(routes.home), changefreq: "hourly", priority: "1.0" },
 		{ loc: abs(routes.latest), changefreq: "hourly", priority: "0.9" },
+		{ loc: abs(routes.columnists), changefreq: "weekly", priority: "0.6" },
+		{ loc: abs(routes.polls), changefreq: "weekly", priority: "0.5" },
+		// Privacidade e Termos entram com prioridade baixa e `yearly`: precisam
+		// ser INDEXÁVEIS — o Google trata a existência deles como sinal de
+		// confiabilidade do veículo — mas não competem por atenção com a
+		// cobertura, e mudam de ano em ano.
+		{ loc: abs(routes.privacy), changefreq: "yearly", priority: "0.2" },
+		{ loc: abs(routes.terms), changefreq: "yearly", priority: "0.2" },
 		...sections.map(
 			(section): UrlEntry => ({
 				loc: abs(routes.section(section.slug)),

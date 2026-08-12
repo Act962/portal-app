@@ -4,8 +4,8 @@ import { ctaButtonVariants } from "@portal-app/ui/components/cta-button";
 import { SectionHeader } from "@portal-app/ui/components/section-header";
 import Link from "next/link";
 
+import { QuotesBand } from "@/components/finance/quotes-band";
 import { ContentWithSidebar } from "@/components/layout/content-with-sidebar";
-import { VideoShowcase } from "@/components/media/video-showcase";
 import { HeroStory } from "@/components/news/hero-story";
 import { LatestStories } from "@/components/news/latest-stories";
 import { MostReadList } from "@/components/news/most-read-list";
@@ -27,7 +27,7 @@ import {
 	getSecondaryStories,
 	getSections,
 } from "@/data/queries";
-import { VIDEOS } from "@/data/videos";
+import { loadQuotes } from "@/data/quotes";
 import { routes } from "@/lib/routes";
 import { websiteSchema } from "@/lib/structured-data";
 
@@ -41,6 +41,7 @@ export default async function HomePage() {
 		latest,
 		poll,
 		columnists,
+		quotes,
 	] = await Promise.all([
 		getHeadline(),
 		getHomeBlocks(),
@@ -50,6 +51,10 @@ export default async function HomePage() {
 		getLatest(),
 		loadCurrentPoll(),
 		getColumnists(),
+		// Em paralelo com as leituras do banco, e não em série: é uma chamada de
+		// REDE a um terceiro, e enfileirá-la depois das outras somaria a latência
+		// dela ao tempo de resposta da home.
+		loadQuotes(),
 	]);
 
 	// Portal recém-migrado / sem publicações ainda: estado vazio honesto.
@@ -133,7 +138,12 @@ export default async function HomePage() {
 			</ContentWithSidebar>
 
 			<Container>
-				<VideoShowcase videos={VIDEOS} />
+				{/* No lugar da antiga faixa "TV 7 Cidades", que era fixture. Ao
+				    contrário dela, esta some sozinha quando não há o que mostrar —
+				    a API é de terceiro e pode falhar, e a home não pode depender
+				    disso para ficar inteira. */}
+				<QuotesBand quotes={quotes} />
+
 				{/* Sem colunista cadastrado o bloco não aparece — mesma decisão da
 				    grade de programação: seção vazia com título é pior que seção
 				    nenhuma. */}

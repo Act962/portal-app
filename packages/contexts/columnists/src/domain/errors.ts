@@ -39,3 +39,16 @@ export class ColumnistNotFound extends Error {
 		this.name = "ColumnistNotFound";
 	}
 }
+
+/**
+ * O e-mail de contato é PUBLICADO no perfil — sai no portal, num `mailto:`.
+ * Por isso ele é recusado na entrada em vez de guardado torto: um endereço
+ * inválido aqui não gera erro em lugar nenhum, só um link que o leitor clica e
+ * não chega a ninguém.
+ */
+export class InvalidColumnistEmail extends Error {
+	constructor(raw: string) {
+		super(`E-mail de contato inválido: "${raw}".`);
+		this.name = "InvalidColumnistEmail";
+	}
+}

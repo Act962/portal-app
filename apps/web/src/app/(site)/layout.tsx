@@ -43,8 +43,7 @@ export default async function SiteLayout({
 
 	return (
 		<>
-			{/* Bottom padding clears the sticky anchor ad on small screens. */}
-			<div className="flex min-h-svh flex-col bg-canvas pb-[68px] text-ink md:pb-0">
+			<div className="flex min-h-svh flex-col bg-canvas text-ink">
 				<SkipLink />
 				<TopBar />
 				<SiteHeader />
@@ -56,9 +55,16 @@ export default async function SiteLayout({
 				</main>
 
 				<SiteFooter sections={sections} />
+
+				{/*
+				  DENTRO da coluna, e como último item — não é arrumação, é o que faz
+				  o `sticky` funcionar. Aqui fora ele não teria lugar no fluxo, e o
+				  espaço voltaria a depender de um padding no wrapper, que é Server
+				  Component e não fica sabendo que o leitor fechou o banner.
+				*/}
+				<AnchorAd />
 			</div>
 
-			<AnchorAd />
 			<JsonLd schema={organizationSchema()} />
 		</>
 	);

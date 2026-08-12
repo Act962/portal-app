@@ -133,8 +133,9 @@
 	html {
 		@apply font-sans;
 	}
-  button:not(:disabled), [role="button"]:not(:disabled) {
-    cursor: pointer;
+	button:not(:disabled),
+	[role="button"]:not(:disabled) {
+		cursor: pointer;
 	}
 }
 
@@ -178,6 +179,17 @@
 	--color-ink-muted: #4a5158;
 	--color-meta: #96918a;
 	--color-meta-soft: #a8a49c;
+
+	/* Alta e baixa das cotações. Vivem SOBRE O NAVY, então são as versões
+	   claras — o `--color-brand-red` normal (#ed1b24) fica escuro demais no
+	   fundo azul e a queda sumiria. A baixa reaproveita o vermelho suave que já
+	   existe para navy, em vez de inventar um segundo vermelho quase igual.
+
+	   Cor nunca é o único sinal: quem diz alta ou baixa é a SETA ao lado do
+	   número — a distinção entre verde e vermelho é justamente a que falta para
+	   a forma mais comum de daltonismo. */
+	--color-market-up: #3fd67e;
+	--color-market-down: var(--color-brand-red-soft);
 
 	/* Text on navy surfaces */
 	--color-on-navy: #ffffff;
@@ -306,4 +318,46 @@
 	outline: 2px solid var(--color-ring);
 	outline-offset: 2px;
 	border-radius: var(--radius-sm, 0.25rem);
+}
+
+/* ---------------------------------------------------------------------------
+   Movimento
+
+   A regra de baixo é a FUNDAÇÃO, não um detalhe: `prefers-reduced-motion` é
+   uma configuração de acessibilidade do sistema, ligada por quem sente
+   náusea ou tontura com movimento na tela. Sem ela, cada animação adicionada
+   ao portal vira um problema para essas pessoas.
+
+   Zera a duração em vez de `animation: none` porque `none` cancela o estado
+   FINAL de uma animação de entrada — um elemento que aparece com fade ficaria
+   invisível para sempre. Com duração desprezível ele chega direto ao fim.
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* A barra do resultado de enquete, crescendo da esquerda.
+   `scaleX` e não `width`: largura força recálculo de layout a cada quadro,
+   transform não sai da composição. O elemento já nasce com a largura final no
+   atributo `style`, então sem JavaScript o valor certo continua lá — a
+   animação só mostra como se chegou até ele. */
+@keyframes poll-bar-grow {
+	from {
+		transform: scaleX(0);
+	}
+	to {
+		transform: scaleX(1);
+	}
+}
+
+.poll-bar {
+	transform-origin: left center;
+	animation: poll-bar-grow 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
