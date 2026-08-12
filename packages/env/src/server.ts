@@ -33,6 +33,16 @@ export const env = createEnv({
 		// e CI funcionam sem conta em serviço nenhum (N10), e em produção o
 		// "avise você mesmo" continua sendo o comportamento sem configuração.
 		RESEND_API_KEY: z.string().min(1).optional(),
+		// Token da AwesomeAPI (faixa de cotações da home). Opcional: sem ele a
+		// busca continua funcionando, e é assim que dev, build e CI rodam sem
+		// conta em serviço nenhum (N10).
+		//
+		// Em PRODUÇÃO ele deixou de ser opcional na prática. O limite do acesso
+		// anônimo é por ENDEREÇO IP, e os IPs de saída da Vercel são
+		// compartilhados com outros clientes: a cota se esgota por uso de
+		// terceiros, não pelo nosso. O portal tomou 429 em toda visita até esta
+		// variável existir.
+		AWESOMEAPI_TOKEN: z.string().min(1).optional(),
 		MAIL_FROM: z.email().default("nao-responda@fm7cidades.com.br"),
 		// Contador de "mais lidas" (Bloco 3). Default mira o Redis do
 		// `pnpm db:start` — dev funciona sem configurar nada. Sem Redis

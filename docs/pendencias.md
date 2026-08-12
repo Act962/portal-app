@@ -17,7 +17,7 @@ configurações do veículo, grade de programação, enquete com voto anônimo,
 
 ## 🚨 Precisa de ação humana — desta rodada (2026-08-12)
 
-Quatro coisas que o código não resolve sozinho e que **ficam erradas em
+Cinco coisas que o código não resolve sozinho e que **ficam erradas em
 produção até alguém agir**:
 
 1. **O texto legal precisa de revisão de quem responde pelo veículo.**
@@ -44,14 +44,27 @@ produção até alguém agir**:
    têm destino e esvaziar a linha legal (ou trocá-la pela razão social, que é
    para o que o campo passou a servir). É clique, não deploy.
 
-3. **A licença da Open-Meteo (temperatura do cabeçalho) precisa de decisão.**
+3. **A faixa de cotações precisa de `AWESOMEAPI_TOKEN` para voltar ao ar.**
+   Ela subiu e **não apareceu em produção**: o log da Vercel mostrou
+   `[cotacoes] a API respondeu 429` em toda visita. O erro de julgamento foi
+   raciocinar pelo NOSSO volume (uma chamada por minuto, folgada nos 100 do
+   acesso anônimo) — mas o limite é **por endereço IP**, e os IPs de saída da
+   Vercel são compartilhados com outros clientes: a cota se esgota por uso de
+   terceiros. O código já aceita o token; falta cadastrá-lo.
+
+   **O que fazer:** criar conta gratuita em `awesomeapi.com.br` (sobe para 100
+   mil requisições), copiar o token e cadastrar `AWESOMEAPI_TOKEN` nas
+   variáveis de ambiente da Vercel. Sem ele, dev/build/CI continuam
+   funcionando — a faixa é que fica fora do ar em produção.
+
+4. **A licença da Open-Meteo (temperatura do cabeçalho) precisa de decisão.**
    O plano gratuito é declarado para uso NÃO COMERCIAL e o portal é de uma
    rádio comercial. Não é volume — é licença. Ou assina o plano comercial
    deles, ou troca de provedor (INMET e CPTEC/INPE são públicos e brasileiros).
    A troca custa pouco: só `data/weather.ts` conhece a fonte, e o módulo puro
    com os testes continua valendo.
 
-4. **`setup.md` §3.2 e a linha do `.env` na dívida técnica estão invertidos.**
+5. **`setup.md` §3.2 e a linha do `.env` na dívida técnica estão invertidos.**
    Eles dizem que a `S3_PUBLIC_URL` local aponta para o R2 (para as capas do
    seed aparecerem). No `.env` desta máquina os sete `S3_*` apontam para o
    MinIO — o oposto. O efeito também inverteu: upload local funciona e abre
@@ -494,6 +507,30 @@ arquivo enviado localmente dá 404** — inclusive `logo_armaze_m_carvalho_verme
 que está no MinIO agora. O caminho de render foi conferido com um asset do R2 e
 funciona. Para testar upload de ponta a ponta, os sete `S3_*` precisam apontar
 para o mesmo lugar.
+
+---
+
+## ⚠️ Falha de terceiro não fica em cache — a lição do 429
+
+O 429 das cotações revelou um defeito que o desenvolvimento **não tinha como
+mostrar**, porque em dev as APIs respondem:
+
+> **O Next não guarda em cache resposta que falhou.** Com o cache só no
+> `fetch`, cada visita reenviava a chamada. Os logs da Vercel mostraram quatro
+> tentativas em cinco segundos — a falha se alimentava, porque enquanto a API
+> nos limitava, nós a martelávamos.
+
+O caso ruim nem é o 429, que responde rápido. É a API ficar **LENTA**: aí cada
+leitor pagaria os 3 segundos do timeout, e o cabeçalho está em TODA página.
+
+**A correção** foi pôr `unstable_cache` por fora do `fetch`, nas cotações e no
+tempo: o que fica guardado passa a ser o RESULTADO, inclusive a lista vazia e
+o `null`. Medido num build de produção com o host trocado por um inexistente:
+**8 visitas, 0 tentativas** (antes era uma por visita).
+
+**A regra, para a próxima integração externa:** cachear só o `fetch` protege o
+caminho feliz e deixa o caminho de erro sem proteção nenhuma — que é
+exatamente o que mais precisa dela.
 
 ---
 
