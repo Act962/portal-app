@@ -5,7 +5,6 @@ import { SectionHeader } from "@portal-app/ui/components/section-header";
 import Link from "next/link";
 
 import { ContentWithSidebar } from "@/components/layout/content-with-sidebar";
-import { VideoShowcase } from "@/components/media/video-showcase";
 import { HeroStory } from "@/components/news/hero-story";
 import { LatestStories } from "@/components/news/latest-stories";
 import { MostReadList } from "@/components/news/most-read-list";
@@ -27,7 +26,6 @@ import {
 	getSecondaryStories,
 	getSections,
 } from "@/data/queries";
-import { VIDEOS } from "@/data/videos";
 import { routes } from "@/lib/routes";
 import { websiteSchema } from "@/lib/structured-data";
 
@@ -132,8 +130,11 @@ export default async function HomePage() {
 				</div>
 			</ContentWithSidebar>
 
+			{/* A faixa "TV 7 Cidades" saiu daqui: eram quatro vídeos de FIXTURE, com
+			    duração inventada, e o "MAIS VÍDEOS →" levava para a busca. Nenhum
+			    deles existia. O espaço fica reservado para a área de patrocinadores
+			    — registrado em docs/pendencias.md. */}
 			<Container>
-				<VideoShowcase videos={VIDEOS} />
 				{/* Sem colunista cadastrado o bloco não aparece — mesma decisão da
 				    grade de programação: seção vazia com título é pior que seção
 				    nenhuma. */}

@@ -72,13 +72,15 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
 		{ label: "Facebook", href: "https://facebook.com" },
 		{ label: "YouTube", href: "https://youtube.com" },
 	],
+	// Só o que EXISTE. Eram seis itens, todos com `href: ""` — o `SiteLink` os
+	// degradava para texto inerte (D9), o que evita o clique morto mas ainda
+	// anuncia no rodapé seis serviços que o portal não tem. Restaram os dois
+	// que viraram página de verdade; os outros voltam quando a página existir,
+	// e enquanto isso qualquer um pode ser recadastrado pela tela de
+	// Configurações.
 	institutional: [
-		{ label: "Quem somos", href: "" },
-		{ label: "Anuncie na 7 Cidades", href: "" },
-		{ label: "Programação", href: "" },
-		{ label: "Locutores e colunistas", href: "" },
-		{ label: "Enquetes", href: "" },
-		{ label: "Fale com a redação", href: "" },
+		{ label: "Colunistas", href: "/colunistas" },
+		{ label: "Enquetes", href: "/enquetes" },
 	],
 	popularSearches: [
 		"Concurso público",
@@ -89,7 +91,12 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
 		"Programação",
 	],
 
-	legal: "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE USO",
+	// A linha da razão social, ao lado do copyright. Trazia
+	// "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE USO", que PARECIA um
+	// menu de links e era só texto impresso — as três não levavam a lugar
+	// nenhum. Privacidade e Termos agora são links de verdade no rodapé; este
+	// campo volta a ser o que o nome dele diz.
+	legal: null,
 };
 
 const REQUIRED_FIELDS = [

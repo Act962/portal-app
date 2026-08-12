@@ -94,11 +94,9 @@ export type Article = {
 	mostReadRank?: number;
 };
 
-export type Video = {
-	id: string;
-	title: string;
-	duration: string;
-};
+// `Video` saiu junto com a faixa "TV 7 Cidades": os quatro vídeos eram fixture
+// e não havia player, página nem cadastro por trás deles. Se vídeo voltar, volta
+// como contexto próprio — não como um tipo de três campos no read model.
 
 /**
  * Colunista em destaque na home. O `slug` é o da ASSINATURA — o cartão leva
@@ -112,6 +110,19 @@ export type Columnist = {
 	beat: string;
 	blurb: string;
 	photoUrl?: string;
+};
+
+/**
+ * O colunista na página `/colunistas`, onde há espaço para mais do que o cartão
+ * da home comporta.
+ *
+ * `latest` é opcional porque o registro costuma ser criado ANTES da primeira
+ * coluna sair — e um colunista recém-cadastrado precisa aparecer na lista, não
+ * sumir dela por ainda não ter escrito.
+ */
+export type ColumnistListing = Columnist & {
+	latest?: Article;
+	articleCount: number;
 };
 
 // `LiveShow` e `TrackLogEntry` saíram junto com o player: a transmissão ao vivo

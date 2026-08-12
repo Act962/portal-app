@@ -8,7 +8,18 @@ import { routes } from "@/lib/routes";
 export function ColumnistGrid({ columnists }: { columnists: Columnist[] }) {
 	return (
 		<section className="mt-6 md:mt-section">
-			<SectionHeader title="Colunistas" className="mb-4" />
+			<SectionHeader
+				title="Colunistas"
+				className="mb-4"
+				action={
+					<Link
+						href={routes.columnists}
+						className="font-mono text-[10px] text-brand-red md:text-[11px]"
+					>
+						VER TODOS →
+					</Link>
+				}
+			/>
 
 			<ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
 				{columnists.map((columnist) => (

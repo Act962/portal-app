@@ -91,9 +91,28 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 						© {new Date().getFullYear()} {site.name.toUpperCase()} · TODOS OS
 						DIREITOS RESERVADOS
 					</span>
-					{site.legal ? (
-						<span className="hidden md:inline">{site.legal}</span>
-					) : null}
+					{/*
+					  Estas três eram uma STRING de configuração — "PRINCÍPIOS EDITORIAIS
+					  · PRIVACIDADE · TERMOS DE USO" — impressa como texto solto, sem
+					  link nenhum. O leitor lia "Privacidade" no rodapé e não tinha como
+					  chegar lá. Agora as duas que existem são links; o campo `legal`
+					  segue disponível para a linha de razão social, que é o que ele
+					  deveria ter sido desde o início.
+					*/}
+					<span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+						<Link href={routes.privacy} className={LINK}>
+							PRIVACIDADE
+						</Link>
+						<span aria-hidden className="text-on-navy-rule">
+							·
+						</span>
+						<Link href={routes.terms} className={LINK}>
+							TERMOS DE USO
+						</Link>
+						{site.legal ? (
+							<span className="hidden md:inline">· {site.legal}</span>
+						) : null}
+					</span>
 				</Container>
 			</div>
 		</footer>

@@ -16,6 +16,7 @@ import type {
 	Author,
 	AuthorSocials,
 	Columnist,
+	ColumnistListing,
 	Cover,
 	InlineNode,
 	Section,
@@ -643,6 +644,37 @@ export async function getColumnists(): Promise<Columnist[]> {
 			blurb: c.blurb,
 			photoUrl: c.photoMediaId ? media.get(c.photoMediaId)?.url : undefined,
 		}));
+}
+
+/**
+ * A página `/colunistas`: o mesmo perfil da home, mais a coluna mais recente de
+ * cada um e quantas a pessoa já assinou.
+ *
+ * O índice existe para dar DESTINO ao "Locutores e colunistas" do rodapé, que
+ * até aqui era texto morto. Cada cartão continua levando a `/autor/{slug}`, e
+ * não a uma página de coluna própria: aquela URL já está indexada e já lista as
+ * matérias: duplicar criaria duas páginas competindo pela mesma pessoa.
+ *
+ * Sem consulta nova — `loadPublished` já está em cache neste render, e o filtro
+ * é em memória. Uma query por colunista seria N+1 para ganhar nada.
+ */
+export async function getColumnistsWithLatest(): Promise<ColumnistListing[]> {
+	const [columnists, published] = await Promise.all([
+		getColumnists(),
+		loadPublished(),
+	]);
+
+	return columnists.map((columnist) => {
+		const articles = published.filter(
+			(article) => article.authorSlug === columnist.slug,
+		);
+		return {
+			...columnist,
+			// `loadPublished` já vem por recência, então a primeira é a mais nova.
+			latest: articles[0],
+			articleCount: articles.length,
+		};
+	});
 }
 
 export async function getAuthors(): Promise<Author[]> {

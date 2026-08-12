@@ -1,6 +1,6 @@
 import "server-only";
 import { pollDeps } from "@portal-app/api/polls";
-import { currentPoll } from "@portal-app/polls";
+import { closedPolls, currentPoll } from "@portal-app/polls";
 import { cookies } from "next/headers";
 import { cache } from "react";
 
@@ -59,6 +59,44 @@ export const loadCurrentPoll = cache(async (): Promise<PollView | null> => {
 				: null,
 		})),
 	};
+});
+
+/**
+ * O arquivo da página `/enquetes`: as encerradas, da mais recente para a mais
+ * antiga, com o resultado aberto.
+ *
+ * `votedFor` vem sempre `null` — não é omissão. A enquete está fechada, então
+ * não há botão para marcar, e destacar "você votou aqui" numa consulta que
+ * acabou exigiria ler o cookie para não mostrar nada acionável.
+ */
+export const loadClosedPolls = cache(async (): Promise<PollView[]> => {
+	const results = (await safely(() => closedPolls(pollDeps))) ?? [];
+
+	return results
+		.sort(
+			(a, b) =>
+				(b.poll.publishedAt?.getTime() ?? 0) -
+				(a.poll.publishedAt?.getTime() ?? 0),
+		)
+		.map((result) => {
+			const votesByOption = new Map(
+				result.tally.map((item) => [item.optionId, item.votes]),
+			);
+			return {
+				id: result.poll.id,
+				question: result.poll.question,
+				totalVotes: result.totalVotes,
+				votedFor: null,
+				options: result.poll.options.map((option) => ({
+					id: option.id,
+					label: option.label,
+					percentage: percentage(
+						votesByOption.get(option.id) ?? 0,
+						result.totalVotes,
+					),
+				})),
+			};
+		});
 });
 
 function percentage(votes: number, total: number): number {
