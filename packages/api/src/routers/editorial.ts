@@ -16,6 +16,7 @@ import {
 	submitForReview,
 	updateArticle,
 } from "@portal-app/editorial";
+import { getAsset } from "@portal-app/media";
 import {
 	DEFAULT_PAGE_SIZE,
 	type Result,
@@ -26,11 +27,12 @@ import { z } from "zod";
 
 import {
 	articleDeps,
-	dispatchEditorialEvents,
 	countArticlesByStatus,
+	dispatchEditorialEvents,
 	listAuditLog,
 } from "../editorial";
 import { requirePermission, router, staffProcedure } from "../index";
+import { mediaDeps } from "../media";
 
 /** Nó inline (ADR 0010): a formatação dentro de um texto. */
 const inlineSchema = z.discriminatedUnion("type", [
@@ -73,6 +75,35 @@ const blockSchema = z.discriminatedUnion("type", [
 const coverSchema = z
 	.object({ mediaId: z.string(), altText: z.string().nullish() })
 	.nullish();
+
+/**
+ * Preenche o alt-text da capa a partir do PRÓPRIO arquivo, ignorando a cópia que
+ * o cliente mandou.
+ *
+ * A `Cover` guarda o alt-text junto (`contextos-isolados`: o editorial precisa
+ * verificar "capa com alt-text" sem consultar mídia), e até aqui quem preenchia
+ * essa cópia era a tela. Ela não tinha como acertar: o autosave dispara um
+ * segundo depois do clique, quando o asset recém-escolhido ainda não chegou ao
+ * cliente — então gravava `""` e a matéria ficava com a pendência "a imagem de
+ * capa precisa de texto alternativo" para sempre, apesar de a imagem ter alt. A
+ * pendência não saía nem depois, porque nada mandava salvar de novo.
+ *
+ * Quem sabe o alt-text de um arquivo é o arquivo. Resolver aqui, na raiz de
+ * composição (o único lugar que enxerga os dois contextos), também sincroniza a
+ * cópia quando o alt é corrigido na biblioteca: o salvamento seguinte já traz o
+ * texto novo.
+ */
+async function resolveCover(cover: z.infer<typeof coverSchema>) {
+	if (!cover) {
+		return cover;
+	}
+	const asset = await getAsset(cover.mediaId, mediaDeps);
+	// Arquivo inexistente cai no que veio do cliente — a capa é validada mais
+	// adiante, e inventar um alt aqui esconderia o problema real.
+	return asset
+		? { mediaId: cover.mediaId, altText: asset.altText?.value ?? "" }
+		: cover;
+}
 
 function articleDto(article: Article) {
 	return {
@@ -186,7 +217,11 @@ export const editorialRouter = router({
 				commit(
 					await createDraft(
 						ctx.staff,
-						{ ...input, authorName: ctx.session.user.name ?? "Redação" },
+						{
+							...input,
+							cover: await resolveCover(input.cover),
+							authorName: ctx.session.user.name ?? "Redação",
+						},
 						articleDeps,
 					),
 				),
@@ -201,7 +236,13 @@ export const editorialRouter = router({
 				}),
 			)
 			.mutation(async ({ ctx, input }) =>
-				commit(await updateArticle(ctx.staff, input, articleDeps)),
+				commit(
+					await updateArticle(
+						ctx.staff,
+						{ ...input, cover: await resolveCover(input.cover) },
+						articleDeps,
+					),
+				),
 			),
 
 		changeSlug: staffProcedure
