@@ -35,10 +35,11 @@ import {
 } from "@portal-app/ui/components/table";
 import { Textarea } from "@portal-app/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { SortableRow, SortableRows } from "@/components/admin/sortable-rows";
 import { trpc } from "@/utils/trpc";
 
 const DEFAULT_COLOR = "#2563eb";
@@ -76,10 +77,37 @@ export function SectionsManager() {
 			onError,
 		}),
 	);
+	/**
+	 * Reordenar aplica no cache ANTES da resposta: a linha já está no lugar novo
+	 * sob o dedo de quem arrastou, e esperar o servidor a faria voltar e saltar
+	 * de novo. Em erro, desfaz e diz o porquê.
+	 */
 	const reorder = useMutation(
 		trpc.taxonomy.sections.reorder.mutationOptions({
-			onSuccess: invalidate,
-			onError,
+			onMutate: async ({ orders }) => {
+				const queryKey = trpc.taxonomy.sections.list.queryKey();
+				await queryClient.cancelQueries({ queryKey });
+				const previous = queryClient.getQueryData(queryKey);
+				const position = new Map(orders.map((o) => [o.id, o.order]));
+				queryClient.setQueryData(queryKey, (old) =>
+					old
+						? [...old].sort(
+								(a, b) =>
+									(position.get(a.id) ?? a.order) -
+									(position.get(b.id) ?? b.order),
+							)
+						: old,
+				);
+				return { previous };
+			},
+			onError: (error, _input, context) => {
+				queryClient.setQueryData(
+					trpc.taxonomy.sections.list.queryKey(),
+					context?.previous,
+				);
+				onError(error);
+			},
+			onSettled: invalidate,
 		}),
 	);
 
@@ -114,21 +142,12 @@ export function SectionsManager() {
 		setCreating(true);
 	};
 
-	/** Sobe/desce trocando a posição e persistindo a ordem completa. */
-	const move = (index: number, direction: -1 | 1) => {
-		const to = index + direction;
-		if (to < 0 || to >= list.length) {
-			return;
-		}
-		const next = [...list];
-		const [moved] = next.splice(index, 1);
-		if (moved) {
-			next.splice(to, 0, moved);
-		}
+	/** Persiste a ordem COMPLETA — a posição de um item só existe em relação
+	 *  aos outros, e gravar só o que se moveu deixaria buracos na sequência. */
+	const persistOrder = (ids: string[]) =>
 		reorder.mutate({
-			orders: next.map((section, order) => ({ id: section.id, order })),
+			orders: ids.map((id, order) => ({ id, order })),
 		});
-	};
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -146,113 +165,108 @@ export function SectionsManager() {
 			</div>
 
 			<div className="rounded-lg border">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead className="w-24">Ordem</TableHead>
-							<TableHead>Nome</TableHead>
-							<TableHead>Endereço</TableHead>
-							<TableHead className="w-28">Ativa</TableHead>
-							<TableHead className="w-12" />
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{sections.isLoading ? (
-							["a", "b", "c"].map((k) => (
-								<TableRow key={k}>
-									<TableCell colSpan={5}>
-										<Skeleton className="h-6 w-full" />
-									</TableCell>
-								</TableRow>
-							))
-						) : list.length === 0 ? (
+				<SortableRows
+					items={list}
+					onReorder={persistOrder}
+					labelOf={(id) => list.find((item) => item.id === id)?.name ?? id}
+				>
+					<Table>
+						<TableHeader>
 							<TableRow>
-								<TableCell colSpan={5} className="py-12 text-center">
-									<p className="font-medium">Nenhuma editoria ainda.</p>
-									<p className="mt-1 text-muted-foreground text-sm">
-										As editorias organizam o portal e são exigidas para
-										publicar.
-									</p>
-									{/* Com a criação atrás de um diálogo, o vazio precisa
-									    oferecer a saída — senão a tela só informa o problema. */}
-									<Button className="mt-4" onClick={openCreate}>
-										<Plus className="size-4" />
-										Criar a primeira
-									</Button>
-								</TableCell>
+								<TableHead className="w-12">
+									<span className="sr-only">Ordem</span>
+								</TableHead>
+								<TableHead>Nome</TableHead>
+								<TableHead>Endereço</TableHead>
+								<TableHead className="w-28">Ativa</TableHead>
+								<TableHead className="w-12" />
 							</TableRow>
-						) : (
-							list.map((section, index) => (
-								<TableRow key={section.id}>
-									<TableCell>
-										<div className="flex">
-											<Button
-												variant="ghost"
-												size="icon"
-												aria-label={`Subir ${section.name}`}
-												disabled={index === 0}
-												onClick={() => move(index, -1)}
-											>
-												<ArrowUp className="size-4" />
-											</Button>
-											<Button
-												variant="ghost"
-												size="icon"
-												aria-label={`Descer ${section.name}`}
-												disabled={index === list.length - 1}
-												onClick={() => move(index, 1)}
-											>
-												<ArrowDown className="size-4" />
-											</Button>
-										</div>
-									</TableCell>
-									<TableCell>
-										<span className="flex items-center gap-2 font-medium">
-											<span
-												aria-hidden
-												className="inline-block size-3 rounded-full border"
-												style={{
-													backgroundColor: section.color ?? "transparent",
-												}}
-											/>
-											{section.name}
-										</span>
-									</TableCell>
-									<TableCell className="text-muted-foreground">
-										/{section.slug}
-									</TableCell>
-									<TableCell>
-										<div className="flex items-center gap-2">
-											<Switch
-												checked={section.active}
-												onCheckedChange={(checked) =>
-													setActive.mutate({
-														id: section.id,
-														active: Boolean(checked),
-													})
-												}
-												aria-label={`Ativar ${section.name}`}
-											/>
-											{!section.active ? (
-												<Badge variant="secondary">oculta</Badge>
-											) : null}
-										</div>
-									</TableCell>
-									<TableCell>
-										<Button
-											variant="ghost"
-											size="icon"
-											aria-label={`Excluir ${section.name}`}
-											onClick={() => setConfirming(section.id)}
-										>
-											<Trash2 className="size-4 text-destructive" />
+						</TableHeader>
+						<TableBody>
+							{sections.isLoading ? (
+								["a", "b", "c"].map((k) => (
+									<TableRow key={k}>
+										<TableCell colSpan={5}>
+											<Skeleton className="h-6 w-full" />
+										</TableCell>
+									</TableRow>
+								))
+							) : list.length === 0 ? (
+								<TableRow>
+									<TableCell colSpan={5} className="py-12 text-center">
+										<p className="font-medium">Nenhuma editoria ainda.</p>
+										<p className="mt-1 text-muted-foreground text-sm">
+											As editorias organizam o portal e são exigidas para
+											publicar.
+										</p>
+										{/* Com a criação atrás de um diálogo, o vazio precisa
+									    oferecer a saída — senão a tela só informa o problema. */}
+										<Button className="mt-4" onClick={openCreate}>
+											<Plus className="size-4" />
+											Criar a primeira
 										</Button>
 									</TableCell>
 								</TableRow>
-							))
-						)}
-					</TableBody>
-				</Table>
+							) : (
+								list.map((section) => (
+									<SortableRow
+										key={section.id}
+										id={section.id}
+										label={section.name}
+									>
+										{(handle) => (
+											<>
+												<TableCell>{handle}</TableCell>
+												<TableCell>
+													<span className="flex items-center gap-2 font-medium">
+														<span
+															aria-hidden
+															className="inline-block size-3 rounded-full border"
+															style={{
+																backgroundColor: section.color ?? "transparent",
+															}}
+														/>
+														{section.name}
+													</span>
+												</TableCell>
+												<TableCell className="text-muted-foreground">
+													/{section.slug}
+												</TableCell>
+												<TableCell>
+													<div className="flex items-center gap-2">
+														<Switch
+															checked={section.active}
+															onCheckedChange={(checked) =>
+																setActive.mutate({
+																	id: section.id,
+																	active: Boolean(checked),
+																})
+															}
+															aria-label={`Ativar ${section.name}`}
+														/>
+														{!section.active ? (
+															<Badge variant="secondary">oculta</Badge>
+														) : null}
+													</div>
+												</TableCell>
+												<TableCell>
+													<Button
+														variant="ghost"
+														size="icon"
+														aria-label={`Excluir ${section.name}`}
+														onClick={() => setConfirming(section.id)}
+													>
+														<Trash2 className="size-4 text-destructive" />
+													</Button>
+												</TableCell>
+											</>
+										)}
+									</SortableRow>
+								))
+							)}
+						</TableBody>
+					</Table>
+				</SortableRows>
 			</div>
 
 			<Dialog

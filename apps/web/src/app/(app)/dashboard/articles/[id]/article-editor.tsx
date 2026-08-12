@@ -1,8 +1,8 @@
 "use client";
 
 import { Slug } from "@portal-app/columnists";
-import { MAX_PAGE_SIZE } from "@portal-app/shared-kernel";
 import type { Block, EditorialStatus } from "@portal-app/editorial";
+import { MAX_PAGE_SIZE } from "@portal-app/shared-kernel";
 import {
 	Alert,
 	AlertDescription,
@@ -62,7 +62,14 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, ImageIcon, Loader2, Tag } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/admin/page-header";
@@ -103,29 +110,6 @@ export function ArticleEditor({ id }: { id: string }) {
 	// Sugestões de assinatura. Leitura pública, então vale para REDATOR também —
 	// diferente da lista de equipe, que exige `user:manage`.
 	const columnists = useQuery(trpc.columnists.list.queryOptions());
-	// Só as mídias que ESTA matéria referencia (capa + imagens do corpo), pelo
-	// id. Antes pedia a biblioteca inteira, o que passou a ser uma página: com
-	// paginação, a imagem de uma matéria antiga simplesmente não carregaria.
-	const referencedMediaIds = useMemo(() => {
-		const ids = new Set<string>();
-		if (article.data?.cover?.mediaId) {
-			ids.add(article.data.cover.mediaId);
-		}
-		for (const block of article.data?.body ?? []) {
-			if (block.type === "image") {
-				ids.add(block.mediaId);
-			}
-		}
-		return [...ids];
-	}, [article.data]);
-
-	const media = useQuery({
-		...trpc.media.library.queryOptions({
-			ids: referencedMediaIds,
-			perPage: MAX_PAGE_SIZE,
-		}),
-		enabled: referencedMediaIds.length > 0,
-	});
 
 	const articleKey = trpc.editorial.articles.get.queryKey({ id });
 	type ArticleDto = NonNullable<typeof article.data>;
@@ -179,6 +163,38 @@ export function ArticleEditor({ id }: { id: string }) {
 	const [savedAt, setSavedAt] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState(false);
 	const [pickingCover, setPickingCover] = useState(false);
+
+	// Só as mídias que ESTA matéria referencia (capa + imagens do corpo), pelo
+	// id. Antes pedia a biblioteca inteira, o que passou a ser uma página: com
+	// paginação, a imagem de uma matéria antiga simplesmente não carregaria.
+	//
+	// Junta o que veio do SERVIDOR com o que está no rascunho da tela. Só o
+	// servidor não bastava: a capa recém-escolhida só entrava na lista depois de
+	// o autosave voltar, e até lá o painel mostrava o quadro vazio como se nada
+	// tivesse sido escolhido.
+	const referencedMediaIds = useMemo(() => {
+		const ids = new Set<string>();
+		if (article.data?.cover?.mediaId) {
+			ids.add(article.data.cover.mediaId);
+		}
+		if (coverId) {
+			ids.add(coverId);
+		}
+		for (const block of [...(article.data?.body ?? []), ...blocks]) {
+			if (block.type === "image") {
+				ids.add(block.mediaId);
+			}
+		}
+		return [...ids];
+	}, [article.data, coverId, blocks]);
+
+	const media = useQuery({
+		...trpc.media.library.queryOptions({
+			ids: referencedMediaIds,
+			perPage: MAX_PAGE_SIZE,
+		}),
+		enabled: referencedMediaIds.length > 0,
+	});
 
 	const loaded = useRef(false);
 	const status = article.data?.status as EditorialStatus | undefined;
@@ -242,12 +258,11 @@ export function ArticleEditor({ id }: { id: string }) {
 					standfirst,
 					sectionId: sectionId || null,
 					tagIds,
-					cover: coverId
-						? {
-								mediaId: coverId,
-								altText: mediaById.get(coverId)?.altText ?? "",
-							}
-						: null,
+					// Só o id. O alt-text é do ARQUIVO, e quem o lê é o servidor —
+					// mandá-lo daqui gravava `""` sempre que o autosave corria antes de
+					// a mídia recém-escolhida chegar ao cliente, e a matéria ficava
+					// presa na pendência de capa sem texto alternativo.
+					cover: coverId ? { mediaId: coverId } : null,
 					body: blocks,
 				},
 				{
@@ -568,7 +583,9 @@ export function ArticleEditor({ id }: { id: string }) {
 								  em vez de parecer erro.
 								*/}
 								<Combobox
-									items={(columnists.data ?? []).map((columnist) => columnist.name)}
+									items={(columnists.data ?? []).map(
+										(columnist) => columnist.name,
+									)}
 									inputValue={authorName}
 									/*
 									  O Base UI APAGA o campo ao fechar a lista quando
@@ -631,7 +648,8 @@ export function ArticleEditor({ id }: { id: string }) {
 										"A matéria precisa de uma assinatura."
 									) : (
 										<>
-											Perfil: <span className="font-mono">/autor/{bylineSlug}</span>
+											Perfil:{" "}
+											<span className="font-mono">/autor/{bylineSlug}</span>
 											{knownColumnist ? " · colunista cadastrado" : null}
 										</>
 									)}

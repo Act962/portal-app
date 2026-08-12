@@ -1,10 +1,6 @@
 "use client";
 
-import {
-	ACCEPTED_UPLOAD_MIME,
-	type MediaType,
-	mediaTypeFromMime,
-} from "@portal-app/media";
+import { ACCEPTED_UPLOAD_MIME } from "@portal-app/media";
 import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
 import { Button, buttonVariants } from "@portal-app/ui/components/button";
 import {
@@ -41,102 +37,22 @@ import {
 	Upload,
 	X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/admin/page-header";
 import { PaginationBar } from "@/components/admin/pagination-bar";
 import { AssetImage } from "@/components/media/asset-image";
+import {
+	type PickedFile,
+	putWithProgress,
+	readPickedFile,
+} from "@/lib/media-upload";
 import { trpc } from "@/utils/trpc";
-
-type Picked = {
-	file: File;
-	/** Derivado do mime pelo DOMÍNIO — a tela não classifica (D6). */
-	type: MediaType;
-	/** Só imagem tem preview local; documento não abre em `<img>`. */
-	previewUrl: string | null;
-	width: number | null;
-	height: number | null;
-};
 
 /** Filtro de pasta: todas, sem pasta, ou o id de uma. */
 const ALL = "__all__";
 const NONE = "__none__";
 const VIEW_STORAGE_KEY = "portal:media-view";
-
-/**
- * Prepara o arquivo escolhido. Imagem tem preview e dimensões reais lidas aqui
- * (o domínio as exige, A29); documento não tem nem uma coisa nem outra — e
- * exigir seria inventar regra para PDF.
- *
- * A classificação é do DOMÍNIO (`mediaTypeFromMime`), não desta tela: aqui só
- * se pergunta "é imagem?" para decidir se vale abrir um `<img>`.
- */
-function readPicked(file: File): Promise<Picked> {
-	const type = mediaTypeFromMime(file.type);
-	if (type.isErr()) {
-		return Promise.reject(new Error(type.unwrapErr().message));
-	}
-	const mediaType = type.unwrap();
-
-	if (mediaType !== "IMAGE") {
-		return Promise.resolve({
-			file,
-			type: mediaType,
-			previewUrl: null,
-			width: null,
-			height: null,
-		});
-	}
-
-	return new Promise((resolve, reject) => {
-		const previewUrl = URL.createObjectURL(file);
-		const img = new Image();
-		img.onload = () =>
-			resolve({
-				file,
-				type: "IMAGE",
-				previewUrl,
-				width: img.naturalWidth,
-				height: img.naturalHeight,
-			});
-		img.onerror = () => reject(new Error("Arquivo de imagem inválido"));
-		img.src = previewUrl;
-	});
-}
-
-/** PUT direto no storage pela URL pré-assinada, reportando o progresso (A28).
- * O arquivo nunca passa pelo nosso servidor. */
-function putWithProgress(
-	url: string,
-	file: File,
-	onProgress: (pct: number) => void,
-): Promise<void> {
-	return new Promise((resolve, reject) => {
-		const xhr = new XMLHttpRequest();
-		xhr.open("PUT", url);
-		xhr.setRequestHeader("Content-Type", file.type);
-		xhr.upload.onprogress = (event) => {
-			if (event.lengthComputable) {
-				onProgress(Math.round((event.loaded / event.total) * 100));
-			}
-		};
-		xhr.onload = () =>
-			xhr.status >= 200 && xhr.status < 300
-				? resolve()
-				: reject(new Error(`Upload falhou (HTTP ${xhr.status})`));
-		xhr.onerror = () => reject(new Error("Falha de rede no upload"));
-		xhr.send(file);
-	});
-}
-
-type Asset = {
-	id: string;
-	url: string;
-	filename: string;
-	credit: string;
-	type: string;
-	folderId: string | null;
-};
 
 export function MediaManager() {
 	const queryClient = useQueryClient();
@@ -277,6 +193,17 @@ export function MediaManager() {
 			onError: onMutationError,
 		}),
 	);
+	const updateAsset = useMutation(
+		trpc.media.update.mutationOptions({
+			onSuccess: async () => {
+				await refreshLibrary();
+				setEditingDetail(false);
+				toast.success("Informações atualizadas.");
+			},
+			// A recusa do domínio (imagem sem alt-text) chega aqui, já em pt-BR.
+			onError: onMutationError,
+		}),
+	);
 	const removeAsset = useMutation(
 		trpc.media.remove.mutationOptions({
 			onSuccess: async () => {
@@ -289,7 +216,7 @@ export function MediaManager() {
 	);
 
 	const inputRef = useRef<HTMLInputElement | null>(null);
-	const [picked, setPicked] = useState<Picked | null>(null);
+	const [picked, setPicked] = useState<PickedFile | null>(null);
 	const [credit, setCredit] = useState("");
 	const [altText, setAltText] = useState("");
 	const [caption, setCaption] = useState("");
@@ -297,6 +224,7 @@ export function MediaManager() {
 	const [progress, setProgress] = useState<number | null>(null);
 	const [dragging, setDragging] = useState(false);
 	const [detail, setDetail] = useState<string | null>(null);
+	const [editingDetail, setEditingDetail] = useState(false);
 	const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 	const [folderDialog, setFolderDialog] = useState<
@@ -327,7 +255,7 @@ export function MediaManager() {
 			return;
 		}
 		try {
-			setPicked(await readPicked(file));
+			setPicked(await readPickedFile(file));
 		} catch (error) {
 			toast.error((error as Error).message);
 		}
@@ -385,6 +313,13 @@ export function MediaManager() {
 		id === null
 			? "Sem pasta"
 			: ((folders.data ?? []).find((f) => f.id === id)?.name ?? "—");
+
+	/** Abrir outro arquivo sempre começa pela LEITURA, nunca no meio de uma
+	 *  edição herdada do anterior. */
+	const openDetail = (id: string) => {
+		setDetail(id);
+		setEditingDetail(false);
+	};
 
 	const toggleSelected = (id: string) =>
 		setSelectedIds((current) => {
@@ -642,7 +577,7 @@ export function MediaManager() {
 								/>
 								<button
 									type="button"
-									onClick={() => setDetail(asset.id)}
+									onClick={() => openDetail(asset.id)}
 									className="flex min-w-0 flex-1 items-center gap-3 text-left"
 								>
 									{asset.type === "IMAGE" ? (
@@ -701,7 +636,7 @@ export function MediaManager() {
 
 								<button
 									type="button"
-									onClick={() => setDetail(asset.id)}
+									onClick={() => openDetail(asset.id)}
 									className="block w-full text-left"
 								>
 									{asset.type === "IMAGE" ? (
@@ -907,7 +842,13 @@ export function MediaManager() {
 			{/* Detalhes de um asset do acervo */}
 			<Sheet
 				open={detail !== null}
-				onOpenChange={(open) => !open && setDetail(null)}
+				onOpenChange={(open) => {
+					if (!open) {
+						setDetail(null);
+						// Sem isto o painel reabre em modo de edição no arquivo seguinte.
+						setEditingDetail(false);
+					}
+				}}
 			>
 				<SheetContent className="w-full sm:max-w-md">
 					{selected ? (
@@ -918,7 +859,12 @@ export function MediaManager() {
 								</SheetTitle>
 								<SheetDescription>{selected.credit}</SheetDescription>
 							</SheetHeader>
-							<div className="flex flex-col gap-4 p-4">
+							{/* `min-h-0` é o que faz o `flex-1` poder ENCOLHER dentro do
+							    painel: sem ele o item flex adota a altura do conteúdo, a
+							    rolagem nunca entra e o que passa da janela fica inalcançável —
+							    era o caso do botão de excluir com o formulário de edição
+							    aberto. */}
+							<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
 								{selected.type === "IMAGE" ? (
 									<AssetImage
 										src={selected.url}
@@ -958,18 +904,52 @@ export function MediaManager() {
 									<ExternalLink className="size-4" />
 									Abrir em nova aba
 								</a>
-								<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-									<dt className="text-muted-foreground">Texto alternativo</dt>
-									<dd>{selected.altText || "—"}</dd>
-									<dt className="text-muted-foreground">Legenda</dt>
-									<dd>{selected.caption || "—"}</dd>
-									<dt className="text-muted-foreground">Dimensões</dt>
-									<dd>
-										{selected.width && selected.height
-											? `${selected.width}×${selected.height}px`
-											: "—"}
-									</dd>
-								</dl>
+
+								{editingDetail ? (
+									/* Chaveado pelo id: trocar de arquivo com o painel aberto
+									   remonta o formulário com os valores do novo, sem efeito de
+									   sincronização. */
+									<AssetDetailsForm
+										key={selected.id}
+										asset={selected}
+										pending={updateAsset.isPending}
+										onCancel={() => setEditingDetail(false)}
+										onSubmit={(patch) =>
+											updateAsset.mutate({ id: selected.id, ...patch })
+										}
+									/>
+								) : (
+									<>
+										<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+											<dt className="text-muted-foreground">Crédito</dt>
+											<dd>{selected.credit || "—"}</dd>
+											<dt className="text-muted-foreground">
+												Texto alternativo
+											</dt>
+											<dd>{selected.altText || "—"}</dd>
+											<dt className="text-muted-foreground">Legenda</dt>
+											<dd>{selected.caption || "—"}</dd>
+											<dt className="text-muted-foreground">Dimensões</dt>
+											<dd>
+												{selected.width && selected.height
+													? `${selected.width}×${selected.height}px`
+													: "—"}
+											</dd>
+										</dl>
+										{/* O cadastro era de mão única: alt-text errado (ou o de
+										    uma imagem que entrou antes da regra) só saía excluindo
+										    e subindo de novo — o que quebra toda matéria que já usa
+										    o arquivo. */}
+										<Button
+											variant="outline"
+											onClick={() => setEditingDetail(true)}
+										>
+											<Pencil className="size-4" />
+											Editar informações
+										</Button>
+									</>
+								)}
+
 								<Button
 									variant="outline"
 									onClick={() => {
@@ -1111,6 +1091,157 @@ export function MediaManager() {
 				}}
 			/>
 		</>
+	);
+}
+
+/**
+ * Edição dos metadados de um arquivo já na biblioteca.
+ *
+ * Só o que é CURADORIA: crédito, alt-text, legenda e ponto focal. Nome do
+ * arquivo, tipo e dimensões descrevem o byte que está no armazenamento e não se
+ * editam aqui — mudá-los faria o registro mentir sobre o arquivo.
+ *
+ * Manda só o que MUDOU. O router trata campo ausente como "não mexer", e o
+ * diff evita gravar um `caption: ""` só porque o campo passou pela tela.
+ */
+function AssetDetailsForm({
+	asset,
+	pending,
+	onCancel,
+	onSubmit,
+}: {
+	asset: {
+		type: string;
+		url: string;
+		credit: string;
+		altText: string | null;
+		caption: string;
+		focalPoint: { x: number; y: number } | null;
+	};
+	pending: boolean;
+	onCancel: () => void;
+	onSubmit: (patch: {
+		credit?: string;
+		altText?: string;
+		caption?: string;
+		focalPoint?: { x: number; y: number };
+	}) => void;
+}) {
+	const creditId = useId();
+	const altId = useId();
+	const captionId = useId();
+	const [credit, setCredit] = useState(asset.credit);
+	const [altText, setAltText] = useState(asset.altText ?? "");
+	const [caption, setCaption] = useState(asset.caption);
+	const [focal, setFocal] = useState(asset.focalPoint ?? { x: 0.5, y: 0.5 });
+
+	const isImage = asset.type === "IMAGE";
+	const focalChanged =
+		focal.x !== (asset.focalPoint?.x ?? 0.5) ||
+		focal.y !== (asset.focalPoint?.y ?? 0.5);
+
+	return (
+		<form
+			className="flex flex-col gap-3 rounded-md border p-3"
+			onSubmit={(event) => {
+				event.preventDefault();
+				onSubmit({
+					...(credit !== asset.credit ? { credit } : {}),
+					...(isImage && altText !== (asset.altText ?? "") ? { altText } : {}),
+					...(caption !== asset.caption ? { caption } : {}),
+					...(isImage && focalChanged ? { focalPoint: focal } : {}),
+				});
+			}}
+		>
+			{isImage ? (
+				<div>
+					{/* Mesmo gesto do cadastro: clicar escolhe o que nunca deve ser
+					    cortado. Sem isto, o ponto focal seria a única coisa impossível de
+					    corrigir depois de o arquivo entrar. */}
+					<button
+						type="button"
+						className="relative block w-full overflow-hidden rounded-md border"
+						onClick={(event) => {
+							const rect = event.currentTarget.getBoundingClientRect();
+							setFocal({
+								x: Number(
+									((event.clientX - rect.left) / rect.width).toFixed(3),
+								),
+								y: Number(
+									((event.clientY - rect.top) / rect.height).toFixed(3),
+								),
+							});
+						}}
+					>
+						<AssetImage
+							src={asset.url}
+							alt=""
+							label="Imagem indisponível"
+							className="block max-h-48 w-full object-contain"
+							fallbackClassName="aspect-video"
+						/>
+						<span
+							className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-brand-red shadow"
+							style={{ left: `${focal.x * 100}%`, top: `${focal.y * 100}%` }}
+						/>
+					</button>
+					<p className="mt-1 text-muted-foreground text-xs">
+						Clique para mover o foco — hoje em {focal.x},{focal.y}
+					</p>
+				</div>
+			) : null}
+
+			<div>
+				<Label htmlFor={creditId}>Crédito *</Label>
+				<Input
+					id={creditId}
+					value={credit}
+					onChange={(event) => setCredit(event.target.value)}
+					placeholder="Foto: Fulano/Agência"
+					className="mt-1.5"
+				/>
+			</div>
+
+			{isImage ? (
+				<div>
+					<Label htmlFor={altId}>Texto alternativo *</Label>
+					<Input
+						id={altId}
+						value={altText}
+						onChange={(event) => setAltText(event.target.value)}
+						placeholder="Descreva o que se vê na imagem"
+						className="mt-1.5"
+					/>
+					<p className="mt-1 text-muted-foreground text-xs">
+						É o que um leitor cego ouve no lugar da foto — e o que a matéria
+						exige para publicar com esta capa.
+					</p>
+				</div>
+			) : null}
+
+			<div>
+				<Label htmlFor={captionId}>Legenda</Label>
+				<Input
+					id={captionId}
+					value={caption}
+					onChange={(event) => setCaption(event.target.value)}
+					placeholder="Aparece sob a foto na matéria"
+					className="mt-1.5"
+				/>
+			</div>
+
+			<div className="flex justify-end gap-2">
+				<Button type="button" variant="ghost" onClick={onCancel}>
+					Cancelar
+				</Button>
+				<Button
+					type="submit"
+					disabled={pending || !credit.trim() || (isImage && !altText.trim())}
+				>
+					Salvar
+				</Button>
+			</div>
+		</form>
 	);
 }
 

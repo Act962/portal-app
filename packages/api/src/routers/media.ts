@@ -1,4 +1,3 @@
-import { DEFAULT_PAGE_SIZE, toPageRequest } from "@portal-app/shared-kernel";
 import {
 	createFolder,
 	deleteAsset,
@@ -14,7 +13,9 @@ import {
 	registerAsset,
 	renameFolder,
 	requestUpload,
+	updateAssetDetails,
 } from "@portal-app/media";
+import { DEFAULT_PAGE_SIZE, toPageRequest } from "@portal-app/shared-kernel";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -126,6 +127,31 @@ export const mediaRouter = router({
 		.query(async ({ input }) => {
 			const asset = await getAsset(input.id, mediaDeps);
 			return asset ? assetDto(asset) : null;
+		}),
+
+	/**
+	 * Corrige os metadados de um arquivo já cadastrado.
+	 *
+	 * Campo ausente é "não mexer" — a tela manda só o que editou, e não precisa
+	 * reenviar o resto para não apagá-lo sem querer. O domínio segue exigindo
+	 * alt-text de imagem, então esvaziá-lo aqui é recusado como no cadastro.
+	 */
+	update: staffProcedure
+		.input(
+			z.object({
+				id: z.string(),
+				credit: z.string().optional(),
+				caption: z.string().nullish(),
+				altText: z.string().nullish(),
+				focalPoint: z.object({ x: z.number(), y: z.number() }).nullish(),
+			}),
+		)
+		.mutation(async ({ input }) => {
+			const result = await updateAssetDetails(input, mediaDeps);
+			if (result.isErr()) {
+				fail(result.unwrapErr());
+			}
+			return assetDto(result.unwrap());
 		}),
 
 	/**
