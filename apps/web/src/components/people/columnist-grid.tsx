@@ -1,6 +1,7 @@
 import { SectionHeader } from "@portal-app/ui/components/section-header";
 import Link from "next/link";
 
+import { AuthorAvatar } from "@/components/people/author-avatar";
 import type { Columnist } from "@/data/types";
 import { routes } from "@/lib/routes";
 
@@ -21,18 +22,14 @@ export function ColumnistGrid({ columnists }: { columnists: Columnist[] }) {
 							href={routes.author(columnist.slug)}
 							className="flex items-center gap-3.5 rounded-card border border-hairline bg-surface p-4.5 text-brand-navy transition-colors hover:border-brand-navy hover:text-brand-navy"
 						>
-							{columnist.photoUrl ? (
-								<img
-									src={columnist.photoUrl}
-									alt=""
-									className="size-[62px] shrink-0 rounded-[10px] object-cover"
-								/>
-							) : (
-								<span
-									aria-hidden
-									className="hatch-light size-[62px] shrink-0 rounded-[10px]"
-								/>
-							)}
+							{/* `name` vazio: o nome já está escrito ao lado, dentro do mesmo
+							    link. Repeti-lo no `alt` faria o leitor de tela anunciar a
+							    pessoa duas vezes. */}
+							<AuthorAvatar
+								photoUrl={columnist.photoUrl}
+								name=""
+								className="size-[62px] shrink-0 rounded-[10px]"
+							/>
 							<span>
 								<span className="block font-extrabold text-base">
 									{columnist.name}

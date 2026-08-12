@@ -30,6 +30,11 @@ export type Author = {
 	bio?: string;
 	photoUrl?: string | null;
 	socials?: AuthorSocials;
+	/**
+	 * Contato público, hoje só do cadastro de colunista. É endereço PUBLICADO —
+	 * quem preenche está escolhendo expô-lo —, e por isso é sempre opcional.
+	 */
+	email?: string;
 };
 
 /** Assunto (tag) já resolvido para o portal: rótulo + slug para a rota `/tag/{slug}`. */

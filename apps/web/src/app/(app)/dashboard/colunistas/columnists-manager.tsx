@@ -45,6 +45,13 @@ import { AssetImage } from "@/components/media/asset-image";
 import { ImageField } from "@/components/media/image-field";
 import { trpc } from "@/utils/trpc";
 
+type Socials = {
+	twitter?: string;
+	instagram?: string;
+	linkedin?: string;
+	website?: string;
+};
+
 type ColumnistDto = {
 	id: string;
 	slug: string;
@@ -52,15 +59,34 @@ type ColumnistDto = {
 	beat: string;
 	blurb: string;
 	photoMediaId: string | null;
+	socials: Socials;
+	email: string | null;
 	order: number;
 	active: boolean;
 };
+
+/**
+ * No formulário as redes são sempre as QUATRO strings, mesmo vazias — o campo
+ * controlado precisa de um valor. Quem some com as vazias é o domínio, no
+ * `normalizeSocials`; guardar `undefined` aqui tornaria o input não-controlado
+ * no meio da digitação.
+ */
+type SocialForm = Record<keyof Socials, string>;
 
 type FormState = {
 	name: string;
 	beat: string;
 	blurb: string;
 	photoMediaId: string | null;
+	socials: SocialForm;
+	email: string;
+};
+
+const EMPTY_SOCIALS: SocialForm = {
+	twitter: "",
+	instagram: "",
+	linkedin: "",
+	website: "",
 };
 
 const EMPTY_FORM: FormState = {
@@ -68,7 +94,28 @@ const EMPTY_FORM: FormState = {
 	beat: "",
 	blurb: "",
 	photoMediaId: null,
+	socials: EMPTY_SOCIALS,
+	email: "",
 };
+
+const SOCIAL_FIELDS = [
+	{
+		key: "instagram",
+		label: "Instagram",
+		placeholder: "https://instagram.com/…",
+	},
+	{ key: "twitter", label: "X (Twitter)", placeholder: "https://x.com/…" },
+	{
+		key: "linkedin",
+		label: "LinkedIn",
+		placeholder: "https://linkedin.com/in/…",
+	},
+	{ key: "website", label: "Site", placeholder: "https://…" },
+] as const satisfies ReadonlyArray<{
+	key: keyof Socials;
+	label: string;
+	placeholder: string;
+}>;
 
 export function ColumnistsManager() {
 	const queryClient = useQueryClient();
@@ -207,18 +254,27 @@ export function ColumnistsManager() {
 			beat: columnist.beat,
 			blurb: columnist.blurb,
 			photoMediaId: columnist.photoMediaId,
+			socials: { ...EMPTY_SOCIALS, ...columnist.socials },
+			email: columnist.email ?? "",
 		});
 		setEditing(columnist);
 	};
 
+	/** O que os dois envios têm em comum. */
+	const profilePayload = () => ({
+		name: form.name.trim(),
+		beat: form.beat.trim(),
+		blurb: form.blurb.trim(),
+		photoMediaId: form.photoMediaId,
+		socials: form.socials,
+		// Campo esvaziado é `null`, não `""`: apagar o e-mail e nunca ter
+		// preenchido são a mesma coisa para o perfil.
+		email: form.email.trim() || null,
+	});
+
 	const submitCreate = (event: React.FormEvent) => {
 		event.preventDefault();
-		create.mutate({
-			name: form.name.trim(),
-			beat: form.beat.trim(),
-			blurb: form.blurb.trim(),
-			photoMediaId: form.photoMediaId,
-		});
+		create.mutate(profilePayload());
 	};
 
 	const submitEdit = (event: React.FormEvent) => {
@@ -226,13 +282,7 @@ export function ColumnistsManager() {
 		if (!editing) {
 			return;
 		}
-		update.mutate({
-			id: editing.id,
-			name: form.name.trim(),
-			beat: form.beat.trim(),
-			blurb: form.blurb.trim(),
-			photoMediaId: form.photoMediaId,
-		});
+		update.mutate({ id: editing.id, ...profilePayload() });
 	};
 
 	return (
@@ -479,6 +529,8 @@ function ColumnistForm({
 	const nameId = useId();
 	const beatId = useId();
 	const blurbId = useId();
+	const emailId = useId();
+	const socialPrefix = useId();
 
 	return (
 		<form className="flex flex-col gap-3" onSubmit={onSubmit}>
@@ -545,6 +597,48 @@ function ColumnistForm({
 					hint="Sem foto, o cartão da home mostra o espaço reservado."
 				/>
 			</div>
+
+			<fieldset className="flex flex-col gap-3 rounded-lg border p-3">
+				<legend className="px-1 font-medium text-sm">Contato público</legend>
+				<p className="text-muted-foreground text-xs">
+					Tudo aqui é PUBLICADO na página do colunista, visível para qualquer
+					leitor. Preencha só o que a pessoa concordou em expor — e-mail no ar
+					também é e-mail coletado por robô de spam.
+				</p>
+
+				<div className="flex flex-col gap-1.5">
+					<Label htmlFor={emailId}>E-mail</Label>
+					<Input
+						id={emailId}
+						type="email"
+						value={form.email}
+						placeholder="colunista@fm7cidades.com"
+						onChange={(event) =>
+							onChange({ ...form, email: event.target.value })
+						}
+					/>
+				</div>
+
+				{SOCIAL_FIELDS.map((field) => (
+					<div key={field.key} className="flex flex-col gap-1.5">
+						<Label htmlFor={`${socialPrefix}-${field.key}`}>
+							{field.label}
+						</Label>
+						<Input
+							id={`${socialPrefix}-${field.key}`}
+							type="url"
+							value={form.socials[field.key]}
+							placeholder={field.placeholder}
+							onChange={(event) =>
+								onChange({
+									...form,
+									socials: { ...form.socials, [field.key]: event.target.value },
+								})
+							}
+						/>
+					</div>
+				))}
+			</fieldset>
 
 			<DialogFooter>{children}</DialogFooter>
 		</form>

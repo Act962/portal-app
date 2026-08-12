@@ -97,7 +97,11 @@ export const loadSchedule = cache(
 			"schedule",
 			() =>
 				prisma.program.findMany({
-					orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }, { order: "asc" }],
+					orderBy: [
+						{ dayOfWeek: "asc" },
+						{ startTime: "asc" },
+						{ order: "asc" },
+					],
 					select: {
 						id: true,
 						name: true,
@@ -260,30 +264,36 @@ type ColumnistProfile = {
 	beat: string;
 	blurb: string;
 	photoMediaId: string | null;
+	socials: unknown;
+	email: string | null;
 	order: number;
 	active: boolean;
 };
 
-const loadColumnists = cache(async (): Promise<Map<string, ColumnistProfile>> => {
-	const rows = await safely(
-		"columnists",
-		() =>
-			prisma.columnist.findMany({
-				orderBy: [{ order: "asc" }, { name: "asc" }],
-				select: {
-					slug: true,
-					name: true,
-					beat: true,
-					blurb: true,
-					photoMediaId: true,
-					order: true,
-					active: true,
-				},
-			}),
-		[] as ColumnistProfile[],
-	);
-	return new Map(rows.map((c) => [c.slug, c]));
-});
+const loadColumnists = cache(
+	async (): Promise<Map<string, ColumnistProfile>> => {
+		const rows = await safely(
+			"columnists",
+			() =>
+				prisma.columnist.findMany({
+					orderBy: [{ order: "asc" }, { name: "asc" }],
+					select: {
+						slug: true,
+						name: true,
+						beat: true,
+						blurb: true,
+						photoMediaId: true,
+						socials: true,
+						email: true,
+						order: true,
+						active: true,
+					},
+				}),
+			[] as ColumnistProfile[],
+		);
+		return new Map(rows.map((c) => [c.slug, c]));
+	},
+);
 
 const PUBLIC_BASE = env.S3_PUBLIC_URL.replace(/\/+$/, "");
 
@@ -558,31 +568,49 @@ export async function getAuthor(slug: string): Promise<Author> {
 			: { slug, name: deslug(slug), role: "Redação" };
 	}
 
-	// A precedência é do StaffMember: quem tem conta mantém o perfil da Equipe
-	// como fonte única, e o registro de colunista só completa quem não tem.
+	// A precedência é do StaffMember, mas CAMPO A CAMPO — e essa é a diferença
+	// que importa. Antes ela era tudo-ou-nada: bastava a pessoa ter conta para o
+	// registro de colunista ser ignorado inteiro, inclusive a foto, mesmo com o
+	// perfil da Equipe vazio. Como a home lê o registro direto
+	// (`getColumnists`), o sintoma era a foto aparecer SÓ na home e sumir na
+	// página de autor e na assinatura — sem erro em lugar nenhum.
+	//
+	// Quem tem conta continua mandando no que preencheu; o registro de colunista
+	// completa as lacunas em vez de ser descartado por elas.
 	const profile = staff.get(entry.authorId);
+	const fallback = columnist ? columnistAuthor(columnist, media) : undefined;
+
 	if (profile) {
 		return {
 			slug,
 			name: entry.name,
-			role: profile.title || "Redação",
-			bio: profile.bio || undefined,
-			photoUrl: profile.photoUrl ?? undefined,
-			socials: profile.socials,
+			role: profile.title || fallback?.role || "Redação",
+			bio: profile.bio || fallback?.bio,
+			photoUrl: profile.photoUrl ?? fallback?.photoUrl,
+			// Redes e e-mail vêm em BLOCO da fonte que tiver alguma coisa: mesclar
+			// chave a chave misturaria o Instagram pessoal do cadastro de
+			// colunista com o LinkedIn corporativo da Equipe num perfil só.
+			socials: hasAny(profile.socials) ? profile.socials : fallback?.socials,
+			email: fallback?.email,
 		};
 	}
 
-	return columnist
+	return fallback
 		? // O nome vem do índice (a assinatura mais recente), não do cadastro:
 			// é o que o leitor viu na matéria.
-			{ ...columnistAuthor(columnist, media), name: entry.name }
+			{ ...fallback, name: entry.name }
 		: { slug, name: entry.name, role: "Redação" };
+}
+
+function hasAny(socials: AuthorSocials | undefined): boolean {
+	return Boolean(socials && Object.keys(socials).length > 0);
 }
 
 function columnistAuthor(
 	columnist: ColumnistProfile,
 	media: Map<string, MediaInfo>,
 ): Author {
+	const socials = (columnist.socials ?? {}) as AuthorSocials;
 	return {
 		slug: columnist.slug,
 		name: columnist.name,
@@ -593,6 +621,8 @@ function columnistAuthor(
 		photoUrl: columnist.photoMediaId
 			? media.get(columnist.photoMediaId)?.url
 			: undefined,
+		socials: hasAny(socials) ? socials : undefined,
+		email: columnist.email ?? undefined,
 	};
 }
 
@@ -600,7 +630,10 @@ function columnistAuthor(
  * O bloco de colunistas da home: só os que estão no ar, na ordem da curadoria.
  */
 export async function getColumnists(): Promise<Columnist[]> {
-	const [columnists, media] = await Promise.all([loadColumnists(), loadMedia()]);
+	const [columnists, media] = await Promise.all([
+		loadColumnists(),
+		loadMedia(),
+	]);
 	return [...columnists.values()]
 		.filter((c) => c.active)
 		.map((c) => ({

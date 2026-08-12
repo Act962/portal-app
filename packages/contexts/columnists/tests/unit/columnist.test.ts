@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { Columnist, InvalidSlug, NameRequired, Slug } from "../../src/index";
+import {
+	Columnist,
+	InvalidColumnistEmail,
+	InvalidSlug,
+	NameRequired,
+	Slug,
+} from "../../src/index";
 
 const VALID = { id: "c1", name: "Mariano Wikoli" };
 
@@ -237,5 +243,153 @@ describe("ordem e presença no bloco", () => {
 		columnist.activate();
 		columnist.activate();
 		expect(columnist.isActive).toBe(true);
+	});
+});
+
+describe("Columnist — contato público", () => {
+	it("nasce sem redes e sem e-mail", () => {
+		const columnist = Columnist.create(VALID).unwrap();
+
+		expect(columnist.socials).toEqual({});
+		expect(columnist.email).toBeNull();
+	});
+
+	it("apara e normaliza o e-mail para minúsculas", () => {
+		const columnist = Columnist.create({
+			...VALID,
+			email: "  Mariano@FM7Cidades.COM  ",
+		}).unwrap();
+
+		expect(columnist.email).toBe("mariano@fm7cidades.com");
+	});
+
+	it("recusa e-mail que não passa na régua", () => {
+		expect(Columnist.create({ ...VALID, email: "mariano(arroba)fm7" })).toBeErr(
+			InvalidColumnistEmail,
+		);
+	});
+
+	it("trata e-mail vazio como ausência, não como erro", () => {
+		// Limpar o campo na tela chega aqui como "   ". Recusar isso impediria
+		// de DESPUBLICAR um e-mail já publicado.
+		expect(
+			Columnist.create({ ...VALID, email: "   " }).unwrap().email,
+		).toBeNull();
+	});
+
+	it("descarta rede vazia em vez de guardar string vazia", () => {
+		// O portal decide se mostra a seção de redes pela contagem de chaves; uma
+		// chave presente e vazia viraria um link para lugar nenhum.
+		const columnist = Columnist.create({
+			...VALID,
+			socials: {
+				instagram: "  https://instagram.com/mariano  ",
+				twitter: "  ",
+			},
+		}).unwrap();
+
+		expect(columnist.socials).toEqual({
+			instagram: "https://instagram.com/mariano",
+		});
+	});
+
+	it("não devolve o estado por referência", () => {
+		const columnist = Columnist.create({
+			...VALID,
+			socials: { website: "https://mariano.com" },
+		}).unwrap();
+
+		columnist.socials.website = "https://invasor.com";
+
+		expect(columnist.socials.website).toBe("https://mariano.com");
+	});
+});
+
+describe("Columnist.updateDetails — contato", () => {
+	const make = () =>
+		Columnist.create({
+			...VALID,
+			email: "mariano@fm7cidades.com",
+			socials: { instagram: "https://instagram.com/mariano" },
+		}).unwrap();
+
+	it("substitui as redes INTEIRAS, para que dê para apagar uma", () => {
+		// Mesclar chave a chave tornaria impossível remover uma rede: o campo
+		// esvaziado chegaria ausente e o valor antigo sobreviveria para sempre.
+		const columnist = make();
+
+		columnist.updateDetails({ socials: { twitter: "https://x.com/mariano" } });
+
+		expect(columnist.socials).toEqual({ twitter: "https://x.com/mariano" });
+	});
+
+	it("preserva as redes quando o campo não vem", () => {
+		const columnist = make();
+
+		columnist.updateDetails({ beat: "Outra coluna" });
+
+		expect(columnist.socials).toEqual({
+			instagram: "https://instagram.com/mariano",
+		});
+	});
+
+	it("apaga o e-mail com null", () => {
+		const columnist = make();
+
+		columnist.updateDetails({ email: null });
+
+		expect(columnist.email).toBeNull();
+	});
+
+	it("não grava NADA quando o e-mail é recusado", () => {
+		// A validação vem antes de tocar no estado. Sem isso, uma edição
+		// recusada deixaria o nome novo gravado e o e-mail antigo — um estado
+		// que o usuário não pediu e não vê.
+		const columnist = make();
+
+		const result = columnist.updateDetails({
+			name: "Nome Novo",
+			email: "torto",
+		});
+
+		expect(result).toBeErr(InvalidColumnistEmail);
+		expect(columnist.name).toBe("Mariano Wikoli");
+		expect(columnist.email).toBe("mariano@fm7cidades.com");
+	});
+});
+
+describe("Columnist.restore — tolerância de leitura", () => {
+	const STORED = {
+		id: "c1",
+		slug: "mariano-wikoli",
+		name: "Mariano Wikoli",
+		beat: "",
+		blurb: "",
+		photoMediaId: null,
+		order: 0,
+		active: true,
+	};
+
+	it("transforma e-mail inválido no banco em ausência, sem estourar", () => {
+		// O portal não pode sair do ar por um campo torto; mas também não repassa
+		// lixo para um `mailto:` que o leitor clica e não chega a ninguém.
+		expect(Columnist.restore({ ...STORED, email: "lixo" }).email).toBeNull();
+	});
+
+	it("descarta chave desconhecida vinda do Json", () => {
+		const columnist = Columnist.restore({
+			...STORED,
+			socials: {
+				instagram: "https://instagram.com/m",
+				tiktok: "https://x",
+			} as never,
+		});
+
+		expect(columnist.socials).toEqual({ instagram: "https://instagram.com/m" });
+	});
+
+	it("aceita registro antigo, sem as colunas novas", () => {
+		expect(Columnist.restore(STORED).socials).toEqual({});
+		expect(Columnist.restore(STORED).email).toBeNull();
 	});
 });

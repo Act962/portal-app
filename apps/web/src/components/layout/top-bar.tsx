@@ -1,6 +1,7 @@
 import { Container } from "@portal-app/ui/components/container";
 
 import { SiteLink } from "@/components/layout/site-link";
+import { SocialLinkList } from "@/components/social/social-link-list";
 import { loadSiteSettings } from "@/data/queries";
 import { formatLongDate } from "@/lib/format";
 
@@ -68,15 +69,12 @@ export async function TopBar() {
 					</>
 				) : null}
 
-				<nav aria-label="Redes sociais" className="flex gap-2">
-					{site.social.map((network) => (
-						<SiteLink
-							key={network.label}
-							link={{ ...network, label: network.label.toUpperCase() }}
-							className="text-on-navy-muted hover:text-white"
-						/>
-					))}
-				</nav>
+				<SocialLinkList
+					links={site.social}
+					siteName={site.name}
+					className="flex items-center gap-3"
+					linkClassName="text-on-navy-muted transition-colors hover:text-white"
+				/>
 			</Container>
 		</div>
 	);

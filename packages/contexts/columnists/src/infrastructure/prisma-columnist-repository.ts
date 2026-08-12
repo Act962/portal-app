@@ -49,6 +49,8 @@ type ColumnistRow = {
 	beat: string;
 	blurb: string;
 	photoMediaId: string | null;
+	socials: unknown;
+	email: string | null;
 	order: number;
 	active: boolean;
 };
@@ -61,6 +63,8 @@ function toPersistence(columnist: Columnist) {
 		beat: columnist.beat,
 		blurb: columnist.blurb,
 		photoMediaId: columnist.photoMediaId,
+		socials: columnist.socials,
+		email: columnist.email,
 		order: columnist.order,
 		active: columnist.isActive,
 	};
@@ -74,6 +78,11 @@ function toDomain(row: ColumnistRow): Columnist {
 		beat: row.beat,
 		blurb: row.blurb,
 		photoMediaId: row.photoMediaId,
+		// `Json` chega como `unknown`; o `restore` normaliza e descarta o que não
+		// for uma das quatro chaves conhecidas, então um Json arbitrário no banco
+		// vira um objeto vazio em vez de vazar para a tela.
+		socials: (row.socials ?? {}) as Record<string, string>,
+		email: row.email,
 		order: row.order,
 		active: row.active,
 	});

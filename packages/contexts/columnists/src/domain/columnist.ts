@@ -1,6 +1,16 @@
 import { AggregateRoot, err, ok, type Result } from "@portal-app/shared-kernel";
 
-import { type InvalidSlug, NameRequired } from "./errors";
+import {
+	isValidEmail,
+	normalizeEmail,
+	normalizeSocials,
+	type SocialLinks,
+} from "./contact";
+import {
+	InvalidColumnistEmail,
+	type InvalidSlug,
+	NameRequired,
+} from "./errors";
 import { Slug } from "./slug";
 
 type ColumnistState = {
@@ -9,6 +19,8 @@ type ColumnistState = {
 	beat: string;
 	blurb: string;
 	photoMediaId: string | null;
+	socials: SocialLinks;
+	email: string | null;
 	order: number;
 	active: boolean;
 };
@@ -21,18 +33,25 @@ type CreateInput = {
 	beat?: string;
 	blurb?: string;
 	photoMediaId?: string | null;
+	socials?: SocialLinks;
+	email?: string | null;
 	order?: number;
 };
 
-type CreateError = NameRequired | InvalidSlug;
+type CreateError = NameRequired | InvalidSlug | InvalidColumnistEmail;
 
 /**
  * Colunista — o agregado raiz do contexto.
  *
  * É CURADORIA, não conta: o registro diz quem aparece no bloco da home e com
  * que cara, e existe independentemente de a pessoa ter login. Por isso não há
- * papel, permissão nem e-mail aqui; isso é `identity`, e colunista de fora não
- * tem nada disso.
+ * papel nem permissão aqui; isso é `identity`, e colunista de fora não tem
+ * nada disso.
+ *
+ * O `email` que existe aqui é de CONTATO PÚBLICO — o endereço que sai no
+ * perfil para o leitor escrever. Não é credencial e não identifica conta: dois
+ * colunistas podem publicar o mesmo e-mail da redação, e por isso ele não tem
+ * unicidade. O e-mail de login mora no `identity`, e os dois nunca se cruzam.
  *
  * O que o agregado guarda é o PERFIL de uma assinatura. As matérias continuam
  * do editorial, e a ligação entre os dois é o `slug` — nunca uma chave
@@ -61,6 +80,11 @@ export class Columnist extends AggregateRoot<string> {
 			return err(slug.error);
 		}
 
+		const email = parseEmail(input.email);
+		if (email.isErr()) {
+			return err(email.error);
+		}
+
 		return ok(
 			new Columnist(input.id, {
 				slug: slug.value,
@@ -68,6 +92,8 @@ export class Columnist extends AggregateRoot<string> {
 				beat: input.beat?.trim() ?? "",
 				blurb: input.blurb?.trim() ?? "",
 				photoMediaId: input.photoMediaId ?? null,
+				socials: normalizeSocials(input.socials ?? {}),
+				email: email.value,
 				order: input.order ?? 0,
 				active: true,
 			}),
@@ -82,6 +108,8 @@ export class Columnist extends AggregateRoot<string> {
 		beat: string;
 		blurb: string;
 		photoMediaId: string | null;
+		socials?: SocialLinks;
+		email?: string | null;
 		order: number;
 		active: boolean;
 	}): Columnist {
@@ -97,6 +125,13 @@ export class Columnist extends AggregateRoot<string> {
 			beat: props.beat,
 			blurb: props.blurb,
 			photoMediaId: props.photoMediaId,
+			// Reidratar não RECUSA — o portal não pode sair do ar por um campo
+			// torto —, mas também não repassa lixo adiante: e-mail que não passa
+			// na régua volta como `null`, e o perfil simplesmente não mostra a
+			// linha de contato. O caminho de escrita já barra isso; isto aqui
+			// cobre edição manual no banco e importação.
+			socials: normalizeSocials(props.socials ?? {}),
+			email: sanitizeStoredEmail(props.email),
 			order: props.order,
 			active: props.active,
 		});
@@ -120,6 +155,15 @@ export class Columnist extends AggregateRoot<string> {
 
 	get photoMediaId(): string | null {
 		return this.state.photoMediaId;
+	}
+
+	/** Cópia: o estado do agregado não sai por referência. */
+	get socials(): SocialLinks {
+		return { ...this.state.socials };
+	}
+
+	get email(): string | null {
+		return this.state.email;
 	}
 
 	get order(): number {
@@ -147,10 +191,22 @@ export class Columnist extends AggregateRoot<string> {
 		beat?: string;
 		blurb?: string;
 		photoMediaId?: string | null;
-	}): Result<void, NameRequired> {
+		socials?: SocialLinks;
+		email?: string | null;
+	}): Result<void, NameRequired | InvalidColumnistEmail> {
 		const name = input.name !== undefined ? input.name.trim() : this.state.name;
 		if (!name) {
 			return err(new NameRequired());
+		}
+
+		// Valida ANTES de tocar no estado: uma edição que recusa o e-mail não
+		// pode ter gravado o nome novo no caminho.
+		const email =
+			input.email !== undefined
+				? parseEmail(input.email)
+				: ok(this.state.email);
+		if (email.isErr()) {
+			return err(email.error);
 		}
 
 		this.state = {
@@ -162,6 +218,15 @@ export class Columnist extends AggregateRoot<string> {
 				input.photoMediaId !== undefined
 					? input.photoMediaId
 					: this.state.photoMediaId,
+			// Redes vêm INTEIRAS quando vêm: a tela edita o conjunto num
+			// formulário só, e mesclar chave a chave tornaria impossível APAGAR
+			// uma rede — o campo esvaziado chegaria como ausente e o valor antigo
+			// sobreviveria.
+			socials:
+				input.socials !== undefined
+					? normalizeSocials(input.socials)
+					: this.state.socials,
+			email: email.value,
 		};
 		return ok(undefined);
 	}
@@ -184,4 +249,31 @@ export class Columnist extends AggregateRoot<string> {
 	activate(): void {
 		this.state = { ...this.state, active: true };
 	}
+}
+
+/**
+ * Caminho de ESCRITA do e-mail: ausente e vazio são a mesma coisa (`null`) —
+ * limpar o campo na tela é como nunca ter preenchido —, e o que sobra passa
+ * pela régua ou é recusado.
+ */
+function parseEmail(
+	raw: string | null | undefined,
+): Result<string | null, InvalidColumnistEmail> {
+	if (raw === null || raw === undefined) {
+		return ok(null);
+	}
+	const email = normalizeEmail(raw);
+	if (!email) {
+		return ok(null);
+	}
+	return isValidEmail(email) ? ok(email) : err(new InvalidColumnistEmail(raw));
+}
+
+/** Caminho de LEITURA: o que não passa na régua vira ausência, não erro. */
+function sanitizeStoredEmail(raw: string | null | undefined): string | null {
+	if (!raw) {
+		return null;
+	}
+	const email = normalizeEmail(raw);
+	return isValidEmail(email) ? email : null;
 }

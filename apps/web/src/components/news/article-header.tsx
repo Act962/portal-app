@@ -1,6 +1,7 @@
 import { Kicker } from "@portal-app/ui/components/kicker";
 import Link from "next/link";
 
+import { AuthorAvatar } from "@/components/people/author-avatar";
 import type { Article, Author } from "@/data/types";
 import { formatRelativeTime } from "@/lib/format";
 import { routes } from "@/lib/routes";
@@ -33,9 +34,10 @@ export function ArticleHeader({ article, author, url }: ArticleHeaderProps) {
 			</p>
 
 			<div className="mb-4 flex flex-wrap items-center gap-3 border-hairline border-y py-2.5 md:mb-stack md:py-3">
-				<div
-					aria-hidden
-					className="hatch-light size-[30px] shrink-0 rounded-full md:size-9"
+				<AuthorAvatar
+					photoUrl={author.photoUrl}
+					name={author.name}
+					className="size-[30px] shrink-0 rounded-full md:size-9"
 				/>
 
 				<div className="min-w-0 flex-1">
