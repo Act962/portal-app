@@ -39,6 +39,24 @@ pooler, a migração usa a direta. É o passo que mais dá problema quando pulad
    Sem isso o envio de imagem trava em 0% — o upload vai do navegador direto
    para o R2.
 
+4. **Ligue um domínio próprio no bucket** (*Settings → Custom Domains*, algo como
+   `midia.SEU-DOMINIO`) e use ELE em `S3_PUBLIC_URL`, não o `pub-….r2.dev`.
+
+   O `r2.dev` é o *Public Development URL*, e a Cloudflare o documenta como
+   **não destinado a produção**: tem limite de taxa variável (devolve `429`
+   acima de centenas de requisições por segundo), a banda também pode ser
+   estrangulada, e ele **não passa por cache nem por WAF** — os dois só existem
+   atrás de domínio próprio.
+
+   Isto pesa mais desde a spec 07: além do leitor com a página aberta, agora
+   buscam essas imagens o **Googlebot-Image** (elas entram no sitemap com a
+   extensão de imagem), o fetcher do **WhatsApp/Facebook** (`og:image`) e os
+   leitores de **RSS** (`<enclosure>`). Imagem que responde 429 vira prévia sem
+   foto e matéria fora do Google Imagens — sem erro nenhum aparecer no portal.
+
+   Trocar depois é barato: só o prefixo muda, e as capas já gravadas continuam
+   válidas, porque o banco guarda a CHAVE do objeto, não a URL.
+
 ### 3 · Gere os segredos
 
 ```bash
@@ -65,7 +83,7 @@ Em *Settings → Environment Variables*, ambiente **Production**:
 | `S3_ACCESS_KEY_ID` | do token do passo 2 |
 | `S3_SECRET_ACCESS_KEY` | do token do passo 2 |
 | `S3_BUCKET` | nome do bucket |
-| `S3_PUBLIC_URL` | `https://pub-….r2.dev` (sem barra no fim) |
+| `S3_PUBLIC_URL` | o domínio próprio do bucket, ex.: `https://midia.SEU-DOMINIO` (sem barra no fim). Não use o `pub-….r2.dev` — ver §2, passo 4 |
 | `S3_FORCE_PATH_STYLE` | `false` |
 | `INNGEST_SIGNING_KEY` | Settings → Keys, no painel do Inngest — ver §3.1 |
 | `INNGEST_EVENT_KEY` | idem |
@@ -192,7 +210,7 @@ mudar — só configuração.**
 | `S3_ACCESS_KEY_ID` | *Access Key ID* do token R2 |
 | `S3_SECRET_ACCESS_KEY` | *Secret Access Key* do token R2 |
 | `S3_BUCKET` | nome do bucket (ex.: `portal-media`) |
-| `S3_PUBLIC_URL` | URL pública do bucket (domínio próprio ou `r2.dev`) |
+| `S3_PUBLIC_URL` | URL pública do bucket — **domínio próprio**; o `r2.dev` é só para desenvolvimento (§2, passo 4) |
 | `S3_FORCE_PATH_STYLE` | **`false`** — o R2 usa *virtual-hosted style* |
 
 > 🔐 **As credenciais não entram no repositório.** Cadastre-as no painel de
@@ -361,7 +379,9 @@ capa em cada matéria.
 4. [ ] *Root Directory* do projeto na Vercel = **raiz do repositório**.
 5. [ ] `prisma migrate status` sem migrations pendentes.
 6. [ ] CORS do bucket liberando `PUT` do domínio do painel.
-7. [ ] `S3_PUBLIC_URL` apontando para o bucket (é o prefixo das imagens).
+7. [ ] `S3_PUBLIC_URL` apontando para o **domínio próprio** do bucket (é o
+       prefixo de toda imagem — inclusive do `og:image` e do sitemap de
+       imagem). `pub-….r2.dev` em produção é limite de taxa esperando acontecer.
 8. [ ] Uma matéria agendada para daqui a poucos minutos publicou sozinha —
        é o teste de que o Inngest está de fato dirigindo.
 9. [ ] `INNGEST_SIGNING_KEY` e `INNGEST_EVENT_KEY` cadastradas, e a app

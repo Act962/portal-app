@@ -17,7 +17,7 @@ configurações do veículo, grade de programação, enquete com voto anônimo,
 
 ## 🚨 Precisa de ação humana — desta rodada (2026-08-12/13)
 
-Seis coisas que o código não resolve sozinho e que **ficam erradas em
+Sete coisas que o código não resolve sozinho e que **ficam erradas em
 produção até alguém agir**:
 
 1. **O texto legal precisa de revisão de quem responde pelo veículo.**
@@ -88,6 +88,24 @@ produção até alguém agir**:
 
    Enquanto os dois não forem feitos, o efeito de toda esta entrega é
    invisível — e é o único passo que não dá para fazer por código.
+
+7. **O bucket do R2 precisa de domínio próprio (13/08).** `S3_PUBLIC_URL` em
+   produção aponta para `pub-….r2.dev`, que é o *Public Development URL* — a
+   Cloudflare documenta que ele **não é para produção**: limite de taxa variável
+   (`429`), banda estrangulada, e sem cache nem WAF.
+
+   Conviver com isso era possível enquanto só o leitor com a página aberta
+   buscava imagem. Deixou de ser: com a spec 07, quem busca também é o
+   **Googlebot-Image** (extensão de imagem no sitemap), o fetcher do
+   **WhatsApp/Facebook** (`og:image`) e os leitores de **RSS** (`<enclosure>`).
+   Imagem que responde 429 vira prévia sem foto e matéria fora do Google
+   Imagens, sem erro nenhum no portal.
+
+   **O que fazer:** *R2 → bucket → Settings → Custom Domains*, ligar algo como
+   `midia.fm7cidades.com`, e trocar `S3_PUBLIC_URL` na Vercel. Nenhuma linha de
+   código muda, e as capas já gravadas continuam válidas — o banco guarda a
+   chave do objeto, não a URL. Passo a passo em [`deploy.md`](./deploy.md) §0,
+   passo 2.4.
 
 ### Área de patrocinadores — ADIADA pelo cliente (12/08)
 

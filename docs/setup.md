@@ -115,6 +115,22 @@ pnpm db:migrate
 Aplica as migrations versionadas. **Nunca use `db:push`** para isso — ele grava
 direto no banco sem gerar migration, e a mudança fica invisível para todo mundo.
 
+> **Depois de MUDAR o schema, rode também `pnpm db:generate`.**
+>
+> O `migrate dev` deveria regenerar o cliente sozinho, e nem sempre regenera —
+> aconteceu em 13/08 ao adicionar uma coluna. O sintoma é traiçoeiro: **nada dá
+> erro.** O Prisma monta um `SELECT` com as colunas que o cliente GERADO conhece,
+> então a coluna nova simplesmente não vem na consulta, chega `undefined` na
+> aplicação e o código cai no default como se o banco estivesse vazio. Você
+> confere o banco, o valor está lá, e passa meia hora procurando bug na camada
+> errada.
+>
+> ```bash
+> pnpm db:generate
+> ```
+>
+> E **reinicie o dev server** — ele carregou o cliente antigo na memória.
+
 ### 5.1 Conteúdo inicial (opcional)
 
 ```bash
@@ -192,6 +208,7 @@ antigo, e a suíte escreveria no seu banco de desenvolvimento.
 | Sintoma | Causa quase sempre |
 |---|---|
 | `Cannot read properties of undefined (reading 'findMany')` | Cliente do Prisma velho depois de uma migration. `pnpm db:generate` e **reinicie o dev server** |
+| **Campo novo lido do banco chega sempre nulo, e nada dá erro** | Mesma causa, sintoma silencioso: o cliente gerado não conhece a coluna, então ela não entra no `SELECT`. Confira com `grep -rl <campo> packages/db/prisma/generated/` — se não achar, rode `pnpm db:generate` e reinicie (ver §5) |
 | Upload funciona mas o arquivo dá 404 ao abrir | Bloco `S3_*` misturado (ver 3.2) |
 | `ECONNREFUSED` na porta do Postgres | Container não subiu, ou `POSTGRES_PORT` e `DATABASE_URL` divergem |
 | Estilo quebrado / erro estranho no Turbopack | Cache: pare o dev server, apague `apps/web/.next`, suba de novo. Apagar com o servidor rodando corrompe |
