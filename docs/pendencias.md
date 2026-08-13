@@ -44,18 +44,18 @@ produção até alguém agir**:
    têm destino e esvaziar a linha legal (ou trocá-la pela razão social, que é
    para o que o campo passou a servir). É clique, não deploy.
 
-3. **A faixa de cotações precisa de `AWESOMEAPI_TOKEN` para voltar ao ar.**
-   Ela subiu e **não apareceu em produção**: o log da Vercel mostrou
+3. **`AWESOMEAPI_TOKEN` cadastrado (13/08) — falta o redeploy e a conferência.**
+   A faixa subiu e **não apareceu em produção**: o log da Vercel mostrou
    `[cotacoes] a API respondeu 429` em toda visita. O erro de julgamento foi
    raciocinar pelo NOSSO volume (uma chamada por minuto, folgada nos 100 do
    acesso anônimo) — mas o limite é **por endereço IP**, e os IPs de saída da
    Vercel são compartilhados com outros clientes: a cota se esgota por uso de
-   terceiros. O código já aceita o token; falta cadastrá-lo.
+   terceiros.
 
-   **O que fazer:** criar conta gratuita em `awesomeapi.com.br` (sobe para 100
-   mil requisições), copiar o token e cadastrar `AWESOMEAPI_TOKEN` nas
-   variáveis de ambiente da Vercel. Sem ele, dev/build/CI continuam
-   funcionando — a faixa é que fica fora do ar em produção.
+   O token já está nas variáveis de ambiente. **O que falta:** um deploy novo
+   — variável cadastrada não alcança o que já está no ar — e abrir qualquer
+   página para ver os três valores no cabeçalho. Detalhe e como diagnosticar
+   se ainda vier vazio na seção "Dívida gerada pelo rebranding", mais abaixo.
 
 4. **A licença da Open-Meteo (temperatura do cabeçalho) precisa de decisão.**
    O plano gratuito é declarado para uso NÃO COMERCIAL e o portal é de uma
@@ -202,13 +202,30 @@ branco. São exigências opostas — ícone de tela inicial **não** pode ser
 transparente, porque Android e iOS compõem sobre branco ou preto por conta
 própria.
 
-### ⏳ Em aberto — as cotações agora são de toda página
+### ⏳ Falta confirmar no ar — as cotações agora são de toda página
 
 Elas subiram para a barra do topo, que está na moldura. Não multiplica
 requisição (o `unstable_cache` de `data/quotes.ts` guarda inclusive a falha),
 mas muda o alcance do item 3 desta lista: sem o `AWESOMEAPI_TOKEN`, o que fica
 vazio em produção deixou de ser uma faixa da home e passou a ser um pedaço do
-cabeçalho do site inteiro. **Depende de cadastrar o token na Vercel.**
+cabeçalho do site inteiro.
+
+**O token foi cadastrado na Vercel em 13/08.** O caminho do código foi conferido
+e está certo: a variável é opcional no schema (`packages/env/src/server.ts`), e
+`data/quotes.ts` a anexa como `?token=` com `encodeURIComponent`. Faltam duas
+coisas antes de riscar esta linha:
+
+1. **Redeploy.** Variável de ambiente na Vercel só vale para deploys NOVOS — o
+   que está no ar hoje continua rodando sem ela, por mais que o painel já a
+   mostre cadastrada.
+2. **Conferir no ar.** Abrir qualquer página do portal (a faixa agora é do
+   cabeçalho, não só da home) e ver os três valores. Se ainda estiver vazia, o
+   log da Vercel diz o motivo em uma linha — `[cotacoes] a API respondeu …` —,
+   e com o token presente a mensagem já não acusa o limite anônimo.
+
+O cache é de 5 minutos e guarda também a falha, então uma leitura ruim
+imediatamente antes do deploy não persiste: o deploy novo começa com cache
+limpo.
 
 ### Área de patrocinadores — ADIADA pelo cliente (12/08)
 
