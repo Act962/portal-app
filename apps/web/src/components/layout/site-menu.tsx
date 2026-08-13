@@ -1,49 +1,37 @@
 "use client";
 
 import type { Link as SiteLinkData } from "@portal-app/settings";
-import {
-	Sheet,
-	SheetContent,
-	SheetTitle,
-	SheetTrigger,
-} from "@portal-app/ui/components/sheet";
-import { Menu, X } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
+import { Menu } from "lucide-react";
+import dynamic from "next/dynamic";
+import { useRef, useState } from "react";
 
-import { RupestreTexture } from "@/components/layout/rupestre-texture";
-import { SiteLink } from "@/components/layout/site-link";
 import type { Section } from "@/data/types";
-import { routes } from "@/lib/routes";
 
 /**
- * A navegação do portal, num painel lateral.
+ * O botão MENU do cabeçalho — e só ele.
  *
  * Substituiu a rota `/menu`, que era uma página inteira só para listar links.
- * O painel abre por cima da matéria que o leitor já está lendo — ele escolhe
+ * O painel abre por cima da matéria que o leitor já está lendo: ele escolhe
  * para onde ir sem perder o lugar, e fechar não custa uma volta no histórico.
  *
- * É um Client Component por um motivo que não dá para contornar — abrir e
- * fechar é estado do navegador —, mas o custo para no componente: os dados
- * chegam prontos por prop, do `SiteHeader`, e nenhuma consulta atravessa para
- * o cliente. Na moldura ele acompanha o `AnchorAd`, que já era cliente pelo
- * mesmo tipo de razão (o leitor fecha o banner).
+ * **Por que o painel é carregado sob demanda.** Medido contra a `main`, com o
+ * diálogo no pacote inicial a home saía de 190,8 KB para 234,2 KB comprimidos
+ * — 43 KB a mais em TODA página pública, por um menu que a maior parte dos
+ * leitores nunca abre. O orçamento do `ui-ux.md` §4 é 150 KB. Aqui sobra o
+ * botão; o resto chega no primeiro contato.
+ *
+ * **E por que isso não custa espera.** O `preload` dispara no `pointerenter` e
+ * no `pointerdown`, os dois ANTES do clique se completar: no desktop o pacote
+ * já está em memória quando o dedo levanta, e no toque ele começa a baixar no
+ * instante em que o dedo encosta. Sem isso, a primeira abertura pagaria uma
+ * ida à rede — inaceitável para o que virou a única navegação do portal.
  */
-
-/** Os destinos que não são editoria e não vêm do banco (P11). */
-const PRIMARY_NAV = [
-	{ label: "Início", href: routes.home },
-	{ label: "Últimas notícias", href: routes.latest },
-	{ label: "Colunistas", href: routes.columnists },
-	{ label: "Enquetes", href: routes.polls },
-	{ label: "Busca", href: routes.search },
-] as const;
-
-const EYEBROW =
-	"mb-2 font-mono text-[9px] text-on-brand-muted tracking-[0.16em]";
-
-const ITEM =
-	"flex min-h-11 items-center justify-between gap-3 border-on-brand-rule/50 border-t py-2.5 font-semibold text-[15px] text-white transition-colors hover:text-on-brand-soft";
+const SiteMenuPanel = dynamic(
+	() => import("@/components/layout/site-menu-panel"),
+	// Painel fechado não tem o que renderizar no servidor, e é isso que mantém
+	// o pacote fora do HTML inicial.
+	{ ssr: false },
+);
 
 export function SiteMenu({
 	sections,
@@ -53,110 +41,48 @@ export function SiteMenu({
 	institutional: readonly SiteLinkData[];
 }) {
 	const [open, setOpen] = useState(false);
+	const botao = useRef<HTMLButtonElement>(null);
 
-	// Fechar no clique é explícito, e não um efeito que observa a rota: o
-	// painel precisa sumir mesmo quando o leitor clica no link da página em que
-	// já está — caso em que a rota não muda e um efeito não dispararia.
-	const close = () => setOpen(false);
+	// `preload` existe no componente que o `dynamic` devolve; a asserção é
+	// porque a tipagem pública do `next/dynamic` não a expõe.
+	const preload = () =>
+		(SiteMenuPanel as unknown as { preload?: () => void }).preload?.();
+
+	const aoMudar = (aberto: boolean) => {
+		setOpen(aberto);
+		// Sem o `SheetTrigger` do Base UI, a devolução do foco é nossa. Foco que
+		// não volta deixa quem navega por teclado no início do documento, tendo
+		// de reatravessar o cabeçalho inteiro (WCAG 2.4.3).
+		if (!aberto) {
+			botao.current?.focus();
+		}
+	};
 
 	return (
-		<Sheet open={open} onOpenChange={setOpen}>
-			<SheetTrigger
-				className="flex w-fit items-center gap-2.5 py-2 pr-3 font-semibold text-[13px] text-white uppercase tracking-[0.12em] transition-colors hover:text-on-brand-muted md:gap-3 md:text-sm"
+		<>
+			<button
+				ref={botao}
+				type="button"
 				aria-label="Abrir o menu"
+				aria-haspopup="dialog"
+				aria-expanded={open}
+				onPointerEnter={preload}
+				onPointerDown={preload}
+				onFocus={preload}
+				onClick={() => setOpen(true)}
+				className="flex w-fit items-center gap-2.5 py-2 pr-3 font-semibold text-[13px] text-white uppercase tracking-[0.12em] transition-colors hover:text-on-brand-muted md:gap-3 md:text-sm"
 			>
 				<Menu size={22} aria-hidden />
 				Menu
-			</SheetTrigger>
+			</button>
 
-			<SheetContent
-				side="left"
-				showCloseButton={false}
-				// Sem largura aqui: o `SheetContent` já traz `w-3/4` e `sm:max-w-sm`
-				// atrás de `data-[side=left]`, e um `w-*` solto não conflita com eles
-				// para o tailwind-merge — ficaria escrito e sem efeito.
-				className="gap-0 overflow-y-auto border-on-brand-rule bg-brand-deep p-5 text-white"
-			>
-				{/*
-				  No pé do painel, ancorada na viewport (`fixed`, não `absolute`):
-				  dentro de um contêiner que rola, `absolute` a prenderia ao fim do
-				  CONTEÚDO e ela subiria junto com a rolagem. Aqui ela fica parada no
-				  rodapé do painel, que é o único vão garantido — a lista de links
-				  ocupa o resto.
-				*/}
-				<RupestreTexture
-					className="fixed bottom-0 left-0 h-12 translate-y-3"
-					sizes="300px"
+			{open ? (
+				<SiteMenuPanel
+					sections={sections}
+					institutional={institutional}
+					onOpenChange={aoMudar}
 				/>
-
-				<div className="mb-5 flex items-center justify-between gap-3">
-					<SheetTitle className="font-mono text-[10px] text-on-brand-muted uppercase tracking-[0.16em]">
-						Navegação
-					</SheetTitle>
-
-					{/* O botão padrão do `SheetContent` é um `Button` do painel, que
-					    sobre o marrom fica quase invisível — daí o próprio, com os
-					    44px de alvo que a WCAG 2.5.8 pede. */}
-					<button
-						type="button"
-						onClick={close}
-						aria-label="Fechar o menu"
-						className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10"
-					>
-						<X size={20} aria-hidden />
-					</button>
-				</div>
-
-				<nav aria-label="Principal">
-					<ul className="mb-6 flex flex-col">
-						{PRIMARY_NAV.map((item) => (
-							<li key={item.href}>
-								<Link href={item.href} onClick={close} className={ITEM}>
-									{item.label}
-									<span aria-hidden className="text-on-brand-muted">
-										→
-									</span>
-								</Link>
-							</li>
-						))}
-					</ul>
-				</nav>
-
-				{sections.length > 0 ? (
-					<nav aria-label="Editorias">
-						<h3 className={EYEBROW}>EDITORIAS</h3>
-						<ul className="mb-6 grid grid-cols-2 gap-x-4">
-							{sections.map((section) => (
-								<li key={section.slug}>
-									<Link
-										href={routes.section(section.slug)}
-										onClick={close}
-										className={ITEM}
-									>
-										{section.name}
-									</Link>
-								</li>
-							))}
-						</ul>
-					</nav>
-				) : null}
-
-				{institutional.length > 0 ? (
-					<nav aria-label="Serviços">
-						<h3 className={EYEBROW}>SERVIÇOS</h3>
-						<ul className="flex flex-col">
-							{institutional.map((item) => (
-								<li key={item.label}>
-									{/* Sem destino cadastrado o rótulo vira texto inerte, não
-									    um clique morto (D9) — por isso `SiteLink`, e não um
-									    `<Link>` cru. */}
-									<SiteLink link={item} className={ITEM} />
-								</li>
-							))}
-						</ul>
-					</nav>
-				) : null}
-			</SheetContent>
-		</Sheet>
+			) : null}
+		</>
 	);
 }

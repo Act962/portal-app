@@ -33,27 +33,43 @@ de [`docs/pendencias.md`](../../docs/pendencias.md).
 
 ## De onde veio cada arquivo servido
 
-| Servido em `public/brand/` | Origem | Redução |
+| Servido em `public/brand/` | Origem | Tratamento |
 |---|---|---|
-| `logo-7-cidades.png` | `logo_7_cidades.png` | 1024px |
-| `icon-512.png` · `icon-192.png` · `apple-icon.png` | `icon_7_cidades.png` | 512 · 192 · 180px |
-| `rupestre.png` | `transparence_rupestre.png` | 900px |
+| `logo-7-cidades.png` | `logo_7_cidades.png` | 1024px, transparente |
+| `symbol.png` | `icon_7_cidades.png` | 512px, **transparente** |
+| `favicon.ico` | `FAVICON_portal_7_cidades.png` | 16·32·48·256, **chapado no marrom** |
+| `icon-512.png` · `icon-192.png` · `apple-icon.png` | `FAVICON_portal_7_cidades.png` | idem, chapado |
+| `rupestre.png` | `transparence_rupestre.png` | 900px, transparente |
 
-`favicon.ico` é anterior a esta entrega e segue sendo o fallback legado — ele
-**ainda não foi refeito com a marca nova** (pendência 8).
+**Por que o símbolo e o ícone são arquivos diferentes.** O cabeçalho pinta o
+símbolo de branco com `brightness-0 invert`, o que exige fundo transparente —
+uma arte chapada viraria um quadrado branco. Já ícone de tela inicial **não
+pode** ser transparente: Android e iOS compõem sobre branco ou preto por conta
+própria, e o "7" vazado sumiria num dos dois. São exigências opostas, então são
+dois arquivos.
 
-Três originais não geraram nada até agora: `icon_7_cidades_mono_cor.png`,
-`icon_7_cidades_pb.png` e `barra_rupestre.png`.
+Dois originais seguem sem uso: `icon_7_cidades_mono_cor.png` e
+`icon_7_cidades_pb.png`. O `barra_rupestre.png` também não é servido, mas foi
+ele que sugeriu o uso do grafismo como textura dos blocos marrons.
 
 ## Como regerar
 
-O `sharp` já vem com o Next, então não é preciso instalar nada. Da raiz do
-repositório:
+O `sharp` já vem com o Next, então não é preciso instalar nada. O script está
+em [`gerar-assets.mjs`](./gerar-assets.mjs), ao lado — da raiz do repositório:
 
 ```bash
-node -e 'const s=require("./node_modules/.pnpm/sharp@0.34.5/node_modules/sharp/lib/index.js");const j=[["logo_7_cidades","logo-7-cidades",1024],["icon_7_cidades","icon-512",512],["icon_7_cidades","icon-192",192],["icon_7_cidades","apple-icon",180],["transparence_rupestre","rupestre",900]];(async()=>{for(const [from,to,w] of j){await s(`design/marca/${from}.png`).resize({width:w,withoutEnlargement:true}).png({compressionLevel:9,palette:true}).toFile(`apps/web/public/brand/${to}.png`);console.log(to,w)}})()'
+node design/marca/gerar-assets.mjs
 ```
 
-`palette: true` é o que segura o peso — o lockup sai de 326 KB para 46 KB sem
-diferença visível, porque são poucas cores chapadas. Confira o caminho do
-`sharp` se a versão tiver mudado (`ls node_modules/.pnpm | grep sharp`).
+Ele reescreve os sete arquivos de `apps/web/public/brand/` e imprime o tamanho
+de cada um. É idempotente: rodar duas vezes produz os mesmos bytes.
+
+Duas coisas que o script resolve e que não são óbvias:
+
+- **`palette: true`** é o que segura o peso nas artes transparentes — o lockup
+  sai de 326 KB para 45 KB sem diferença visível, porque são poucas cores
+  chapadas.
+- **O `.ico` é montado à mão**, porque o `sharp` não escreve esse formato. O
+  contêiner aceita cada imagem como BMP cru ou como PNG inteiro; o script usa
+  PNG, que todo navegador lê desde o IE11 e dispensa escrever o cabeçalho DIB e
+  a máscara AND — que é justamente onde esse tipo de gerador erra.

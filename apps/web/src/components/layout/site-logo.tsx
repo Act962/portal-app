@@ -29,9 +29,13 @@ import Image from "next/image";
  * sobre um PNG transparente devolve branco puro preservando o antisserrilhado
  * das bordas — evita manter duas versões do mesmo símbolo em `public/`, que é
  * como versões de logo começam a divergir.
+ *
+ * E é por isso que o arquivo é `symbol.png`, e não o `icon-512.png` do
+ * manifest: aquele é a arte CHAPADA sobre o marrom (ícone de tela inicial não
+ * pode ser transparente), e o filtro a transformaria num quadrado branco.
  */
 
-const SYMBOL = "/brand/icon-512.png";
+const SYMBOL = "/brand/symbol.png";
 
 export function SiteLogo({ className }: { className?: string }) {
 	return (

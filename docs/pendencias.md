@@ -111,13 +111,16 @@ produção até alguém agir**:
    passou a ser o **Portal 7 Cidades**, em marrom (`#3A1F0E` / `#7B5723`). O
    código está inteiro; o que falta não é deploy:
 
-   - **O logo das Configurações ainda é a marca ANTIGA** — o "7" vermelho sobre
-     azul-marinho, 150×150. Ele não aparece mais no cabeçalho (que agora usa a
-     arte da marca em `public/brand/`), mas continua alimentando o
-     `Organization` do schema.org, o `<image>` do RSS, o `og:image` padrão e os
-     ícones do manifest. Ou seja: o portal está marrom e **o link
-     compartilhado no WhatsApp ainda chega azul**. Conserto: Configurações →
-     subir o logo novo.
+   - **O logo E o favicon das Configurações ainda são a marca ANTIGA** — o "7"
+     vermelho sobre azul-marinho, 150×150. Nenhum dos dois aparece mais no
+     cabeçalho (que usa a arte de `public/brand/`), mas o campo continua
+     ganhando dos arquivos estáticos em tudo o mais: o `logoUrl` alimenta o
+     `Organization` do schema.org, o `<image>` do RSS e o `og:image` padrão; o
+     `faviconUrl` alimenta a aba e os ícones do manifest. Ou seja: o portal
+     está marrom, **o link compartilhado no WhatsApp ainda chega azul e a aba
+     do navegador também**. Os arquivos novos em `public/brand/` só entram
+     quando os dois campos estiverem vazios. Conserto: Configurações → subir
+     `logo-7-cidades.png` e `favicon.ico` (ou limpar os campos).
    - **O nome do veículo continua "Rádio 7 Cidades"** nas Configurações,
      enquanto a marca entregue diz "Portal Cidades". O cabeçalho mostra a arte,
      mas `<title>`, Open Graph e schema.org mostram o nome do banco — e os dois
@@ -135,41 +138,70 @@ produção até alguém agir**:
 
 ## Dívida gerada pelo rebranding (13/08) — nossa, não do cliente
 
-Quatro coisas que a entrega da identidade deixou em aberto e que **não** dependem
-de ninguém do lado do cliente:
+A entrega da identidade abriu quatro frentes. **Três foram fechadas na mesma
+rodada**; sobra uma, e ela é do cliente.
 
-1. **A navegação inteira do portal não tem teste.** É a mais séria. Com a trilha
-   de editorias fora do layout, chegar a qualquer editoria passou a depender de
-   um painel que **só existe depois da hidratação**. Se ele quebrar — erro de
-   hidratação, mudança no Base UI, um `onClick` perdido num refactor —, o leitor
-   fica sem caminho para editoria nenhuma e **o CI não reclama**: o único teste
-   de home checa a manchete, que não depende do menu.
+### ✅ Resolvido — a navegação tem teste
 
-   Esqueleto aberto em `apps/web/tests/e2e/home.spec.ts` (`test.fixme` × 6:
-   abre, lista editorias, navega e fecha, fecha na rota atual, Esc devolve o
-   foco, rodapé mantém os links no HTML).
+Com a trilha de editorias fora do layout, chegar a qualquer editoria passou a
+depender de um painel que só existe depois da hidratação — e o único teste de
+home checava a manchete, que não depende do menu. Um erro de hidratação deixaria
+o portal sem navegação com o CI verde.
 
-2. **O portal público voltou a mandar JavaScript de navegação, e ninguém mediu
-   quanto.** Antes da entrega a moldura tinha um único Client Component
-   (`AnchorAd`, o banner dispensável). Agora tem dois: entrou o `Sheet` do Base
-   UI, em **todas** as páginas públicas. `ui-ux.md` §4 fixa "JS inicial < 150 KB"
-   e o Lighthouse CI que deveria travar isso ainda não está no pipeline — então
-   o orçamento existe no papel e nada o verifica. Medir o delta contra `main`
-   antes de considerar a Fase de performance fechada.
+`apps/web/tests/e2e/home.spec.ts` ganhou seis testes de verdade: abre, lista as
+editorias, navega e fecha, fecha ao clicar na rota em que já se está (o caso que
+um efeito observando a rota NÃO cobriria), Esc devolve o foco ao botão, e o
+rodapé mantém as editorias no HTML servido sem nenhuma interação — que é o que
+sustenta a linkagem interna para o rastreador. Suíte E2E em 12 verdes.
 
-3. **As cotações passaram a ser buscadas em toda página, não só na home.** Elas
-   subiram para a barra do topo, que está na moldura. Não multiplica requisição
-   (o `unstable_cache` de `data/quotes.ts` guarda inclusive a falha), mas muda o
-   alcance do item 3 desta lista: sem o `AWESOMEAPI_TOKEN`, o que fica vazio em
-   produção deixou de ser uma faixa da home e passou a ser um pedaço do
-   cabeçalho do site inteiro.
+Eles não fixam nome de editoria: leem a primeira que o painel lista. O seed do
+E2E tem só "Cidades" e o de desenvolvimento tem sete — asserção presa a conteúdo
+de seed vira falha vermelha quando o dado muda, que é ruído, não defeito.
 
-4. **O `favicon.ico` ainda é da identidade antiga.** Os PNGs novos (192/512/
-   apple) já entram como ícone quando não há favicon cadastrado, mas o `.ico`
-   continua sendo o arquivo velho, e é ele que responde em navegador antigo e no
-   atalho da área de trabalho. Refazer exige uma ferramenta de `.ico` — o
-   `sharp` não escreve esse formato. Arte-mestre disponível em
-   [`design/marca/`](../design/marca/).
+### ✅ Resolvido — o JS do portal voltou ao que era
+
+Medido servindo o build de produção e somando os scripts que o HTML da home
+referencia, comprimidos:
+
+| | bruto | gzip |
+|---|---|---|
+| `main` (antes) | 640,4 KB | **190,8 KB** |
+| com o `Sheet` no pacote inicial | 769,9 KB | **234,2 KB** |
+| com o painel sob demanda | 640,4 KB | **190,8 KB** |
+
+O diálogo do Base UI custava **+43,4 KB comprimidos em toda página pública** por
+um menu que a maior parte dos leitores nunca abre. O painel virou
+`site-menu-panel.tsx`, carregado por `next/dynamic`, e o botão ficou com alguns
+bytes. O `preload` dispara no `pointerenter` e no `pointerdown` — os dois antes
+de o clique se completar —, então a primeira abertura não paga ida à rede.
+
+**Fica registrado o que a medição revelou de passagem:** a home já estava em
+190,8 KB antes desta entrega, contra os 150 KB que o `ui-ux.md` §4 fixa. O
+rebranding não criou esse estouro e agora não o piora, mas ele existe e nada no
+CI o verifica — o Lighthouse CI que travaria isso continua fora do pipeline.
+
+### ✅ Resolvido — o favicon é da marca nova
+
+`favicon.ico` regerado com a arte do cliente (16·32·48·256, chapada sobre o
+`#3A1F0E`), junto com os ícones de manifest e de tela inicial. O `sharp` não
+escreve `.ico`, então o contêiner é montado à mão em
+[`design/marca/gerar-assets.mjs`](../design/marca/gerar-assets.mjs) — com cada
+imagem embutida como PNG, que todo navegador lê desde o IE11 e dispensa o
+cabeçalho DIB e a máscara AND, que é onde esse tipo de gerador erra.
+
+O símbolo do cabeçalho virou arquivo próprio (`symbol.png`, transparente): o
+masthead o pinta de branco por filtro, e a arte chapada viraria um quadrado
+branco. São exigências opostas — ícone de tela inicial **não** pode ser
+transparente, porque Android e iOS compõem sobre branco ou preto por conta
+própria.
+
+### ⏳ Em aberto — as cotações agora são de toda página
+
+Elas subiram para a barra do topo, que está na moldura. Não multiplica
+requisição (o `unstable_cache` de `data/quotes.ts` guarda inclusive a falha),
+mas muda o alcance do item 3 desta lista: sem o `AWESOMEAPI_TOKEN`, o que fica
+vazio em produção deixou de ser uma faixa da home e passou a ser um pedaço do
+cabeçalho do site inteiro. **Depende de cadastrar o token na Vercel.**
 
 ### Área de patrocinadores — ADIADA pelo cliente (12/08)
 

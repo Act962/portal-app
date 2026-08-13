@@ -132,10 +132,14 @@ justamente o que se perde ao adiar.
 
 Esqueletos abertos hoje: `apps/web/tests/unit/` (serializador do TipTap,
 formatação de data, direção das cotações) e `packages/api/tests/unit/`
-(autorização dos routers). Em E2E o equivalente do `it.todo` é o `test.fixme`
-do Playwright, e há um bloco aberto em `apps/web/tests/e2e/home.spec.ts` para o
-menu lateral — que desde 13/08 é o **único** caminho para as editorias.
-Estado detalhado em `docs/pendencias.md`.
+(autorização dos routers). Estado detalhado em `docs/pendencias.md`.
+
+Em E2E o equivalente do `it.todo` é o **`test.fixme`** do Playwright — aparece
+no relatório a cada rodada, como o `it.todo` faz no vitest. O menu lateral
+nasceu assim em 13/08 e foi pago na mesma rodada: são seis testes reais em
+`apps/web/tests/e2e/home.spec.ts`, e vale ler o porquê antes de mexer neles —
+com a trilha de editorias fora do layout, aquele painel é o ÚNICO caminho para
+as editorias, e ele só existe depois da hidratação.
 
 **A régua de cobertura do domínio (95%) não se baixa** para acomodar código novo
 — quando `body.ts` derrubou a cobertura, a decisão foi escrever o teste, não
