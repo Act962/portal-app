@@ -14,7 +14,7 @@ export function SecondaryStoryList({ articles }: { articles: Article[] }) {
 				<li key={article.slug} className="border-hairline border-t">
 					<Link
 						href={routes.article(article.sectionSlug, article.slug)}
-						className="group flex flex-col gap-2.5 py-4 text-brand-navy hover:text-brand-navy"
+						className="group flex flex-col gap-2.5 py-4 text-brand-deep hover:text-brand-deep"
 					>
 						<ArticleThumb article={article} className="h-[130px] w-full" />
 						<Kicker variant="text">{article.kicker}</Kicker>

@@ -73,11 +73,11 @@ export default async function ColumnistsPage() {
 						{columnists.map((columnist) => (
 							<li
 								key={columnist.slug}
-								className="flex flex-col rounded-card border border-hairline bg-surface p-4.5 transition-[colors,transform,box-shadow] duration-200 hover:-translate-y-px hover:border-brand-navy hover:shadow-sm"
+								className="flex flex-col rounded-card border border-hairline bg-surface p-4.5 transition-[colors,transform,box-shadow] duration-200 hover:-translate-y-px hover:border-brand-deep hover:shadow-sm"
 							>
 								<Link
 									href={routes.author(columnist.slug)}
-									className="flex items-start gap-3.5 text-brand-navy"
+									className="flex items-start gap-3.5 text-brand-deep"
 								>
 									<AuthorAvatar
 										photoUrl={columnist.photoUrl}
@@ -116,7 +116,7 @@ export default async function ColumnistsPage() {
 												columnist.latest.sectionSlug,
 												columnist.latest.slug,
 											)}
-											className="block font-bold text-[13.5px] text-brand-navy leading-snug hover:text-brand-red"
+											className="block font-bold text-[13.5px] text-brand-deep leading-snug hover:text-brand-red"
 										>
 											{columnist.latest.title}
 										</Link>

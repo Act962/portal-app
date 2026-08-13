@@ -25,7 +25,7 @@ export function NewsRow({
 		<article className="border-hairline border-b">
 			<Link
 				href={routes.article(article.sectionSlug, article.slug)}
-				className="group flex gap-3 py-3 text-brand-navy hover:text-brand-navy md:gap-5 md:py-4.5"
+				className="group flex gap-3 py-3 text-brand-deep hover:text-brand-deep md:gap-5 md:py-4.5"
 			>
 				<ArticleThumb
 					article={article}

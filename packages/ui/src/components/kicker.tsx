@@ -17,8 +17,8 @@ const kickerVariants = cva("inline-block uppercase [line-height:normal]", {
 		variant: {
 			"solid-red":
 				"rounded-tag bg-brand-red px-2 py-[3px] font-bold text-[10px] text-white tracking-[0.12em]",
-			"solid-navy":
-				"rounded-tag bg-brand-navy px-2 py-[3px] font-bold text-[10px] text-white tracking-[0.12em]",
+			"solid-deep":
+				"rounded-tag bg-brand-deep px-2 py-[3px] font-bold text-[10px] text-white tracking-[0.12em]",
 			text: "font-mono text-[9.5px] text-brand-red tracking-[0.12em]",
 		},
 	},

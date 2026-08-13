@@ -1,5 +1,7 @@
+import { AdSlot } from "@portal-app/ui/components/ad-slot";
+import { Container } from "@portal-app/ui/components/container";
+
 import { AnchorAd } from "@/components/layout/anchor-ad";
-import { MainNav } from "@/components/layout/main-nav";
 import { NewsTicker } from "@/components/layout/news-ticker";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -52,8 +54,25 @@ export default async function SiteLayout({
 				<SkipLink />
 				<TopBar />
 				<SiteHeader />
-				<MainNav sections={sections} />
+
+				{/*
+				  A trilha de editorias que ficava aqui saiu: a navegação inteira
+				  passou para o botão MENU do cabeçalho (rota `/menu`), por decisão do
+				  cliente. `sections` continua sendo carregado porque o RODAPÉ lista
+				  todas — é o que mantém cada editoria a um link de distância de
+				  qualquer página, para o leitor e para o rastreador.
+
+				  Efeito colateral bem-vindo: `main-nav.tsx` era o único Client
+				  Component da moldura (existia só por causa do `usePathname`). Sem
+				  ele, o grupo `(site)` voltou a ser uma árvore de RSCs pura.
+				*/}
 				<NewsTicker articles={ticker} />
+
+				{/* Onde o mockup põe o banner. Altura reservada pelo `AdSlot`, então
+				    a entrada do criativo não desloca o conteúdo (CLS). */}
+				<Container className="pt-4">
+					<AdSlot format="billboard" className="mx-auto hidden md:block" />
+				</Container>
 
 				<main id="conteudo" className="flex-1">
 					{children}

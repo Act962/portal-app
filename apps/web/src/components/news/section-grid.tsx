@@ -41,7 +41,7 @@ export async function SectionGrid({
 								"flex min-h-11 flex-col justify-center gap-1 rounded-card border px-3 py-3",
 								isDark
 									? "border-white/20 text-white hover:border-brand-red hover:bg-brand-red hover:text-white"
-									: "border-hairline bg-surface text-brand-navy hover:border-brand-navy hover:text-brand-navy",
+									: "border-hairline bg-surface text-brand-deep hover:border-brand-deep hover:text-brand-deep",
 							)}
 						>
 							<span

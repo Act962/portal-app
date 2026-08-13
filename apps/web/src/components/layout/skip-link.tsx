@@ -6,7 +6,7 @@ export function SkipLink() {
 	return (
 		<a
 			href="#conteudo"
-			className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-brand-navy focus:px-4 focus:py-3 focus:font-bold focus:text-sm focus:text-white"
+			className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-brand-deep focus:px-4 focus:py-3 focus:font-bold focus:text-sm focus:text-white"
 		>
 			Pular para o conteúdo
 		</a>

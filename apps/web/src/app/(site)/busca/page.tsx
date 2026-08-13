@@ -69,7 +69,7 @@ export default async function SearchPage({
 						<div className="flex flex-wrap gap-2">
 							{site.popularSearches.map((term) => (
 								<Link key={term} href={routes.searchFor(term)}>
-									<Chip className="font-semibold text-brand-navy text-sm">
+									<Chip className="font-semibold text-brand-deep text-sm">
 										{term}
 									</Chip>
 								</Link>

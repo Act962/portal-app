@@ -10,7 +10,7 @@ import { routes } from "@/lib/routes";
 
 const HEADING =
 	"mb-2.5 font-mono text-[9px] tracking-[0.16em] text-white md:text-[9.5px]";
-const LINK = "text-on-navy-muted hover:text-white";
+const LINK = "text-on-brand-muted hover:text-white";
 
 export async function SiteFooter({ sections }: { sections: Section[] }) {
 	const site = await loadSiteSettings();
@@ -25,7 +25,7 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 	].filter((line): line is string => Boolean(line));
 
 	return (
-		<footer className="mt-stack bg-brand-navy text-on-navy-muted md:mt-major">
+		<footer className="mt-stack bg-brand-deep text-on-brand-muted md:mt-major">
 			<Container className="grid grid-cols-2 gap-x-5 gap-y-6 py-6 md:gap-8 md:py-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
 				<div className="col-span-2 lg:col-span-1">
 					<div className="mb-3 flex items-center gap-2.5 md:gap-3">
@@ -107,7 +107,7 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 			</Container>
 
 			<div className="border-white/15 border-t">
-				<Container className="flex flex-wrap justify-between gap-2 py-3.5 font-mono text-[9.5px] text-on-navy-dim tracking-[0.08em] md:text-[10px]">
+				<Container className="flex flex-wrap justify-between gap-2 py-3.5 font-mono text-[9.5px] text-on-brand-dim tracking-[0.08em] md:text-[10px]">
 					<span>
 						© {new Date().getFullYear()} {site.name.toUpperCase()} · TODOS OS
 						DIREITOS RESERVADOS

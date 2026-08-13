@@ -14,7 +14,7 @@ export function NewsHeadlineItem({ article }: { article: Article }) {
 		<li className="border-hairline border-t">
 			<Link
 				href={routes.article(article.sectionSlug, article.slug)}
-				className="flex gap-3 py-2.5 text-brand-navy hover:text-brand-navy"
+				className="flex gap-3 py-2.5 text-brand-deep hover:text-brand-deep"
 			>
 				<Timestamp
 					iso={article.publishedAt}

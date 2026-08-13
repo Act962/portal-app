@@ -1,68 +1,82 @@
-import { AdSlot } from "@portal-app/ui/components/ad-slot";
 import { Container } from "@portal-app/ui/components/container";
 import { Menu, Search } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { siteConfig } from "@/config/site";
+import { SiteLogo } from "@/components/layout/site-logo";
 import { loadSiteSettings } from "@/data/queries";
 import { routes } from "@/lib/routes";
 
-const ICON_BUTTON =
-	"flex size-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20";
-
 /**
- * Masthead. Two quite different designs share this markup: navy and compact
- * with icon actions on mobile, white and wide with a banner slot from `md` up.
+ * Masthead do portal.
+ *
+ * Três zonas em GRADE, não em flex: `1fr auto 1fr` é o que mantém a marca
+ * opticamente centrada mesmo com "MENU" de um lado e um botão redondo do outro.
+ * Com `flex` + `flex-1` o centro escorrega alguns pixels a cada mudança de
+ * rótulo — e marca desalinhada é a primeira coisa que se nota num cabeçalho.
+ *
+ * **Fixo no topo** porque a trilha de editorias saiu do layout: sem ela, este
+ * cabeçalho é o único acesso a navegação e busca, e um leitor no meio de uma
+ * matéria longa não deveria ter de voltar ao início da página para alcançá-los.
  */
 export async function SiteHeader() {
 	const site = await loadSiteSettings();
 
 	return (
-		<header className="border-hairline bg-brand-navy md:border-b md:bg-surface">
-			<Container className="flex flex-wrap items-center gap-3 py-2 md:gap-6 md:py-4">
+		<header className="sticky top-0 z-30 overflow-hidden bg-brand-deep">
+			{/*
+			  Os grafismos rupestres da marca — a referência ao Parque Nacional de
+			  Sete Cidades que dá nome ao veículo. Vieram na pasta de identidade
+			  junto com uma faixa que já era, em essência, este cabeçalho.
+
+			  Decorativo e nada mais: `aria-hidden`, atrás de tudo (`-z-10`) e a
+			  20% de opacidade, para texturizar sem disputar com a marca. Some
+			  abaixo de `lg`, onde a largura já é do logo e do menu.
+			*/}
+			<Image
+				src="/brand/rupestre.png"
+				alt=""
+				aria-hidden
+				width={900}
+				height={186}
+				// Sem isto o Next serve a variante de 1920px para uma faixa que é
+				// desenhada com 310 — 48 KB por um enfeite, mais do que o PNG
+				// original pesa.
+				sizes="310px"
+				className="pointer-events-none absolute top-1/2 right-0 -z-10 hidden h-16 w-auto -translate-y-1/2 opacity-20 lg:block"
+			/>
+
+			<Container className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-3 md:h-20 md:gap-6">
+				{/*
+				  Rótulo escrito, não só o ícone. Com a trilha de editorias fora, este
+				  botão passou a ser O caminho para o conteúdo do portal — e o
+				  hambúrguer sozinho é reconhecido por muito menos gente do que se
+				  costuma supor.
+				*/}
 				<Link
-					href={routes.home}
-					className="flex shrink-0 items-center gap-2.5 text-white hover:text-white md:gap-3 md:text-brand-navy md:hover:text-brand-navy"
+					href={routes.menu}
+					className="flex w-fit items-center gap-2.5 py-2 pr-3 font-semibold text-[13px] text-white uppercase tracking-[0.12em] transition-colors hover:text-on-brand-muted md:gap-3 md:text-sm"
 				>
-					<Image
-						// Logo enviado pela biblioteca (D8); sem ele, o arquivo estático.
-						src={site.logoUrl ?? siteConfig.logo}
-						alt=""
-						width={52}
-						height={52}
-						unoptimized
-						priority
-						className="block size-[34px] rounded-[9px] md:size-[52px] md:rounded-xl"
-					/>
-					<span className="flex flex-col gap-px md:gap-[3px]">
-						<span className="font-extrabold text-[15px] uppercase leading-none tracking-[-0.01em] md:text-[25px] md:tracking-[-0.025em]">
-							<span className="md:hidden">{site.shortName}</span>
-							<span className="hidden md:inline">{site.name}</span>
-						</span>
-						<span className="font-mono text-[9px] text-on-navy-muted tracking-[0.14em] md:text-[10px] md:text-meta md:tracking-[0.16em]">
-							<span className="md:hidden">NOTÍCIAS · {site.radioBand}</span>
-							<span className="hidden md:inline">{site.tagline}</span>
-						</span>
-					</span>
+					<Menu size={22} aria-hidden />
+					Menu
 				</Link>
 
-				<div className="flex-1" />
+				<Link
+					href={routes.home}
+					className="justify-self-center transition-opacity hover:opacity-90"
+				>
+					<SiteLogo />
+					{/* A marca vai com `alt=""`; o nome acessível do link é este. */}
+					<span className="sr-only">{site.name} — página inicial</span>
+				</Link>
 
-				<div className="flex items-center gap-2 md:hidden">
-					<Link
-						href={routes.search}
-						className={ICON_BUTTON}
-						aria-label="Buscar"
-					>
-						<Search size={16} aria-hidden />
-					</Link>
-					<Link href={routes.menu} className={ICON_BUTTON} aria-label="Menu">
-						<Menu size={16} aria-hidden />
-					</Link>
-				</div>
-
-				<AdSlot format="header-desktop" className="hidden min-w-60 lg:block" />
+				<Link
+					href={routes.search}
+					aria-label="Buscar"
+					className="flex size-11 items-center justify-center justify-self-end rounded-full bg-surface text-brand-deep transition-colors hover:bg-on-brand-soft"
+				>
+					<Search size={20} aria-hidden />
+				</Link>
 			</Container>
 		</header>
 	);

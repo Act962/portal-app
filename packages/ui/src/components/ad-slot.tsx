@@ -4,10 +4,18 @@
  * that reservation is what keeps CLS at zero.
  */
 const AD_FORMATS = {
-	"header-desktop": {
-		height: 60,
-		maxWidth: 468,
-		caption: "banner 468×60 — cabeçalho",
+	/**
+	 * A faixa logo abaixo do cabeçalho, em toda página.
+	 *
+	 * Substituiu o `header-desktop` (468×60), que morava DENTRO do masthead: com
+	 * a marca centralizada não sobrou lugar lateral para ele. Sair de lá foi
+	 * ganho de inventário, não perda — 970×90 em largura cheia vale mais que um
+	 * meio-banner espremido ao lado do logo.
+	 */
+	billboard: {
+		height: 90,
+		maxWidth: 970,
+		caption: "banner 970×90 — topo",
 	},
 	"in-content": { height: 90, caption: "banner 728×90 — meio do conteúdo" },
 	sidebar: { height: 250, caption: "banner 300×250" },

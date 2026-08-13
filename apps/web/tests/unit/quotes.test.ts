@@ -181,3 +181,16 @@ describe("formatPctChange", () => {
 		expect(formatPctChange(-0.09)).toBe("−0,09%");
 	});
 });
+
+/**
+ * Esqueleto aberto — entrega sem teste deixa o registro EXECUTÁVEL do que falta
+ * (regra 2 do CLAUDE.md). O `quoteDirection` nasceu ao subir as cotações para o
+ * cabeçalho: a faixa da home e a tira do topo passaram a compartilhar o mapa,
+ * mas com cores diferentes, porque uma vive sobre o marrom e a outra sobre o
+ * branco. É exatamente aí que mora o erro provável.
+ */
+describe("quoteDirection", () => {
+	it.todo("devolve a leitura por extenso, que é o que o leitor de tela recebe");
+	it.todo("usa as cores claras sobre o escuro e as `-ink` sobre o claro");
+	it.todo("estável não é alta: zero exato tem seta e leitura próprias");
+});

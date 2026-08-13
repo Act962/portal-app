@@ -91,7 +91,15 @@ export async function generateMetadata(): Promise<Metadata> {
 		 * fallback explícito daqui, o que também mantém o portal com ícone quando
 		 * o banco está fora do ar (`loadSiteSettings` degrada para os defaults).
 		 */
-		icons: { icon: site.faviconUrl ?? "/brand/favicon.ico" },
+		icons: site.faviconUrl
+			? { icon: site.faviconUrl }
+			: {
+					icon: [
+						{ url: "/brand/favicon.ico", sizes: "any" },
+						{ url: "/brand/icon-192.png", type: "image/png", sizes: "192x192" },
+					],
+					apple: "/brand/apple-icon.png",
+				},
 		robots: {
 			index: true,
 			follow: true,
@@ -107,7 +115,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * export `viewport` para isto desde a 14.
  */
 export const viewport: Viewport = {
-	themeColor: "#011c39",
+	themeColor: "#3a1f0e",
 };
 
 export default function RootLayout({

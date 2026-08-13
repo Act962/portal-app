@@ -34,7 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const EYEBROW =
-	"mb-3 font-mono text-[9px] tracking-[0.16em] text-on-navy-muted";
+	"mb-3 font-mono text-[9px] tracking-[0.16em] text-on-brand-muted";
 
 /**
  * Full-screen navigation, reached from the masthead on small screens.
@@ -48,7 +48,7 @@ export default async function MenuPage() {
 		loadSiteSettings(),
 	]);
 	return (
-		<div className="bg-brand-navy">
+		<div className="bg-brand-deep">
 			<Container className="py-5 pb-8">
 				<h1 className={EYEBROW}>NAVEGAÇÃO</h1>
 				<ul className="mb-6 flex flex-col">
@@ -59,7 +59,7 @@ export default async function MenuPage() {
 								className="flex min-h-11 items-center justify-between gap-3 py-3 font-semibold text-[15px] text-white hover:text-white"
 							>
 								{item.label}
-								<span aria-hidden className="text-on-navy-muted">
+								<span aria-hidden className="text-on-brand-muted">
 									→
 								</span>
 							</Link>

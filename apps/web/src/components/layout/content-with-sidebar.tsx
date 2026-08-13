@@ -13,7 +13,7 @@ const GAPS = {
  * The rail drops below the content under `lg`, so nothing is squeezed.
  *
  * No top padding on mobile: every page that uses this opens with a full-bleed
- * band (the navy hero, the navy section header) that carries its own padding
+ * band (the dark hero, the dark section header) that carries its own padding
  * and is meant to sit flush against the nav. Pages that open with ordinary
  * text add their own top spacing through `contentClassName`.
  */

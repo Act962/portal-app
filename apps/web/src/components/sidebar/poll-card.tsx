@@ -23,7 +23,7 @@ export function PollCard({ poll }: { poll: PollView | null }) {
 				ENQUETE DA SEMANA
 			</h2>
 
-			<p className="mb-3 text-pretty font-bold text-[17px] text-brand-navy leading-snug">
+			<p className="mb-3 text-pretty font-bold text-[17px] text-brand-deep leading-snug">
 				{poll.question}
 			</p>
 

@@ -59,7 +59,7 @@ export function PollForm({
 						disabled={hasVoted || pending}
 						aria-pressed={chosen === option.id}
 						className={cn(
-							"flex min-h-11 items-center justify-between gap-3 rounded-control border px-3 font-semibold text-[13px] text-brand-navy transition-colors",
+							"flex min-h-11 items-center justify-between gap-3 rounded-control border px-3 font-semibold text-[13px] text-brand-deep transition-colors",
 							chosen === option.id
 								? "border-brand-red bg-surface-alt"
 								: "border-hairline-strong",

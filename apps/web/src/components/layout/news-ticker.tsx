@@ -27,7 +27,7 @@ export function NewsTicker({ articles }: { articles: Article[] }) {
 						<li key={article.slug}>
 							<Link
 								href={routes.article(article.sectionSlug, article.slug)}
-								className="font-semibold text-[13.5px] text-brand-navy hover:text-brand-red"
+								className="font-semibold text-[13.5px] text-brand-deep hover:text-brand-red"
 							>
 								{article.title}
 							</Link>

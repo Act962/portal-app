@@ -67,7 +67,7 @@ export type SiteIdentity = {
 const LOCALE = "pt-BR";
 
 /** O arquivo em `public/`, usado enquanto não há logo enviado pela mídia (D8). */
-const FALLBACK_LOGO = "/brand/logo.svg";
+const FALLBACK_LOGO = "/brand/logo-7-cidades.png";
 
 /**
  * Tira a barra final e qualquer espaço da URL configurada.

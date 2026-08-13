@@ -11,7 +11,7 @@ type MostReadListProps = {
 	period?: string;
 };
 
-/** Navy ranking panel. The numeral is the visual anchor, so it stays oversized. */
+/** Dark ranking panel. The numeral is the visual anchor, so it stays oversized. */
 export function MostReadList({
 	articles,
 	title = "Mais lidas",
@@ -19,14 +19,14 @@ export function MostReadList({
 }: MostReadListProps) {
 	return (
 		// Full-bleed band on mobile, rounded panel in the desktop rail.
-		<section className="-mx-4 bg-brand-navy px-4 py-5 md:mx-0 md:rounded-card md:p-4.5">
+		<section className="-mx-4 bg-brand-deep px-4 py-5 md:mx-0 md:rounded-card md:p-4.5">
 			<SectionHeader
 				title={title}
 				tone="dark"
 				className="mb-3.5 text-sm"
 				action={
 					period ? (
-						<span className="font-mono text-[9px] text-on-navy-muted tracking-[0.1em]">
+						<span className="font-mono text-[9px] text-on-brand-muted tracking-[0.1em]">
 							{period}
 						</span>
 					) : undefined

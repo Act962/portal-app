@@ -1,6 +1,6 @@
 # Pendências — o que falta para o produto ficar completo
 
-> **Atualizado:** 2026-08-12.
+> **Atualizado:** 2026-08-13.
 > Lista única e priorizada do que está em aberto, para a entrega em andamento.
 > Estado por fase em [`proximos-passos.md`](./proximos-passos.md); escopo em
 > [`specs/`](./specs/); operação em [`deploy.md`](./deploy.md).
@@ -17,7 +17,7 @@ configurações do veículo, grade de programação, enquete com voto anônimo,
 
 ## 🚨 Precisa de ação humana — desta rodada (2026-08-12/13)
 
-Sete coisas que o código não resolve sozinho e que **ficam erradas em
+Oito coisas que o código não resolve sozinho e que **ficam erradas em
 produção até alguém agir**:
 
 1. **O texto legal precisa de revisão de quem responde pelo veículo.**
@@ -106,6 +106,30 @@ produção até alguém agir**:
    código muda, e as capas já gravadas continuam válidas — o banco guarda a
    chave do objeto, não a URL. Passo a passo em [`deploy.md`](./deploy.md) §0,
    passo 2.4.
+
+8. **A identidade nova (13/08) deixou três pontas com o cliente.** O portal
+   passou a ser o **Portal 7 Cidades**, em marrom (`#3A1F0E` / `#7B5723`). O
+   código está inteiro; o que falta não é deploy:
+
+   - **O logo das Configurações ainda é a marca ANTIGA** — o "7" vermelho sobre
+     azul-marinho, 150×150. Ele não aparece mais no cabeçalho (que agora usa a
+     arte da marca em `public/brand/`), mas continua alimentando o
+     `Organization` do schema.org, o `<image>` do RSS, o `og:image` padrão e os
+     ícones do manifest. Ou seja: o portal está marrom e **o link
+     compartilhado no WhatsApp ainda chega azul**. Conserto: Configurações →
+     subir o logo novo.
+   - **O nome do veículo continua "Rádio 7 Cidades"** nas Configurações,
+     enquanto a marca entregue diz "Portal Cidades". O cabeçalho mostra a arte,
+     mas `<title>`, Open Graph e schema.org mostram o nome do banco — e os dois
+     se contradizem em toda prévia de link. É um campo de formulário; a decisão
+     do nome é do cliente, não nossa.
+   - **Falta a arte HORIZONTAL do lockup, em branco.** A pasta trouxe só a
+     versão empilhada (quadrada), que num cabeçalho de 80px deixa a assinatura
+     com ~10px de altura. Enquanto ela não vem, o cabeçalho usa o SÍMBOLO
+     oficial mais a assinatura composta em Montserrat — próxima, mas não é a
+     tipografia da marca. Ver `components/layout/site-logo.tsx`: quando o
+     arquivo chegar, é um `<Image>` substituindo o bloco de texto, num arquivo
+     só.
 
 ### Área de patrocinadores — ADIADA pelo cliente (12/08)
 

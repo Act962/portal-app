@@ -13,73 +13,89 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Tokens do shadcn — o painel administrativo. O portal público NÃO os usa (ele
+ * vive do bloco `@theme` de marca, mais abaixo).
+ *
+ * Toda a paleta era azul: `--primary` no hue 264 e a rampa `--chart-*` inteira
+ * entre 230 e 243. Com a marca em marrom, os dois viraram a cor da marca, e os
+ * neutros — que eram cinzas FRIOS, no hue 197–229 — foram girados para o hue 70
+ * mantendo L e C. Girar em vez de reescrever preserva o contraste que o tema já
+ * tinha calibrado; a única coisa que muda é a temperatura.
+ */
 :root {
 	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.148 0.004 228.8);
+	--card-foreground: oklch(0.148 0.004 70);
 	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.148 0.004 228.8);
-	--primary: oklch(0.488 0.243 264.376);
-	--primary-foreground: oklch(0.97 0.014 254.604);
+	--popover-foreground: oklch(0.148 0.004 70);
+	/* #7b5723, a cor clara da marca: 6,5:1 com texto branco. O #3a1f0e ficou
+	   reservado a superfícies — como cor de botão ele lê quase preto. */
+	--primary: oklch(0.485 0.083 73.4);
+	--primary-foreground: oklch(0.986 0.007 80.7);
 	--secondary: oklch(0.967 0.001 286.375);
 	--secondary-foreground: oklch(0.21 0.006 285.885);
-	--muted: oklch(0.963 0.002 197.1);
-	--muted-foreground: oklch(0.56 0.021 213.5);
-	--accent: oklch(0.963 0.002 197.1);
-	--accent-foreground: oklch(0.218 0.008 223.9);
+	--muted: oklch(0.963 0.002 70);
+	--muted-foreground: oklch(0.56 0.021 70);
+	--accent: oklch(0.963 0.002 70);
+	--accent-foreground: oklch(0.218 0.008 70);
 	--destructive: oklch(0.577 0.245 27.325);
-	--border: oklch(0.925 0.005 214.3);
-	--input: oklch(0.925 0.005 214.3);
-	--ring: oklch(0.723 0.014 214.4);
-	--chart-1: oklch(0.828 0.111 230.318);
-	--chart-2: oklch(0.685 0.169 237.323);
-	--chart-3: oklch(0.588 0.158 241.966);
-	--chart-4: oklch(0.5 0.134 242.749);
-	--chart-5: oklch(0.443 0.11 240.79);
+	--border: oklch(0.925 0.005 70);
+	--input: oklch(0.925 0.005 70);
+	--ring: oklch(0.723 0.014 70);
+	/* Rampa sequencial quente, do dourado ao marrom escuro. */
+	--chart-1: oklch(0.716 0.112 80);
+	--chart-2: oklch(0.612 0.104 74.9);
+	--chart-3: oklch(0.485 0.083 73.4);
+	--chart-4: oklch(0.391 0.065 71.4);
+	--chart-5: oklch(0.272 0.05 51.4);
 	--radius: 0.45rem;
-	--sidebar: oklch(0.987 0.002 197.1);
-	--sidebar-foreground: oklch(0.148 0.004 228.8);
-	--sidebar-primary: oklch(0.546 0.245 262.881);
-	--sidebar-primary-foreground: oklch(0.97 0.014 254.604);
-	--sidebar-accent: oklch(0.963 0.002 197.1);
-	--sidebar-accent-foreground: oklch(0.218 0.008 223.9);
-	--sidebar-border: oklch(0.925 0.005 214.3);
-	--sidebar-ring: oklch(0.723 0.014 214.4);
+	--sidebar: oklch(0.987 0.002 70);
+	--sidebar-foreground: oklch(0.148 0.004 70);
+	--sidebar-primary: oklch(0.485 0.083 73.4);
+	--sidebar-primary-foreground: oklch(0.986 0.007 80.7);
+	--sidebar-accent: oklch(0.963 0.002 70);
+	--sidebar-accent-foreground: oklch(0.218 0.008 70);
+	--sidebar-border: oklch(0.925 0.005 70);
+	--sidebar-ring: oklch(0.723 0.014 70);
 	--background: oklch(1 0 0);
-	--foreground: oklch(0.148 0.004 228.8);
+	--foreground: oklch(0.148 0.004 70);
 }
 
 .dark {
-	--background: oklch(0.148 0.004 228.8);
-	--foreground: oklch(0.987 0.002 197.1);
-	--card: oklch(0.218 0.008 223.9);
-	--card-foreground: oklch(0.987 0.002 197.1);
-	--popover: oklch(0.218 0.008 223.9);
-	--popover-foreground: oklch(0.987 0.002 197.1);
-	--primary: oklch(0.424 0.199 265.638);
-	--primary-foreground: oklch(0.97 0.014 254.604);
+	--background: oklch(0.148 0.004 70);
+	--foreground: oklch(0.987 0.002 70);
+	--card: oklch(0.218 0.008 70);
+	--card-foreground: oklch(0.987 0.002 70);
+	--popover: oklch(0.218 0.008 70);
+	--popover-foreground: oklch(0.987 0.002 70);
+	/* Clareia (#a87a34): o marrom do tema claro afundaria no fundo escuro. */
+	--primary: oklch(0.612 0.104 74.9);
+	--primary-foreground: oklch(0.208 0.04 52);
 	--secondary: oklch(0.274 0.006 286.033);
 	--secondary-foreground: oklch(0.985 0 0);
-	--muted: oklch(0.275 0.011 216.9);
-	--muted-foreground: oklch(0.723 0.014 214.4);
-	--accent: oklch(0.275 0.011 216.9);
-	--accent-foreground: oklch(0.987 0.002 197.1);
+	--muted: oklch(0.275 0.011 70);
+	--muted-foreground: oklch(0.723 0.014 70);
+	--accent: oklch(0.275 0.011 70);
+	--accent-foreground: oklch(0.987 0.002 70);
 	--destructive: oklch(0.704 0.191 22.216);
 	--border: oklch(1 0 0 / 10%);
 	--input: oklch(1 0 0 / 15%);
-	--ring: oklch(0.56 0.021 213.5);
-	--chart-1: oklch(0.828 0.111 230.318);
-	--chart-2: oklch(0.685 0.169 237.323);
-	--chart-3: oklch(0.588 0.158 241.966);
-	--chart-4: oklch(0.5 0.134 242.749);
-	--chart-5: oklch(0.443 0.11 240.79);
-	--sidebar: oklch(0.218 0.008 223.9);
-	--sidebar-foreground: oklch(0.987 0.002 197.1);
-	--sidebar-primary: oklch(0.623 0.214 259.815);
-	--sidebar-primary-foreground: oklch(0.97 0.014 254.604);
-	--sidebar-accent: oklch(0.275 0.011 216.9);
-	--sidebar-accent-foreground: oklch(0.987 0.002 197.1);
+	--ring: oklch(0.56 0.021 70);
+	/* A rampa sobe em bloco no escuro. A do tema claro termina em L 0.27, que
+	   sobre um fundo de L 0.148 seria um gráfico invisível. */
+	--chart-1: oklch(0.86 0.075 82);
+	--chart-2: oklch(0.78 0.098 79);
+	--chart-3: oklch(0.7 0.11 77);
+	--chart-4: oklch(0.612 0.104 75);
+	--chart-5: oklch(0.52 0.09 73);
+	--sidebar: oklch(0.218 0.008 70);
+	--sidebar-foreground: oklch(0.987 0.002 70);
+	--sidebar-primary: oklch(0.612 0.104 74.9);
+	--sidebar-primary-foreground: oklch(0.208 0.04 52);
+	--sidebar-accent: oklch(0.275 0.011 70);
+	--sidebar-accent-foreground: oklch(0.987 0.002 70);
 	--sidebar-border: oklch(1 0 0 / 10%);
-	--sidebar-ring: oklch(0.56 0.021 213.5);
+	--sidebar-ring: oklch(0.56 0.021 70);
 }
 
 @theme inline {
@@ -140,7 +156,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Rádio 7 Cidades — brand tokens
+ * Portal 7 Cidades — brand tokens
  * Source: "Design System 7 Cidades" v1.0 (Claude Design).
  *
  * This block is the single source of truth for the portal's visual language.
@@ -158,9 +174,21 @@
 	--font-serif: var(--font-lora), Georgia, "Times New Roman", serif;
 	--font-mono: var(--font-plex-mono), ui-monospace, monospace;
 
-	/* Brand. Only two brand colours exist — no gradients, no extra shades. */
-	--color-brand-navy: #011c39;
-	--color-brand-navy-hover: #032c55;
+	/* Brand — Portal 7 Cidades. Dois marrons, sem gradiente e sem tons extras.
+	   O `deep` é a superfície institucional (cabeçalho, painéis); o `gold` é a
+	   segunda cor da marca, para tipo e filete sobre claro (6,5:1 no branco).
+
+	   Estes tokens já se chamaram `brand-navy`: a identidade anterior era o
+	   azul-marinho #011c39. O nome ficou agnóstico de cor de propósito — nome de
+	   token que descreve o pigmento mente no dia seguinte ao rebranding. */
+	--color-brand-deep: #3a1f0e;
+	--color-brand-deep-hover: #4e2d16;
+	--color-brand-gold: #7b5723;
+	--color-brand-gold-hover: #62451b;
+
+	/* O vermelho NÃO é a marca: é significado — urgente, ao vivo, item ativo.
+	   Continua vermelho justamente porque não pode se confundir com a
+	   identidade; destaque da cor da marca deixa de ser destaque. */
 	--color-brand-red: #ed1b24;
 	--color-brand-red-hover: #b3121a;
 	--color-brand-red-soft: #ff5a60;
@@ -174,16 +202,18 @@
 	--color-hairline: #e6e3dd;
 	--color-hairline-strong: #dcd8d1;
 
-	/* Text on light surfaces */
-	--color-ink: #23282e;
-	--color-ink-muted: #4a5158;
+	/* Text on light surfaces. `ink` e `ink-muted` eram cinzas FRIOS, herdados do
+	   azul; foram aquecidos para não destoar do marrom (o resto da família já
+	   era quente). */
+	--color-ink: #26221d;
+	--color-ink-muted: #544d45;
 	--color-meta: #96918a;
 	--color-meta-soft: #a8a49c;
 
-	/* Alta e baixa das cotações. Vivem SOBRE O NAVY, então são as versões
-	   claras — o `--color-brand-red` normal (#ed1b24) fica escuro demais no
-	   fundo azul e a queda sumiria. A baixa reaproveita o vermelho suave que já
-	   existe para navy, em vez de inventar um segundo vermelho quase igual.
+	/* Alta e baixa das cotações. Vivem SOBRE O MARROM ESCURO, então são as
+	   versões claras — o `--color-brand-red` normal (#ed1b24) fica escuro demais
+	   no fundo escuro e a queda sumiria. A baixa reaproveita o vermelho suave
+	   que já existe, em vez de inventar um segundo vermelho quase igual.
 
 	   Cor nunca é o único sinal: quem diz alta ou baixa é a SETA ao lado do
 	   número — a distinção entre verde e vermelho é justamente a que falta para
@@ -191,11 +221,25 @@
 	--color-market-up: #3fd67e;
 	--color-market-down: var(--color-brand-red-soft);
 
-	/* Text on navy surfaces */
-	--color-on-navy: #ffffff;
-	--color-on-navy-muted: #8fa6c0;
-	--color-on-navy-dim: #6d839c;
-	--color-on-navy-rule: #3c5877;
+	/* As mesmas duas direções SOBRE CLARO — a tira de cotações do cabeçalho
+	   passou a viver numa barra branca. Não dava para reaproveitar as de cima:
+	   o #3fd67e no branco dá 1,9:1, ou seja, a alta simplesmente desapareceria.
+	   Estas ficam em 5,9:1 e 5,6:1. */
+	--color-market-up-ink: #157347;
+	--color-market-down-ink: #c62828;
+
+	/* Texto sobre o marrom escuro. Os três primeiros são tons das PINTURAS
+	   RUPESTRES da marca, não marrons genéricos clareados — e cada um passa o
+	   limiar da WCAG contra o #3a1f0e:
+	     on-brand        15,2:1  ·  on-brand-soft   9,4:1
+	     on-brand-muted   6,9:1  ·  on-brand-dim    4,6:1 (AA no texto de 9–11px)
+	   `on-brand-rule` fica em 2,3:1 e por isso é SÓ filete e borda — nunca
+	   texto. */
+	--color-on-brand: #ffffff;
+	--color-on-brand-soft: #d8c9b4;
+	--color-on-brand-muted: #c0ac8f;
+	--color-on-brand-dim: #a18a6a;
+	--color-on-brand-rule: #7b5723;
 
 	/* Corner radii — 4 / 8 / 12 / 14, named by what they wrap */
 	--radius-tag: 4px;
@@ -233,8 +277,8 @@
 @utility hatch-dark {
 	background-image: repeating-linear-gradient(
 		135deg,
-		#16324f 0 9px,
-		#1c3b5b 9px 18px
+		#2c1709 0 9px,
+		#46280f 9px 18px
 	);
 }
 
