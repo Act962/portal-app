@@ -11,6 +11,7 @@ import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { RupestreTexture } from "@/components/layout/rupestre-texture";
 import { SiteLink } from "@/components/layout/site-link";
 import type { Section } from "@/data/types";
 import { routes } from "@/lib/routes";
@@ -76,6 +77,18 @@ export function SiteMenu({
 				// para o tailwind-merge — ficaria escrito e sem efeito.
 				className="gap-0 overflow-y-auto border-on-brand-rule bg-brand-deep p-5 text-white"
 			>
+				{/*
+				  No pé do painel, ancorada na viewport (`fixed`, não `absolute`):
+				  dentro de um contêiner que rola, `absolute` a prenderia ao fim do
+				  CONTEÚDO e ela subiria junto com a rolagem. Aqui ela fica parada no
+				  rodapé do painel, que é o único vão garantido — a lista de links
+				  ocupa o resto.
+				*/}
+				<RupestreTexture
+					className="fixed bottom-0 left-0 h-12 translate-y-3"
+					sizes="300px"
+				/>
+
 				<div className="mb-5 flex items-center justify-between gap-3">
 					<SheetTitle className="font-mono text-[10px] text-on-brand-muted uppercase tracking-[0.16em]">
 						Navegação

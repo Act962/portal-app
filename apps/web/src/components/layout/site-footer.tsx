@@ -2,6 +2,7 @@ import { Container } from "@portal-app/ui/components/container";
 import Image from "next/image";
 import Link from "next/link";
 
+import { RupestreTexture } from "@/components/layout/rupestre-texture";
 import { SiteLink } from "@/components/layout/site-link";
 import { siteConfig } from "@/config/site";
 import { loadSiteSettings } from "@/data/queries";
@@ -106,7 +107,25 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 				</div>
 			</Container>
 
-			<div className="border-white/15 border-t">
+			{/*
+			  A textura fica NESTA faixa, e não no corpo do rodapé acima: lá o texto
+			  é `on-brand-muted`, que sobre o grafismo cai para 3,4:1. Aqui ela
+			  ocupa o vão central — o copyright fica à esquerda, a razão social à
+			  direita — e é o uso que a própria marca sugere no `barra_rupestre.png`:
+			  os desenhos correndo numa tira. Só de `md` para cima, onde esse vão
+			  existe; no celular as duas pontas se encontram.
+			*/}
+			<div className="relative overflow-hidden border-white/15 border-t">
+				{/*
+				  Mais alta que a faixa (56px contra ~46px), e por isso cortada em
+				  cima e embaixo pelo `overflow-hidden` do pai. É de propósito: o
+				  corte é o que a faz ler como uma TIRA que atravessa o rodapé, e não
+				  como um carimbo solto no meio dele.
+				*/}
+				<RupestreTexture
+					className="top-1/2 left-1/2 hidden h-14 -translate-x-1/2 -translate-y-1/2 md:block"
+					sizes="280px"
+				/>
 				<Container className="flex flex-wrap justify-between gap-2 py-3.5 font-mono text-[9.5px] text-on-brand-dim tracking-[0.08em] md:text-[10px]">
 					<span>
 						© {new Date().getFullYear()} {site.name.toUpperCase()} · TODOS OS

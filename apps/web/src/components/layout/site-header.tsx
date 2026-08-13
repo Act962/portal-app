@@ -1,8 +1,8 @@
 import { Container } from "@portal-app/ui/components/container";
 import { Search } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 
+import { RupestreTexture } from "@/components/layout/rupestre-texture";
 import { SiteLogo } from "@/components/layout/site-logo";
 import { SiteMenu } from "@/components/layout/site-menu";
 import { getSections, loadSiteSettings } from "@/data/queries";
@@ -30,27 +30,8 @@ export async function SiteHeader() {
 
 	return (
 		<header className="sticky top-0 z-30 overflow-hidden bg-brand-deep">
-			{/*
-			  Os grafismos rupestres da marca — a referência ao Parque Nacional de
-			  Sete Cidades que dá nome ao veículo. Vieram na pasta de identidade
-			  junto com uma faixa que já era, em essência, este cabeçalho.
-
-			  Decorativo e nada mais: `aria-hidden`, atrás de tudo (`-z-10`) e a
-			  20% de opacidade, para texturizar sem disputar com a marca. Some
-			  abaixo de `lg`, onde a largura já é do logo e do menu.
-			*/}
-			<Image
-				src="/brand/rupestre.png"
-				alt=""
-				aria-hidden
-				width={900}
-				height={186}
-				// Sem isto o Next serve a variante de 1920px para uma faixa que é
-				// desenhada com 310 — 48 KB por um enfeite, mais do que o PNG
-				// original pesa.
-				sizes="310px"
-				className="pointer-events-none absolute top-1/2 right-0 -z-10 hidden h-16 w-auto -translate-y-1/2 opacity-20 lg:block"
-			/>
+			{/* Some abaixo de `lg`, onde a largura já é toda do logo e do menu. */}
+			<RupestreTexture className="top-1/2 right-0 hidden h-16 -translate-y-1/2 lg:block" />
 
 			<Container className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-3 md:h-20 md:gap-6">
 				{/*
