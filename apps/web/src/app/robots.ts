@@ -25,8 +25,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
 				"/api/",
 				// Espaço de rastreio infinito: uma URL por termo digitado.
 				"/busca",
-				// Duplicata da navegação que já está no cabeçalho e no rodapé.
-				"/menu",
 				// A mesma listagem noutra ordem — canonicaliza para a base (D3).
 				"/*?ordem=",
 			],

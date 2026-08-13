@@ -1,10 +1,11 @@
 import { Container } from "@portal-app/ui/components/container";
-import { Menu, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
 import { SiteLogo } from "@/components/layout/site-logo";
-import { loadSiteSettings } from "@/data/queries";
+import { SiteMenu } from "@/components/layout/site-menu";
+import { getSections, loadSiteSettings } from "@/data/queries";
 import { routes } from "@/lib/routes";
 
 /**
@@ -20,7 +21,12 @@ import { routes } from "@/lib/routes";
  * matéria longa não deveria ter de voltar ao início da página para alcançá-los.
  */
 export async function SiteHeader() {
-	const site = await loadSiteSettings();
+	// As duas leituras são `cache()` do React e o layout já as fez para o rodapé
+	// — aqui elas custam a chamada, não a consulta.
+	const [site, sections] = await Promise.all([
+		loadSiteSettings(),
+		getSections(),
+	]);
 
 	return (
 		<header className="sticky top-0 z-30 overflow-hidden bg-brand-deep">
@@ -53,13 +59,7 @@ export async function SiteHeader() {
 				  hambúrguer sozinho é reconhecido por muito menos gente do que se
 				  costuma supor.
 				*/}
-				<Link
-					href={routes.menu}
-					className="flex w-fit items-center gap-2.5 py-2 pr-3 font-semibold text-[13px] text-white uppercase tracking-[0.12em] transition-colors hover:text-on-brand-muted md:gap-3 md:text-sm"
-				>
-					<Menu size={22} aria-hidden />
-					Menu
-				</Link>
+				<SiteMenu sections={sections} institutional={site.institutional} />
 
 				<Link
 					href={routes.home}

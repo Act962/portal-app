@@ -69,9 +69,9 @@ export async function TopBar() {
 
 				{/*
 				  Os dois atalhos institucionais que ficavam aqui saíram: o espaço
-				  passou a ser das cotações, e eles continuam no `/menu` e no rodapé,
-				  onde já apareciam. Repetir o mesmo link em três lugares não é
-				  navegação — é ruído numa barra de 11px.
+				  passou a ser das cotações, e eles continuam no menu lateral e no
+				  rodapé, onde já apareciam. Repetir o mesmo link em três lugares não
+				  é navegação — é ruído numa barra de 11px.
 				*/}
 				<QuotesStrip quotes={quotes} />
 

@@ -57,14 +57,12 @@ export default async function SiteLayout({
 
 				{/*
 				  A trilha de editorias que ficava aqui saiu: a navegação inteira
-				  passou para o botão MENU do cabeçalho (rota `/menu`), por decisão do
-				  cliente. `sections` continua sendo carregado porque o RODAPÉ lista
-				  todas — é o que mantém cada editoria a um link de distância de
-				  qualquer página, para o leitor e para o rastreador.
-
-				  Efeito colateral bem-vindo: `main-nav.tsx` era o único Client
-				  Component da moldura (existia só por causa do `usePathname`). Sem
-				  ele, o grupo `(site)` voltou a ser uma árvore de RSCs pura.
+				  passou para o botão MENU do cabeçalho, que abre o painel lateral
+				  (`site-menu.tsx`), por decisão do cliente. `sections` continua sendo
+				  carregado porque o RODAPÉ lista todas — e é ELE que mantém cada
+				  editoria a um link de distância no HTML de qualquer página. O painel
+				  não serve para isso: o conteúdo de um `Sheet` fechado não existe no
+				  documento, então o rastreador não o vê.
 				*/}
 				<NewsTicker articles={ticker} />
 
