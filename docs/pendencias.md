@@ -111,16 +111,23 @@ produção até alguém agir**:
    passou a ser o **Portal 7 Cidades**, em marrom (`#3A1F0E` / `#7B5723`). O
    código está inteiro; o que falta não é deploy:
 
-   - **O logo E o favicon das Configurações ainda são a marca ANTIGA** — o "7"
-     vermelho sobre azul-marinho, 150×150. Nenhum dos dois aparece mais no
-     cabeçalho (que usa a arte de `public/brand/`), mas o campo continua
-     ganhando dos arquivos estáticos em tudo o mais: o `logoUrl` alimenta o
-     `Organization` do schema.org, o `<image>` do RSS e o `og:image` padrão; o
-     `faviconUrl` alimenta a aba e os ícones do manifest. Ou seja: o portal
-     está marrom, **o link compartilhado no WhatsApp ainda chega azul e a aba
-     do navegador também**. Os arquivos novos em `public/brand/` só entram
-     quando os dois campos estiverem vazios. Conserto: Configurações → subir
-     `logo-7-cidades.png` e `favicon.ico` (ou limpar os campos).
+   - **O logo das Configurações está com a arte ERRADA** (verificado em
+     13/08, depois da atualização). Os dois campos — logo e favicon — apontam
+     hoje para o mesmo arquivo, o `FAVICON_portal_7_cidades.png`. Essa arte foi
+     desenhada para ir **sobre fundo colorido**: o miolo do "7" é vazado. No
+     rodapé, que é marrom, ela funciona. Nos lugares em que o `logoUrl` é
+     consumido — `Organization.logo` do schema.org (`lib/structured-data.ts`) e
+     `<image>` do RSS (`lib/feed.ts`) — o fundo é **branco**, e aí sobra só o
+     crescente dourado: o "7" desaparece.
+
+     Conserto, em Configurações:
+     - **Logo** → `logo_7_cidades.png` (o lockup completo, que lê sobre branco).
+     - **Favicon** → ou limpar o campo, e aí entra o `/brand/favicon.ico` novo
+       (a mesma arte já achatada sobre o marrom, em 16·32·48·256), ou subir
+       `apps/web/public/brand/icon-512.png`, que é essa versão achatada.
+
+     O `og:image` **não** é afetado: ele vem do campo de arte social ou do
+     cartão gerado pela rota `/og`, nunca do logo.
    - **O nome do veículo continua "Rádio 7 Cidades"** nas Configurações,
      enquanto a marca entregue diz "Portal Cidades". O cabeçalho mostra a arte,
      mas `<title>`, Open Graph e schema.org mostram o nome do banco — e os dois
