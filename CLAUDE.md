@@ -131,7 +131,10 @@ esqueleto na hora é o momento em que ainda se lembra dos casos-limite — que �
 justamente o que se perde ao adiar.
 
 Esqueletos abertos hoje: `apps/web/tests/unit/` (serializador do TipTap,
-formatação de data) e `packages/api/tests/unit/` (autorização dos routers).
+formatação de data, direção das cotações) e `packages/api/tests/unit/`
+(autorização dos routers). Em E2E o equivalente do `it.todo` é o `test.fixme`
+do Playwright, e há um bloco aberto em `apps/web/tests/e2e/home.spec.ts` para o
+menu lateral — que desde 13/08 é o **único** caminho para as editorias.
 Estado detalhado em `docs/pendencias.md`.
 
 **A régua de cobertura do domínio (95%) não se baixa** para acomodar código novo

@@ -21,8 +21,10 @@ import { routes } from "@/lib/routes";
  * matéria longa não deveria ter de voltar ao início da página para alcançá-los.
  */
 export async function SiteHeader() {
-	// As duas leituras são `cache()` do React e o layout já as fez para o rodapé
-	// — aqui elas custam a chamada, não a consulta.
+	// Sem consulta extra: o layout já leu as duas para o rodapé, e ambas passam
+	// por `cache()` do React lá embaixo (`loadSiteSettings` direto,
+	// `getSections` através de `loadSections`). Aqui custa a chamada de função,
+	// não a ida ao banco.
 	const [site, sections] = await Promise.all([
 		loadSiteSettings(),
 		getSections(),

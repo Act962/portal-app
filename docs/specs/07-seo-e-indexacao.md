@@ -190,13 +190,18 @@ Google — emiti-los seria XML morto no feed.
 
 ### D6 — O que é ruído para o buscador é barrado no `robots.txt`, não no `<meta>`
 
-Busca (`/busca`), menu (`/menu`) e ordenações (`?ordem=`) já tinham tratamento por
+Busca (`/busca`) e ordenações (`?ordem=`) já tinham tratamento por
 `meta robots`, mas isso só age DEPOIS do rastreio. O `Disallow` corta antes,
 economizando o orçamento de rastreio para as matérias.
 
+> **Atualizado em 13/08/2026:** `/menu` também constava aqui. A rota foi
+> excluída no rebranding — a navegação virou um painel lateral (`Sheet`) no
+> cabeçalho —, e a linha correspondente saiu do `robots.txt`: regra de rastreio
+> para URL que não existe é lixo que o próximo leitor tenta interpretar.
+
 **Ressalva registrada:** `Disallow` numa URL que já esteja indexada impede o
-Google de ler o `noindex` dela. As duas páginas afetadas (`/busca`, `/menu`)
-nunca foram enviadas em sitemap e não têm link externo — o risco é teórico aqui,
+Google de ler o `noindex` dela. A página afetada (`/busca`)
+nunca foi enviada em sitemap e não tem link externo — o risco é teórico aqui,
 mas a ordem certa em geral é `noindex` primeiro, `Disallow` depois de sair do
 índice.
 
@@ -226,7 +231,6 @@ nenhum — a mesma regra de N10 que vale para Resend, Redis e AwesomeAPI.
 | `/privacidade` | Sim | `/privacidade` | arte das Config., ou gerado | `BreadcrumbList` |
 | `/termos` | Sim | `/termos` | arte das Config., ou gerado | `BreadcrumbList` |
 | `/busca` | **Não** (`noindex, follow` + `Disallow`) | `/busca` | arte das Config., ou gerado | — |
-| `/menu` | **Não** (`noindex, follow` + `Disallow`) | `/menu` | arte das Config., ou gerado | — |
 | 404 | Não (`noindex` automático do Next em resposta 404) | — | — | — |
 
 Feeds: `/robots.txt` · `/sitemap.xml` (índice) · `/sitemap-geral.xml` ·

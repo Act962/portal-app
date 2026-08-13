@@ -131,6 +131,46 @@ produção até alguém agir**:
      arquivo chegar, é um `<Image>` substituindo o bloco de texto, num arquivo
      só.
 
+---
+
+## Dívida gerada pelo rebranding (13/08) — nossa, não do cliente
+
+Quatro coisas que a entrega da identidade deixou em aberto e que **não** dependem
+de ninguém do lado do cliente:
+
+1. **A navegação inteira do portal não tem teste.** É a mais séria. Com a trilha
+   de editorias fora do layout, chegar a qualquer editoria passou a depender de
+   um painel que **só existe depois da hidratação**. Se ele quebrar — erro de
+   hidratação, mudança no Base UI, um `onClick` perdido num refactor —, o leitor
+   fica sem caminho para editoria nenhuma e **o CI não reclama**: o único teste
+   de home checa a manchete, que não depende do menu.
+
+   Esqueleto aberto em `apps/web/tests/e2e/home.spec.ts` (`test.fixme` × 6:
+   abre, lista editorias, navega e fecha, fecha na rota atual, Esc devolve o
+   foco, rodapé mantém os links no HTML).
+
+2. **O portal público voltou a mandar JavaScript de navegação, e ninguém mediu
+   quanto.** Antes da entrega a moldura tinha um único Client Component
+   (`AnchorAd`, o banner dispensável). Agora tem dois: entrou o `Sheet` do Base
+   UI, em **todas** as páginas públicas. `ui-ux.md` §4 fixa "JS inicial < 150 KB"
+   e o Lighthouse CI que deveria travar isso ainda não está no pipeline — então
+   o orçamento existe no papel e nada o verifica. Medir o delta contra `main`
+   antes de considerar a Fase de performance fechada.
+
+3. **As cotações passaram a ser buscadas em toda página, não só na home.** Elas
+   subiram para a barra do topo, que está na moldura. Não multiplica requisição
+   (o `unstable_cache` de `data/quotes.ts` guarda inclusive a falha), mas muda o
+   alcance do item 3 desta lista: sem o `AWESOMEAPI_TOKEN`, o que fica vazio em
+   produção deixou de ser uma faixa da home e passou a ser um pedaço do
+   cabeçalho do site inteiro.
+
+4. **O `favicon.ico` ainda é da identidade antiga.** Os PNGs novos (192/512/
+   apple) já entram como ícone quando não há favicon cadastrado, mas o `.ico`
+   continua sendo o arquivo velho, e é ele que responde em navegador antigo e no
+   atalho da área de trabalho. Refazer exige uma ferramenta de `.ico` — o
+   `sharp` não escreve esse formato. Arte-mestre disponível em
+   [`design/marca/`](../design/marca/).
+
 ### Área de patrocinadores — ADIADA pelo cliente (12/08)
 
 O espaço da antiga "TV 7 Cidades" chegou a ser reservado para uma faixa de
