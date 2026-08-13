@@ -3,7 +3,7 @@ import { cn } from "@portal-app/ui/lib/utils";
 type MediaPlaceholderProps = {
 	/** Shown centred in mono type, e.g. "[ foto da manchete 16:9 ]". */
 	label?: string;
-	/** `dark` sits on navy panels, `light` on the page canvas. */
+	/** `dark` sits on the brand's dark panels, `light` on the page canvas. */
 	tone?: "light" | "dark";
 	/** Height/aspect comes from the caller so each slot reserves its own box. */
 	className?: string;

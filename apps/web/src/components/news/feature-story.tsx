@@ -16,7 +16,7 @@ export function FeatureStory({ article }: { article: Article }) {
 		<article className="mb-1 border-hairline pb-4 md:border-b md:pb-stack">
 			<Link
 				href={routes.article(article.sectionSlug, article.slug)}
-				className="group block text-brand-navy hover:text-brand-navy md:grid md:grid-cols-[1.3fr_1fr] md:gap-stack"
+				className="group block text-brand-deep hover:text-brand-deep md:grid md:grid-cols-[1.3fr_1fr] md:gap-stack"
 			>
 				<ArticleThumb
 					article={article}

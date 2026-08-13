@@ -9,7 +9,7 @@ const chipVariants = cva(
 			variant: {
 				default:
 					"border border-hairline-strong bg-surface text-ink-muted hover:border-brand-red hover:text-brand-red",
-				selected: "bg-brand-navy text-white",
+				selected: "bg-brand-deep text-white",
 			},
 		},
 		defaultVariants: {

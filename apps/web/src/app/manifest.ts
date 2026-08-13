@@ -23,14 +23,20 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
 		start_url: "/",
 		display: "standalone",
 		background_color: "#faf9f7",
-		theme_color: "#011c39",
+		theme_color: "#3a1f0e",
 		lang: site.locale,
 		categories: ["news", "magazines"],
-		icons: [
-			{
-				src: settings.faviconUrl ?? "/brand/favicon.ico",
-				sizes: "any",
-			},
-		],
+		/*
+		 * Quando o cliente cadastra um ícone nas Configurações ele responde
+		 * sozinho — é a identidade dele. Sem cadastro, entram os PNGs da marca:
+		 * o `.ico` sozinho não serve para a tela inicial do Android, que pede
+		 * 192 e 512 e, sem elas, desenha um atalho genérico do navegador.
+		 */
+		icons: settings.faviconUrl
+			? [{ src: settings.faviconUrl, sizes: "any" }]
+			: [
+					{ src: "/brand/icon-192.png", sizes: "192x192", type: "image/png" },
+					{ src: "/brand/icon-512.png", sizes: "512x512", type: "image/png" },
+				],
 	};
 }

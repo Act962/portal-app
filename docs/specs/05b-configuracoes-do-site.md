@@ -122,7 +122,16 @@ Três razões:
 Um campo de URL convida alguém a colar o link de uma imagem hospedada em outro
 lugar — que some, quebra, ou vira hotlink no servidor de terceiro. A biblioteca
 já resolve upload, storage e URL pública (ADR 0009), e é onde a imagem deve
-estar. O `/brand/logo.svg` estático permanece como fallback do fallback.
+estar. O arquivo estático em `public/brand/` permanece como fallback do
+fallback — desde 13/08/2026 é `logo-7-cidades.png`, a arte real do cliente, no
+lugar do `logo.svg` que era um desenho provisório.
+
+> **Alcance reduzido em 13/08/2026:** o `logoUrl` das Configurações alimenta
+> schema.org, RSS, Open Graph e manifest, mas **não** o cabeçalho do portal.
+> O masthead precisa de arte horizontal e monocromática numa altura fixa de
+> 48px; este campo entrega um quadrado. Atender os dois com o mesmo arquivo era
+> o que punha um 150×150 espremido em 48px, com a assinatura ilegível dentro.
+> Ver `apps/web/src/components/layout/site-logo.tsx`.
 
 ### D9 — Links institucionais viram lista, e âncora morta não se renderiza
 

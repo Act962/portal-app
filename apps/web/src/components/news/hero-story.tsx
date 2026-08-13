@@ -1,6 +1,7 @@
 import { Kicker } from "@portal-app/ui/components/kicker";
 import Link from "next/link";
 
+import { RupestreTexture } from "@/components/layout/rupestre-texture";
 import { displayTimestamp } from "@/data/queries";
 import type { Article } from "@/data/types";
 import { formatRelativeTime } from "@/lib/format";
@@ -18,7 +19,7 @@ type HeroStoryProps = {
 /**
  * The lead story.
  *
- * Mobile inverts it into a full-bleed navy block — on a phone the headline is
+ * Mobile inverts it into a full-bleed dark block — on a phone the headline is
  * the entire first screen, so it gets to behave like a cover rather than the
  * first item of a page.
  */
@@ -26,10 +27,20 @@ export function HeroStory({ article, headingLevel = "h1" }: HeroStoryProps) {
 	const Heading = headingLevel;
 
 	return (
-		<article className="-mx-4 bg-brand-navy md:mx-0 md:bg-transparent">
+		<article className="relative -mx-4 overflow-hidden bg-brand-deep md:mx-0 md:overflow-visible md:bg-transparent">
+			{/*
+			  Só no celular, porque só no celular este bloco é marrom — de `md`
+			  para cima ele vira fundo de página e a textura não teria onde morar.
+			  Sangra pelo canto inferior direito, abaixo da linha fina: o texto ali
+			  é `on-brand-soft`, que aguenta 4,6:1 sobre o grafismo.
+			*/}
+			<RupestreTexture
+				className="right-0 bottom-0 h-10 translate-y-6 md:hidden"
+				sizes="240px"
+			/>
 			<Link
 				href={routes.article(article.sectionSlug, article.slug)}
-				className="group block text-white hover:text-white md:text-brand-navy md:hover:text-brand-navy"
+				className="group block text-white hover:text-white md:text-brand-deep md:hover:text-brand-deep"
 			>
 				<ArticleThumb
 					article={article}
@@ -50,7 +61,7 @@ export function HeroStory({ article, headingLevel = "h1" }: HeroStoryProps) {
 							<span className="hidden md:inline">{article.kicker}</span>
 						</Kicker>
 
-						<span className="font-mono text-[10px] text-on-navy-muted md:hidden">
+						<span className="font-mono text-[10px] text-on-brand-muted md:hidden">
 							{article.kicker} · {formatRelativeTime(displayTimestamp(article))}
 						</span>
 						<Timestamp
@@ -63,7 +74,7 @@ export function HeroStory({ article, headingLevel = "h1" }: HeroStoryProps) {
 						{article.title}
 					</Heading>
 
-					<p className="max-w-[62ch] font-serif text-[#b9c8d8] text-sm leading-normal md:text-[17px] md:text-ink-muted">
+					<p className="max-w-[62ch] font-serif text-on-brand-soft text-sm leading-normal md:text-[17px] md:text-ink-muted">
 						{article.standfirst}
 					</p>
 				</div>

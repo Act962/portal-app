@@ -178,6 +178,12 @@ autoria em conteúdo jornalístico — e a estrutura já existe no contexto *Ide
 Composição em blocos gerenciáveis pela redação (não hard-coded):
 
 1. **Barra superior** — logo, editorias principais, busca, alternador de tema, "últimas".
+   > **Mudou em 13/08/2026, por decisão do cliente:** as editorias saíram da
+   > barra. O topo passou a ser data/clima + cotações + redes numa faixa clara,
+   > e abaixo o masthead marrom com `MENU` · marca · busca. A navegação inteira
+   > vive no painel lateral aberto pelo `MENU`. O custo aceito está registrado:
+   > cada editoria passou a custar dois cliques, e a linkagem interna que a
+   > trilha dava agora vem só do rodapé.
 2. **Manchete** — 1 matéria em destaque máximo: imagem grande, chapéu, título, linha fina.
 3. **Chamadas secundárias** — 2 a 4 matérias de peso, grade responsiva.
 4. **Plantão / Últimas notícias** — lista cronológica compacta, com horário.

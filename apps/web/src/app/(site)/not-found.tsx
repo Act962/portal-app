@@ -17,7 +17,7 @@ export default async function NotFound() {
 				ERRO 404
 			</p>
 
-			<h1 className="mb-3 font-extrabold text-4xl text-brand-navy leading-none tracking-[-0.04em]">
+			<h1 className="mb-3 font-extrabold text-4xl text-brand-deep leading-none tracking-[-0.04em]">
 				Página não encontrada
 			</h1>
 

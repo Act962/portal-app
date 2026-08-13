@@ -12,7 +12,6 @@ import type { Route } from "next";
  */
 export const routes = {
 	home: "/" as Route,
-	menu: "/menu" as Route,
 	latest: "/ultimas" as Route,
 	search: "/busca" as Route,
 	columnists: "/colunistas" as Route,

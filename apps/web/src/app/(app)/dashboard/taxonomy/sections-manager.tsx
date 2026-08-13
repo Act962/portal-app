@@ -42,7 +42,7 @@ import { toast } from "sonner";
 import { SortableRow, SortableRows } from "@/components/admin/sortable-rows";
 import { trpc } from "@/utils/trpc";
 
-const DEFAULT_COLOR = "#2563eb";
+const DEFAULT_COLOR = "#7b5723";
 
 export function SectionsManager() {
 	const queryClient = useQueryClient();

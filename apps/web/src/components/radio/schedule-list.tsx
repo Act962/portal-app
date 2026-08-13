@@ -21,12 +21,12 @@ export function ScheduleList({
 					key={program.id}
 					className="flex items-center gap-3 border-hairline border-t py-2.5 first:border-t-0"
 				>
-					<span className="w-12 shrink-0 font-mono text-[11.5px] text-brand-navy">
+					<span className="w-12 shrink-0 font-mono text-[11.5px] text-brand-deep">
 						{program.startTime}
 					</span>
 
 					<span className="min-w-0 flex-1">
-						<span className="block truncate font-semibold text-[13.5px] text-brand-navy">
+						<span className="block truncate font-semibold text-[13.5px] text-brand-deep">
 							{program.name}
 						</span>
 					</span>

@@ -55,7 +55,7 @@ describe("siteIdentityFrom", () => {
 		// `logo` do schema.org e `<image>` do RSS exigem URL ABSOLUTA — um
 		// caminho relativo aqui é ignorado em silêncio pelo validador.
 		expect(siteIdentityFrom(source).logoUrl).toBe(
-			"https://fm7cidades.com/brand/logo.svg",
+			"https://fm7cidades.com/brand/logo-7-cidades.png",
 		);
 	});
 
@@ -70,7 +70,7 @@ describe("siteIdentityFrom", () => {
 	it("normaliza a URL antes de montar o logo", () => {
 		const identity = siteIdentityFrom({ ...source, url: "https://x.com/" });
 		expect(identity.url).toBe("https://x.com");
-		expect(identity.logoUrl).toBe("https://x.com/brand/logo.svg");
+		expect(identity.logoUrl).toBe("https://x.com/brand/logo-7-cidades.png");
 	});
 
 	it("descarta perfis que não são endereços absolutos", () => {

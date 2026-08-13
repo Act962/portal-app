@@ -22,7 +22,7 @@ export const runtime = "nodejs";
 
 const SIZE = { width: 1200, height: 630 } as const;
 
-const NAVY = "#011c39";
+const DEEP = "#3a1f0e";
 const RED = "#ed1b24";
 const CANVAS = "#faf9f7";
 
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
 					style={{
 						fontSize,
 						fontWeight: 700,
-						color: NAVY,
+						color: DEEP,
 						lineHeight: 1.1,
 						letterSpacing: -1.5,
 					}}
@@ -93,10 +93,10 @@ export async function GET(request: Request) {
 					display: "flex",
 					alignItems: "center",
 					justifyContent: "space-between",
-					borderTop: `4px solid ${NAVY}`,
+					borderTop: `4px solid ${DEEP}`,
 					paddingTop: 24,
 					fontSize: 30,
-					color: NAVY,
+					color: DEEP,
 				}}
 			>
 				<div style={{ display: "flex", fontWeight: 700 }}>{site.name}</div>

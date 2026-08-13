@@ -27,7 +27,7 @@ export const siteConfig = {
 
 	/** Não é configurável: é o arquivo em `public/`, usado enquanto não há logo
 	 * enviado pela biblioteca de mídia (D8). */
-	logo: "/brand/logo.svg",
+	logo: "/brand/logo-7-cidades.png",
 	locale: "pt-BR",
 
 	// Sem bloco `radio`: o único leitor era a página /ao-vivo, que saiu com o

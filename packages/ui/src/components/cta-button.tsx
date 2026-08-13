@@ -14,9 +14,9 @@ const ctaButtonVariants = cva(
 		variants: {
 			variant: {
 				primary: "bg-brand-red text-white hover:bg-brand-red-hover",
-				secondary: "bg-brand-navy text-white hover:bg-brand-navy-hover",
+				secondary: "bg-brand-deep text-white hover:bg-brand-deep-hover",
 				outline:
-					"border-[1.5px] border-brand-navy text-brand-navy hover:bg-brand-navy hover:text-white",
+					"border-[1.5px] border-brand-deep text-brand-deep hover:bg-brand-deep hover:text-white",
 				"on-brand": "bg-white text-brand-red hover:bg-canvas",
 			},
 		},

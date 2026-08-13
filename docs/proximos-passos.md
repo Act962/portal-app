@@ -46,7 +46,11 @@ Ordem sugerida; cada etapa é mergeável e verificável.
       chips de tag da matéria agora apontam para cá (antes iam para a busca).
 - [x] Navegação/menu completo (P11): o menu ganhou o bloco NAVEGAÇÃO
       (Início/Últimas/Ao vivo/Busca). O item "Ao vivo" saiu depois, junto do
-      player — a rádio se desvinculou do portal.
+      player — a rádio se desvinculou do portal. Em 13/08/2026 a **rota
+      `/menu` foi excluída**: o mesmo conteúdo virou painel lateral (`Sheet`)
+      aberto pelo cabeçalho, e a trilha de editorias saiu do layout. Quem
+      sustenta a linkagem interna passou a ser o rodapé — painel fechado não
+      existe no HTML.
 - [ ] **Paciência: paginação por cursor (P12) adiada.** Hoje o read model carrega
       tudo em memória, então cursor sobre array em memória não traz o ganho real
       (evitar `OFFSET` no banco) e uma UI de "carregar mais" é pior para SEO que

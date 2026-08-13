@@ -6,21 +6,20 @@ import type { Section } from "@/data/types";
 import { routes } from "@/lib/routes";
 
 /**
- * Two-column directory of sections. Used on the mobile home page and as the
- * body of the menu screen, which is why it carries a tone switch.
+ * Diretório de editorias em duas colunas, na home do celular.
+ *
+ * Já teve um `tone="dark"` e um `showCounts={false}`: eram da tela `/menu`,
+ * que virou painel lateral e deixou de usar este componente. Saíram junto —
+ * variante que ninguém chama é código que o próximo leitor tenta entender, e
+ * o `showCounts` ainda escondia uma consulta que era feita e jogada fora.
  */
 export async function SectionGrid({
 	sections,
-	tone = "light",
-	showCounts = true,
 	className,
 }: {
 	sections: Section[];
-	tone?: "light" | "dark";
-	showCounts?: boolean;
 	className?: string;
 }) {
-	const isDark = tone === "dark";
 	// Read model é cacheado por request; conta todas as seções numa passada.
 	const counts = await Promise.all(
 		sections.map((section) =>
@@ -37,26 +36,12 @@ export async function SectionGrid({
 					<li key={section.slug}>
 						<Link
 							href={routes.section(section.slug)}
-							className={cn(
-								"flex min-h-11 flex-col justify-center gap-1 rounded-card border px-3 py-3",
-								isDark
-									? "border-white/20 text-white hover:border-brand-red hover:bg-brand-red hover:text-white"
-									: "border-hairline bg-surface text-brand-navy hover:border-brand-navy hover:text-brand-navy",
-							)}
+							className="flex min-h-11 flex-col justify-center gap-1 rounded-card border border-hairline bg-surface px-3 py-3 text-brand-deep hover:border-brand-deep hover:text-brand-deep"
 						>
-							<span
-								className={cn(
-									"font-bold",
-									isDark ? "text-[14.5px]" : "text-sm",
-								)}
-							>
-								{section.name}
+							<span className="font-bold text-sm">{section.name}</span>
+							<span className="font-mono text-[9.5px] text-meta">
+								{total} {total === 1 ? "matéria" : "matérias"}
 							</span>
-							{showCounts ? (
-								<span className="font-mono text-[9.5px] text-meta">
-									{total} {total === 1 ? "matéria" : "matérias"}
-								</span>
-							) : null}
 						</Link>
 					</li>
 				);

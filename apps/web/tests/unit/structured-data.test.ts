@@ -79,7 +79,9 @@ describe("organizationSchema", () => {
 
 	it("usa a URL do banco, não uma cravada no código", () => {
 		expect(schema.url).toBe("https://fm7cidades.com");
-		expect(schema.logo.url).toBe("https://fm7cidades.com/brand/logo.svg");
+		expect(schema.logo.url).toBe(
+			"https://fm7cidades.com/brand/logo-7-cidades.png",
+		);
 	});
 
 	it("omite endereço e telefone que o cliente não preencheu", () => {

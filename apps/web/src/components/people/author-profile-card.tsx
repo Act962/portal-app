@@ -37,7 +37,7 @@ export function AuthorProfileCard({ author }: { author: Author }) {
 	);
 
 	return (
-		<div className="-mx-4 mb-4 flex gap-4 bg-brand-navy px-4 py-5 md:mx-0 md:mb-5 md:items-center md:gap-6 md:border-brand-navy md:border-b-[3px] md:bg-transparent md:px-0 md:pt-0 md:pb-5">
+		<div className="-mx-4 mb-4 flex gap-4 bg-brand-deep px-4 py-5 md:mx-0 md:mb-5 md:items-center md:gap-6 md:border-brand-deep md:border-b-[3px] md:bg-transparent md:px-0 md:pt-0 md:pb-5">
 			<AuthorAvatar
 				photoUrl={author.photoUrl}
 				name={author.name}
@@ -45,16 +45,16 @@ export function AuthorProfileCard({ author }: { author: Author }) {
 			/>
 
 			<div className="min-w-0 flex-1">
-				<p className="mb-1 font-mono text-[9px] text-on-navy-muted uppercase tracking-[0.16em] md:text-[10px] md:text-meta">
+				<p className="mb-1 font-mono text-[9px] text-on-brand-muted uppercase tracking-[0.16em] md:text-[10px] md:text-meta">
 					{author.role}
 				</p>
 
-				<h1 className="font-extrabold text-[26px] text-white leading-none tracking-[-0.03em] md:text-[38px] md:text-brand-navy md:tracking-[-0.04em]">
+				<h1 className="font-extrabold text-[26px] text-white leading-none tracking-[-0.03em] md:text-[38px] md:text-brand-deep md:tracking-[-0.04em]">
 					{author.name}
 				</h1>
 
 				{author.bio ? (
-					<p className="mt-2 max-w-[70ch] font-serif text-[#b9c8d8] text-[13.5px] leading-relaxed md:mt-3 md:text-base md:text-ink-muted">
+					<p className="mt-2 max-w-[70ch] font-serif text-[13.5px] text-on-brand-soft leading-relaxed md:mt-3 md:text-base md:text-ink-muted">
 						{author.bio}
 					</p>
 				) : null}
@@ -74,7 +74,7 @@ export function AuthorProfileCard({ author }: { author: Author }) {
 								// precisa dizer DE QUEM é o perfil, porque "Instagram" solto
 								// numa lista de links não identifica destino nenhum.
 								aria-label={`${author.name} no ${SOCIAL_LABELS[key]}`}
-								className="text-on-navy-muted transition-colors hover:text-white md:text-meta md:hover:text-brand-red"
+								className="text-on-brand-muted transition-colors hover:text-white md:text-meta md:hover:text-brand-red"
 							>
 								<SocialIcon
 									network={SOCIAL_NETWORK[key]}
@@ -91,7 +91,7 @@ export function AuthorProfileCard({ author }: { author: Author }) {
 						{author.email ? (
 							<a
 								href={`mailto:${author.email}`}
-								className="flex items-center gap-1.5 text-on-navy-muted transition-colors hover:text-white md:text-meta md:hover:text-brand-red"
+								className="flex items-center gap-1.5 text-on-brand-muted transition-colors hover:text-white md:text-meta md:hover:text-brand-red"
 							>
 								<SocialIcon network="email" className="size-[15px]" />
 								<span className="font-mono text-[10px] md:text-[11px]">

@@ -124,7 +124,7 @@ export default async function HomePage() {
 					</>
 				}
 			>
-				<div className="grid gap-stack border-brand-navy pb-stack lg:grid-cols-[1.55fr_1fr] lg:border-b-[3px]">
+				<div className="grid gap-stack border-brand-deep pb-stack lg:grid-cols-[1.55fr_1fr] lg:border-b-[3px]">
 					<HeroStory article={headline} />
 					<SecondaryStoryList articles={secondary} />
 				</div>

@@ -35,7 +35,7 @@ export function ColumnistGrid({ columnists }: { columnists: Columnist[] }) {
 							// responder ao mouse, longe o bastante de "pular". `-translate-y`
 							// e não `margin`, porque transform não reflui o layout — o
 							// vizinho não se mexe junto.
-							className="flex items-center gap-3.5 rounded-card border border-hairline bg-surface p-4.5 text-brand-navy transition-[colors,transform,box-shadow] duration-200 hover:-translate-y-px hover:border-brand-navy hover:text-brand-navy hover:shadow-sm"
+							className="flex items-center gap-3.5 rounded-card border border-hairline bg-surface p-4.5 text-brand-deep transition-[colors,transform,box-shadow] duration-200 hover:-translate-y-px hover:border-brand-deep hover:text-brand-deep hover:shadow-sm"
 						>
 							{/* `name` vazio: o nome já está escrito ao lado, dentro do mesmo
 							    link. Repeti-lo no `alt` faria o leitor de tela anunciar a

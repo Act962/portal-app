@@ -1,68 +1,65 @@
-import { AdSlot } from "@portal-app/ui/components/ad-slot";
 import { Container } from "@portal-app/ui/components/container";
-import { Menu, Search } from "lucide-react";
-import Image from "next/image";
+import { Search } from "lucide-react";
 import Link from "next/link";
 
-import { siteConfig } from "@/config/site";
-import { loadSiteSettings } from "@/data/queries";
+import { RupestreTexture } from "@/components/layout/rupestre-texture";
+import { SiteLogo } from "@/components/layout/site-logo";
+import { SiteMenu } from "@/components/layout/site-menu";
+import { getSections, loadSiteSettings } from "@/data/queries";
 import { routes } from "@/lib/routes";
 
-const ICON_BUTTON =
-	"flex size-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20";
-
 /**
- * Masthead. Two quite different designs share this markup: navy and compact
- * with icon actions on mobile, white and wide with a banner slot from `md` up.
+ * Masthead do portal.
+ *
+ * Três zonas em GRADE, não em flex: `1fr auto 1fr` é o que mantém a marca
+ * opticamente centrada mesmo com "MENU" de um lado e um botão redondo do outro.
+ * Com `flex` + `flex-1` o centro escorrega alguns pixels a cada mudança de
+ * rótulo — e marca desalinhada é a primeira coisa que se nota num cabeçalho.
+ *
+ * **Fixo no topo** porque a trilha de editorias saiu do layout: sem ela, este
+ * cabeçalho é o único acesso a navegação e busca, e um leitor no meio de uma
+ * matéria longa não deveria ter de voltar ao início da página para alcançá-los.
  */
 export async function SiteHeader() {
-	const site = await loadSiteSettings();
+	// Sem consulta extra: o layout já leu as duas para o rodapé, e ambas passam
+	// por `cache()` do React lá embaixo (`loadSiteSettings` direto,
+	// `getSections` através de `loadSections`). Aqui custa a chamada de função,
+	// não a ida ao banco.
+	const [site, sections] = await Promise.all([
+		loadSiteSettings(),
+		getSections(),
+	]);
 
 	return (
-		<header className="border-hairline bg-brand-navy md:border-b md:bg-surface">
-			<Container className="flex flex-wrap items-center gap-3 py-2 md:gap-6 md:py-4">
+		<header className="sticky top-0 z-30 overflow-hidden bg-brand-deep">
+			{/* Some abaixo de `lg`, onde a largura já é toda do logo e do menu. */}
+			<RupestreTexture className="top-1/2 right-0 hidden h-16 -translate-y-1/2 lg:block" />
+
+			<Container className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-3 md:h-20 md:gap-6">
+				{/*
+				  Rótulo escrito, não só o ícone. Com a trilha de editorias fora, este
+				  botão passou a ser O caminho para o conteúdo do portal — e o
+				  hambúrguer sozinho é reconhecido por muito menos gente do que se
+				  costuma supor.
+				*/}
+				<SiteMenu sections={sections} institutional={site.institutional} />
+
 				<Link
 					href={routes.home}
-					className="flex shrink-0 items-center gap-2.5 text-white hover:text-white md:gap-3 md:text-brand-navy md:hover:text-brand-navy"
+					className="justify-self-center transition-opacity hover:opacity-90"
 				>
-					<Image
-						// Logo enviado pela biblioteca (D8); sem ele, o arquivo estático.
-						src={site.logoUrl ?? siteConfig.logo}
-						alt=""
-						width={52}
-						height={52}
-						unoptimized
-						priority
-						className="block size-[34px] rounded-[9px] md:size-[52px] md:rounded-xl"
-					/>
-					<span className="flex flex-col gap-px md:gap-[3px]">
-						<span className="font-extrabold text-[15px] uppercase leading-none tracking-[-0.01em] md:text-[25px] md:tracking-[-0.025em]">
-							<span className="md:hidden">{site.shortName}</span>
-							<span className="hidden md:inline">{site.name}</span>
-						</span>
-						<span className="font-mono text-[9px] text-on-navy-muted tracking-[0.14em] md:text-[10px] md:text-meta md:tracking-[0.16em]">
-							<span className="md:hidden">NOTÍCIAS · {site.radioBand}</span>
-							<span className="hidden md:inline">{site.tagline}</span>
-						</span>
-					</span>
+					<SiteLogo />
+					{/* A marca vai com `alt=""`; o nome acessível do link é este. */}
+					<span className="sr-only">{site.name} — página inicial</span>
 				</Link>
 
-				<div className="flex-1" />
-
-				<div className="flex items-center gap-2 md:hidden">
-					<Link
-						href={routes.search}
-						className={ICON_BUTTON}
-						aria-label="Buscar"
-					>
-						<Search size={16} aria-hidden />
-					</Link>
-					<Link href={routes.menu} className={ICON_BUTTON} aria-label="Menu">
-						<Menu size={16} aria-hidden />
-					</Link>
-				</div>
-
-				<AdSlot format="header-desktop" className="hidden min-w-60 lg:block" />
+				<Link
+					href={routes.search}
+					aria-label="Buscar"
+					className="flex size-11 items-center justify-center justify-self-end rounded-full bg-surface text-brand-deep transition-colors hover:bg-on-brand-soft"
+				>
+					<Search size={20} aria-hidden />
+				</Link>
 			</Container>
 		</header>
 	);

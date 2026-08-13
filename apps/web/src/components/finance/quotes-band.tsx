@@ -1,6 +1,8 @@
 import { SectionHeader } from "@portal-app/ui/components/section-header";
 import { cn } from "@portal-app/ui/lib/utils";
 
+import { quoteDirection } from "@/components/finance/quote-direction";
+import { RupestreTexture } from "@/components/layout/rupestre-texture";
 import { Timestamp } from "@/components/news/timestamp";
 import type { Quote } from "@/data/quotes";
 import { formatPctChange, formatValue } from "@/lib/quotes";
@@ -17,12 +19,6 @@ import { formatPctChange, formatValue } from "@/lib/quotes";
  * pior do que faixa nenhuma, porque parece defeito. Com uma ou duas moedas ela
  * aparece com o que houver: a ausência de uma não invalida as outras.
  */
-const DIRECTION = {
-	up: { seta: "▲", classe: "text-market-up", leitura: "em alta" },
-	down: { seta: "▼", classe: "text-market-down", leitura: "em baixa" },
-	flat: { seta: "●", classe: "text-on-navy-muted", leitura: "estável" },
-} as const;
-
 export function QuotesBand({ quotes }: { quotes: Quote[] }) {
 	if (quotes.length === 0) {
 		return null;
@@ -34,14 +30,21 @@ export function QuotesBand({ quotes }: { quotes: Quote[] }) {
 	const updatedAt = quotes.find((quote) => quote.updatedAt !== null)?.updatedAt;
 
 	return (
-		<section className="-mx-4 mt-6 bg-brand-navy px-4 py-5 md:mx-0 md:mt-section md:rounded-panel md:px-7 md:py-stack">
+		<section className="relative -mx-4 mt-6 overflow-hidden bg-brand-deep px-4 py-5 md:mx-0 md:mt-section md:rounded-panel md:px-7 md:py-stack">
+			{/*
+			  Canto inferior direito: a linha de rodapé da faixa ("VALORES DE
+			  COMPRA…") é curta e mora à esquerda, então este é o vão do bloco. A
+			  textura não pode encostar nela — é `on-brand-dim`, que sobre o
+			  grafismo cai para 2,3:1.
+			*/}
+			<RupestreTexture className="right-0 bottom-0 hidden h-14 translate-y-2 md:block" />
 			<SectionHeader
 				title="Cotações"
 				tone="dark"
 				className="mb-4.5"
 				action={
 					updatedAt ? (
-						<span className="font-mono text-[10px] text-on-navy-dim md:text-[11px]">
+						<span className="font-mono text-[10px] text-on-brand-dim md:text-[11px]">
 							ATUALIZADO <Timestamp iso={updatedAt} variant="relative" />
 						</span>
 					) : null
@@ -50,14 +53,14 @@ export function QuotesBand({ quotes }: { quotes: Quote[] }) {
 
 			<ul className="grid gap-3 sm:grid-cols-3 md:gap-5">
 				{quotes.map((quote) => {
-					const direction = DIRECTION[quote.direction];
+					const direction = quoteDirection(quote.direction, "dark");
 
 					return (
 						<li
 							key={quote.pair}
-							className="rounded-card border border-on-navy-rule px-4 py-3.5"
+							className="rounded-card border border-on-brand-rule px-4 py-3.5"
 						>
-							<p className="font-mono text-[9.5px] text-on-navy-muted uppercase tracking-[0.14em]">
+							<p className="font-mono text-[9.5px] text-on-brand-muted uppercase tracking-[0.14em]">
 								{quote.label}
 							</p>
 
@@ -88,7 +91,13 @@ export function QuotesBand({ quotes }: { quotes: Quote[] }) {
 				})}
 			</ul>
 
-			<p className="mt-3.5 font-mono text-[9px] text-on-navy-dim md:text-[9.5px]">
+			{/*
+			  `w-fit` não é estética: como `<p>` de bloco, a caixa ia até a borda
+			  direita e passava POR CIMA da textura, embora a tinta pare na metade.
+			  Este texto é `on-brand-dim` — 2,3:1 sobre o grafismo —, então a caixa
+			  precisa dizer a verdade sobre onde as letras estão.
+			*/}
+			<p className="mt-3.5 w-fit font-mono text-[9px] text-on-brand-dim md:text-[9.5px]">
 				VALORES DE COMPRA, EM REAIS · FONTE: AWESOMEAPI
 			</p>
 		</section>

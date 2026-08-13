@@ -1,5 +1,7 @@
+import { AdSlot } from "@portal-app/ui/components/ad-slot";
+import { Container } from "@portal-app/ui/components/container";
+
 import { AnchorAd } from "@/components/layout/anchor-ad";
-import { MainNav } from "@/components/layout/main-nav";
 import { NewsTicker } from "@/components/layout/news-ticker";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -52,8 +54,23 @@ export default async function SiteLayout({
 				<SkipLink />
 				<TopBar />
 				<SiteHeader />
-				<MainNav sections={sections} />
+
+				{/*
+				  A trilha de editorias que ficava aqui saiu: a navegação inteira
+				  passou para o botão MENU do cabeçalho, que abre o painel lateral
+				  (`site-menu.tsx`), por decisão do cliente. `sections` continua sendo
+				  carregado porque o RODAPÉ lista todas — e é ELE que mantém cada
+				  editoria a um link de distância no HTML de qualquer página. O painel
+				  não serve para isso: o conteúdo de um `Sheet` fechado não existe no
+				  documento, então o rastreador não o vê.
+				*/}
 				<NewsTicker articles={ticker} />
+
+				{/* Onde o mockup põe o banner. Altura reservada pelo `AdSlot`, então
+				    a entrada do criativo não desloca o conteúdo (CLS). */}
+				<Container className="pt-4">
+					<AdSlot format="billboard" className="mx-auto hidden md:block" />
+				</Container>
 
 				<main id="conteudo" className="flex-1">
 					{children}

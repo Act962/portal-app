@@ -2,6 +2,7 @@ import { Container } from "@portal-app/ui/components/container";
 import Image from "next/image";
 import Link from "next/link";
 
+import { RupestreTexture } from "@/components/layout/rupestre-texture";
 import { SiteLink } from "@/components/layout/site-link";
 import { siteConfig } from "@/config/site";
 import { loadSiteSettings } from "@/data/queries";
@@ -10,7 +11,7 @@ import { routes } from "@/lib/routes";
 
 const HEADING =
 	"mb-2.5 font-mono text-[9px] tracking-[0.16em] text-white md:text-[9.5px]";
-const LINK = "text-on-navy-muted hover:text-white";
+const LINK = "text-on-brand-muted hover:text-white";
 
 export async function SiteFooter({ sections }: { sections: Section[] }) {
 	const site = await loadSiteSettings();
@@ -25,7 +26,7 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 	].filter((line): line is string => Boolean(line));
 
 	return (
-		<footer className="mt-stack bg-brand-navy text-on-navy-muted md:mt-major">
+		<footer className="mt-stack bg-brand-deep text-on-brand-muted md:mt-major">
 			<Container className="grid grid-cols-2 gap-x-5 gap-y-6 py-6 md:gap-8 md:py-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
 				<div className="col-span-2 lg:col-span-1">
 					<div className="mb-3 flex items-center gap-2.5 md:gap-3">
@@ -106,8 +107,26 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 				</div>
 			</Container>
 
-			<div className="border-white/15 border-t">
-				<Container className="flex flex-wrap justify-between gap-2 py-3.5 font-mono text-[9.5px] text-on-navy-dim tracking-[0.08em] md:text-[10px]">
+			{/*
+			  A textura fica NESTA faixa, e não no corpo do rodapé acima: lá o texto
+			  é `on-brand-muted`, que sobre o grafismo cai para 3,4:1. Aqui ela
+			  ocupa o vão central — o copyright fica à esquerda, a razão social à
+			  direita — e é o uso que a própria marca sugere no `barra_rupestre.png`:
+			  os desenhos correndo numa tira. Só de `md` para cima, onde esse vão
+			  existe; no celular as duas pontas se encontram.
+			*/}
+			<div className="relative overflow-hidden border-white/15 border-t">
+				{/*
+				  Mais alta que a faixa (56px contra ~46px), e por isso cortada em
+				  cima e embaixo pelo `overflow-hidden` do pai. É de propósito: o
+				  corte é o que a faz ler como uma TIRA que atravessa o rodapé, e não
+				  como um carimbo solto no meio dele.
+				*/}
+				<RupestreTexture
+					className="top-1/2 left-1/2 hidden h-14 -translate-x-1/2 -translate-y-1/2 md:block"
+					sizes="280px"
+				/>
+				<Container className="flex flex-wrap justify-between gap-2 py-3.5 font-mono text-[9.5px] text-on-brand-dim tracking-[0.08em] md:text-[10px]">
 					<span>
 						© {new Date().getFullYear()} {site.name.toUpperCase()} · TODOS OS
 						DIREITOS RESERVADOS

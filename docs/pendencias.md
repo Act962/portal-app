@@ -1,6 +1,6 @@
 # Pendências — o que falta para o produto ficar completo
 
-> **Atualizado:** 2026-08-12.
+> **Atualizado:** 2026-08-13.
 > Lista única e priorizada do que está em aberto, para a entrega em andamento.
 > Estado por fase em [`proximos-passos.md`](./proximos-passos.md); escopo em
 > [`specs/`](./specs/); operação em [`deploy.md`](./deploy.md).
@@ -17,7 +17,7 @@ configurações do veículo, grade de programação, enquete com voto anônimo,
 
 ## 🚨 Precisa de ação humana — desta rodada (2026-08-12/13)
 
-Sete coisas que o código não resolve sozinho e que **ficam erradas em
+Oito coisas que o código não resolve sozinho e que **ficam erradas em
 produção até alguém agir**:
 
 1. **O texto legal precisa de revisão de quem responde pelo veículo.**
@@ -44,18 +44,18 @@ produção até alguém agir**:
    têm destino e esvaziar a linha legal (ou trocá-la pela razão social, que é
    para o que o campo passou a servir). É clique, não deploy.
 
-3. **A faixa de cotações precisa de `AWESOMEAPI_TOKEN` para voltar ao ar.**
-   Ela subiu e **não apareceu em produção**: o log da Vercel mostrou
+3. **`AWESOMEAPI_TOKEN` cadastrado (13/08) — falta o redeploy e a conferência.**
+   A faixa subiu e **não apareceu em produção**: o log da Vercel mostrou
    `[cotacoes] a API respondeu 429` em toda visita. O erro de julgamento foi
    raciocinar pelo NOSSO volume (uma chamada por minuto, folgada nos 100 do
    acesso anônimo) — mas o limite é **por endereço IP**, e os IPs de saída da
    Vercel são compartilhados com outros clientes: a cota se esgota por uso de
-   terceiros. O código já aceita o token; falta cadastrá-lo.
+   terceiros.
 
-   **O que fazer:** criar conta gratuita em `awesomeapi.com.br` (sobe para 100
-   mil requisições), copiar o token e cadastrar `AWESOMEAPI_TOKEN` nas
-   variáveis de ambiente da Vercel. Sem ele, dev/build/CI continuam
-   funcionando — a faixa é que fica fora do ar em produção.
+   O token já está nas variáveis de ambiente. **O que falta:** um deploy novo
+   — variável cadastrada não alcança o que já está no ar — e abrir qualquer
+   página para ver os três valores no cabeçalho. Detalhe e como diagnosticar
+   se ainda vier vazio na seção "Dívida gerada pelo rebranding", mais abaixo.
 
 4. **A licença da Open-Meteo (temperatura do cabeçalho) precisa de decisão.**
    O plano gratuito é declarado para uso NÃO COMERCIAL e o portal é de uma
@@ -106,6 +106,126 @@ produção até alguém agir**:
    código muda, e as capas já gravadas continuam válidas — o banco guarda a
    chave do objeto, não a URL. Passo a passo em [`deploy.md`](./deploy.md) §0,
    passo 2.4.
+
+8. **A identidade nova (13/08) deixou três pontas com o cliente.** O portal
+   passou a ser o **Portal 7 Cidades**, em marrom (`#3A1F0E` / `#7B5723`). O
+   código está inteiro; o que falta não é deploy:
+
+   - **O logo das Configurações está com a arte ERRADA** (verificado em
+     13/08, depois da atualização). Os dois campos — logo e favicon — apontam
+     hoje para o mesmo arquivo, o `FAVICON_portal_7_cidades.png`. Essa arte foi
+     desenhada para ir **sobre fundo colorido**: o miolo do "7" é vazado. No
+     rodapé, que é marrom, ela funciona. Nos lugares em que o `logoUrl` é
+     consumido — `Organization.logo` do schema.org (`lib/structured-data.ts`) e
+     `<image>` do RSS (`lib/feed.ts`) — o fundo é **branco**, e aí sobra só o
+     crescente dourado: o "7" desaparece.
+
+     Conserto, em Configurações:
+     - **Logo** → `logo_7_cidades.png` (o lockup completo, que lê sobre branco).
+     - **Favicon** → ou limpar o campo, e aí entra o `/brand/favicon.ico` novo
+       (a mesma arte já achatada sobre o marrom, em 16·32·48·256), ou subir
+       `apps/web/public/brand/icon-512.png`, que é essa versão achatada.
+
+     O `og:image` **não** é afetado: ele vem do campo de arte social ou do
+     cartão gerado pela rota `/og`, nunca do logo.
+   - **O nome do veículo continua "Rádio 7 Cidades"** nas Configurações,
+     enquanto a marca entregue diz "Portal Cidades". O cabeçalho mostra a arte,
+     mas `<title>`, Open Graph e schema.org mostram o nome do banco — e os dois
+     se contradizem em toda prévia de link. É um campo de formulário; a decisão
+     do nome é do cliente, não nossa.
+   - **Falta a arte HORIZONTAL do lockup, em branco.** A pasta trouxe só a
+     versão empilhada (quadrada), que num cabeçalho de 80px deixa a assinatura
+     com ~10px de altura. Enquanto ela não vem, o cabeçalho usa o SÍMBOLO
+     oficial mais a assinatura composta em Montserrat — próxima, mas não é a
+     tipografia da marca. Ver `components/layout/site-logo.tsx`: quando o
+     arquivo chegar, é um `<Image>` substituindo o bloco de texto, num arquivo
+     só.
+
+---
+
+## Dívida gerada pelo rebranding (13/08) — nossa, não do cliente
+
+A entrega da identidade abriu quatro frentes. **Três foram fechadas na mesma
+rodada**; sobra uma, e ela é do cliente.
+
+### ✅ Resolvido — a navegação tem teste
+
+Com a trilha de editorias fora do layout, chegar a qualquer editoria passou a
+depender de um painel que só existe depois da hidratação — e o único teste de
+home checava a manchete, que não depende do menu. Um erro de hidratação deixaria
+o portal sem navegação com o CI verde.
+
+`apps/web/tests/e2e/home.spec.ts` ganhou seis testes de verdade: abre, lista as
+editorias, navega e fecha, fecha ao clicar na rota em que já se está (o caso que
+um efeito observando a rota NÃO cobriria), Esc devolve o foco ao botão, e o
+rodapé mantém as editorias no HTML servido sem nenhuma interação — que é o que
+sustenta a linkagem interna para o rastreador. Suíte E2E em 12 verdes.
+
+Eles não fixam nome de editoria: leem a primeira que o painel lista. O seed do
+E2E tem só "Cidades" e o de desenvolvimento tem sete — asserção presa a conteúdo
+de seed vira falha vermelha quando o dado muda, que é ruído, não defeito.
+
+### ✅ Resolvido — o JS do portal voltou ao que era
+
+Medido servindo o build de produção e somando os scripts que o HTML da home
+referencia, comprimidos:
+
+| | bruto | gzip |
+|---|---|---|
+| `main` (antes) | 640,4 KB | **190,8 KB** |
+| com o `Sheet` no pacote inicial | 769,9 KB | **234,2 KB** |
+| com o painel sob demanda | 640,4 KB | **190,8 KB** |
+
+O diálogo do Base UI custava **+43,4 KB comprimidos em toda página pública** por
+um menu que a maior parte dos leitores nunca abre. O painel virou
+`site-menu-panel.tsx`, carregado por `next/dynamic`, e o botão ficou com alguns
+bytes. O `preload` dispara no `pointerenter` e no `pointerdown` — os dois antes
+de o clique se completar —, então a primeira abertura não paga ida à rede.
+
+**Fica registrado o que a medição revelou de passagem:** a home já estava em
+190,8 KB antes desta entrega, contra os 150 KB que o `ui-ux.md` §4 fixa. O
+rebranding não criou esse estouro e agora não o piora, mas ele existe e nada no
+CI o verifica — o Lighthouse CI que travaria isso continua fora do pipeline.
+
+### ✅ Resolvido — o favicon é da marca nova
+
+`favicon.ico` regerado com a arte do cliente (16·32·48·256, chapada sobre o
+`#3A1F0E`), junto com os ícones de manifest e de tela inicial. O `sharp` não
+escreve `.ico`, então o contêiner é montado à mão em
+[`design/marca/gerar-assets.mjs`](../design/marca/gerar-assets.mjs) — com cada
+imagem embutida como PNG, que todo navegador lê desde o IE11 e dispensa o
+cabeçalho DIB e a máscara AND, que é onde esse tipo de gerador erra.
+
+O símbolo do cabeçalho virou arquivo próprio (`symbol.png`, transparente): o
+masthead o pinta de branco por filtro, e a arte chapada viraria um quadrado
+branco. São exigências opostas — ícone de tela inicial **não** pode ser
+transparente, porque Android e iOS compõem sobre branco ou preto por conta
+própria.
+
+### ⏳ Falta confirmar no ar — as cotações agora são de toda página
+
+Elas subiram para a barra do topo, que está na moldura. Não multiplica
+requisição (o `unstable_cache` de `data/quotes.ts` guarda inclusive a falha),
+mas muda o alcance do item 3 desta lista: sem o `AWESOMEAPI_TOKEN`, o que fica
+vazio em produção deixou de ser uma faixa da home e passou a ser um pedaço do
+cabeçalho do site inteiro.
+
+**O token foi cadastrado na Vercel em 13/08.** O caminho do código foi conferido
+e está certo: a variável é opcional no schema (`packages/env/src/server.ts`), e
+`data/quotes.ts` a anexa como `?token=` com `encodeURIComponent`. Faltam duas
+coisas antes de riscar esta linha:
+
+1. **Redeploy.** Variável de ambiente na Vercel só vale para deploys NOVOS — o
+   que está no ar hoje continua rodando sem ela, por mais que o painel já a
+   mostre cadastrada.
+2. **Conferir no ar.** Abrir qualquer página do portal (a faixa agora é do
+   cabeçalho, não só da home) e ver os três valores. Se ainda estiver vazia, o
+   log da Vercel diz o motivo em uma linha — `[cotacoes] a API respondeu …` —,
+   e com o token presente a mensagem já não acusa o limite anônimo.
+
+O cache é de 5 minutos e guarda também a falha, então uma leitura ruim
+imediatamente antes do deploy não persiste: o deploy novo começa com cache
+limpo.
 
 ### Área de patrocinadores — ADIADA pelo cliente (12/08)
 

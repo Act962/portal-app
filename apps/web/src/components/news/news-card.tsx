@@ -35,7 +35,7 @@ export function NewsCard({
 		<article className={className}>
 			<Link
 				href={routes.article(article.sectionSlug, article.slug)}
-				className="group flex flex-col gap-2 text-brand-navy hover:text-brand-navy"
+				className="group flex flex-col gap-2 text-brand-deep hover:text-brand-deep"
 			>
 				<ArticleThumb
 					article={article}
