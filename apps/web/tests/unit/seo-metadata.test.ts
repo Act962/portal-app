@@ -16,6 +16,28 @@ const site = siteIdentityFrom({
 	city: "Piracuruca",
 	state: "PI",
 	logoUrl: null,
+	socialImage: null,
+	contactEmail: null,
+	contactNewsroom: null,
+	contactAddress: null,
+	social: [],
+});
+
+/** O mesmo veículo, com a arte de compartilhamento já cadastrada. */
+const siteComArte = siteIdentityFrom({
+	name: "Rádio 7 Cidades",
+	shortName: "7 Cidades",
+	description: "Notícias do Piauí.",
+	url: "https://fm7cidades.com",
+	city: "Piracuruca",
+	state: "PI",
+	logoUrl: null,
+	socialImage: {
+		url: "https://cdn.exemplo.com/compartilhamento.jpg",
+		width: 1200,
+		height: 630,
+		alt: "Rádio 7 Cidades",
+	},
 	contactEmail: null,
 	contactNewsroom: null,
 	contactAddress: null,
@@ -72,10 +94,70 @@ describe("pageMetadata", () => {
 		expect(images[0]?.height).toBe(630);
 	});
 
-	it("respeita a imagem própria da página", () => {
+	it("prefere a arte cadastrada nas Configurações ao cartão gerado", () => {
+		// O item do cliente: a arte da marca no lugar do cartão de texto, sem
+		// deploy. Vale para toda página que não tem imagem própria.
 		const images = og(
 			pageMetadata({
-				site,
+				site: siteComArte,
+				title: "Enquetes",
+				description: "…",
+				path: "/enquetes",
+			}),
+		).images as { url: string; width: number; height: number }[];
+
+		expect(images).toEqual([
+			{
+				url: "https://cdn.exemplo.com/compartilhamento.jpg",
+				alt: "Rádio 7 Cidades",
+				width: 1200,
+				height: 630,
+			},
+		]);
+	});
+
+	it("omite as dimensões da arte que a biblioteca não mediu", () => {
+		// Declarar 1200×630 numa arte de outro tamanho faria o WhatsApp reservar
+		// a caixa errada — pior do que não declarar nada.
+		const semMedida = siteIdentityFrom({
+			name: "R",
+			shortName: "R",
+			description: "…",
+			url: "https://r.com",
+			city: "C",
+			state: "PI",
+			logoUrl: null,
+			socialImage: {
+				url: "https://cdn.exemplo.com/arte.jpg",
+				width: null,
+				height: null,
+				alt: "R",
+			},
+			contactEmail: null,
+			contactNewsroom: null,
+			contactAddress: null,
+			social: [],
+		});
+
+		const images = og(
+			pageMetadata({
+				site: semMedida,
+				title: "T",
+				description: "…",
+				path: "/t",
+			}),
+		).images as Record<string, unknown>[];
+
+		expect(images[0]).not.toHaveProperty("width");
+		expect(images[0]).not.toHaveProperty("height");
+	});
+
+	it("a imagem da página ganha até da arte cadastrada", () => {
+		// A capa da matéria é mais específica: quem compartilha está falando
+		// daquele conteúdo, não do veículo.
+		const images = og(
+			pageMetadata({
+				site: siteComArte,
 				title: "Matéria",
 				description: "Linha fina.",
 				path: "/geral/materia",

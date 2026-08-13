@@ -51,14 +51,29 @@ export async function generateMetadata(): Promise<Metadata> {
 			siteName: site.name,
 			title: `${site.name} — Notícias do Piauí`,
 			description: site.description,
-			images: [
-				{
-					url: ogImageUrl({ title: site.name, eyebrow: site.shortName }),
-					width: 1200,
-					height: 630,
-					alt: site.name,
-				},
-			],
+			// A arte cadastrada nas Configurações quando existe; o cartão gerado
+			// enquanto não existe. Mesma ordem que `pageMetadata` aplica ao portal.
+			images: site.socialImage
+				? [
+						{
+							url: site.socialImage.url,
+							alt: site.socialImage.alt,
+							...(site.socialImage.width && site.socialImage.height
+								? {
+										width: site.socialImage.width,
+										height: site.socialImage.height,
+									}
+								: {}),
+						},
+					]
+				: [
+						{
+							url: ogImageUrl({ title: site.name, eyebrow: site.shortName }),
+							width: 1200,
+							height: 630,
+							alt: site.name,
+						},
+					],
 		},
 		twitter: { card: "summary_large_image" },
 		// Verificação de propriedade no Search Console (D7). Sem a variável, nada

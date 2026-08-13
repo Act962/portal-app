@@ -16,6 +16,7 @@ const source: SiteIdentitySource = {
 	city: "Piracuruca",
 	state: "PI",
 	logoUrl: null,
+	socialImage: null,
 	contactEmail: "contato@fm7cidades.com",
 	contactNewsroom: "(86) 3343-1107",
 	contactAddress: "BR-343, km 140",

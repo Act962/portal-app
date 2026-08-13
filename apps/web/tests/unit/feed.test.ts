@@ -19,6 +19,7 @@ const site = siteIdentityFrom({
 	city: "Piracuruca",
 	state: "PI",
 	logoUrl: null,
+	socialImage: null,
 	contactEmail: null,
 	contactNewsroom: null,
 	contactAddress: null,
@@ -188,7 +189,9 @@ describe("urlset", () => {
 				}),
 			),
 		]);
-		expect(xml).toContain("<image:caption>Chuva alaga a BR-343</image:caption>");
+		expect(xml).toContain(
+			"<image:caption>Chuva alaga a BR-343</image:caption>",
+		);
 	});
 
 	it("usa `updatedAt` no `lastmod` quando a matéria foi corrigida", () => {
@@ -222,8 +225,14 @@ describe("newsSitemap", () => {
 		const xml = newsSitemap(
 			site,
 			[
-				makeArticle({ slug: "recente", publishedAt: "2026-08-13T09:00:00.000Z" }),
-				makeArticle({ slug: "antiga", publishedAt: "2026-08-09T09:00:00.000Z" }),
+				makeArticle({
+					slug: "recente",
+					publishedAt: "2026-08-13T09:00:00.000Z",
+				}),
+				makeArticle({
+					slug: "antiga",
+					publishedAt: "2026-08-09T09:00:00.000Z",
+				}),
 			],
 			now,
 		);
@@ -234,7 +243,12 @@ describe("newsSitemap", () => {
 	it("mantém a matéria que está exatamente no limite", () => {
 		const xml = newsSitemap(
 			site,
-			[makeArticle({ slug: "limite", publishedAt: "2026-08-11T12:00:00.000Z" })],
+			[
+				makeArticle({
+					slug: "limite",
+					publishedAt: "2026-08-11T12:00:00.000Z",
+				}),
+			],
 			now,
 		);
 		expect(xml).toContain("/cidades/limite");
