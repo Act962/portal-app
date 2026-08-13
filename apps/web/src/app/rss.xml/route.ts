@@ -1,19 +1,26 @@
-import { siteConfig } from "@/config/site";
-import { getAllArticles } from "@/data/queries";
+import { getAllArticles, getAuthors } from "@/data/queries";
 import { rssFeed } from "@/lib/feed";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { xmlResponse } from "@/lib/xml";
 
 /** RSS geral (P28): as 50 matérias mais recentes de todo o portal. */
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-	const articles = (await getAllArticles()).slice(0, 50);
+	const [site, all, authors] = await Promise.all([
+		loadSiteIdentity(),
+		getAllArticles(),
+		getAuthors(),
+	]);
+
 	return xmlResponse(
 		rssFeed({
-			title: `${siteConfig.name} — Últimas notícias`,
-			description: siteConfig.description,
+			site,
+			title: `${site.name} — Últimas notícias`,
+			description: site.description,
 			path: "/rss.xml",
-			articles,
+			articles: all.slice(0, 50),
+			authorNames: new Map(authors.map((a) => [a.slug, a.name])),
 		}),
 	);
 }

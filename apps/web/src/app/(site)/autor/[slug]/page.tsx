@@ -7,16 +7,26 @@ import { ArticleList } from "@/components/news/article-list";
 import { MostReadList } from "@/components/news/most-read-list";
 import { AuthorProfileCard } from "@/components/people/author-profile-card";
 import { JsonLd } from "@/components/seo/json-ld";
-import { siteConfig } from "@/config/site";
 import {
 	getArticlesByAuthor,
 	getAuthor,
 	getAuthors,
 	getMostRead,
 } from "@/data/queries";
-import { paginate, parsePageParam } from "@/lib/pagination";
+import { DEFAULT_PAGE_SIZE, paginate, parsePageParam } from "@/lib/pagination";
 import { routes } from "@/lib/routes";
-import { breadcrumbSchema, personSchema } from "@/lib/structured-data";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
+import {
+	canonicalFor,
+	notFoundMetadata,
+	pageMetadata,
+} from "@/lib/seo/metadata";
+import {
+	articleListItems,
+	breadcrumbSchema,
+	collectionPageSchema,
+	personSchema,
+} from "@/lib/structured-data";
 
 type AuthorPageProps = {
 	params: Promise<{ slug: string }>;
@@ -29,30 +39,40 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({
 	params,
+	searchParams,
 }: AuthorPageProps): Promise<Metadata> {
 	const { slug } = await params;
+	const { page } = await searchParams;
 	const articles = await getArticlesByAuthor(slug);
 
 	if (articles.length === 0) {
-		return {};
+		return notFoundMetadata();
 	}
 
-	const author = await getAuthor(slug);
+	const [author, site] = await Promise.all([
+		getAuthor(slug),
+		loadSiteIdentity(),
+	]);
+	const currentPage = parsePageParam(page);
 	const description =
-		author.bio || `Matérias de ${author.name} na ${siteConfig.name}.`;
+		author.bio || `Matérias de ${author.name} na ${site.name}.`;
 
-	return {
-		title: author.name,
+	return pageMetadata({
+		site,
+		title:
+			currentPage > 1 ? `${author.name} — página ${currentPage}` : author.name,
 		description,
-		alternates: { canonical: routes.author(author.slug) },
-		openGraph: {
-			type: "profile",
-			title: author.name,
-			description,
-			url: routes.author(author.slug),
-			...(author.photoUrl ? { images: [{ url: author.photoUrl }] } : {}),
-		},
-	};
+		path: canonicalFor(routes.author(author.slug), currentPage),
+		type: "profile",
+		eyebrow: author.role || "Assinatura",
+		/*
+		 * A foto do autor como imagem social só quando ela existe. Sem foto, o
+		 * cartão gerado (D4) leva o nome — o que é melhor do que a arte genérica
+		 * do veículo, porque o link compartilhado costuma ser "olha a coluna do
+		 * fulano", não "olha a rádio".
+		 */
+		...(author.photoUrl ? { images: [{ url: author.photoUrl }] } : {}),
+	});
 }
 
 export default async function AuthorPage({
@@ -67,9 +87,10 @@ export default async function AuthorPage({
 		notFound();
 	}
 
-	const [author, mostRead] = await Promise.all([
+	const [author, mostRead, site] = await Promise.all([
 		getAuthor(slug),
 		getMostRead(),
+		loadSiteIdentity(),
 	]);
 	const listing = paginate(articles, parsePageParam(page));
 	const basePath = routes.author(author.slug);
@@ -96,12 +117,24 @@ export default async function AuthorPage({
 				/>
 			</ContentWithSidebar>
 
-			<JsonLd schema={personSchema({ author })} />
+			<JsonLd schema={personSchema({ site, author })} />
 			<JsonLd
-				schema={breadcrumbSchema([
+				schema={breadcrumbSchema(site, [
 					{ name: "Home", path: "/" },
 					{ name: author.name, path: basePath },
 				])}
+			/>
+
+			<JsonLd
+				schema={collectionPageSchema({
+					site,
+					name: `Matérias de ${author.name}`,
+					description:
+						author.bio || `Tudo o que ${author.name} assinou na ${site.name}.`,
+					path: canonicalFor(basePath, listing.currentPage),
+					items: articleListItems(listing.items),
+					offset: (listing.currentPage - 1) * DEFAULT_PAGE_SIZE,
+				})}
 			/>
 		</>
 	);

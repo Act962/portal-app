@@ -7,15 +7,24 @@ import { NewsRow } from "@/components/news/news-row";
 import { SearchBox } from "@/components/search/search-box";
 import { getLatest, loadSiteSettings, searchArticles } from "@/data/queries";
 import { routes } from "@/lib/routes";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
+import { pageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
-	title: "Busca",
-	description:
-		"Busque notícias, programas e cidades no portal da Rádio 7 Cidades.",
-	alternates: { canonical: routes.search },
-	// A search results page has nothing unique to offer an index.
-	robots: { index: false, follow: true },
-};
+export async function generateMetadata(): Promise<Metadata> {
+	const site = await loadSiteIdentity();
+
+	return pageMetadata({
+		site,
+		title: "Busca",
+		description: `Busque notícias, programas e cidades no portal da ${site.name}.`,
+		path: routes.search,
+		eyebrow: "Busca",
+		// Uma página de resultados não tem nada de único a oferecer ao índice — e
+		// há uma URL por termo digitado. O `robots.txt` corta antes do rastreio
+		// (spec 07, D6); este `noindex` é o cinto para o que já tiver entrado.
+		index: false,
+	});
+}
 
 const EYEBROW = "font-mono text-[10px] tracking-[0.16em] text-meta uppercase";
 

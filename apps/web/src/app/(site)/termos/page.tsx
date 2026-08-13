@@ -5,6 +5,8 @@ import { LegalPage } from "@/components/layout/legal-page";
 import { JsonLd } from "@/components/seo/json-ld";
 import { loadSiteSettings } from "@/data/queries";
 import { routes } from "@/lib/routes";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
+import { pageMetadata } from "@/lib/seo/metadata";
 import { breadcrumbSchema } from "@/lib/structured-data";
 
 /**
@@ -13,15 +15,23 @@ import { breadcrumbSchema } from "@/lib/structured-data";
  */
 const UPDATED_AT = "2026-08-12";
 
-export const metadata: Metadata = {
-	title: "Termos de Uso",
-	description:
-		"As regras de uso do portal da Rádio 7 Cidades: direitos sobre o conteúdo, o que é permitido reproduzir, correções e responsabilidades.",
-	alternates: { canonical: routes.terms },
-};
+export async function generateMetadata(): Promise<Metadata> {
+	const identity = await loadSiteIdentity();
+
+	return pageMetadata({
+		site: identity,
+		title: "Termos de Uso",
+		description: `As regras de uso do portal da ${identity.name}: direitos sobre o conteúdo, o que é permitido reproduzir, correções e responsabilidades.`,
+		path: routes.terms,
+		eyebrow: "Institucional",
+	});
+}
 
 export default async function TermsPage() {
-	const site = await loadSiteSettings();
+	const [site, identity] = await Promise.all([
+		loadSiteSettings(),
+		loadSiteIdentity(),
+	]);
 	const contact = site.contactEmail;
 
 	return (
@@ -47,8 +57,8 @@ export default async function TermsPage() {
 				<h2>Direitos sobre o conteúdo</h2>
 				<p>
 					Os textos, fotografias, artes e demais materiais publicados são
-					protegidos por direito autoral e pertencem à {site.name} ou a quem
-					nos licenciou o uso. Isso vale igualmente para o material assinado por
+					protegidos por direito autoral e pertencem à {site.name} ou a quem nos
+					licenciou o uso. Isso vale igualmente para o material assinado por
 					colunistas, cujos direitos permanecem com seus autores.
 				</p>
 
@@ -59,9 +69,9 @@ export default async function TermsPage() {
 						redes sociais e aplicativos de mensagem.
 					</li>
 					<li>
-						Citar trechos curtos em trabalhos, comentários ou reportagens,
-						desde que identifique a {site.name} como fonte e inclua o link para
-						a matéria original.
+						Citar trechos curtos em trabalhos, comentários ou reportagens, desde
+						que identifique a {site.name} como fonte e inclua o link para a
+						matéria original.
 					</li>
 				</ul>
 
@@ -169,7 +179,7 @@ export default async function TermsPage() {
 			</LegalPage>
 
 			<JsonLd
-				schema={breadcrumbSchema([
+				schema={breadcrumbSchema(identity, [
 					{ name: "Home", path: "/" },
 					{ name: "Termos de Uso", path: routes.terms },
 				])}

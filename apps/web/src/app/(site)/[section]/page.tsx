@@ -16,10 +16,20 @@ import {
 	getSections,
 	sortArticles,
 } from "@/data/queries";
-import { paginate, parsePageParam } from "@/lib/pagination";
+import { DEFAULT_PAGE_SIZE, paginate, parsePageParam } from "@/lib/pagination";
 import { routes } from "@/lib/routes";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
+import {
+	canonicalFor,
+	notFoundMetadata,
+	pageMetadata,
+} from "@/lib/seo/metadata";
 import { parseOrderParam } from "@/lib/sorting";
-import { breadcrumbSchema } from "@/lib/structured-data";
+import {
+	articleListItems,
+	breadcrumbSchema,
+	collectionPageSchema,
+} from "@/lib/structured-data";
 
 type SectionPageProps = {
 	params: Promise<{ section: string }>;
@@ -32,30 +42,38 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({
 	params,
+	searchParams,
 }: SectionPageProps): Promise<Metadata> {
 	const { section: slug } = await params;
+	const { page } = await searchParams;
 	const section = await getSection(slug);
 
 	if (!section) {
-		return {};
+		return notFoundMetadata();
 	}
 
-	return {
-		title: section.name,
-		description: section.description,
-		alternates: {
-			canonical: routes.section(section.slug),
-			types: {
-				"application/rss+xml": [
-					{
-						url: `/${section.slug}/rss.xml`,
-						title: `${section.name} — RSS`,
-					},
-				],
-			},
+	const site = await loadSiteIdentity();
+	const currentPage = parsePageParam(page);
+	const description =
+		section.description || `Notícias de ${section.name} na ${site.name}.`;
+
+	return pageMetadata({
+		site,
+		// A página 2 leva o número no título: dois `<title>` idênticos para URLs
+		// diferentes é o sinal mais direto de duplicata que existe.
+		title:
+			currentPage > 1
+				? `${section.name} — página ${currentPage}`
+				: section.name,
+		description,
+		// Autocanônica por página, e sem `?ordem=` (spec 07, D3).
+		path: canonicalFor(routes.section(section.slug), currentPage),
+		eyebrow: "Editoria",
+		rss: {
+			path: `/${section.slug}/rss.xml`,
+			title: `${section.name} — RSS`,
 		},
-		openGraph: { title: section.name, description: section.description },
-	};
+	});
 }
 
 export default async function SectionPage({
@@ -75,6 +93,7 @@ export default async function SectionPage({
 	const [feature, ...rest] = sorted;
 	const listing = paginate(rest, parsePageParam(page));
 	const basePath = routes.section(section.slug);
+	const site = await loadSiteIdentity();
 
 	return (
 		<>
@@ -109,10 +128,31 @@ export default async function SectionPage({
 			</ContentWithSidebar>
 
 			<JsonLd
-				schema={breadcrumbSchema([
+				schema={breadcrumbSchema(site, [
 					{ name: "Home", path: "/" },
 					{ name: section.name, path: basePath },
 				])}
+			/>
+
+			<JsonLd
+				schema={collectionPageSchema({
+					site,
+					name: section.name,
+					description: section.description || `Notícias de ${section.name}.`,
+					path: canonicalFor(basePath, listing.currentPage),
+					// A matéria em destaque entra na lista: ela É a primeira da
+					// editoria, e deixá-la de fora faria o `ItemList` descrever uma
+					// página diferente da que o leitor vê.
+					items: articleListItems(
+						listing.currentPage === 1 && feature
+							? [feature, ...listing.items]
+							: listing.items,
+					),
+					offset:
+						listing.currentPage === 1
+							? 0
+							: (listing.currentPage - 1) * DEFAULT_PAGE_SIZE + 1,
+				})}
 			/>
 		</>
 	);

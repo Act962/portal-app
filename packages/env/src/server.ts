@@ -66,6 +66,10 @@ export const env = createEnv({
 		// EVENT_KEY: autentica o envio de eventos NOSSOS para o Inngest — hoje não
 		// enviamos nenhum (só usamos gatilho por cron), mas é o que o `EventBus`
 		// durável vai precisar quando for plugado.
+		// Verificação de propriedade do Search Console (spec 07, D7). Opcional: sem
+		// ela nenhuma tag é emitida. É um segredo POR AMBIENTE — cravá-lo no
+		// código faria o deploy de preview reivindicar o domínio de produção.
+		GOOGLE_SITE_VERIFICATION: z.string().min(1).optional(),
 		INNGEST_DEV: z.string().optional(),
 		INNGEST_SIGNING_KEY: z.string().min(1).optional(),
 		INNGEST_EVENT_KEY: z.string().min(1).optional(),
