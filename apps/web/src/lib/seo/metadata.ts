@@ -131,9 +131,39 @@ function openGraphFor(
 	return { ...base, type: "website" };
 }
 
-export function pageMetadata(input: PageMetadataInput): Metadata {
-	const title = input.titleAbsolute ?? input.title ?? input.site.name;
-	const images: OgImage[] = input.images ?? [
+/**
+ * A imagem do compartilhamento, em ordem de especificidade.
+ *
+ * 1. A da PÁGINA (capa da matéria, foto do autor) — é sempre a melhor: quem
+ *    compartilha está falando daquele conteúdo, não do veículo.
+ * 2. A arte cadastrada nas Configurações, quando existe.
+ * 3. O cartão gerado com o título da página (D4).
+ *
+ * O logo não entra em lugar nenhum desta lista: a caixa é 1200×630 e um logo
+ * horizontal nela sai esticado ou entre faixas — foi por isso que a arte ganhou
+ * campo próprio em vez de reaproveitar `logoMediaId`.
+ */
+function socialImagesFor(input: PageMetadataInput, title: string): OgImage[] {
+	if (input.images) {
+		return input.images;
+	}
+
+	const configured = input.site.socialImage;
+	if (configured) {
+		return [
+			{
+				url: configured.url,
+				alt: configured.alt,
+				// Só quando a biblioteca mediu o arquivo: declarar 1200×630 numa arte
+				// que não tem esse tamanho faria o WhatsApp reservar a caixa errada.
+				...(configured.width && configured.height
+					? { width: configured.width, height: configured.height }
+					: {}),
+			},
+		];
+	}
+
+	return [
 		{
 			url: ogImageUrl({
 				title,
@@ -143,6 +173,11 @@ export function pageMetadata(input: PageMetadataInput): Metadata {
 			alt: `${title} — ${input.site.name}`,
 		},
 	];
+}
+
+export function pageMetadata(input: PageMetadataInput): Metadata {
+	const title = input.titleAbsolute ?? input.title ?? input.site.name;
+	const images = socialImagesFor(input, title);
 
 	return {
 		title: input.titleAbsolute

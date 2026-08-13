@@ -28,6 +28,17 @@ export type SiteSettingsData = {
 	 * 16px. Reaproveitar um no outro dá borrão em algum dos dois lugares.
 	 */
 	faviconMediaId: string | null;
+	/**
+	 * A arte que aparece quando alguém cola um link do portal no WhatsApp
+	 * (`og:image`). Terceira coluna de imagem, e não o logo reaproveitado, pela
+	 * mesma razão que separou o favicon: aqui a caixa é **1200×630**, e um logo
+	 * horizontal nela sai esticado ou boiando entre faixas. Formato também
+	 * importa — SVG não é aceito por WhatsApp nem Facebook.
+	 *
+	 * Nulo é estado normal: sem arte cadastrada o portal gera um cartão com o
+	 * título da página (spec 07, D4), que é legível e nunca deforma.
+	 */
+	ogImageMediaId: string | null;
 
 	// Rádio (D11)
 	radioFrequency: string | null;
@@ -65,6 +76,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
 	state: "PI",
 	logoMediaId: null,
 	faviconMediaId: null,
+	ogImageMediaId: null,
 
 	radioFrequency: "93,9 MHz",
 	radioBand: "93,9 FM",
@@ -159,6 +171,7 @@ export class SiteSettings extends AggregateRoot<string> {
 			state: text(row.state, d.state),
 			logoMediaId: nullableText(row.logoMediaId),
 			faviconMediaId: nullableText(row.faviconMediaId),
+			ogImageMediaId: nullableText(row.ogImageMediaId),
 
 			radioFrequency: nullableText(row.radioFrequency) ?? d.radioFrequency,
 			radioBand: nullableText(row.radioBand) ?? d.radioBand,
@@ -240,6 +253,7 @@ function normalize(
 		state: data.state.trim(),
 		logoMediaId: blankToNull(data.logoMediaId),
 		faviconMediaId: blankToNull(data.faviconMediaId),
+		ogImageMediaId: blankToNull(data.ogImageMediaId),
 		radioFrequency: blankToNull(data.radioFrequency),
 		radioBand: blankToNull(data.radioBand),
 		contactNewsroom: blankToNull(data.contactNewsroom),

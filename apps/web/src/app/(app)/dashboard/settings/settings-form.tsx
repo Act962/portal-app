@@ -163,6 +163,20 @@ function Form({ initial }: { initial: Settings }) {
 									hint="O ícone pequeno da aba do navegador. Use uma imagem QUADRADA e simples — ela é exibida a 16 pixels, onde texto e detalhe fino somem. Sem ícone escolhido, o portal usa o padrão."
 								/>
 							</div>
+
+							<div className="flex flex-col gap-2 md:col-span-2">
+								<Label>Imagem de compartilhamento</Label>
+								{/* `video` (16:9) é o preview mais próximo do 1,91:1 que o
+								    WhatsApp usa — o recorte real corta um pouco em cima e
+								    embaixo, e prometer aqui um enquadramento mais alto faria
+								    a redação centralizar o assunto no lugar errado. */}
+								<ImageField
+									mediaId={draft.ogImageMediaId}
+									onChange={(mediaId) => set("ogImageMediaId", mediaId)}
+									pickerTitle="Escolher a imagem de compartilhamento"
+									hint="A arte que aparece quando alguém cola um link do portal no WhatsApp. Use 1200×630 pixels: é a caixa que WhatsApp e Facebook recortam, e o logo sozinho fica esticado nela. Não use SVG — eles não aceitam. Sem imagem escolhida, o portal gera um cartão com o título de cada página. Matéria com foto de capa continua usando a foto dela."
+								/>
+							</div>
 						</CardContent>
 					</Card>
 				</TabsContent>

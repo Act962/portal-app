@@ -33,6 +33,7 @@ const updateSchema = z.object({
 	state: z.string().optional(),
 	logoMediaId: z.string().nullable().optional(),
 	faviconMediaId: z.string().nullable().optional(),
+	ogImageMediaId: z.string().nullable().optional(),
 
 	radioFrequency: z.string().nullable().optional(),
 	radioBand: z.string().nullable().optional(),

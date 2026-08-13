@@ -24,6 +24,12 @@ model SiteSettings {
   // funcionar a 16px. Servir um como o outro borra em algum dos dois lugares.
   faviconMediaId String?
 
+  // A arte do compartilhamento (`og:image`, spec 07). Terceira coluna de imagem
+  // pela mesma razão da segunda: a caixa aqui é 1200×630, e o logo horizontal
+  // nela sai esticado ou entre faixas. Nulo é normal — sem arte, o portal gera
+  // um cartão com o título da página.
+  ogImageMediaId String?
+
   // Rádio (D11) — só a identidade que o portal exibe. O `radioStreamUrl` saiu
   // junto com o player de áudio: a transmissão ao vivo deixou de fazer parte do
   // produto.

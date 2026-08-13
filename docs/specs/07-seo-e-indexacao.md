@@ -53,7 +53,7 @@ Numerados A1–A19; a coluna "peso" é o efeito estimado sobre tráfego orgânic
 | **A1** | **`og:site_name` e `og:locale` somem em 5 páginas.** O Next **substitui o objeto `openGraph` inteiro** quando um filho declara o seu (`mergeMetadata`, `resolve-metadata.ts`) — não é merge profundo. Matéria, editoria, tag e autor declaram `openGraph` e, com isso, perdem `siteName`, `locale` e `type` que a raiz define | Alto |
 | **A2** | **`og:url` aponta para a home** em toda página que **não** declara `openGraph`: ela herda o objeto da raiz inteiro, inclusive `url: site.url`. Últimas, colunistas, enquetes, privacidade, termos e busca anunciavam a home como sua URL social | Alto |
 | **A3** | **A home não tem metadata própria** — sem canônica, sem `og:title`/`og:description` dela | Alto |
-| **A4** | **Nenhuma página tem `og:image` por padrão.** Só a matéria COM capa. O link do portal no WhatsApp — o formato que o leitor local mais vê — saía sem imagem | Alto |
+| **A4** | **Nenhuma página tem `og:image` por padrão.** Só a matéria COM capa. O link do portal no WhatsApp — o formato que o leitor local mais vê — saía sem imagem. *(Emenda de 13/08: o cartão gerado resolveu o "sem imagem", mas o cliente quer a ARTE da marca. Virou o campo `ogImageMediaId` nas Configurações — ver D4.)* | Alto |
 | **A5** | **A paginação canonicaliza para a página 1.** `?page=2` de editoria, tag, autor e últimas declarava a página 1 como canônica: o Google descarta a 2 e as matérias que só aparecem lá ficam órfãs de link interno | Alto |
 | **A6** | **`?ordem=` duplica cada editoria** (3 ordenações × N editorias) sem canônica apontando para a base | Médio |
 | **A7** | **Duas fontes de verdade para a URL do veículo.** `metadataBase` e o `og:*` da raiz vêm do BANCO; canônicas dos feeds, sitemaps, `robots.txt` e schema.org vinham do ARQUIVO (`config/site.ts`). Trocar o domínio nas Configurações produzia um portal que se declara em dois domínios | Alto |
@@ -80,7 +80,7 @@ Numerados A1–A19; a coluna "peso" é o efeito estimado sobre tráfego orgânic
 |---|---|---|
 | S1 | Fonte única | `lib/seo/site-identity.ts` — a identidade do veículo lida do banco, consumida por metadata, schema.org, feeds e `robots.txt` (resolve **A7**) |
 | S2 | Construtor de metadata | `lib/seo/metadata.ts` — `pageMetadata()` monta o `openGraph` COMPLETO em toda página (resolve **A1**, **A2**, **A3**); `canonicalFor()` trata paginação e ordenação (**A5**, **A6**) |
-| S3 | Imagem social | `/og` — `ImageResponse` 1200×630 com a marca e o título da página (**A4**) |
+| S3 | Imagem social | Campo `ogImageMediaId` nas Configurações + `/og`, um `ImageResponse` 1200×630 com a marca e o título da página como reserva (**A4**) |
 | S4 | Dados estruturados | `Organization` com endereço/contato, `NewsArticle` com `ImageObject`/`isPartOf`/`speakable`, `CollectionPage` + `ItemList` nas listagens (**A13**, **A14**, **A15**) |
 | S5 | Feeds | `lastmod` no índice e na navegação, extensão de imagem, RSS com `lastBuildDate`/`ttl`/`image`/`enclosure`/autor (**A10**, **A11**, **A12**) |
 | S6 | Rastreio | `robots.txt` fechando busca, ordenação e `/reset-password` (**A9**) |
@@ -153,16 +153,31 @@ ele então não rastreia os links dela, e as matérias que só aparecem na pági
 perdem o único caminho interno que tinham. Autocanônica por página é a
 recomendação atual do Google desde que `rel=prev/next` foi aposentado (2019).
 
-### D4 — Imagem social gerada, não desenhada
+### D4 — Imagem social em três níveis, do mais específico ao mais genérico
 
-`/og?title=…&eyebrow=…` renderiza um PNG 1200×630 com a marca. Matéria com capa
-continua usando a capa; todo o resto usa o gerado.
+1. **A imagem da página** — capa da matéria, foto do autor. Sempre vence: quem
+   compartilha está falando daquele conteúdo, não do veículo.
+2. **A arte cadastrada nas Configurações** (`ogImageMediaId`), quando existe.
+3. **O cartão gerado** — `/og?title=…&eyebrow=…`, um PNG 1200×630 com a marca e
+   o título da página.
 
-**Por quê:** a alternativa era um `og-default.png` fixo — um único cartão igual
-para as 13 páginas, que no feed do WhatsApp vira ruído visual indistinguível.
-Gerar custa uma rota e nenhum asset binário no repositório, e cada página ganha
-um cartão com o próprio título. O texto é **truncado e escapado** na rota: o
-parâmetro é público e não pode virar uma tela em branco com 4.000 caracteres.
+**Por quê o cartão gerado, e não um `og-default.png` fixo:** um único cartão
+igual para as 13 páginas vira ruído indistinguível no feed do WhatsApp. Gerar
+custa uma rota e nenhum asset binário no repositório. O texto é **truncado e
+escapado** na rota — o parâmetro é público e não pode virar uma tela em branco
+com 4.000 caracteres.
+
+**Por quê a arte tem campo próprio, e não o `logoMediaId` reaproveitado:** a
+caixa aqui é **1200×630**, e um logo horizontal nela sai esticado ou boiando
+entre faixas. É a mesma razão que separou o favicon do logo em 12/08, com outra
+medida. Terceira coluna, terceiro recorte. O logo **não** entra na cadeia acima
+em nenhum nível.
+
+**Emenda (13/08), a pedido do cliente:** o nível 2 não existia — o portal ia
+direto do 1 para o 3, e a home saía com um cartão de texto onde o cliente
+queria a arte da marca. Campo `ogImageMediaId` nas Configurações → Identidade,
+mesmo padrão do favicon. Vale para toda página **sem imagem própria**; matéria
+com capa e autor com foto seguem com as suas.
 
 ### D5 — `speakable` entra; `keywords` de news-sitemap não
 
@@ -200,18 +215,18 @@ nenhum — a mesma regra de N10 que vale para Resend, Redis e AwesomeAPI.
 
 | Rota | Indexa? | Canônica | `og:image` | Dados estruturados |
 |---|---|---|---|---|
-| `/` | Sim | `/` | gerado | `WebSite`+`SearchAction`, `ItemList` das manchetes |
-| `/{editoria}` | Sim | com `?page` | gerado | `CollectionPage`+`ItemList`, `BreadcrumbList` |
-| `/{editoria}/{slug}` | Sim | limpa | **capa**, com fallback gerado | `NewsArticle`, `BreadcrumbList` |
-| `/autor/{slug}` | Sim | com `?page` | foto, com fallback gerado | `ProfilePage`, `ItemList`, `BreadcrumbList` |
-| `/tag/{slug}` | Sim | com `?page` | gerado | `CollectionPage`+`ItemList`, `BreadcrumbList` |
-| `/ultimas` | Sim | com `?page` | gerado | `CollectionPage`+`ItemList`, `BreadcrumbList` |
-| `/colunistas` | Sim | `/colunistas` | gerado | `CollectionPage`+`ItemList`, `BreadcrumbList` |
-| `/enquetes` | Sim | `/enquetes` | gerado | `CollectionPage`, `BreadcrumbList` |
-| `/privacidade` | Sim | `/privacidade` | gerado | `BreadcrumbList` |
-| `/termos` | Sim | `/termos` | gerado | `BreadcrumbList` |
-| `/busca` | **Não** (`noindex, follow` + `Disallow`) | `/busca` | gerado | — |
-| `/menu` | **Não** (`noindex, follow` + `Disallow`) | `/menu` | gerado | — |
+| `/` | Sim | `/` | arte das Config., ou gerado | `WebSite`+`SearchAction`, `ItemList` das manchetes |
+| `/{editoria}` | Sim | com `?page` | arte das Config., ou gerado | `CollectionPage`+`ItemList`, `BreadcrumbList` |
+| `/{editoria}/{slug}` | Sim | limpa | **capa**, senão arte/gerado | `NewsArticle`, `BreadcrumbList` |
+| `/autor/{slug}` | Sim | com `?page` | **foto**, senão arte/gerado | `ProfilePage`, `ItemList`, `BreadcrumbList` |
+| `/tag/{slug}` | Sim | com `?page` | arte das Config., ou gerado | `CollectionPage`+`ItemList`, `BreadcrumbList` |
+| `/ultimas` | Sim | com `?page` | arte das Config., ou gerado | `CollectionPage`+`ItemList`, `BreadcrumbList` |
+| `/colunistas` | Sim | `/colunistas` | arte das Config., ou gerado | `CollectionPage`+`ItemList`, `BreadcrumbList` |
+| `/enquetes` | Sim | `/enquetes` | arte das Config., ou gerado | `CollectionPage`, `BreadcrumbList` |
+| `/privacidade` | Sim | `/privacidade` | arte das Config., ou gerado | `BreadcrumbList` |
+| `/termos` | Sim | `/termos` | arte das Config., ou gerado | `BreadcrumbList` |
+| `/busca` | **Não** (`noindex, follow` + `Disallow`) | `/busca` | arte das Config., ou gerado | — |
+| `/menu` | **Não** (`noindex, follow` + `Disallow`) | `/menu` | arte das Config., ou gerado | — |
 | 404 | Não (`noindex` automático do Next em resposta 404) | — | — | — |
 
 Feeds: `/robots.txt` · `/sitemap.xml` (índice) · `/sitemap-geral.xml` ·
@@ -239,9 +254,13 @@ Feeds: `/robots.txt` · `/sitemap.xml` (índice) · `/sitemap-geral.xml` ·
 - Todas as 12 páginas do `(site)`
 - `lib/structured-data.ts`, `lib/feed.ts`, `components/news/article-header.tsx`
   (os âncoras `data-speakable`)
-- `data/types.ts` e `data/read-model.ts` (dimensões da capa)
+- `data/types.ts` e `data/read-model.ts` (dimensões da capa e a arte social)
 - `packages/env/src/server.ts` e `apps/web/.env.example`
   (`GOOGLE_SITE_VERIFICATION`)
+- **Emenda de 13/08 (`ogImageMediaId`):** `packages/db/prisma/schema/settings.prisma`
+  + migration `site_settings_og_image`, o agregado `SiteSettings` e seus testes,
+  `packages/api/src/routers/settings.ts`, a aba Identidade em
+  `dashboard/settings/settings-form.tsx`
 
 ---
 
