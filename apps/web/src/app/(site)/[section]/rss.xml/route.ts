@@ -1,6 +1,6 @@
-import { siteConfig } from "@/config/site";
-import { getArticlesBySection, getSection } from "@/data/queries";
+import { getArticlesBySection, getAuthors, getSection } from "@/data/queries";
 import { rssFeed } from "@/lib/feed";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { xmlResponse } from "@/lib/xml";
 
 /** RSS por editoria (P28): as 50 matérias mais recentes daquela editoria. */
@@ -16,13 +16,20 @@ export async function GET(
 		return new Response("Not found", { status: 404 });
 	}
 
-	const articles = (await getArticlesBySection(found.slug)).slice(0, 50);
+	const [site, articles, authors] = await Promise.all([
+		loadSiteIdentity(),
+		getArticlesBySection(found.slug),
+		getAuthors(),
+	]);
+
 	return xmlResponse(
 		rssFeed({
-			title: `${siteConfig.name} — ${found.name}`,
+			site,
+			title: `${site.name} — ${found.name}`,
 			description: found.description || `Notícias de ${found.name}.`,
 			path: `/${found.slug}/rss.xml`,
-			articles,
+			articles: articles.slice(0, 50),
+			authorNames: new Map(authors.map((a) => [a.slug, a.name])),
 		}),
 	);
 }

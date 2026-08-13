@@ -1,5 +1,6 @@
 import { getAllArticles } from "@/data/queries";
 import { newsSitemap } from "@/lib/feed";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { xmlResponse } from "@/lib/xml";
 
 /**
@@ -9,5 +10,11 @@ import { xmlResponse } from "@/lib/xml";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-	return xmlResponse(newsSitemap(await getAllArticles()));
+	const [site, articles] = await Promise.all([
+		loadSiteIdentity(),
+		getAllArticles(),
+	]);
+	// O relógio entra por parâmetro: é o que torna o corte de 48 h testável sem
+	// congelar o relógio global (regra de testes do CLAUDE.md).
+	return xmlResponse(newsSitemap(site, articles, new Date()));
 }

@@ -10,14 +10,21 @@ import { PollResultCard } from "@/components/sidebar/poll-result-card";
 import { loadClosedPolls, loadCurrentPoll } from "@/data/polls";
 import { getMostRead } from "@/data/queries";
 import { routes } from "@/lib/routes";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
+import { pageMetadata } from "@/lib/seo/metadata";
 import { breadcrumbSchema } from "@/lib/structured-data";
 
-export const metadata: Metadata = {
-	title: "Enquetes",
-	description:
-		"A enquete da semana da Rádio 7 Cidades e o resultado das consultas já encerradas.",
-	alternates: { canonical: routes.polls },
-};
+export async function generateMetadata(): Promise<Metadata> {
+	const site = await loadSiteIdentity();
+
+	return pageMetadata({
+		site,
+		title: "Enquetes",
+		description: `A enquete da semana da ${site.name} e o resultado das consultas já encerradas.`,
+		path: routes.polls,
+		eyebrow: "Audiência",
+	});
+}
 
 /**
  * A página das enquetes: a que está no ar para votar, e o arquivo das
@@ -33,10 +40,11 @@ export const metadata: Metadata = {
  * servidor). Nas fechadas o número é aberto: não há mais voto para influenciar.
  */
 export default async function PollsPage() {
-	const [current, closed, mostRead] = await Promise.all([
+	const [current, closed, mostRead, site] = await Promise.all([
 		loadCurrentPoll(),
 		loadClosedPolls(),
 		getMostRead(),
+		loadSiteIdentity(),
 	]);
 
 	return (
@@ -92,7 +100,7 @@ export default async function PollsPage() {
 			</ContentWithSidebar>
 
 			<JsonLd
-				schema={breadcrumbSchema([
+				schema={breadcrumbSchema(site, [
 					{ name: "Home", path: "/" },
 					{ name: "Enquetes", path: routes.polls },
 				])}

@@ -1,5 +1,6 @@
-import { getSections } from "@/data/queries";
-import { sitemapIndex } from "@/lib/feed";
+import { getAllArticles, getSections } from "@/data/queries";
+import { latestModified, type SitemapRef, sitemapIndex } from "@/lib/feed";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { xmlResponse } from "@/lib/xml";
 
 /**
@@ -9,11 +10,34 @@ import { xmlResponse } from "@/lib/xml";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-	const sections = await getSections();
-	const paths = [
-		"/sitemap-geral.xml",
-		...sections.map((section) => `/${section.slug}/sitemap.xml`),
-		"/news-sitemap.xml",
+	const [site, sections, articles] = await Promise.all([
+		loadSiteIdentity(),
+		getSections(),
+		getAllArticles(),
+	]);
+
+	/*
+	 * `lastmod` por sitemap (spec 07, A10). Custa um agrupamento em memória sobre
+	 * uma lista que já foi carregada, e é o que permite ao rastreador pular a
+	 * editoria parada em vez de revisitar as N no escuro toda vez.
+	 */
+	const bySection = new Map<string, typeof articles>();
+	for (const article of articles) {
+		const list = bySection.get(article.sectionSlug) ?? [];
+		list.push(article);
+		bySection.set(article.sectionSlug, list);
+	}
+
+	const refs: SitemapRef[] = [
+		{ path: "/sitemap-geral.xml", lastmod: latestModified(articles) },
+		...sections.map(
+			(section): SitemapRef => ({
+				path: `/${section.slug}/sitemap.xml`,
+				lastmod: latestModified(bySection.get(section.slug) ?? []),
+			}),
+		),
+		{ path: "/news-sitemap.xml", lastmod: latestModified(articles) },
 	];
-	return xmlResponse(sitemapIndex(paths));
+
+	return xmlResponse(sitemapIndex(site, refs));
 }

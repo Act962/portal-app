@@ -69,6 +69,16 @@ export type Cover = {
 	/** Fração [0,1] para o `object-position` no corte responsivo (P15/A32). */
 	focalX: number;
 	focalY: number;
+	/**
+	 * Dimensões intrínsecas, quando a biblioteca de mídia as conhece (spec 07,
+	 * A18). Servem a duas coisas que valem tráfego: `width`/`height` no `<img>`
+	 * reservam o espaço antes de a foto chegar (CLS, que é sinal de
+	 * ranqueamento) e `og:image:width/height` fazem o WhatsApp aceitar a prévia
+	 * sem baixar o arquivo inteiro. Opcionais porque asset antigo pode não ter
+	 * sido medido na hora do upload.
+	 */
+	width?: number | null;
+	height?: number | null;
 };
 
 export type Article = {

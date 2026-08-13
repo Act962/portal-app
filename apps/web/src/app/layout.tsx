@@ -1,8 +1,10 @@
-import type { Metadata } from "next";
+import { env } from "@portal-app/env/server";
+import type { Metadata, Viewport } from "next";
 
 import "../index.css";
 import { loadSiteSettings } from "@/data/queries";
 import { fontVariables } from "@/lib/fonts";
+import { ogImageUrl } from "@/lib/seo/metadata";
 
 /**
  * Metadata dinâmica (spec 05b): título, descrição e og:* saem do banco.
@@ -30,13 +32,40 @@ export async function generateMetadata(): Promise<Metadata> {
 				],
 			},
 		},
+		/*
+		 * O Open Graph da RAIZ é só a rede de segurança do grupo `(app)` e de
+		 * qualquer rota que ainda não passe por `pageMetadata` (spec 07, D2).
+		 *
+		 * Ele não serve às páginas do portal: o Next mescla metadata de forma
+		 * RASA, então a página que declara o próprio `openGraph` substitui este
+		 * objeto inteiro — `siteName` e `locale` sumiriam do HTML sem nada
+		 * quebrar. Por isso `pageMetadata` monta o bloco completo em cada página,
+		 * em vez de complementar daqui.
+		 *
+		 * Sem `url` aqui, e de propósito: herdado, ele fazia `/ultimas`,
+		 * `/colunistas` e as demais anunciarem a HOME como sua URL social.
+		 */
 		openGraph: {
 			type: "website",
 			locale: "pt_BR",
 			siteName: site.name,
-			url: site.url,
+			title: `${site.name} — Notícias do Piauí`,
+			description: site.description,
+			images: [
+				{
+					url: ogImageUrl({ title: site.name, eyebrow: site.shortName }),
+					width: 1200,
+					height: 630,
+					alt: site.name,
+				},
+			],
 		},
 		twitter: { card: "summary_large_image" },
+		// Verificação de propriedade no Search Console (D7). Sem a variável, nada
+		// é emitido — dev, build e CI não dependem de conta em serviço nenhum.
+		...(env.GOOGLE_SITE_VERIFICATION
+			? { verification: { google: env.GOOGLE_SITE_VERIFICATION } }
+			: {}),
 		/*
 		 * O ícone da aba, vindo das Configurações (item do cliente).
 		 *
@@ -56,6 +85,15 @@ export async function generateMetadata(): Promise<Metadata> {
 		},
 	};
 }
+
+/**
+ * `theme-color` pinta a barra do navegador no Android e a moldura do app quando
+ * o portal é salvo na tela inicial. Separado da metadata porque o Next exige o
+ * export `viewport` para isto desde a 14.
+ */
+export const viewport: Viewport = {
+	themeColor: "#011c39",
+};
 
 export default function RootLayout({
 	children,

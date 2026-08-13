@@ -2,6 +2,7 @@ import { AdSlot } from "@portal-app/ui/components/ad-slot";
 import { Container } from "@portal-app/ui/components/container";
 import { ctaButtonVariants } from "@portal-app/ui/components/cta-button";
 import { SectionHeader } from "@portal-app/ui/components/section-header";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { QuotesBand } from "@/components/finance/quotes-band";
@@ -29,7 +30,36 @@ import {
 } from "@/data/queries";
 import { loadQuotes } from "@/data/quotes";
 import { routes } from "@/lib/routes";
-import { websiteSchema } from "@/lib/structured-data";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
+import { pageMetadata } from "@/lib/seo/metadata";
+import {
+	articleListItems,
+	collectionPageSchema,
+	websiteSchema,
+} from "@/lib/structured-data";
+
+/**
+ * A home não tinha metadata própria (spec 07, A3): herdava título e descrição da
+ * raiz e ficava SEM canônica — a página mais importante do portal era a única
+ * que não dizia qual é a sua URL. `pageMetadata` também traz o `og:image`
+ * gerado, que é o que faz o link do portal no WhatsApp sair com imagem.
+ *
+ * O título é ABSOLUTO: passar pelo template daria "Início | Rádio 7 Cidades",
+ * com a marca repetida, e é o `<title>` da home que o Google costuma usar como
+ * nome do site na SERP.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+	const site = await loadSiteIdentity();
+
+	return pageMetadata({
+		site,
+		titleAbsolute: `${site.name} — Notícias de ${site.city} e região`,
+		description: site.description,
+		path: routes.home,
+		eyebrow: site.shortName,
+		rss: { path: "/rss.xml", title: `${site.name} — Últimas notícias` },
+	});
+}
 
 export default async function HomePage() {
 	const [
@@ -42,6 +72,7 @@ export default async function HomePage() {
 		poll,
 		columnists,
 		quotes,
+		site,
 	] = await Promise.all([
 		getHeadline(),
 		getHomeBlocks(),
@@ -55,6 +86,7 @@ export default async function HomePage() {
 		// REDE a um terceiro, e enfileirá-la depois das outras somaria a latência
 		// dela ao tempo de resposta da home.
 		loadQuotes(),
+		loadSiteIdentity(),
 	]);
 
 	// Portal recém-migrado / sem publicações ainda: estado vazio honesto.
@@ -152,7 +184,23 @@ export default async function HomePage() {
 				) : null}
 			</Container>
 
-			<JsonLd schema={websiteSchema()} />
+			<JsonLd schema={websiteSchema(site)} />
+
+			{/*
+			  A capa do dia como `ItemList` (spec 07, A14): diz ao buscador QUAIS
+			  matérias o portal está destacando agora e em que ordem. É o sinal que
+			  o Google usa para escolher o que sobe ao carrossel de Top Stories —
+			  sem ele, a home era só um bloco de links para o rastreador.
+			*/}
+			<JsonLd
+				schema={collectionPageSchema({
+					site,
+					name: `${site.name} — Capa`,
+					description: site.description,
+					path: routes.home,
+					items: articleListItems([headline, ...secondary, ...latest]),
+				})}
+			/>
 		</>
 	);
 }

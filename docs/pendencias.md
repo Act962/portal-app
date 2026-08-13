@@ -15,9 +15,9 @@ configurações do veículo, grade de programação, enquete com voto anônimo,
 
 ---
 
-## 🚨 Precisa de ação humana — desta rodada (2026-08-12)
+## 🚨 Precisa de ação humana — desta rodada (2026-08-12/13)
 
-Cinco coisas que o código não resolve sozinho e que **ficam erradas em
+Seis coisas que o código não resolve sozinho e que **ficam erradas em
 produção até alguém agir**:
 
 1. **O texto legal precisa de revisão de quem responde pelo veículo.**
@@ -72,6 +72,22 @@ produção até alguém agir**:
    Conferido no navegador: `uploads/…` responde 200, as chaves do seed dão
    `ERR_BLOCKED_BY_ORB`. Alguém precisa decidir qual dos dois é o combinado e
    corrigir o doc — hoje ele manda o próximo desenvolvedor para o lado errado.
+
+6. **O portal precisa ser cadastrado no Google (13/08, spec 07).** O código
+   agora emite tudo o que o buscador pede — canônicas, Open Graph com imagem,
+   `NewsArticle`, sitemaps com `lastmod` e imagem, `robots.txt`. Nada disso
+   indexa nada sozinho:
+   - **Search Console:** criar a propriedade de `fm7cidades.com`, pegar o código
+     de verificação e cadastrá-lo como `GOOGLE_SITE_VERIFICATION` na Vercel (a
+     variável é opcional; sem ela nenhuma tag é emitida). Depois, enviar
+     `https://fm7cidades.com/sitemap.xml`.
+   - **Google News (Publisher Center):** é um cadastro MANUAL e uma aprovação
+     editorial — o `news-sitemap.xml` não substitui isso. Sem o cadastro, o
+     portal não entra em Notícias nem no carrossel de Top Stories, por mais
+     correta que esteja a marcação.
+
+   Enquanto os dois não forem feitos, o efeito de toda esta entrega é
+   invisível — e é o único passo que não dá para fazer por código.
 
 ### Área de patrocinadores — ADIADA pelo cliente (12/08)
 
@@ -267,12 +283,14 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
       poder sobrepô-lo — com os dois presentes saíam duas tags `icon` e o
       navegador escolhia. Agora é uma tag só, do `generateMetadata`, com o
       arquivo de `public/` como fallback explícito.
-- [ ] **SEO e feeds ainda leem do arquivo**: `lib/structured-data.ts`,
-      `lib/feed.ts`, `robots.ts`, `sitemap*.xml` e as rotas de RSS usam
-      `siteConfig.url/name/description/locale`. O `<title>` e o `og:*` da raiz
-      já migraram; estes ficaram porque mexem em URL canônica e sitemap, e um
-      erro ali some do Google em silêncio — merece verificação própria. Na
-      prática só divergem se o cliente trocar nome ou domínio.
+- [x] ~~**SEO e feeds ainda leem do arquivo**~~ ✅ Resolvido em 13/08 pela
+      [spec 07](./specs/07-seo-e-indexacao.md) (D1): `lib/seo/site-identity.ts`
+      resolve a identidade do veículo a partir do banco e `structured-data.ts`,
+      `feed.ts`, `robots.ts`, `sitemap*.xml` e as rotas de RSS a recebem por
+      PARÂMETRO — o que também as tornou puras e testáveis sem Postgres.
+      `config/site.ts` continua sendo os defaults, mas nenhum gerador de SEO o
+      lê direto. A normalização da URL (barra final) tem teste próprio: era o
+      caminho para duplicar o site inteiro no índice.
 - [ ] **A frase do rodapé** ("Notícias do Piauí 24 horas no ar, em todo lugar")
       segue no código: é copy, e o modelo não tem campo para ela. Criar um custa
       outra migration; entra junto do próximo campo que precisar.
@@ -422,7 +440,9 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
 | **Testes do serializador do TipTap** | Bloco A entregue sem testes novos, a pedido | Uma regressão no `docToBlocks` quebra o autosave silenciosamente. **Esqueleto pronto** em `apps/web/tests/unit/serialize.test.ts` (13 `it.todo` + 1 caso de fumaça); falta preencher |
 | **Testes de router** para os dois defeitos de autorização corrigidos | idem | Nada impede a regressão voltar. **Esqueleto** em `packages/api/tests/unit/authorization.test.ts` — implementar exige antes tornar a raiz de composição injetável (`createAppRouter(deps)` no lugar dos singletons de módulo em `staff.ts`), senão o teste vira integração |
 | **Testes de formatação de data** | idem | `apps/web/tests/unit/format.test.ts` — módulo que já quebrou duas vezes em produção; os dois casos de fumaça cobrem esse par, o resto é `it.todo` |
-| **`next/image` no painel e no portal** | Falta `images.remotePatterns` para o host do R2 | Imagens servidas sem otimização; pesa no Core Web Vitals |
+| **`next/image` no painel e no portal** | Falta `images.remotePatterns` para o host do R2 | Imagens servidas sem otimização; pesa no Core Web Vitals. A spec 07 deixou o barato feito (`fetchPriority="high"` na capa, `width`/`height` quando a mídia foi medida), mas a otimização por host segue de fora — é decisão de custo, não de código |
+| **Fonte da marca na imagem social (`/og`)** | O `ImageResponse` usa a fonte padrão do Satori, não a Archivo do portal | O cartão do WhatsApp não é tipograficamente igual ao site. Carregar a fonte custa ler o `.ttf` no servidor a cada geração; entra quando alguém reclamar, não antes |
+| **Mídia antiga sem `width`/`height`** | A coluna existe no banco, mas asset enviado antes da medição tem `null` | Aquelas matérias saem sem `og:image:width` — a prévia do WhatsApp funciona, só é mais lenta para decidir |
 | **Paginação por cursor (P12)** | Read model carrega tudo em memória | Só incomoda com muitas matérias; hoje é aceitável |
 | **Invalidação por evento** (Fase 4, Etapa 5) | Feito o mínimo: `revalidate = 60` no portal. Faltam o consumidor do outbox chamando `revalidateTag` e o Redis | Matéria publicada demora até 1 min para entrar no ar, e o portal consulta o banco de tempos em tempos mesmo sem novidade. Antes disto, as páginas eram **congeladas no build** e matéria nova só aparecia com um redeploy |
 | **Busca full-text** (Fase 4, Etapa 6) | Não chegou a ser feita | A busca é `includes` em memória — não erra, mas não escala nem tolera erro de digitação |

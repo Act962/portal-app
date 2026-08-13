@@ -13,7 +13,6 @@ import { RelatedNews } from "@/components/news/related-news";
 import { ViewTracker } from "@/components/news/view-tracker";
 import { JsonLd } from "@/components/seo/json-ld";
 import { NewsletterCard } from "@/components/sidebar/newsletter-card";
-import { siteConfig } from "@/config/site";
 import {
 	getAllArticles,
 	getArticle,
@@ -24,6 +23,13 @@ import {
 } from "@/data/queries";
 import { toDateTimeAttribute } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
+import {
+	notFoundMetadata,
+	type OgImage,
+	pageMetadata,
+} from "@/lib/seo/metadata";
+import { absoluteUrl } from "@/lib/seo/site-identity";
 import { breadcrumbSchema, newsArticleSchema } from "@/lib/structured-data";
 
 type ArticlePageProps = {
@@ -44,35 +50,56 @@ export async function generateMetadata({
 	const article = await getArticle(section, slug);
 
 	if (!article) {
-		return {};
+		// Devolver `{}` aqui deixava a página de 404 com o título da HOME na aba
+		// e no histórico (spec 07, A8).
+		return notFoundMetadata();
 	}
 
-	const canonical = routes.article(article.sectionSlug, article.slug);
-	// Imagem social: a capa (já absoluta), servida pelo host do S3/R2. Sem capa,
-	// cai para a arte padrão da marca herdada do layout raiz.
-	const images = article.cover
-		? [{ url: article.cover.url, alt: article.cover.alt }]
+	const [site, sectionName, author] = await Promise.all([
+		loadSiteIdentity(),
+		getSectionName(article.sectionSlug),
+		getAuthor(article.authorSlug),
+	]);
+
+	/*
+	 * Imagem social: a capa (já absoluta), servida pelo host do S3/R2. As
+	 * dimensões vão junto quando a biblioteca as conhece — sem elas o WhatsApp
+	 * precisa baixar o arquivo para decidir se mostra a prévia, e às vezes
+	 * desiste no meio. Sem capa, cai para o cartão gerado da marca (D4).
+	 */
+	const images: OgImage[] | undefined = article.cover
+		? [
+				{
+					url: article.cover.url,
+					alt: article.cover.alt,
+					...(article.cover.width && article.cover.height
+						? { width: article.cover.width, height: article.cover.height }
+						: {}),
+				},
+			]
 		: undefined;
 
-	return {
+	return pageMetadata({
+		site,
 		title: article.title,
 		description: article.standfirst,
-		alternates: { canonical },
-		openGraph: {
-			type: "article",
-			title: article.title,
-			description: article.standfirst,
-			url: canonical,
+		path: routes.article(article.sectionSlug, article.slug),
+		eyebrow: article.kicker || sectionName,
+		images,
+		keywords: [...article.tags],
+		authors: [
+			{ name: author.name, url: absoluteUrl(site, routes.author(author.slug)) },
+		],
+		article: {
 			publishedTime: toDateTimeAttribute(article.publishedAt),
 			modifiedTime: toDateTimeAttribute(
 				article.updatedAt ?? article.publishedAt,
 			),
-			section: await getSectionName(article.sectionSlug),
+			section: sectionName,
 			tags: [...article.tags],
-			...(images ? { images } : {}),
+			authorUrl: absoluteUrl(site, routes.author(author.slug)),
 		},
-		...(images ? { twitter: { card: "summary_large_image", images } } : {}),
-	};
+	});
 }
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
@@ -83,14 +110,15 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 		notFound();
 	}
 
-	const [author, sectionName, mostRead, related] = await Promise.all([
+	const [author, sectionName, mostRead, related, site] = await Promise.all([
 		getAuthor(article.authorSlug),
 		getSectionName(article.sectionSlug),
 		getMostRead(),
 		getRelated(article),
+		loadSiteIdentity(),
 	]);
 	const path = routes.article(article.sectionSlug, article.slug);
-	const url = `${siteConfig.url}${path}`;
+	const url = absoluteUrl(site, path);
 
 	return (
 		<>
@@ -130,6 +158,27 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 							<img
 								src={article.cover.url}
 								alt={article.cover.alt}
+								/*
+								 * `fetchPriority="high"` é o ganho real aqui (spec 07,
+								 * A18): a capa é o elemento de LCP desta página, e o
+								 * navegador só descobre isso depois de calcular o
+								 * layout — dizer antes adianta o download, e LCP é um
+								 * dos Core Web Vitals que entram no ranqueamento.
+								 *
+								 * `width`/`height` NÃO estão aqui pelo CLS: a classe já
+								 * fixa a altura, então o espaço já era reservado. Estão
+								 * porque são a informação correta sobre o arquivo, e é
+								 * do mesmo campo que sai o `og:image:width` — quando a
+								 * biblioteca de mídia mediu o arquivo.
+								 */
+								{...(article.cover.width && article.cover.height
+									? {
+											width: article.cover.width,
+											height: article.cover.height,
+										}
+									: {})}
+								fetchPriority="high"
+								decoding="async"
 								style={{
 									objectPosition: `${article.cover.focalX * 100}% ${article.cover.focalY * 100}%`,
 								}}
@@ -157,10 +206,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 			</ContentWithSidebar>
 
 			<JsonLd
-				schema={newsArticleSchema({ article, author, sectionName, url })}
+				schema={newsArticleSchema({ site, article, author, sectionName, url })}
 			/>
 			<JsonLd
-				schema={breadcrumbSchema([
+				schema={breadcrumbSchema(site, [
 					{ name: "Home", path: "/" },
 					{ name: sectionName, path: routes.section(article.sectionSlug) },
 					{ name: article.title, path },

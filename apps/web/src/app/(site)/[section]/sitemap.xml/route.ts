@@ -1,5 +1,6 @@
 import { getArticlesBySection, getSection } from "@/data/queries";
 import { articleUrlEntry, urlset } from "@/lib/feed";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { xmlResponse } from "@/lib/xml";
 
 /** Sitemap de uma editoria (P26): as matérias publicadas naquela editoria. */
@@ -15,6 +16,12 @@ export async function GET(
 		return new Response("Not found", { status: 404 });
 	}
 
-	const articles = await getArticlesBySection(found.slug);
-	return xmlResponse(urlset(articles.map(articleUrlEntry)));
+	const [site, articles] = await Promise.all([
+		loadSiteIdentity(),
+		getArticlesBySection(found.slug),
+	]);
+
+	return xmlResponse(
+		urlset(articles.map((article) => articleUrlEntry(site, article))),
+	);
 }

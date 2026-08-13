@@ -6,6 +6,8 @@ import { SiteLink } from "@/components/layout/site-link";
 import { SectionGrid } from "@/components/news/section-grid";
 import { getSections, loadSiteSettings } from "@/data/queries";
 import { routes } from "@/lib/routes";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
+import { pageMetadata } from "@/lib/seo/metadata";
 
 /** Navegação principal do portal, exposta por completo no menu (P11). */
 const PRIMARY_NAV = [
@@ -16,12 +18,20 @@ const PRIMARY_NAV = [
 	{ label: "Busca", href: routes.search },
 ] as const;
 
-export const metadata: Metadata = {
-	title: "Menu",
-	description: "Todas as editorias e serviços da Rádio 7 Cidades.",
-	alternates: { canonical: routes.menu },
-	robots: { index: false, follow: true },
-};
+export async function generateMetadata(): Promise<Metadata> {
+	const site = await loadSiteIdentity();
+
+	return pageMetadata({
+		site,
+		title: "Menu",
+		description: `Todas as editorias e serviços da ${site.name}.`,
+		path: routes.menu,
+		eyebrow: "Navegação",
+		// Duplicata da navegação que já está no cabeçalho e no rodapé de toda
+		// página: nada aqui merece uma entrada própria no índice.
+		index: false,
+	});
+}
 
 const EYEBROW =
 	"mb-3 font-mono text-[9px] tracking-[0.16em] text-on-navy-muted";

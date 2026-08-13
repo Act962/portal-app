@@ -7,6 +7,7 @@ import { SkipLink } from "@/components/layout/skip-link";
 import { TopBar } from "@/components/layout/top-bar";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getSections, getTicker } from "@/data/queries";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { organizationSchema } from "@/lib/structured-data";
 
 /**
@@ -39,7 +40,11 @@ export const revalidate = 60;
 export default async function SiteLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
-	const [sections, ticker] = await Promise.all([getSections(), getTicker()]);
+	const [sections, ticker, site] = await Promise.all([
+		getSections(),
+		getTicker(),
+		loadSiteIdentity(),
+	]);
 
 	return (
 		<>
@@ -65,7 +70,7 @@ export default async function SiteLayout({
 				<AnchorAd />
 			</div>
 
-			<JsonLd schema={organizationSchema()} />
+			<JsonLd schema={organizationSchema(site)} />
 		</>
 	);
 }

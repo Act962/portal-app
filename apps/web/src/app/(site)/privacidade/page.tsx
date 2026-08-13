@@ -5,6 +5,8 @@ import { LegalPage } from "@/components/layout/legal-page";
 import { JsonLd } from "@/components/seo/json-ld";
 import { loadSiteSettings } from "@/data/queries";
 import { routes } from "@/lib/routes";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
+import { pageMetadata } from "@/lib/seo/metadata";
 import { breadcrumbSchema } from "@/lib/structured-data";
 
 /**
@@ -24,15 +26,23 @@ import { breadcrumbSchema } from "@/lib/structured-data";
  */
 const UPDATED_AT = "2026-08-12";
 
-export const metadata: Metadata = {
-	title: "Política de Privacidade",
-	description:
-		"Como a Rádio 7 Cidades trata os dados de quem navega no portal: o que é coletado, por quê, por quanto tempo e quais são os seus direitos pela LGPD.",
-	alternates: { canonical: routes.privacy },
-};
+export async function generateMetadata(): Promise<Metadata> {
+	const identity = await loadSiteIdentity();
+
+	return pageMetadata({
+		site: identity,
+		title: "Política de Privacidade",
+		description: `Como a ${identity.name} trata os dados de quem navega no portal: o que é coletado, por quê, por quanto tempo e quais são os seus direitos pela LGPD.`,
+		path: routes.privacy,
+		eyebrow: "Institucional",
+	});
+}
 
 export default async function PrivacyPage() {
-	const site = await loadSiteSettings();
+	const [site, identity] = await Promise.all([
+		loadSiteSettings(),
+		loadSiteIdentity(),
+	]);
 	const contact = site.contactEmail;
 
 	return (
@@ -52,8 +62,8 @@ export default async function PrivacyPage() {
 
 				<h2>O resumo, antes do detalhe</h2>
 				<p>
-					Não é preciso criar conta para ler o portal, não há cadastro de
-					leitor e não enviamos newsletter. Não pedimos nome, telefone, CPF nem
+					Não é preciso criar conta para ler o portal, não há cadastro de leitor
+					e não enviamos newsletter. Não pedimos nome, telefone, CPF nem
 					endereço para nada do que está disponível publicamente aqui. O que
 					medimos é o comportamento AGREGADO de leitura — quantas pessoas
 					abriram cada matéria —, e essa medição foi construída para não
@@ -64,11 +74,11 @@ export default async function PrivacyPage() {
 
 				<h3>Medição de audiência</h3>
 				<p>
-					Quando você abre uma matéria, registramos que aquela matéria foi
-					lida, em que dia, por quanto tempo aproximadamente e de que tipo de
-					origem você chegou (busca, rede social, link direto ou navegação
-					dentro do próprio portal). É o que alimenta a lista de “mais lidas” e
-					os relatórios internos da redação.
+					Quando você abre uma matéria, registramos que aquela matéria foi lida,
+					em que dia, por quanto tempo aproximadamente e de que tipo de origem
+					você chegou (busca, rede social, link direto ou navegação dentro do
+					próprio portal). É o que alimenta a lista de “mais lidas” e os
+					relatórios internos da redação.
 				</p>
 				<p>
 					Esse registro <strong>não guarda o seu endereço IP</strong>, não
@@ -90,8 +100,8 @@ export default async function PrivacyPage() {
 
 				<h3>Acesso ao painel de administração</h3>
 				<p>
-					A área restrita da redação (login e painel) usa cookies de sessão
-					para manter a pessoa autenticada. Ela é destinada apenas à equipe do
+					A área restrita da redação (login e painel) usa cookies de sessão para
+					manter a pessoa autenticada. Ela é destinada apenas à equipe do
 					veículo e não faz parte da navegação pública.
 				</p>
 
@@ -118,10 +128,10 @@ export default async function PrivacyPage() {
 				<h2>Com quem os dados são compartilhados</h2>
 				<p>
 					Com ninguém para fins comerciais. Utilizamos fornecedores de
-					infraestrutura (hospedagem, banco de dados e armazenamento de
-					imagens) que processam os dados exclusivamente para manter o portal no
-					ar, sob nossa instrução. Podemos compartilhar informações quando
-					houver obrigação legal ou determinação judicial.
+					infraestrutura (hospedagem, banco de dados e armazenamento de imagens)
+					que processam os dados exclusivamente para manter o portal no ar, sob
+					nossa instrução. Podemos compartilhar informações quando houver
+					obrigação legal ou determinação judicial.
 				</p>
 
 				<h2>Por quanto tempo guardamos</h2>
@@ -148,8 +158,8 @@ export default async function PrivacyPage() {
 					forma identificável.
 				</p>
 				<p>
-					Se você entrou em contato conosco por e-mail, WhatsApp ou telefone,
-					ou se integra ou integrou a equipe, esses dados existem e os direitos
+					Se você entrou em contato conosco por e-mail, WhatsApp ou telefone, ou
+					se integra ou integrou a equipe, esses dados existem e os direitos
 					acima se aplicam integralmente.
 				</p>
 
@@ -188,13 +198,13 @@ export default async function PrivacyPage() {
 				</p>
 
 				<p>
-					Veja também os{" "}
-					<Link href={routes.terms}>Termos de Uso</Link> do portal.
+					Veja também os <Link href={routes.terms}>Termos de Uso</Link> do
+					portal.
 				</p>
 			</LegalPage>
 
 			<JsonLd
-				schema={breadcrumbSchema([
+				schema={breadcrumbSchema(identity, [
 					{ name: "Home", path: "/" },
 					{ name: "Política de Privacidade", path: routes.privacy },
 				])}

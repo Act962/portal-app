@@ -10,14 +10,21 @@ import { AuthorAvatar } from "@/components/people/author-avatar";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getColumnistsWithLatest, getMostRead } from "@/data/queries";
 import { routes } from "@/lib/routes";
-import { breadcrumbSchema } from "@/lib/structured-data";
+import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
+import { pageMetadata } from "@/lib/seo/metadata";
+import { breadcrumbSchema, collectionPageSchema } from "@/lib/structured-data";
 
-export const metadata: Metadata = {
-	title: "Colunistas",
-	description:
-		"As colunas e as assinaturas em destaque da Rádio 7 Cidades: quem escreve, sobre o quê e a coluna mais recente de cada um.",
-	alternates: { canonical: routes.columnists },
-};
+export async function generateMetadata(): Promise<Metadata> {
+	const site = await loadSiteIdentity();
+
+	return pageMetadata({
+		site,
+		title: "Colunistas",
+		description: `As colunas e as assinaturas em destaque da ${site.name}: quem escreve, sobre o quê e a coluna mais recente de cada um.`,
+		path: routes.columnists,
+		eyebrow: "Opinião",
+	});
+}
 
 /**
  * O índice dos colunistas.
@@ -31,9 +38,10 @@ export const metadata: Metadata = {
  * RSC puro, como todo o grupo `(site)`: sem providers, sem React Query.
  */
 export default async function ColumnistsPage() {
-	const [columnists, mostRead] = await Promise.all([
+	const [columnists, mostRead, site] = await Promise.all([
 		getColumnistsWithLatest(),
 		getMostRead(),
+		loadSiteIdentity(),
 	]);
 
 	return (
@@ -133,10 +141,28 @@ export default async function ColumnistsPage() {
 			</ContentWithSidebar>
 
 			<JsonLd
-				schema={breadcrumbSchema([
+				schema={breadcrumbSchema(site, [
 					{ name: "Home", path: "/" },
 					{ name: "Colunistas", path: routes.columnists },
 				])}
+			/>
+
+			{/*
+			  A lista aponta para as páginas de AUTOR, que é onde a pessoa mora no
+			  portal — a mesma decisão do cartão. Duas URLs para o mesmo colunista
+			  dividiriam a autoridade de busca entre elas.
+			*/}
+			<JsonLd
+				schema={collectionPageSchema({
+					site,
+					name: "Colunistas",
+					description: `Quem assina as análises e as colunas da ${site.name}.`,
+					path: routes.columnists,
+					items: columnists.map((columnist) => ({
+						name: columnist.name,
+						path: routes.author(columnist.slug),
+					})),
+				})}
 			/>
 		</>
 	);

@@ -30,6 +30,9 @@ type MediaInfo = {
 	caption: string;
 	focalX: number;
 	focalY: number;
+	/** Dimensões intrínsecas, quando medidas no upload (spec 07, A18). */
+	width: number | null;
+	height: number | null;
 };
 
 /**
@@ -317,6 +320,8 @@ const loadMedia = cache(async (): Promise<Map<string, MediaInfo>> => {
 					caption: true,
 					focalX: true,
 					focalY: true,
+					width: true,
+					height: true,
 				},
 			}),
 		[] as {
@@ -326,6 +331,8 @@ const loadMedia = cache(async (): Promise<Map<string, MediaInfo>> => {
 			caption: string;
 			focalX: number | null;
 			focalY: number | null;
+			width: number | null;
+			height: number | null;
 		}[],
 	);
 	return new Map(
@@ -337,6 +344,8 @@ const loadMedia = cache(async (): Promise<Map<string, MediaInfo>> => {
 				caption: m.caption,
 				focalX: m.focalX ?? 0.5,
 				focalY: m.focalY ?? 0.5,
+				width: m.width,
+				height: m.height,
 			},
 		]),
 	);
@@ -730,6 +739,8 @@ function mapArticle(
 				alt: row.coverAltText || coverMedia.alt,
 				focalX: coverMedia.focalX,
 				focalY: coverMedia.focalY,
+				width: coverMedia.width,
+				height: coverMedia.height,
 			}
 		: null;
 	return {

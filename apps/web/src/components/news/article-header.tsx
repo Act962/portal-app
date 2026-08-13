@@ -25,11 +25,24 @@ export function ArticleHeader({ article, author, url }: ArticleHeaderProps) {
 				{article.kicker}
 			</Kicker>
 
-			<h1 className="mb-2.5 text-balance font-extrabold text-[27px] text-brand-navy leading-[1.1] tracking-[-0.025em] md:mb-3.5 md:text-[44px] md:leading-[1.03] md:tracking-[-0.035em]">
+			{/*
+			  `data-speakable`: o `NewsArticle` aponta para estes dois nós no
+			  `SpeakableSpecification` (spec 07, D5) — é o trecho que um assistente
+			  de voz lê em voz alta. Atributo de DADO, e não a classe do Tailwind:
+			  a classe muda a cada ajuste de layout e levaria a marcação junto sem
+			  ninguém notar.
+			*/}
+			<h1
+				data-speakable="headline"
+				className="mb-2.5 text-balance font-extrabold text-[27px] text-brand-navy leading-[1.1] tracking-[-0.025em] md:mb-3.5 md:text-[44px] md:leading-[1.03] md:tracking-[-0.035em]"
+			>
 				{article.title}
 			</h1>
 
-			<p className="mb-3.5 font-serif text-base text-ink-muted leading-[1.45] md:mb-5 md:text-xl md:leading-normal">
+			<p
+				data-speakable="summary"
+				className="mb-3.5 font-serif text-base text-ink-muted leading-[1.45] md:mb-5 md:text-xl md:leading-normal"
+			>
 				{article.standfirst}
 			</p>
 
