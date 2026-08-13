@@ -12,6 +12,14 @@
  * permite testar a normalização de URL e o fallback do logo sem Postgres.
  */
 
+/** A arte do compartilhamento cadastrada nas Configurações. */
+export type SocialImage = {
+	url: string;
+	width: number | null;
+	height: number | null;
+	alt: string;
+};
+
 /** O que este módulo precisa de `loadSiteSettings()` — nada além disso. */
 export type SiteIdentitySource = {
 	name: string;
@@ -21,6 +29,7 @@ export type SiteIdentitySource = {
 	city: string;
 	state: string;
 	logoUrl: string | null;
+	socialImage: SocialImage | null;
 	contactEmail: string | null;
 	contactNewsroom: string | null;
 	contactAddress: string | null;
@@ -39,6 +48,13 @@ export type SiteIdentity = {
 	language: string;
 	/** Logo do veículo em URL absoluta (schema.org e `<image>` do RSS exigem). */
 	logoUrl: string;
+	/**
+	 * A arte do compartilhamento, quando o cliente cadastrou uma. É o `og:image`
+	 * padrão de toda página que não tem imagem PRÓPRIA — matéria com capa e autor
+	 * com foto continuam com as suas, que são mais específicas e valem mais no
+	 * link compartilhado. Sem arte, cai no cartão gerado (spec 07, D4).
+	 */
+	socialImage: SocialImage | null;
 	city: string;
 	state: string;
 	email: string | null;
@@ -76,6 +92,7 @@ export function siteIdentityFrom(source: SiteIdentitySource): SiteIdentity {
 		locale: LOCALE,
 		language: LOCALE.split("-")[0] as string,
 		logoUrl,
+		socialImage: source.socialImage,
 		city: source.city,
 		state: source.state,
 		email: source.contactEmail,

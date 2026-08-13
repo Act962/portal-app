@@ -70,6 +70,7 @@ describe("SiteSettings.fromStored — porta de leitura, nunca falha", () => {
 			state: "PI",
 			logoMediaId: "media-1",
 			faviconMediaId: "media-2",
+			ogImageMediaId: "media-3",
 			radioFrequency: "101,1 MHz",
 			radioBand: "101,1 FM",
 			contactNewsroom: "(86) 1111-1111",
@@ -306,5 +307,34 @@ describe("favicon", () => {
 		settings.update({ faviconMediaId: "" }, NOW).unwrap();
 
 		expect(settings.data.faviconMediaId).toBeNull();
+	});
+});
+
+describe("imagem de compartilhamento", () => {
+	it("nasce ausente — o portal gera um cartão com o título da página", () => {
+		expect(DEFAULT_SITE_SETTINGS.ogImageMediaId).toBeNull();
+	});
+
+	it("é a TERCEIRA coluna de imagem, e não o logo reusado", () => {
+		// Mesma razão que separou o favicon, com outra medida: aqui a caixa é
+		// 1200×630, e um logo horizontal nela sai esticado ou entre faixas. As
+		// três servem a recortes diferentes e não se substituem.
+		const settings = SiteSettings.fromStored({
+			logoMediaId: "logo",
+			faviconMediaId: "icone",
+			ogImageMediaId: "arte",
+		});
+
+		expect(settings.data.logoMediaId).toBe("logo");
+		expect(settings.data.faviconMediaId).toBe("icone");
+		expect(settings.data.ogImageMediaId).toBe("arte");
+	});
+
+	it("vazio na tela vira ausência, e volta ao cartão gerado", () => {
+		const settings = SiteSettings.fromStored({ ogImageMediaId: "arte" });
+
+		settings.update({ ogImageMediaId: "" }, NOW).unwrap();
+
+		expect(settings.data.ogImageMediaId).toBeNull();
 	});
 });

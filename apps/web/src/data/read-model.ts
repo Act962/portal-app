@@ -58,9 +58,21 @@ const prisma = createPrismaClient();
  * então um banco recém-migrado serve o portal completo. É por isso que esta
  * função não devolve `null` e ninguém precisa tratar "ainda não configurado".
  */
+/** A arte do compartilhamento já resolvida: URL pública e o que se sabe do tamanho. */
+export type SocialImage = {
+	url: string;
+	width: number | null;
+	height: number | null;
+	alt: string;
+};
+
 export const loadSiteSettings = cache(
 	async (): Promise<
-		SiteSettingsData & { logoUrl: string | null; faviconUrl: string | null }
+		SiteSettingsData & {
+			logoUrl: string | null;
+			faviconUrl: string | null;
+			socialImage: SocialImage | null;
+		}
 	> => {
 		// `safely` como todos os outros loaders: o build do CI prerenderiza SEM
 		// banco, e sem esta tolerância a página inteira quebra na geração. O
@@ -76,7 +88,9 @@ export const loadSiteSettings = cache(
 		// O agregado guarda o ID da mídia, não a URL (D8) — resolver é trabalho da
 		// leitura, e a biblioteca já está em cache neste render.
 		const media =
-			data.logoMediaId || data.faviconMediaId ? await loadMedia() : null;
+			data.logoMediaId || data.faviconMediaId || data.ogImageMediaId
+				? await loadMedia()
+				: null;
 		const logoUrl = data.logoMediaId
 			? (media?.get(data.logoMediaId)?.url ?? null)
 			: null;
@@ -84,7 +98,28 @@ export const loadSiteSettings = cache(
 			? (media?.get(data.faviconMediaId)?.url ?? null)
 			: null;
 
-		return { ...data, logoUrl, faviconUrl };
+		/*
+		 * A arte do compartilhamento (spec 07). Vai com as dimensões quando a
+		 * biblioteca as mediu: `og:image:width/height` é o que permite ao WhatsApp
+		 * decidir se mostra a prévia sem baixar o arquivo inteiro.
+		 *
+		 * `?? null` no meio do caminho não é paranoia: o ID pode apontar para um
+		 * asset apagado da biblioteca, e a configuração não é revalidada quando
+		 * isso acontece. Sem arte resolvida, o portal volta ao cartão gerado.
+		 */
+		const ogMedia = data.ogImageMediaId
+			? (media?.get(data.ogImageMediaId) ?? null)
+			: null;
+		const socialImage: SocialImage | null = ogMedia
+			? {
+					url: ogMedia.url,
+					width: ogMedia.width,
+					height: ogMedia.height,
+					alt: ogMedia.alt || data.name,
+				}
+			: null;
+
+		return { ...data, logoUrl, faviconUrl, socialImage };
 	},
 );
 
