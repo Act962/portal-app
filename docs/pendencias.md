@@ -133,13 +133,13 @@ produção até alguém agir**:
      mas `<title>`, Open Graph e schema.org mostram o nome do banco — e os dois
      se contradizem em toda prévia de link. É um campo de formulário; a decisão
      do nome é do cliente, não nossa.
-   - **Falta a arte HORIZONTAL do lockup, em branco.** A pasta trouxe só a
-     versão empilhada (quadrada), que num cabeçalho de 80px deixa a assinatura
-     com ~10px de altura. Enquanto ela não vem, o cabeçalho usa o SÍMBOLO
-     oficial mais a assinatura composta em Montserrat — próxima, mas não é a
-     tipografia da marca. Ver `components/layout/site-logo.tsx`: quando o
-     arquivo chegar, é um `<Image>` substituindo o bloco de texto, num arquivo
-     só.
+   - ~~**Falta a arte HORIZONTAL do lockup, em branco.**~~ ✅ Chegou em 14/08,
+     nas duas versões: `logo_7_cidades_hor.png` (colorida, para fundo claro) e
+     `logo_7_cidades_hor_ver.png` (o marrom trocado por branco, para fundo
+     escuro). A segunda virou `public/brand/logo-horizontal.png` e substituiu a
+     assinatura que era composta em Montserrat — `site-logo.tsx` é um `<Image>`
+     agora, sem filtro de cor. A colorida segue como arte-mestre, não servida:
+     os dois lugares onde a marca aparece são marrons.
 
 ---
 
@@ -197,10 +197,15 @@ imagem embutida como PNG, que todo navegador lê desde o IE11 e dispensa o
 cabeçalho DIB e a máscara AND, que é onde esse tipo de gerador erra.
 
 O símbolo do cabeçalho virou arquivo próprio (`symbol.png`, transparente): o
-masthead o pinta de branco por filtro, e a arte chapada viraria um quadrado
+masthead o pintava de branco por filtro, e a arte chapada viraria um quadrado
 branco. São exigências opostas — ícone de tela inicial **não** pode ser
 transparente, porque Android e iOS compõem sobre branco ou preto por conta
 própria.
+
+**Desde 14/08 o masthead não usa mais o `symbol.png`**: com a chegada do lockup
+horizontal, cabeçalho e rodapé passaram a servir `logo-horizontal.png` inteiro,
+sem filtro. O símbolo continua sendo gerado — é a marca reduzida, e o primeiro
+candidato para onde não couber a assinatura —, mas hoje nenhuma página o pede.
 
 ### ⏳ Falta confirmar no ar — as cotações agora são de toda página
 

@@ -1,10 +1,9 @@
 import { Container } from "@portal-app/ui/components/container";
-import Image from "next/image";
 import Link from "next/link";
 
 import { RupestreTexture } from "@/components/layout/rupestre-texture";
 import { SiteLink } from "@/components/layout/site-link";
-import { siteConfig } from "@/config/site";
+import { SiteLogo } from "@/components/layout/site-logo";
 import { loadSiteSettings } from "@/data/queries";
 import type { Section } from "@/data/types";
 import { routes } from "@/lib/routes";
@@ -29,19 +28,17 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 		<footer className="mt-stack bg-brand-deep text-on-brand-muted md:mt-major">
 			<Container className="grid grid-cols-2 gap-x-5 gap-y-6 py-6 md:gap-8 md:py-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
 				<div className="col-span-2 lg:col-span-1">
-					<div className="mb-3 flex items-center gap-2.5 md:gap-3">
-						<Image
-							src={site.logoUrl ?? siteConfig.logo}
-							alt=""
-							width={44}
-							height={44}
-							unoptimized
-							className="block size-8 rounded-lg md:size-11 md:rounded-[10px]"
-						/>
-						<span className="font-extrabold text-sm text-white uppercase md:text-[17px]">
-							{site.name}
-						</span>
-					</div>
+					{/*
+					  A MESMA marca do cabeçalho, e não o logo quadrado das Configurações
+					  (D8): aquele arquivo existe para schema.org, RSS, Open Graph e
+					  manifest, onde o pedido é uma arte quadrada. Aqui, como no topo, o
+					  arranjo é horizontal sobre o marrom — e as duas pontas da página
+					  mostrando desenhos diferentes da marca era exatamente o problema.
+					*/}
+					{/* Com `alt`, ao contrário do cabeçalho: lá a marca mora dentro do
+					    link para a home, que já se anuncia; aqui ela está sozinha, e sem
+					    isto o rodapé abriria sem dizer de quem é o site. */}
+					<SiteLogo className="mb-3" priority={false} alt={site.name} />
 					{/* A frase final é copy de rodapé, não identidade: o modelo não tem
 					    campo para ela e inventar um agora custaria outra migration.
 					    Registrado em pendencias.md. */}

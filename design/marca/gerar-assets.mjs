@@ -119,6 +119,20 @@ escrever("symbol.png", await transparente("icon_7_cidades", 512));
 escrever("logo-7-cidades.png", await transparente("logo_7_cidades", 1024));
 escrever("rupestre.png", await transparente("transparence_rupestre", 900));
 
+// O lockup horizontal do cabeçalho e do rodapé, na versão de fundo escuro — a
+// que tem o marrom trocado por branco. A colorida (`logo_7_cidades_hor`) fica
+// só como arte-mestre: os dois lugares onde a marca aparece hoje são marrons.
+//
+// 640px para uma arte que é desenhada com no máximo 131px (48px de altura na
+// proporção 2,73:1): cobre a tela de 3x com folga, e por ser cor chapada o
+// arquivo continua abaixo de 20 KB. Nada de filtro CSS aqui — esta arte JÁ vem
+// com a cor certa, e o `brightness-0 invert` do símbolo a achataria num borrão
+// branco, apagando o vermelho.
+escrever(
+	"logo-horizontal.png",
+	await transparente("logo_7_cidades_hor_ver", 640),
+);
+
 for (const f of fs.readdirSync(SAIDA).sort()) {
 	const kb = (fs.statSync(path.join(SAIDA, f)).size / 1024).toFixed(1);
 	console.log(`${f.padEnd(22)} ${kb.padStart(6)} KB`);

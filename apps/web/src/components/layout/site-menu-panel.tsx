@@ -77,8 +77,13 @@ export default function SiteMenuPanel({
 				/>
 
 				<div className="mb-5 flex items-center justify-between gap-3">
+					{/* "Menu", e não mais "Navegação": este é o nome acessível do
+					    diálogo, e o rótulo "NAVEGAÇÃO" agora pertence a um bloco
+					    específico lá embaixo. Também é a palavra escrita no botão que
+					    abre o painel — o leitor de tela anuncia o mesmo nome que ele
+					    acabou de acionar. */}
 					<SheetTitle className="font-mono text-[10px] text-on-brand-muted uppercase tracking-[0.16em]">
-						Navegação
+						Menu
 					</SheetTitle>
 
 					{/* O botão padrão do `SheetContent` é um `Button` do painel, que
@@ -94,21 +99,13 @@ export default function SiteMenuPanel({
 					</button>
 				</div>
 
-				<nav aria-label="Principal">
-					<ul className="mb-6 flex flex-col">
-						{PRIMARY_NAV.map((item) => (
-							<li key={item.href}>
-								<Link href={item.href} onClick={fechar} className={ITEM}>
-									{item.label}
-									<span aria-hidden className="text-on-brand-muted">
-										→
-									</span>
-								</Link>
-							</li>
-						))}
-					</ul>
-				</nav>
-
+				{/*
+				  As EDITORIAS vêm primeiro, antes dos destinos fixos: são o conteúdo
+				  do portal, e o que a maioria vem procurar ao abrir o menu. "Início"
+				  e "Busca" já têm atalho no cabeçalho — a marca e a lupa —, então
+				  gastar o topo da lista com eles empurrava para baixo a única coisa
+				  que só existe aqui.
+				*/}
 				{sections.length > 0 ? (
 					<nav aria-label="Editorias">
 						<h3 className={EYEBROW}>EDITORIAS</h3>
@@ -127,6 +124,28 @@ export default function SiteMenuPanel({
 						</ul>
 					</nav>
 				) : null}
+
+				{/*
+				  Ganhou rótulo próprio ao descer: no topo ele era dispensável, porque
+				  o título do painel logo acima já dizia o que a lista era. Solto entre
+				  "EDITORIAS" e "SERVIÇOS", um bloco sem nome pareceria continuação do
+				  anterior.
+				*/}
+				<nav aria-label="Principal">
+					<h3 className={EYEBROW}>NAVEGAÇÃO</h3>
+					<ul className="mb-6 flex flex-col">
+						{PRIMARY_NAV.map((item) => (
+							<li key={item.href}>
+								<Link href={item.href} onClick={fechar} className={ITEM}>
+									{item.label}
+									<span aria-hidden className="text-on-brand-muted">
+										→
+									</span>
+								</Link>
+							</li>
+						))}
+					</ul>
+				</nav>
 
 				{institutional.length > 0 ? (
 					<nav aria-label="Serviços">

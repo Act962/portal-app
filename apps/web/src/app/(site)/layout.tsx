@@ -66,10 +66,17 @@ export default async function SiteLayout({
 				*/}
 				<NewsTicker articles={ticker} />
 
-				{/* Onde o mockup põe o banner. Altura reservada pelo `AdSlot`, então
-				    a entrada do criativo não desloca o conteúdo (CLS). */}
-				<Container className="pt-4">
-					<AdSlot format="billboard" className="mx-auto hidden md:block" />
+				{/*
+				  Onde o mockup põe o banner. Altura reservada pelo `AdSlot`, então a
+				  entrada do criativo não desloca o conteúdo (CLS).
+
+				  O `hidden md:block` está no CONTÊINER, não no anúncio: com ele só no
+				  `AdSlot`, o wrapper continuava no fluxo no celular e o `pt-4` virava
+				  uma faixa branca de 16px entre o cabeçalho e a manchete — espaço
+				  reservado para algo que nunca aparece naquela largura.
+				*/}
+				<Container className="hidden pt-4 md:block">
+					<AdSlot format="billboard" className="mx-auto" />
 				</Container>
 
 				<main id="conteudo" className="flex-1">

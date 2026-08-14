@@ -32,8 +32,24 @@ export async function SiteHeader() {
 
 	return (
 		<header className="sticky top-0 z-30 overflow-hidden bg-brand-deep">
-			{/* Some abaixo de `lg`, onde a largura já é toda do logo e do menu. */}
-			<RupestreTexture className="top-1/2 right-0 hidden h-16 -translate-y-1/2 lg:block" />
+			{/*
+			  A tira cresce com a janela e sempre ancorada na direita, porque é do
+			  canto que ela vem. A altura é o que controla a largura (a arte é
+			  4,84:1, `w-auto`): 28px dão 135px no celular, 48px dão 232px a partir
+			  de `md` e 80px dão 387px em `lg`. Em toda largura a ponta esquerda
+			  para entre 49px e 177px antes da marca — perto, sem encostar.
+
+			  Mais opaca que o padrão de 35%, e isso aqui é seguro: aquele teto
+			  existe para blocos com texto `on-brand-soft` POR CIMA da textura, e no
+			  cabeçalho não há nenhum — "MENU" fica na ponta oposta, a marca é
+			  imagem e o botão de busca é um círculo sólido desenhado acima dela.
+			*/}
+			<RupestreTexture
+				className="top-1/2 right-0 h-7 -translate-y-1/2 opacity-50 md:h-12 lg:h-20"
+				// Uma largura por degrau: com um valor só, o celular pedia a variante
+				// de 828px para desenhar 135.
+				sizes="(max-width: 767px) 140px, (max-width: 1023px) 240px, 390px"
+			/>
 
 			<Container className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-3 md:h-20 md:gap-6">
 				{/*

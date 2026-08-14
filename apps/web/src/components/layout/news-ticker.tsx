@@ -11,23 +11,33 @@ export function NewsTicker({ articles }: { articles: Article[] }) {
 	}
 
 	return (
-		// The ticker duplicates the "Últimas notícias" list that sits high on the
-		// mobile home page, so it only earns its space from `md` up.
+		/*
+		  Aparece em TODAS as larguras. A faixa já foi `hidden md:block`, com o
+		  argumento de que repetia a lista "Últimas notícias" da home — mas isso só
+		  valia na home: numa matéria, numa editoria ou na busca, o leitor de
+		  celular ficava sem nenhum acesso ao que acabou de ser publicado, que é
+		  justamente onde a faixa serve para alguma coisa.
+
+		  No celular ela é a mesma trilha rolável do desktop, só mais baixa e com a
+		  tipografia um degrau menor — a rolagem horizontal já existia aqui (é o que
+		  o utilitário `rail` faz, escondendo a barra e esmaecendo a borda), e no
+		  toque ela é mais natural do que com o mouse.
+		*/
 		<section
 			aria-label="Últimas notícias"
-			className="hidden border-hairline border-b bg-surface md:block"
+			className="border-hairline border-b bg-surface"
 		>
-			<Container className="flex h-[42px] items-center gap-4 overflow-hidden">
-				<span className="shrink-0 rounded-tag bg-brand-red px-2 py-1 font-mono text-[10px] text-white tracking-[0.14em]">
+			<Container className="flex h-9 items-center gap-2.5 overflow-hidden md:h-[42px] md:gap-4">
+				<span className="shrink-0 rounded-tag bg-brand-red px-1.5 py-0.5 font-mono text-[9px] text-white tracking-[0.12em] md:px-2 md:py-1 md:text-[10px] md:tracking-[0.14em]">
 					ÚLTIMAS
 				</span>
 
-				<ul className="rail flex gap-6 whitespace-nowrap">
+				<ul className="rail flex gap-4 whitespace-nowrap md:gap-6">
 					{articles.map((article) => (
 						<li key={article.slug}>
 							<Link
 								href={routes.article(article.sectionSlug, article.slug)}
-								className="font-semibold text-[13.5px] text-brand-deep hover:text-brand-red"
+								className="font-semibold text-[12.5px] text-brand-deep hover:text-brand-red md:text-[13.5px]"
 							>
 								{article.title}
 							</Link>
