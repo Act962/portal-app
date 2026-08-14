@@ -39,7 +39,20 @@ export async function TopBar() {
 		// Data, clima, cotações e redes são mobiliário de desktop — num celular
 		// empurrariam a manchete para fora da dobra sem nada em troca.
 		<div className="hidden border-hairline border-b bg-surface text-ink md:block">
-			<Container className="flex items-center gap-x-4 py-2 font-mono text-[11px] tracking-[0.04em]">
+			{/*
+			  `whitespace-nowrap` na barra inteira, e não em cada item: aqui NADA
+			  quebra linha. Sem isso, em telas de tablet o conteúdo (1125px somando
+			  data, cidade, cotações, redes e os vãos) não cabia nos ~1009px do
+			  contêiner, e o flex resolvia o excedente quebrando o texto — a data
+			  virava quatro linhas empilhadas e a barra triplicava de altura.
+
+			  Quebrar linha não é resolução aceitável numa tira de 11px: o que sobra
+			  precisa SAIR, e é o que os degraus abaixo fazem. Da esquerda para a
+			  direita, em ordem de importância: data e cidade/clima ficam sempre;
+			  as cotações entram a partir de `lg`, primeiro duas, as três só em
+			  `xl`, onde há folga de 115px.
+			*/}
+			<Container className="flex items-center gap-x-4 whitespace-nowrap py-2 font-mono text-[11px] tracking-[0.04em]">
 				<time dateTime={today.toISOString()}>{formatLongDate(today)}</time>
 
 				<span aria-hidden className="text-meta-soft">
@@ -73,9 +86,25 @@ export async function TopBar() {
 				  rodapé, onde já apareciam. Repetir o mesmo link em três lugares não
 				  é navegação — é ruído numa barra de 11px.
 				*/}
-				<QuotesStrip quotes={quotes} />
+				{/*
+				  Fora abaixo de `lg`: com as três, a barra precisa de 1125px e o
+				  tablet oferece 728px — e a home continua trazendo as cotações na
+				  faixa grande (`quotes-band.tsx`), que é onde elas realmente são
+				  lidas. Aqui são um relance.
 
-				<span aria-hidden className="text-meta-soft">
+				  A terceira (o Bitcoin, a mais larga: 207px) só entra em `xl`. Sai
+				  por `nth-child` em vez de um `slice` no servidor porque é decisão de
+				  LARGURA, não de conteúdo: cortar a lista aqui a tiraria também do
+				  desktop largo, onde as três cabem.
+				*/}
+				<QuotesStrip
+					quotes={quotes}
+					className="hidden shrink-0 lg:flex [&>li:nth-child(n+3)]:hidden xl:[&>li:nth-child(n+3)]:flex"
+				/>
+
+				{/* Acompanha as cotações: sem elas, este traço encostaria nos ícones
+				    de rede social e pareceria sujeira na barra. */}
+				<span aria-hidden className="hidden text-meta-soft lg:inline">
 					|
 				</span>
 
