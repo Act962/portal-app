@@ -20,7 +20,7 @@ export function PollResultCard({ poll }: { poll: PollView }) {
 
 	return (
 		<article className="rounded-card border border-hairline bg-surface p-4 md:p-5">
-			<h2 className="mb-3 text-pretty font-bold text-[17px] text-brand-deep leading-snug md:text-lg">
+			<h2 className="mb-3 text-pretty font-bold text-[17px] text-brand-ink leading-snug md:text-lg">
 				{poll.question}
 			</h2>
 
@@ -34,7 +34,7 @@ export function PollResultCard({ poll }: { poll: PollView }) {
 							<div className="mb-1 flex items-baseline justify-between gap-3">
 								<span
 									className={cn(
-										"text-[13px] text-brand-deep",
+										"text-[13px] text-brand-ink",
 										isTop ? "font-bold" : "font-medium",
 									)}
 								>
@@ -57,7 +57,7 @@ export function PollResultCard({ poll }: { poll: PollView }) {
 								<div
 									className={cn(
 										"poll-bar h-full rounded-full",
-										isTop ? "bg-brand-red" : "bg-brand-deep/35",
+										isTop ? "bg-brand-accent" : "bg-brand-deep/35",
 									)}
 									style={{ width: `${percentage}%` }}
 								/>

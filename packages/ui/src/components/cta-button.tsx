@@ -9,15 +9,15 @@ import { cva, type VariantProps } from "class-variance-authority";
  * styling without nesting an anchor inside a button.
  */
 const ctaButtonVariants = cva(
-	"inline-flex min-h-11 w-full items-center justify-center rounded-control px-4 text-center font-bold text-[12.5px] uppercase tracking-[0.06em] transition-colors focus-visible:outline-2 focus-visible:outline-brand-red focus-visible:outline-offset-2",
+	"inline-flex min-h-11 w-full items-center justify-center rounded-control px-4 text-center font-bold text-[12.5px] uppercase tracking-[0.06em] transition-colors focus-visible:outline-2 focus-visible:outline-brand-accent-ink focus-visible:outline-offset-2",
 	{
 		variants: {
 			variant: {
-				primary: "bg-brand-red text-white hover:bg-brand-red-hover",
+				primary: "bg-brand-accent text-on-accent hover:bg-brand-accent-hover",
 				secondary: "bg-brand-deep text-white hover:bg-brand-deep-hover",
 				outline:
-					"border-[1.5px] border-brand-deep text-brand-deep hover:bg-brand-deep hover:text-white",
-				"on-brand": "bg-white text-brand-red hover:bg-canvas",
+					"border-[1.5px] border-brand-deep text-brand-ink hover:bg-brand-deep hover:text-white",
+				"on-brand": "bg-white text-brand-accent-ink hover:bg-canvas",
 			},
 		},
 		defaultVariants: {

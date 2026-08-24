@@ -16,7 +16,7 @@ export function FeatureStory({ article }: { article: Article }) {
 		<article className="mb-1 border-hairline pb-4 md:border-b md:pb-stack">
 			<Link
 				href={routes.article(article.sectionSlug, article.slug)}
-				className="group block text-brand-deep hover:text-brand-deep md:grid md:grid-cols-[1.3fr_1fr] md:gap-stack"
+				className="group block text-brand-ink hover:text-brand-ink md:grid md:grid-cols-[1.3fr_1fr] md:gap-stack"
 			>
 				{/*
 				  A sangria fica no CONTÊINER e a imagem preenche com `w-full` — o
@@ -39,11 +39,11 @@ export function FeatureStory({ article }: { article: Article }) {
 				</div>
 
 				<div className="pt-3 md:pt-0">
-					<p className="mb-1.5 font-mono text-[9px] text-brand-red uppercase tracking-[0.1em] md:mb-2 md:text-[10px] md:tracking-[0.12em]">
+					<p className="mb-1.5 font-mono text-[9px] text-brand-accent-ink uppercase tracking-[0.1em] md:mb-2 md:text-[10px] md:tracking-[0.12em]">
 						Em alta · {formatRelativeTime(displayTimestamp(article))}
 					</p>
 
-					<h2 className="text-pretty font-extrabold text-[21px] leading-[1.14] tracking-[-0.02em] group-hover:text-brand-red md:mb-2.5 md:text-[30px] md:leading-[1.08] md:tracking-[-0.03em]">
+					<h2 className="text-pretty font-extrabold text-[21px] leading-[1.14] tracking-[-0.02em] group-hover:text-brand-accent-ink md:mb-2.5 md:text-[30px] md:leading-[1.08] md:tracking-[-0.03em]">
 						{article.title}
 					</h2>
 

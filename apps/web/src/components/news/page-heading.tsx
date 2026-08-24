@@ -22,7 +22,7 @@ export function PageHeading({
 					{eyebrow}
 				</p>
 
-				<h1 className="font-extrabold text-[30px] text-white leading-none tracking-[-0.03em] md:text-[46px] md:text-brand-deep md:tracking-[-0.04em]">
+				<h1 className="font-extrabold text-[30px] text-white leading-none tracking-[-0.03em] md:text-[46px] md:text-brand-ink md:tracking-[-0.04em]">
 					{title}
 				</h1>
 

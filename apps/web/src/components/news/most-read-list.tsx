@@ -52,11 +52,11 @@ export function MostReadList({
 						>
 							<span
 								aria-hidden
-								className="w-[22px] shrink-0 font-extrabold text-[22px] text-brand-red-soft italic leading-none md:w-5 md:text-xl"
+								className="w-[22px] shrink-0 font-extrabold text-[22px] text-on-brand italic leading-none md:w-5 md:text-xl"
 							>
 								{index + 1}
 							</span>
-							<span className="text-pretty font-semibold text-sm leading-snug hover:text-brand-red-soft">
+							<span className="text-pretty font-semibold text-sm leading-snug hover:text-on-brand">
 								{article.title}
 							</span>
 						</Link>

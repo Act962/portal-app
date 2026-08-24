@@ -182,8 +182,8 @@ export function ImageField({
 						"relative shrink-0 overflow-hidden rounded-md border transition",
 						frame,
 						dragging
-							? "border-brand-red bg-brand-red/5"
-							: "border-dashed hover:border-brand-red/50",
+							? "border-brand-accent-ink bg-brand-accent/5"
+							: "border-dashed hover:border-brand-accent-ink/50",
 					)}
 					aria-label={mediaId ? "Trocar a imagem" : "Enviar uma imagem"}
 				>

@@ -36,7 +36,7 @@ export async function SectionGrid({
 					<li key={section.slug}>
 						<Link
 							href={routes.section(section.slug)}
-							className="flex min-h-11 flex-col justify-center gap-1 rounded-card border border-hairline bg-surface px-3 py-3 text-brand-deep hover:border-brand-deep hover:text-brand-deep"
+							className="flex min-h-11 flex-col justify-center gap-1 rounded-card border border-hairline bg-surface px-3 py-3 text-brand-ink hover:border-brand-deep hover:text-brand-ink"
 						>
 							<span className="font-bold text-sm">{section.name}</span>
 							<span className="font-mono text-[9.5px] text-meta">

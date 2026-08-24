@@ -112,7 +112,7 @@ export async function TopBar() {
 					links={site.social}
 					siteName={site.name}
 					className="flex items-center gap-2"
-					linkClassName="flex size-7 items-center justify-center rounded-full border border-hairline-strong text-brand-deep transition-colors hover:border-brand-deep hover:bg-brand-deep hover:text-white"
+					linkClassName="flex size-7 items-center justify-center rounded-full border border-hairline-strong text-brand-ink transition-colors hover:border-brand-deep hover:bg-brand-deep hover:text-white"
 					iconClassName="size-3.5"
 				/>
 			</Container>

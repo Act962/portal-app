@@ -385,8 +385,8 @@ export function MediaManager() {
 				}}
 				className={`flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-sm transition ${
 					dragging
-						? "border-brand-red bg-brand-red/5"
-						: "border-border text-muted-foreground hover:border-brand-red/50"
+						? "border-brand-accent-ink bg-brand-accent/5"
+						: "border-border text-muted-foreground hover:border-brand-accent-ink/50"
 				}`}
 			>
 				<ImagePlus className="size-6" />
@@ -565,7 +565,7 @@ export function MediaManager() {
 								key={asset.id}
 								className={cn(
 									"flex items-center gap-3 border-b px-3 py-2 last:border-b-0",
-									isSelected && "bg-brand-red/5",
+									isSelected && "bg-brand-accent/5",
 								)}
 							>
 								<input
@@ -617,8 +617,8 @@ export function MediaManager() {
 								className={cn(
 									"group relative overflow-hidden rounded-lg border transition",
 									isSelected
-										? "border-brand-red ring-2 ring-brand-red/30"
-										: "hover:border-brand-red",
+										? "border-brand-accent-ink ring-2 ring-brand-accent/30"
+										: "hover:border-brand-accent-ink",
 								)}
 							>
 								{/* A caixa de seleção fica FORA do botão que abre o detalhe:
@@ -747,7 +747,7 @@ export function MediaManager() {
 											className="block max-h-72 w-full object-contain"
 										/>
 										<span
-											className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-brand-red shadow"
+											className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-brand-accent shadow"
 											style={{
 												left: `${focal.x * 100}%`,
 												top: `${focal.y * 100}%`,
@@ -1181,7 +1181,7 @@ function AssetDetailsForm({
 							fallbackClassName="aspect-video"
 						/>
 						<span
-							className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-brand-red shadow"
+							className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-brand-accent shadow"
 							style={{ left: `${focal.x * 100}%`, top: `${focal.y * 100}%` }}
 						/>
 					</button>
@@ -1322,8 +1322,8 @@ function FolderChip({
 				// Sem botões, o padding volta a ser simétrico — é o que tira o vão.
 				showActions ? "pr-1" : "pr-3",
 				active
-					? "border-brand-red bg-brand-red/10 text-brand-red"
-					: "hover:border-brand-red/50",
+					? "border-brand-accent-ink bg-brand-accent/10 text-brand-accent-ink"
+					: "hover:border-brand-accent-ink/50",
 			)}
 		>
 			<button
@@ -1336,7 +1336,7 @@ function FolderChip({
 					<span
 						className={cn(
 							"rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
-							active ? "bg-brand-red/15" : "bg-muted text-muted-foreground",
+							active ? "bg-brand-accent/15" : "bg-muted text-muted-foreground",
 						)}
 					>
 						{count}

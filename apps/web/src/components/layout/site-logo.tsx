@@ -13,23 +13,27 @@ import Image from "next/image";
  * desenhada não se remonta com a fonte mais parecida que o projeto tem à mão.
  *
  * **Sem filtro de cor.** O símbolo antigo era pintado de branco com
- * `brightness-0 invert`. Esta arte não passa por isso: ela já vem na versão de
- * fundo escuro, e o filtro achataria tudo num borrão branco — apagando o
- * laranja que distingue "Cidades". A versão colorida, para fundo claro, fica
- * como arte-mestre em `design/marca-new/logo_7_cidades_hor.png` e não é
- * servida: hoje os dois lugares onde a marca aparece são a placa institucional.
+ * `brightness-0 invert`. Esta arte não passa por isso — ela JÁ é branca, e o
+ * filtro seria redundante. A colorida, para fundo claro, fica como arte-mestre
+ * em `design/marca-new/logo_7_cidades_hor.png` e não é servida: os dois
+ * lugares onde a marca aparece são a placa institucional.
  *
- * **Esta é a arte da marca de 21/08**, e a troca corrigiu um contraste que
- * reprovava. O lockup anterior era branco + vermelho #ed1b24; sobre a placa
- * vinho (#6b0206) esse vermelho dá **2,92:1**, abaixo do 3:1 que a WCAG pede
- * até para forma gráfica. (O comentário que vivia aqui dizia 3,2:1 e dava a
- * conta por aprovada — foi medida no arquivo, não estimada, e o número certo
- * reprova.) O lockup novo não tem vermelho nenhum: branco #fefefe a 12,72:1 e
- * laranja #f58634 a 5,10:1.
+ * **É branca por obrigação, não por gosto.** Esta marca já teve três lockups em
+ * onze dias, e cada troca foi forçada pelo fundo:
+ *   14/08  branco + vermelho #ed1b24, sobre a placa MARROM
+ *   21/08  branco + laranja #f58634, sobre a placa VINHO — o vermelho anterior
+ *          dava 2,92:1 ali, abaixo do 3:1 de forma gráfica
+ *   24/08  branco puro, sobre a placa VERMELHA #ff0009 — o laranja anterior dá
+ *          1,59:1 ali, ou seja, desapareceria
  *
- * **Só fundo escuro.** O mesmo laranja dá 2,39:1 sobre o `canvas` claro. Se um
- * dia a marca precisar aparecer sobre claro, é outro arquivo — não este com um
- * filtro por cima.
+ * O branco dá 4,00:1 sobre #ff0009, e esse é o TETO daquela placa: não existe
+ * tom melhor, é o máximo que a superfície permite (ver o bloco `on-brand` em
+ * `globals.css`). Uma marca de duas cores é impossível sobre ela — qualquer
+ * segunda cor cai abaixo de 3:1. Por isso monocromática.
+ *
+ * **Só fundo escuro ou saturado.** Sobre o `canvas` claro esta arte some por
+ * completo. Se a marca precisar aparecer sobre claro, é outro arquivo — não
+ * este com um filtro por cima.
  *
  * **Por que NÃO usa o logo das Configurações.** Aquele campo (D8) alimenta
  * schema.org, RSS, Open Graph e manifest — lugares onde o pedido é uma arte

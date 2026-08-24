@@ -55,7 +55,7 @@ export function LegalPage({
 			  cada parágrafo torna a revisão do TEXTO — que é o que o cliente vai
 			  fazer — uma leitura de marcação.
 			*/}
-			<div className="max-w-[70ch] font-serif text-[15px] text-ink leading-relaxed md:text-base [&_a]:text-brand-red [&_a]:underline [&_a]:underline-offset-2 [&_h2]:mt-8 [&_h2]:mb-2.5 [&_h2]:font-extrabold [&_h2]:font-sans [&_h2]:text-[19px] [&_h2]:text-brand-deep [&_h2]:tracking-[-0.02em] [&_h3]:mt-5 [&_h3]:mb-1.5 [&_h3]:font-bold [&_h3]:font-sans [&_h3]:text-[15px] [&_h3]:text-brand-deep [&_li]:mb-1.5 [&_p]:mb-3.5 [&_ul]:mb-3.5 [&_ul]:list-disc [&_ul]:pl-5">
+			<div className="max-w-[70ch] font-serif text-[15px] text-ink leading-relaxed md:text-base [&_a]:text-brand-accent-ink [&_a]:underline [&_a]:underline-offset-2 [&_h2]:mt-8 [&_h2]:mb-2.5 [&_h2]:font-extrabold [&_h2]:font-sans [&_h2]:text-[19px] [&_h2]:text-brand-ink [&_h2]:tracking-[-0.02em] [&_h3]:mt-5 [&_h3]:mb-1.5 [&_h3]:font-bold [&_h3]:font-sans [&_h3]:text-[15px] [&_h3]:text-brand-ink [&_li]:mb-1.5 [&_p]:mb-3.5 [&_ul]:mb-3.5 [&_ul]:list-disc [&_ul]:pl-5">
 				{children}
 			</div>
 		</Container>

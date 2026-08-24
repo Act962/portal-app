@@ -14,7 +14,10 @@ export function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
 		<nav aria-label="Trilha de navegação" className="mb-4.5">
 			<ol className="flex flex-wrap items-center gap-1.5 font-mono text-[10.5px] text-meta uppercase tracking-[0.06em]">
 				<li>
-					<Link href={routes.home} className="text-meta hover:text-brand-red">
+					<Link
+						href={routes.home}
+						className="text-meta hover:text-brand-accent-ink"
+					>
 						Home
 					</Link>
 				</li>
@@ -26,7 +29,7 @@ export function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
 							{crumb.href ? (
 								<Link
 									href={crumb.href as never}
-									className="text-meta hover:text-brand-red"
+									className="text-meta hover:text-brand-accent-ink"
 								>
 									{crumb.label}
 								</Link>

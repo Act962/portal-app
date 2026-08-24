@@ -130,15 +130,16 @@ escrever(
 	await transparente(origem("transparence_rupestre"), 900),
 );
 
-// O lockup horizontal do cabeçalho e do rodapé, na versão de fundo escuro. Vem
-// da marca NOVA, e a troca não foi estética: a arte anterior era branco +
-// vermelho #ed1b24, e sobre a placa vinho (#6b0206) esse vermelho dá 2,92:1 —
-// abaixo do 3:1 que a WCAG pede até para forma gráfica. O lockup novo não tem
-// vermelho nenhum: é branco #fefefe (12,72:1) e laranja #f58634 (5,10:1).
+// O lockup horizontal do cabeçalho e do rodapé, na versão MONOCROMÁTICA
+// BRANCA — e ela é branca por obrigação, não por gosto. A placa virou o
+// vermelho vivo #ff0009 em 24/08/2026, e sobre ele o laranja da marca dá
+// 1,59:1: o lockup bicolor que serviu por três dias simplesmente sumiria.
+// Branco sobre #ff0009 dá 4,00:1, que é o TETO daquela placa — não existe
+// tom melhor, é o máximo que a superfície permite.
 //
-// Só serve para fundo ESCURO. O mesmo laranja dá 2,39:1 sobre o `canvas`
-// claro, então esta arte não pode migrar para um cabeçalho claro sem trocar de
-// arquivo — a colorida (`logo_7_cidades_hor`) é que existe para isso.
+// Só serve para fundo ESCURO ou saturado. Sobre o `canvas` claro ela
+// desaparece por completo; a colorida (`logo_7_cidades_hor`) é que existe
+// para isso.
 //
 // 640px para uma arte que é desenhada com no máximo 198px (56px de altura na
 // proporção 3,53:1): cobre a tela de 3x com folga (594px), e por ser cor
@@ -147,7 +148,7 @@ escrever(
 // achataria num borrão branco.
 escrever(
 	"logo-horizontal.png",
-	await transparente(origemNova("logo_7_cidades_hor_ver"), 640),
+	await transparente(origemNova("logo portal 7 cidades branca"), 640),
 );
 
 for (const f of fs.readdirSync(SAIDA).sort()) {
