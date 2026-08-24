@@ -128,8 +128,9 @@ describe("renameFolder", () => {
 
 	it("pasta inexistente", async () => {
 		expect(
-			(await renameFolder({ id: "nao-existe", name: "X" }, { folders }))
-				.unwrapErr(),
+			(
+				await renameFolder({ id: "nao-existe", name: "X" }, { folders })
+			).unwrapErr(),
 		).toBeInstanceOf(FolderNotFound);
 	});
 });
@@ -185,8 +186,12 @@ describe("moveAsset", () => {
 		).unwrap();
 
 		expect(
-			(await moveAsset({ id: asset.id, folderId: folder.id }, { repo, folders }))
-				.isOk(),
+			(
+				await moveAsset(
+					{ id: asset.id, folderId: folder.id },
+					{ repo, folders },
+				)
+			).isOk(),
 		).toBe(true);
 		expect((await repo.findById(asset.id))?.folderId).toBe(folder.id);
 	});
@@ -219,8 +224,9 @@ describe("moveAsset", () => {
 
 	it("arquivo inexistente", async () => {
 		expect(
-			(await moveAsset({ id: "nao-existe", folderId: null }, { repo, folders }))
-				.unwrapErr(),
+			(
+				await moveAsset({ id: "nao-existe", folderId: null }, { repo, folders })
+			).unwrapErr(),
 		).toBeInstanceOf(MediaAssetNotFound);
 	});
 });
@@ -230,9 +236,9 @@ describe("deleteAsset (D4/D5)", () => {
 		const asset = await novaImagem("uploads/1/foto.jpg");
 		storage.put("uploads/1/foto.jpg", new Uint8Array([1, 2, 3]));
 
-		expect((await deleteAsset({ id: asset.id }, { repo, storage, usage })).isOk()).toBe(
-			true,
-		);
+		expect(
+			(await deleteAsset({ id: asset.id }, { repo, storage, usage })).isOk(),
+		).toBe(true);
 		expect(await repo.findById(asset.id)).toBeNull();
 		expect(storage.get("uploads/1/foto.jpg")).toBeNull();
 	});
@@ -243,7 +249,10 @@ describe("deleteAsset (D4/D5)", () => {
 		const asset = await novaImagem();
 		usage.markInUse(asset.id);
 
-		const result = await deleteAsset({ id: asset.id }, { repo, storage, usage });
+		const result = await deleteAsset(
+			{ id: asset.id },
+			{ repo, storage, usage },
+		);
 
 		expect(result.unwrapErr()).toBeInstanceOf(MediaInUse);
 		expect(await repo.findById(asset.id)).not.toBeNull();
@@ -251,7 +260,9 @@ describe("deleteAsset (D4/D5)", () => {
 
 	it("arquivo inexistente", async () => {
 		expect(
-			(await deleteAsset({ id: "nao-existe" }, { repo, storage, usage })).unwrapErr(),
+			(
+				await deleteAsset({ id: "nao-existe" }, { repo, storage, usage })
+			).unwrapErr(),
 		).toBeInstanceOf(MediaAssetNotFound);
 	});
 
@@ -265,7 +276,10 @@ describe("deleteAsset (D4/D5)", () => {
 		const asset = await novaImagem();
 		vi.spyOn(storage, "delete").mockRejectedValue(new Error("R2 fora do ar"));
 
-		const result = await deleteAsset({ id: asset.id }, { repo, storage, usage });
+		const result = await deleteAsset(
+			{ id: asset.id },
+			{ repo, storage, usage },
+		);
 
 		expect(result.isOk()).toBe(true);
 		expect(await repo.findById(asset.id)).toBeNull();

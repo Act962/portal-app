@@ -1,4 +1,4 @@
-import { AggregateRoot, type Result, err, ok } from "@portal-app/shared-kernel";
+import { AggregateRoot, err, ok, type Result } from "@portal-app/shared-kernel";
 
 import { type InvalidSlug, NameRequired } from "./errors";
 import { Slug } from "./slug";
@@ -22,7 +22,11 @@ export class Tag extends AggregateRoot<string> {
 		this.state = state;
 	}
 
-	static create(input: { id: string; name: string; slug?: string }): Result<Tag, NameRequired | InvalidSlug> {
+	static create(input: {
+		id: string;
+		name: string;
+		slug?: string;
+	}): Result<Tag, NameRequired | InvalidSlug> {
 		const name = input.name.trim();
 		if (!name) {
 			return err(new NameRequired("da tag"));

@@ -42,8 +42,11 @@ export function ViewsChart({ data }: { data: Point[] }) {
 
 	const x = (index: number) =>
 		PAD.left +
-		(data.length === 1 ? plotWidth / 2 : (index / (data.length - 1)) * plotWidth);
-	const y = (views: number) => PAD.top + plotHeight - (views / max) * plotHeight;
+		(data.length === 1
+			? plotWidth / 2
+			: (index / (data.length - 1)) * plotWidth);
+	const y = (views: number) =>
+		PAD.top + plotHeight - (views / max) * plotHeight;
 
 	const line = data.map((point, i) => `${x(i)},${y(point.views)}`).join(" ");
 	const area = `${PAD.left},${PAD.top + plotHeight} ${line} ${x(data.length - 1)},${

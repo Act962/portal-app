@@ -10,19 +10,25 @@ describe("Tag", () => {
 	});
 
 	it("aceita slug explícito", () => {
-		const tag = Tag.create({ id: "t-1", name: "Eleições", slug: "pleito" }).unwrap();
+		const tag = Tag.create({
+			id: "t-1",
+			name: "Eleições",
+			slug: "pleito",
+		}).unwrap();
 
 		expect(tag.slug).toBe("pleito");
 	});
 
 	it("recusa nome vazio (NameRequired)", () => {
-		expect(Tag.create({ id: "t-1", name: "   " }).unwrapErr()).toBeInstanceOf(NameRequired);
+		expect(Tag.create({ id: "t-1", name: "   " }).unwrapErr()).toBeInstanceOf(
+			NameRequired,
+		);
 	});
 
 	it("recusa slug explícito mal-formado (InvalidSlug)", () => {
-		expect(Tag.create({ id: "t-1", name: "Eleições", slug: "###" }).unwrapErr()).toBeInstanceOf(
-			InvalidSlug,
-		);
+		expect(
+			Tag.create({ id: "t-1", name: "Eleições", slug: "###" }).unwrapErr(),
+		).toBeInstanceOf(InvalidSlug);
 	});
 
 	it("renomeia e recusa novo nome vazio", () => {
@@ -41,6 +47,8 @@ describe("Tag", () => {
 	});
 
 	it("estoura ao reidratar com slug inválido (invariante interna)", () => {
-		expect(() => Tag.restore({ id: "t-1", name: "X", slug: "@@@" })).toThrow(InvalidSlug);
+		expect(() => Tag.restore({ id: "t-1", name: "X", slug: "@@@" })).toThrow(
+			InvalidSlug,
+		);
 	});
 });

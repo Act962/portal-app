@@ -1,12 +1,17 @@
-import { can, Forbidden, type ResourceRef, type StaffMember } from "@portal-app/identity";
+import {
+	can,
+	Forbidden,
+	type ResourceRef,
+	type StaffMember,
+} from "@portal-app/identity";
 import {
 	type Clock,
+	err,
 	type IdGenerator,
+	ok,
 	type Page,
 	type PageRequest,
 	type Result,
-	err,
-	ok,
 } from "@portal-app/shared-kernel";
 
 import { Article } from "../domain/article";
@@ -23,7 +28,10 @@ import {
 	type ScheduleInPast,
 	type SlugImmutable,
 } from "../domain/errors";
-import type { ArticleFilter, ArticleRepository } from "../domain/ports/article-repository";
+import type {
+	ArticleFilter,
+	ArticleRepository,
+} from "../domain/ports/article-repository";
 
 /**
  * Casos de uso do workflow editorial. Orquestram sem regra: a regra vive no
@@ -58,7 +66,12 @@ export async function createDraft(
 		cover?: { mediaId: string; altText?: string | null } | null;
 	},
 	deps: Deps,
-): Promise<Result<Article, Forbidden | HeadlineRequired | InvalidSlug | BylineRequired | InvalidBlock>> {
+): Promise<
+	Result<
+		Article,
+		Forbidden | HeadlineRequired | InvalidSlug | BylineRequired | InvalidBlock
+	>
+> {
 	if (!can(actor, "article:create")) {
 		return err(new Forbidden());
 	}
@@ -97,14 +110,25 @@ export async function updateArticle(
 	},
 	deps: Deps,
 ): Promise<
-	Result<Article, Forbidden | ArticleNotFound | InvalidTransition | HeadlineRequired | InvalidBlock | BylineRequired>
+	Result<
+		Article,
+		| Forbidden
+		| ArticleNotFound
+		| InvalidTransition
+		| HeadlineRequired
+		| InvalidBlock
+		| BylineRequired
+	>
 > {
 	const article = await deps.repo.findById(input.id);
 	if (!article) {
 		return err(new ArticleNotFound(input.id));
 	}
 	const ref = refOf(article);
-	if (!can(actor, "article:edit-any", ref) && !can(actor, "article:edit-own", ref)) {
+	if (
+		!can(actor, "article:edit-any", ref) &&
+		!can(actor, "article:edit-own", ref)
+	) {
 		return err(new Forbidden());
 	}
 	const edited = article.editContent(input);
@@ -123,13 +147,18 @@ export async function changeSlug(
 	actor: StaffMember,
 	input: { id: string; slug: string },
 	deps: Deps,
-): Promise<Result<Article, Forbidden | ArticleNotFound | InvalidSlug | SlugImmutable>> {
+): Promise<
+	Result<Article, Forbidden | ArticleNotFound | InvalidSlug | SlugImmutable>
+> {
 	const article = await deps.repo.findById(input.id);
 	if (!article) {
 		return err(new ArticleNotFound(input.id));
 	}
 	const ref = refOf(article);
-	if (!can(actor, "article:edit-any", ref) && !can(actor, "article:edit-own", ref)) {
+	if (
+		!can(actor, "article:edit-any", ref) &&
+		!can(actor, "article:edit-own", ref)
+	) {
 		return err(new Forbidden());
 	}
 	const result = article.changeSlug(input.slug);
@@ -155,14 +184,21 @@ export function approve(
 	input: { id: string },
 	deps: Deps,
 ): Promise<Result<Article, Forbidden | ArticleNotFound | InvalidTransition>> {
-	return guarded(actor, input.id, deps, "article:approve", (article) => article.approve());
+	return guarded(actor, input.id, deps, "article:approve", (article) =>
+		article.approve(),
+	);
 }
 
 export function reject(
 	actor: StaffMember,
 	input: { id: string; reason: string },
 	deps: Deps,
-): Promise<Result<Article, Forbidden | ArticleNotFound | InvalidTransition | RejectionReasonRequired>> {
+): Promise<
+	Result<
+		Article,
+		Forbidden | ArticleNotFound | InvalidTransition | RejectionReasonRequired
+	>
+> {
 	return guarded(actor, input.id, deps, "article:approve", (article) =>
 		article.reject(input.reason, deps.clock.now()),
 	);
@@ -172,7 +208,12 @@ export function publish(
 	actor: StaffMember,
 	input: { id: string },
 	deps: Deps,
-): Promise<Result<Article, Forbidden | ArticleNotFound | InvalidTransition | PublishBlocker>> {
+): Promise<
+	Result<
+		Article,
+		Forbidden | ArticleNotFound | InvalidTransition | PublishBlocker
+	>
+> {
 	return guarded(actor, input.id, deps, "article:publish", (article) =>
 		article.publish(deps.clock.now()),
 	);
@@ -183,7 +224,14 @@ export function schedule(
 	input: { id: string; at: Date },
 	deps: Deps,
 ): Promise<
-	Result<Article, Forbidden | ArticleNotFound | InvalidTransition | ScheduleInPast | PublishBlocker>
+	Result<
+		Article,
+		| Forbidden
+		| ArticleNotFound
+		| InvalidTransition
+		| ScheduleInPast
+		| PublishBlocker
+	>
 > {
 	return guarded(actor, input.id, deps, "article:publish", (article) =>
 		article.schedule(input.at, deps.clock.now()),
@@ -195,7 +243,9 @@ export function cancelSchedule(
 	input: { id: string },
 	deps: Deps,
 ): Promise<Result<Article, Forbidden | ArticleNotFound | InvalidTransition>> {
-	return guarded(actor, input.id, deps, "article:publish", (article) => article.cancelSchedule());
+	return guarded(actor, input.id, deps, "article:publish", (article) =>
+		article.cancelSchedule(),
+	);
 }
 
 export function archive(
@@ -240,7 +290,9 @@ export function listScheduled(deps: Pick<Deps, "repo">): Promise<Article[]> {
  * vem da porta `Clock`, então roda com `FixedClock` nos testes, sem espera real.
  * Cada publicação grava `ArticlePublished` no outbox (mesma transação).
  */
-export async function publishDueScheduled(deps: Pick<Deps, "repo" | "clock">): Promise<Article[]> {
+export async function publishDueScheduled(
+	deps: Pick<Deps, "repo" | "clock">,
+): Promise<Article[]> {
 	const now = deps.clock.now();
 	const due = await deps.repo.listDueScheduled(now);
 	const published: Article[] = [];
@@ -253,7 +305,10 @@ export async function publishDueScheduled(deps: Pick<Deps, "repo" | "clock">): P
 	return published;
 }
 
-export function getArticle(id: string, deps: Pick<Deps, "repo">): Promise<Article | null> {
+export function getArticle(
+	id: string,
+	deps: Pick<Deps, "repo">,
+): Promise<Article | null> {
 	return deps.repo.findById(id);
 }
 

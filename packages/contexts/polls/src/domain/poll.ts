@@ -1,4 +1,4 @@
-import { AggregateRoot, type Result, err, ok } from "@portal-app/shared-kernel";
+import { AggregateRoot, err, ok, type Result } from "@portal-app/shared-kernel";
 
 import {
 	InvalidPollTransition,

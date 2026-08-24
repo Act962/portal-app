@@ -1,6 +1,12 @@
-import { AggregateRoot, type Result, err, ok } from "@portal-app/shared-kernel";
+import { AggregateRoot, err, ok, type Result } from "@portal-app/shared-kernel";
 
-import { InvalidColor, type InvalidSlug, MaxDepthExceeded, NameRequired, SectionInUse } from "./errors";
+import {
+	InvalidColor,
+	type InvalidSlug,
+	MaxDepthExceeded,
+	NameRequired,
+	SectionInUse,
+} from "./errors";
 import { Slug } from "./slug";
 
 export type SectionStatus = "ATIVA" | "INATIVA";
@@ -52,7 +58,10 @@ export class Section extends AggregateRoot<string> {
 
 	static create(
 		input: CreateInput,
-	): Result<Section, NameRequired | InvalidSlug | InvalidColor | MaxDepthExceeded> {
+	): Result<
+		Section,
+		NameRequired | InvalidSlug | InvalidColor | MaxDepthExceeded
+	> {
 		const name = input.name.trim();
 		if (!name) {
 			return err(new NameRequired("da editoria"));
@@ -210,7 +219,9 @@ export class Section extends AggregateRoot<string> {
 	}
 }
 
-function normalizeColor(raw: string | null | undefined): Result<string | null, InvalidColor> {
+function normalizeColor(
+	raw: string | null | undefined,
+): Result<string | null, InvalidColor> {
 	if (raw === null || raw === undefined || raw.trim() === "") {
 		return ok(null);
 	}

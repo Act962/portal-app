@@ -4,24 +4,24 @@ import dotenv from "dotenv";
 import { defineConfig } from "prisma/config";
 
 dotenv.config({
-  path: "../../apps/web/.env",
+	path: "../../apps/web/.env",
 });
 
 export default defineConfig({
-  schema: path.join("prisma", "schema"),
-  migrations: {
-    path: path.join("prisma", "migrations"),
-  },
-  // Prisma 7 removeu a URL do bloco `datasource` do schema; ela vive aqui e é
-  // lida pelas CLIs (migrate, studio, generate). O runtime do cliente usa o
-  // driver adapter em src/index.ts, não este arquivo.
-  //
-  // `DIRECT_URL` tem precedência quando existe. Isso importa em Postgres
-  // serverless (Neon, Supabase): a `DATABASE_URL` de runtime aponta para o
-  // POOLER, e um pooler em modo transaction não sustenta o que uma migração
-  // precisa — advisory locks, DDL em sessão, transações longas. A migração vai
-  // pela conexão DIRETA; o app continua no pooler.
-  datasource: {
-    url: (process.env.DIRECT_URL || process.env.DATABASE_URL) as string,
-  },
+	schema: path.join("prisma", "schema"),
+	migrations: {
+		path: path.join("prisma", "migrations"),
+	},
+	// Prisma 7 removeu a URL do bloco `datasource` do schema; ela vive aqui e é
+	// lida pelas CLIs (migrate, studio, generate). O runtime do cliente usa o
+	// driver adapter em src/index.ts, não este arquivo.
+	//
+	// `DIRECT_URL` tem precedência quando existe. Isso importa em Postgres
+	// serverless (Neon, Supabase): a `DATABASE_URL` de runtime aponta para o
+	// POOLER, e um pooler em modo transaction não sustenta o que uma migração
+	// precisa — advisory locks, DDL em sessão, transações longas. A migração vai
+	// pela conexão DIRETA; o app continua no pooler.
+	datasource: {
+		url: (process.env.DIRECT_URL || process.env.DATABASE_URL) as string,
+	},
 });

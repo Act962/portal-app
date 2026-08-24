@@ -1,16 +1,16 @@
-import { SequentialIdGenerator } from "@portal-app/shared-kernel";
 import {
+	getAsset,
 	InMemoryMediaRepository,
 	InMemoryMediaStorage,
+	listLibrary,
 	MediaAssetNotFound,
 	MissingAltText,
 	MissingCredit,
-	getAsset,
-	listLibrary,
 	registerAsset,
 	requestUpload,
 	updateAssetDetails,
 } from "@portal-app/media";
+import { SequentialIdGenerator } from "@portal-app/shared-kernel";
 import { beforeEach, describe, expect, it } from "vitest";
 
 let repo: InMemoryMediaRepository;
@@ -47,7 +47,10 @@ describe("requestUpload (A28)", () => {
 describe("registerAsset (invariantes A29)", () => {
 	it("registra imagem válida e a torna consultável", async () => {
 		const asset = (
-			await registerAsset({ ...image, storageKey: "uploads/x/foto.jpg" }, { repo, ids })
+			await registerAsset(
+				{ ...image, storageKey: "uploads/x/foto.jpg" },
+				{ repo, ids },
+			)
 		).unwrap();
 
 		expect(asset.credit.value).toBe("Foto: Ana");
@@ -97,7 +100,11 @@ describe("listLibrary (busca + filtro)", () => {
 
 	it("lista do mais recente ao mais antigo", async () => {
 		const all = await listLibrary({}, { repo });
-		expect(all.items.map((a) => a.filename)).toEqual(["edital.pdf", "entrevista.jpg", "estadio.jpg"]);
+		expect(all.items.map((a) => a.filename)).toEqual([
+			"edital.pdf",
+			"entrevista.jpg",
+			"estadio.jpg",
+		]);
 		expect(all.total).toBe(3);
 	});
 

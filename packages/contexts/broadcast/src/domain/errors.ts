@@ -30,7 +30,9 @@ export class InvalidTime extends Error {
 /** Dia da semana fora de 0 (domingo) a 6 (sábado). */
 export class InvalidDayOfWeek extends Error {
 	constructor(raw: number) {
-		super(`Dia da semana inválido: ${raw}. Use um número de 0 (domingo) a 6 (sábado).`);
+		super(
+			`Dia da semana inválido: ${raw}. Use um número de 0 (domingo) a 6 (sábado).`,
+		);
 		this.name = "InvalidDayOfWeek";
 	}
 }

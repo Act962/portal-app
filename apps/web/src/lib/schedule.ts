@@ -14,12 +14,16 @@ export function isProgramLive(program: ProgramRow, now: Date): boolean {
 	}
 	const minutesNow = now.getHours() * 60 + now.getMinutes();
 	return (
-		minutesNow >= toMinutes(program.startTime) && minutesNow < toMinutes(program.endTime)
+		minutesNow >= toMinutes(program.startTime) &&
+		minutesNow < toMinutes(program.endTime)
 	);
 }
 
 /** Programas de um dia da semana, na ordem em que já vêm do read model. */
-export function programsForDay(programs: ProgramRow[], dayOfWeek: number): ProgramRow[] {
+export function programsForDay(
+	programs: ProgramRow[],
+	dayOfWeek: number,
+): ProgramRow[] {
 	return programs.filter((program) => program.dayOfWeek === dayOfWeek);
 }
 

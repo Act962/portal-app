@@ -1,4 +1,4 @@
-import { AggregateRoot, type Result, err, ok } from "@portal-app/shared-kernel";
+import { AggregateRoot, err, ok, type Result } from "@portal-app/shared-kernel";
 
 import {
 	EndBeforeStart,
@@ -28,7 +28,12 @@ type CreateInput = {
 	order?: number;
 };
 
-type CreateError = NameRequired | HostRequired | InvalidDayOfWeek | InvalidTime | EndBeforeStart;
+type CreateError =
+	| NameRequired
+	| HostRequired
+	| InvalidDayOfWeek
+	| InvalidTime
+	| EndBeforeStart;
 
 /**
  * Programa da grade — o agregado raiz do contexto de programação. Só grade
@@ -55,7 +60,11 @@ export class Program extends AggregateRoot<string> {
 			return err(new HostRequired());
 		}
 
-		if (!Number.isInteger(input.dayOfWeek) || input.dayOfWeek < 0 || input.dayOfWeek > 6) {
+		if (
+			!Number.isInteger(input.dayOfWeek) ||
+			input.dayOfWeek < 0 ||
+			input.dayOfWeek > 6
+		) {
 			return err(new InvalidDayOfWeek(input.dayOfWeek));
 		}
 
@@ -148,7 +157,10 @@ export class Program extends AggregateRoot<string> {
 			return false;
 		}
 		const minutesNow = now.getHours() * 60 + now.getMinutes();
-		return minutesNow >= this.state.startTime.minutes && minutesNow < this.state.endTime.minutes;
+		return (
+			minutesNow >= this.state.startTime.minutes &&
+			minutesNow < this.state.endTime.minutes
+		);
 	}
 
 	/**

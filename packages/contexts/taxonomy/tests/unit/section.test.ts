@@ -8,7 +8,9 @@ import {
 } from "@portal-app/taxonomy";
 import { describe, expect, it } from "vitest";
 
-function section(overrides: Partial<{ id: string; name: string; slug: string }> = {}): Section {
+function section(
+	overrides: Partial<{ id: string; name: string; slug: string }> = {},
+): Section {
 	return Section.create({
 		id: overrides.id ?? "sec-1",
 		name: overrides.name ?? "Política",
@@ -47,26 +49,32 @@ describe("Section — criação e invariantes", () => {
 	});
 
 	it("recusa nome vazio (NameRequired)", () => {
-		expect(Section.create({ id: "x", name: "   " }).unwrapErr()).toBeInstanceOf(NameRequired);
+		expect(Section.create({ id: "x", name: "   " }).unwrapErr()).toBeInstanceOf(
+			NameRequired,
+		);
 	});
 
 	it("recusa slug explícito mal-formado (InvalidSlug)", () => {
-		expect(Section.create({ id: "x", name: "Política", slug: "!!!" }).unwrapErr()).toBeInstanceOf(
-			InvalidSlug,
-		);
+		expect(
+			Section.create({ id: "x", name: "Política", slug: "!!!" }).unwrapErr(),
+		).toBeInstanceOf(InvalidSlug);
 	});
 
 	it("recusa cor fora do hexadecimal (InvalidColor)", () => {
-		expect(Section.create({ id: "x", name: "Política", color: "azul" }).unwrapErr()).toBeInstanceOf(
-			InvalidColor,
-		);
+		expect(
+			Section.create({ id: "x", name: "Política", color: "azul" }).unwrapErr(),
+		).toBeInstanceOf(InvalidColor);
 	});
 });
 
 describe("Section — hierarquia de dois níveis (M02)", () => {
 	it("uma editoria-raiz pode ter subeditoria", () => {
 		const raiz = section({ id: "raiz", name: "Esportes" });
-		const filha = Section.create({ id: "filha", name: "Futebol", parent: raiz }).unwrap();
+		const filha = Section.create({
+			id: "filha",
+			name: "Futebol",
+			parent: raiz,
+		}).unwrap();
 
 		expect(filha.isRoot()).toBe(false);
 		expect(filha.parentId).toBe("raiz");
@@ -74,11 +82,15 @@ describe("Section — hierarquia de dois níveis (M02)", () => {
 
 	it("uma subeditoria não pode ser mãe de outra (MaxDepthExceeded)", () => {
 		const raiz = section({ id: "raiz", name: "Esportes" });
-		const filha = Section.create({ id: "filha", name: "Futebol", parent: raiz }).unwrap();
+		const filha = Section.create({
+			id: "filha",
+			name: "Futebol",
+			parent: raiz,
+		}).unwrap();
 
-		expect(Section.create({ id: "neta", name: "Copa", parent: filha }).unwrapErr()).toBeInstanceOf(
-			MaxDepthExceeded,
-		);
+		expect(
+			Section.create({ id: "neta", name: "Copa", parent: filha }).unwrapErr(),
+		).toBeInstanceOf(MaxDepthExceeded);
 	});
 });
 
@@ -136,7 +148,11 @@ describe("Section — ciclo de vida", () => {
 	});
 
 	it("permite limpar a cor com null", () => {
-		const sec = Section.create({ id: "s", name: "Política", color: "#111111" }).unwrap();
+		const sec = Section.create({
+			id: "s",
+			name: "Política",
+			color: "#111111",
+		}).unwrap();
 		sec.updateDetails({ color: null });
 
 		expect(sec.color).toBeNull();
@@ -145,8 +161,12 @@ describe("Section — ciclo de vida", () => {
 	it("recusa nome vazio e cor inválida na edição", () => {
 		const sec = section();
 
-		expect(sec.updateDetails({ name: " " }).unwrapErr()).toBeInstanceOf(NameRequired);
-		expect(sec.updateDetails({ color: "roxo" }).unwrapErr()).toBeInstanceOf(InvalidColor);
+		expect(sec.updateDetails({ name: " " }).unwrapErr()).toBeInstanceOf(
+			NameRequired,
+		);
+		expect(sec.updateDetails({ color: "roxo" }).unwrapErr()).toBeInstanceOf(
+			InvalidColor,
+		);
 	});
 
 	it("M04: editoria em uso não pode ser excluída; sem uso pode", () => {
@@ -194,7 +214,13 @@ describe("Section — reidratação", () => {
 
 	it("estoura se o slug persistido for inválido (invariante interna)", () => {
 		expect(() =>
-			Section.restore({ id: "x", name: "X", slug: "!!!", order: 0, status: "ATIVA" }),
+			Section.restore({
+				id: "x",
+				name: "X",
+				slug: "!!!",
+				order: 0,
+				status: "ATIVA",
+			}),
 		).toThrow(InvalidSlug);
 	});
 });

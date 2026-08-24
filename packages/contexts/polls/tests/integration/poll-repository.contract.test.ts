@@ -287,6 +287,8 @@ describe("PrismaPollRepository — concorrência", () => {
 
 		const recusados = resultados.filter((r) => r instanceof AlreadyVoted);
 		expect(recusados).toHaveLength(1);
-		expect((await repo.tally("poll-1")).reduce((t, i) => t + i.votes, 0)).toBe(1);
+		expect((await repo.tally("poll-1")).reduce((t, i) => t + i.votes, 0)).toBe(
+			1,
+		);
 	});
 });

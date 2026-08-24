@@ -1,11 +1,16 @@
-import { type IdGenerator, type Result, err, ok } from "@portal-app/shared-kernel";
+import {
+	err,
+	type IdGenerator,
+	ok,
+	type Result,
+} from "@portal-app/shared-kernel";
 
 import {
 	type InvalidColor,
 	type InvalidSlug,
 	type MaxDepthExceeded,
 	type NameRequired,
-	SectionInUse,
+	type SectionInUse,
 	SectionNotFound,
 	SlugTaken,
 } from "../domain/errors";
@@ -34,7 +39,13 @@ type CreateInput = {
 	parentId?: string | null;
 };
 
-type CreateError = NameRequired | InvalidSlug | InvalidColor | MaxDepthExceeded | SlugTaken | SectionNotFound;
+type CreateError =
+	| NameRequired
+	| InvalidSlug
+	| InvalidColor
+	| MaxDepthExceeded
+	| SlugTaken
+	| SectionNotFound;
 
 export function listSections(deps: Pick<Deps, "repo">): Promise<Section[]> {
 	return deps.repo.list();
@@ -80,7 +91,12 @@ export async function createSection(
 }
 
 export async function updateSection(
-	input: { id: string; name?: string; description?: string; color?: string | null },
+	input: {
+		id: string;
+		name?: string;
+		description?: string;
+		color?: string | null;
+	},
 	deps: Pick<Deps, "repo">,
 ): Promise<Result<Section, SectionNotFound | NameRequired | InvalidColor>> {
 	const section = await deps.repo.findById(input.id);

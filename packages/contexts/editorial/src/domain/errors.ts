@@ -108,4 +108,8 @@ export class AltTextRequired extends Error {
 }
 
 /** Erros que impedem publicar — a UI os lista antes do clique. */
-export type PublishBlocker = BodyRequired | SectionRequired | CoverImageRequired | AltTextRequired;
+export type PublishBlocker =
+	| BodyRequired
+	| SectionRequired
+	| CoverImageRequired
+	| AltTextRequired;

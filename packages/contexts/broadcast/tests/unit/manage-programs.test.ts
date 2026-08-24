@@ -31,7 +31,12 @@ describe("createProgram", () => {
 	it("cria e persiste, entrando no fim da ordenação", async () => {
 		await createProgram(INPUT, deps);
 		const result = await createProgram(
-			{ ...INPUT, name: "Giro de Notícias", startTime: "09:00", endTime: "10:00" },
+			{
+				...INPUT,
+				name: "Giro de Notícias",
+				startTime: "09:00",
+				endTime: "10:00",
+			},
 			deps,
 		);
 
@@ -52,7 +57,10 @@ describe("updateProgram", () => {
 	it("edita um programa existente", async () => {
 		const created = (await createProgram(INPUT, deps)).unwrap();
 
-		const result = await updateProgram({ id: created.id, host: "Novo Locutor" }, deps);
+		const result = await updateProgram(
+			{ id: created.id, host: "Novo Locutor" },
+			deps,
+		);
 
 		expect(result.isOk()).toBe(true);
 		expect((await repo.findById(created.id))?.host).toBe("Novo Locutor");

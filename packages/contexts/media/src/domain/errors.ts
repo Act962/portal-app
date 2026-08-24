@@ -31,7 +31,9 @@ export class MissingDimensions extends Error {
 /** Largura/altura não positivas ou não inteiras. */
 export class InvalidDimensions extends Error {
 	constructor() {
-		super("Dimensões inválidas: largura e altura devem ser inteiros positivos.");
+		super(
+			"Dimensões inválidas: largura e altura devem ser inteiros positivos.",
+		);
 		this.name = "InvalidDimensions";
 	}
 }

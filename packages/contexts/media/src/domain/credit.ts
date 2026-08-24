@@ -1,4 +1,4 @@
-import { type Result, ValueObject, err, ok } from "@portal-app/shared-kernel";
+import { err, ok, type Result, ValueObject } from "@portal-app/shared-kernel";
 
 import { MissingCredit } from "./errors";
 

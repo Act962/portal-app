@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 // Roda o E2E localmente sem tocar no banco de dev: cria um BANCO efêmero (nome
 // com UUID) no MESMO Postgres do `pnpm db:start`, aplica as migrações nele,
 // aponta o dev server para lá durante a suíte, e apaga tudo no fim — sucesso,
@@ -27,9 +28,9 @@
 // Uso:  pnpm test:e2e:local
 // Pré-requisito: `pnpm db:start` rodando (é o mesmo Postgres do dev).
 
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -68,7 +69,7 @@ function portInUse(port) {
 			`const s=require('net').createConnection({port:${port},host:'127.0.0.1'});` +
 				`s.on('connect',()=>{s.destroy();process.exit(1)});` +
 				`s.on('error',()=>process.exit(0));` +
-				`setTimeout(()=>{s.destroy();process.exit(0)},1500);`,
+				"setTimeout(()=>{s.destroy();process.exit(0)},1500);",
 		],
 		{ stdio: "ignore" },
 	);
@@ -97,17 +98,28 @@ function run(command, args, opts = {}) {
 function psql(args, opts = {}) {
 	return spawnSync(
 		"docker",
-		["exec", ...(opts.interactive ? ["-i"] : []), CONTAINER, "psql", "-U", PG_USER, ...args],
-		{ stdio: opts.interactive ? ["pipe", "inherit", "inherit"] : "inherit", ...opts },
+		[
+			"exec",
+			...(opts.interactive ? ["-i"] : []),
+			CONTAINER,
+			"psql",
+			"-U",
+			PG_USER,
+			...args,
+		],
+		{
+			stdio: opts.interactive ? ["pipe", "inherit", "inherit"] : "inherit",
+			...opts,
+		},
 	);
 }
 
 if (portInUse(DEV_PORT)) {
 	fail(
 		`Já existe algo servindo em http://localhost:${DEV_PORT}.\n` +
-			`  O Playwright REAPROVEITARIA esse servidor — e ele aponta para o banco de\n` +
-			`  desenvolvimento, não para o efêmero. A suíte escreveria nos seus dados reais.\n\n` +
-			`  Pare o dev server (o \`pnpm dev\`/preview aberto) e rode de novo.`,
+			"  O Playwright REAPROVEITARIA esse servidor — e ele aponta para o banco de\n" +
+			"  desenvolvimento, não para o efêmero. A suíte escreveria nos seus dados reais.\n\n" +
+			"  Pare o dev server (o `pnpm dev`/preview aberto) e rode de novo.",
 	);
 }
 
@@ -147,7 +159,12 @@ function dropDatabase() {
 	console.log(`→ Removendo banco ${dbName}…`);
 	// Sem shell nenhum — o nome vem de nós (só letras/dígitos/underscore), não
 	// precisa de aspas de identificador.
-	psql(["-d", ADMIN_DB, "-c", `DROP DATABASE IF EXISTS ${dbName} WITH (FORCE);`]);
+	psql([
+		"-d",
+		ADMIN_DB,
+		"-c",
+		`DROP DATABASE IF EXISTS ${dbName} WITH (FORCE);`,
+	]);
 }
 
 function cleanup() {
@@ -185,7 +202,12 @@ function seedFixtures() {
 
 try {
 	console.log(`→ Criando banco ${dbName}…`);
-	const createStatus = psql(["-d", ADMIN_DB, "-c", `CREATE DATABASE ${dbName};`]).status;
+	const createStatus = psql([
+		"-d",
+		ADMIN_DB,
+		"-c",
+		`CREATE DATABASE ${dbName};`,
+	]).status;
 	if (createStatus !== 0) {
 		fail("Falha ao criar o banco efêmero.");
 	}

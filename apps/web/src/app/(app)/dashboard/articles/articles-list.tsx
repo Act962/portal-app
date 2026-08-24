@@ -4,6 +4,7 @@ import {
 	EDITORIAL_STATUSES,
 	type EditorialStatus,
 } from "@portal-app/editorial";
+import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
 import { Button } from "@portal-app/ui/components/button";
 import {
 	Dialog,
@@ -50,12 +51,9 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-
-import { PaginationBar } from "@/components/admin/pagination-bar";
-import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
 import { toast } from "sonner";
-
 import { PageHeader } from "@/components/admin/page-header";
+import { PaginationBar } from "@/components/admin/pagination-bar";
 import { STATUS_LABELS, StatusBadge } from "@/components/admin/status-badge";
 import { trpc } from "@/utils/trpc";
 

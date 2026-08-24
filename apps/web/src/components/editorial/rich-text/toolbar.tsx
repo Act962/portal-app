@@ -6,12 +6,12 @@
 
 import { Button } from "@portal-app/ui/components/button";
 import { Separator } from "@portal-app/ui/components/separator";
-import { cn } from "@portal-app/ui/lib/utils";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "@portal-app/ui/components/tooltip";
+import { cn } from "@portal-app/ui/lib/utils";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import {

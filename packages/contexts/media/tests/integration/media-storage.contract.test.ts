@@ -1,10 +1,18 @@
-import { CreateBucketCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+	CreateBucketCommand,
+	GetObjectCommand,
+	S3Client,
+} from "@aws-sdk/client-s3";
 import { InMemoryMediaStorage, type MediaStorage } from "@portal-app/media";
 import {
-	type S3StorageConfig,
 	S3MediaStorage,
+	type S3StorageConfig,
 } from "@portal-app/media/infrastructure/s3-media-storage";
-import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
+import {
+	GenericContainer,
+	type StartedTestContainer,
+	Wait,
+} from "testcontainers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /**
@@ -53,7 +61,9 @@ beforeAll(async () => {
 		credentials: { accessKeyId: "minioadmin", secretAccessKey: "minioadmin" },
 		forcePathStyle: true,
 	});
-	await minioClient.send(new CreateBucketCommand({ Bucket: minioConfig.bucket }));
+	await minioClient.send(
+		new CreateBucketCommand({ Bucket: minioConfig.bucket }),
+	);
 }, 180_000);
 
 afterAll(async () => {
@@ -125,7 +135,9 @@ function contract(label: string, makeHarness: () => StorageHarness): void {
 
 		it("publicUrl aponta para a key", () => {
 			const h = makeHarness();
-			expect(h.storage.publicUrl("2026/08/foto.jpg")).toContain("2026/08/foto.jpg");
+			expect(h.storage.publicUrl("2026/08/foto.jpg")).toContain(
+				"2026/08/foto.jpg",
+			);
 		});
 	});
 }

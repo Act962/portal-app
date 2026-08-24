@@ -1,7 +1,7 @@
 import { newPrismaClient } from "@portal-app/db/client";
 import { Article, InMemoryEventBus } from "@portal-app/editorial";
-import { PrismaArticleRepository } from "@portal-app/editorial/infrastructure/prisma-article-repository";
 import { dispatchOutbox } from "@portal-app/editorial/infrastructure/outbox-relay";
+import { PrismaArticleRepository } from "@portal-app/editorial/infrastructure/prisma-article-repository";
 import { afterAll, beforeEach, describe, expect, inject, it } from "vitest";
 
 const prisma = newPrismaClient(inject("databaseUrl"));
@@ -39,7 +39,9 @@ describe("Outbox transacional (ADR 0005)", () => {
 		// O agregado acumulou 2 eventos (submeter + publicar) antes do save.
 		await repo.save(publishedArticle("art-1", "enchente"));
 
-		const rows = await prisma.outboxEvent.findMany({ where: { aggregateId: "art-1" } });
+		const rows = await prisma.outboxEvent.findMany({
+			where: { aggregateId: "art-1" },
+		});
 		const published = rows.find((r) => r.eventName === "ArticlePublished");
 		expect(published).toBeDefined();
 		expect((published?.payload as { slug: string }).slug).toBe("enchente");
@@ -52,10 +54,14 @@ describe("Outbox transacional (ADR 0005)", () => {
 
 		// Outro artigo com o MESMO slug viola a unique constraint: a transação
 		// inteira (artigo + evento) deve reverter.
-		await expect(repo.save(publishedArticle("art-2", "slug-unico"))).rejects.toThrow();
+		await expect(
+			repo.save(publishedArticle("art-2", "slug-unico")),
+		).rejects.toThrow();
 
 		expect(await prisma.outboxEvent.count()).toBe(before); // nenhum evento de art-2
-		expect(await prisma.article.findUnique({ where: { id: "art-2" } })).toBeNull();
+		expect(
+			await prisma.article.findUnique({ where: { id: "art-2" } }),
+		).toBeNull();
 	});
 
 	it("E08: despachar duas vezes não reentrega (idempotência)", async () => {
@@ -66,9 +72,13 @@ describe("Outbox transacional (ADR 0005)", () => {
 		expect(first).toBeGreaterThan(0);
 		expect(await dispatchOutbox(prisma, bus)).toBe(0); // já processado
 		expect(bus.delivered).toHaveLength(first); // não reentregou
-		expect(bus.delivered.filter((r) => r.eventName === "ArticlePublished")).toHaveLength(1);
+		expect(
+			bus.delivered.filter((r) => r.eventName === "ArticlePublished"),
+		).toHaveLength(1);
 
-		const row = await prisma.outboxEvent.findFirst({ where: { aggregateId: "art-1" } });
+		const row = await prisma.outboxEvent.findFirst({
+			where: { aggregateId: "art-1" },
+		});
 		expect(row?.processedAt).not.toBeNull();
 	});
 });

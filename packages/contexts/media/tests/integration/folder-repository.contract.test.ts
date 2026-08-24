@@ -72,7 +72,9 @@ function contract(label: string, make: () => Harness): void {
 		});
 
 		it("salva e recupera por id", async () => {
-			await h.repo.save(Folder.create({ id: "f-1", name: "Esportes" }).unwrap());
+			await h.repo.save(
+				Folder.create({ id: "f-1", name: "Esportes" }).unwrap(),
+			);
 
 			expect((await h.repo.findById("f-1"))?.name).toBe("Esportes");
 		});
@@ -91,7 +93,9 @@ function contract(label: string, make: () => Harness): void {
 		// implementações discordassem na CAIXA, o fake aceitaria "esportes" e o
 		// Postgres recusaria — erro de constraint cru na cara do usuário.
 		it("findByName ignora caixa e espaços das pontas", async () => {
-			await h.repo.save(Folder.create({ id: "f-1", name: "Esportes" }).unwrap());
+			await h.repo.save(
+				Folder.create({ id: "f-1", name: "Esportes" }).unwrap(),
+			);
 
 			expect((await h.repo.findByName("esportes"))?.id).toBe("f-1");
 			expect((await h.repo.findByName("  ESPORTES  "))?.id).toBe("f-1");
@@ -99,9 +103,13 @@ function contract(label: string, make: () => Harness): void {
 		});
 
 		it("lista em ordem alfabética", async () => {
-			await h.repo.save(Folder.create({ id: "f-1", name: "Zoologia" }).unwrap());
+			await h.repo.save(
+				Folder.create({ id: "f-1", name: "Zoologia" }).unwrap(),
+			);
 			await h.repo.save(Folder.create({ id: "f-2", name: "Cidades" }).unwrap());
-			await h.repo.save(Folder.create({ id: "f-3", name: "Esportes" }).unwrap());
+			await h.repo.save(
+				Folder.create({ id: "f-3", name: "Esportes" }).unwrap(),
+			);
 
 			expect((await h.repo.list()).map((f) => f.name)).toEqual([
 				"Cidades",

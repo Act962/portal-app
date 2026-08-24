@@ -1,4 +1,4 @@
-import { AggregateRoot, type Result, err, ok } from "@portal-app/shared-kernel";
+import { AggregateRoot, err, ok, type Result } from "@portal-app/shared-kernel";
 
 import { type BlockInput, Body } from "./body";
 import { Byline } from "./byline";
@@ -11,13 +11,13 @@ import {
 	CoverImageRequired,
 	type HeadlineRequired,
 	type InvalidBlock,
+	type InvalidSlug,
 	InvalidTransition,
 	type PublishBlocker,
 	RejectionReasonRequired,
 	type ScheduleInPast,
 	SectionRequired,
 	SlugImmutable,
-	type InvalidSlug,
 } from "./errors";
 import {
 	ArticlePublished,
@@ -62,7 +62,11 @@ type DraftInput = {
 	cover?: { mediaId: string; altText?: string | null } | null;
 };
 
-type DraftError = HeadlineRequired | InvalidSlug | BylineRequired | InvalidBlock;
+type DraftError =
+	| HeadlineRequired
+	| InvalidSlug
+	| BylineRequired
+	| InvalidBlock;
 
 /**
  * Article — o agregado raiz do editorial e o core domain do produto. Protege a
@@ -225,7 +229,9 @@ export class Article extends AggregateRoot<string> {
 	}
 
 	isPublished(): boolean {
-		return this.state.status === "PUBLICADA" || this.state.status === "ATUALIZADA";
+		return (
+			this.state.status === "PUBLICADA" || this.state.status === "ATUALIZADA"
+		);
 	}
 
 	/**
@@ -278,7 +284,10 @@ export class Article extends AggregateRoot<string> {
 		tagIds?: readonly string[];
 		cover?: { mediaId: string; altText?: string | null } | null;
 		authorName?: string;
-	}): Result<void, InvalidTransition | HeadlineRequired | InvalidBlock | BylineRequired> {
+	}): Result<
+		void,
+		InvalidTransition | HeadlineRequired | InvalidBlock | BylineRequired
+	> {
 		if (this.state.status === "ARQUIVADA") {
 			return err(new InvalidTransition("ARQUIVADA", "ARQUIVADA"));
 		}
@@ -297,7 +306,10 @@ export class Article extends AggregateRoot<string> {
 			this.state.body = body.value;
 		}
 		if (input.authorName !== undefined) {
-			const byline = Byline.create({ authorId: this.state.byline.authorId, name: input.authorName });
+			const byline = Byline.create({
+				authorId: this.state.byline.authorId,
+				name: input.authorName,
+			});
 			if (byline.isErr()) {
 				return err(byline.error);
 			}
@@ -332,7 +344,10 @@ export class Article extends AggregateRoot<string> {
 		return ok(undefined);
 	}
 
-	reject(reason: string, now: Date): Result<void, InvalidTransition | RejectionReasonRequired> {
+	reject(
+		reason: string,
+		now: Date,
+	): Result<void, InvalidTransition | RejectionReasonRequired> {
 		if (this.state.status !== "EM_REVISAO") {
 			return err(new InvalidTransition(this.state.status, "RASCUNHO"));
 		}
@@ -406,13 +421,18 @@ export class Article extends AggregateRoot<string> {
 		if (this.state.firstPublishedAt === null) {
 			this.state.firstPublishedAt = now;
 		}
-		this.record(new ArticlePublished(this.id, this.state.slug.value, sectionId, now));
+		this.record(
+			new ArticlePublished(this.id, this.state.slug.value, sectionId, now),
+		);
 		return ok(undefined);
 	}
 
 	/** Edição de matéria já publicada: vira ATUALIZADA e emite ArticleUpdated. */
 	markUpdated(now: Date): Result<void, InvalidTransition> {
-		if (this.state.status !== "PUBLICADA" && this.state.status !== "ATUALIZADA") {
+		if (
+			this.state.status !== "PUBLICADA" &&
+			this.state.status !== "ATUALIZADA"
+		) {
 			return err(new InvalidTransition(this.state.status, "ATUALIZADA"));
 		}
 		this.state.status = "ATUALIZADA";
@@ -422,7 +442,10 @@ export class Article extends AggregateRoot<string> {
 
 	/** Arquiva (nunca apaga) uma matéria publicada — integridade do acervo. */
 	archive(now: Date): Result<void, InvalidTransition> {
-		if (this.state.status !== "PUBLICADA" && this.state.status !== "ATUALIZADA") {
+		if (
+			this.state.status !== "PUBLICADA" &&
+			this.state.status !== "ATUALIZADA"
+		) {
 			return err(new InvalidTransition(this.state.status, "ARQUIVADA"));
 		}
 		this.state.status = "ARQUIVADA";

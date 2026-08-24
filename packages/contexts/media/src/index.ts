@@ -12,5 +12,5 @@ export * from "./domain/media-asset";
 export * from "./domain/media-type";
 export * from "./domain/ports/folder-repository";
 export * from "./domain/ports/media-repository";
-export * from "./domain/ports/media-usage";
 export * from "./domain/ports/media-storage";
+export * from "./domain/ports/media-usage";

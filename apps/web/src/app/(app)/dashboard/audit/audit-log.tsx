@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
 import { Badge } from "@portal-app/ui/components/badge";
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import {
@@ -10,7 +11,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@portal-app/ui/components/table";
-import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
 import { useQuery } from "@tanstack/react-query";
 import type { Route } from "next";
 import Link from "next/link";

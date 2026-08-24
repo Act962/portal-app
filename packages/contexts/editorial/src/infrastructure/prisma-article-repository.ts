@@ -1,5 +1,5 @@
-import type { PageRequest } from "@portal-app/shared-kernel";
 import type { PrismaClient } from "@portal-app/db/client";
+import type { PageRequest } from "@portal-app/shared-kernel";
 
 import { Article } from "../domain/article";
 import { Body } from "../domain/body";
@@ -37,7 +37,11 @@ export class PrismaArticleRepository implements ArticleRepository {
 		const events = article.pullEvents();
 		const data = toPersistence(article);
 		await this.prisma.$transaction(async (tx) => {
-			await tx.article.upsert({ where: { id: article.id }, create: data, update: data });
+			await tx.article.upsert({
+				where: { id: article.id },
+				create: data,
+				update: data,
+			});
 			if (events.length > 0) {
 				await tx.outboxEvent.createMany({
 					data: events.map((event) => ({
@@ -87,7 +91,10 @@ export class PrismaArticleRepository implements ArticleRepository {
 
 	countPublishedWithTag(tagId: string): Promise<number> {
 		return this.prisma.article.count({
-			where: { tagIds: { has: tagId }, status: { in: [...PUBLISHED_STATUSES] } },
+			where: {
+				tagIds: { has: tagId },
+				status: { in: [...PUBLISHED_STATUSES] },
+			},
 		});
 	}
 }
@@ -148,7 +155,9 @@ function toDomain(row: ArticleRow): Article {
 		byline: { authorId: row.authorId, name: row.authorName },
 		sectionId: row.sectionId,
 		tagIds: row.tagIds,
-		cover: row.coverMediaId ? { mediaId: row.coverMediaId, altText: row.coverAltText } : null,
+		cover: row.coverMediaId
+			? { mediaId: row.coverMediaId, altText: row.coverAltText }
+			: null,
 		status: row.status as EditorialStatus,
 		scheduledAt: row.scheduledAt,
 		publishedAt: row.publishedAt,

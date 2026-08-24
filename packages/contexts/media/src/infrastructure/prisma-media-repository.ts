@@ -1,9 +1,12 @@
-import type { PageRequest } from "@portal-app/shared-kernel";
 import type { PrismaClient } from "@portal-app/db/client";
+import type { PageRequest } from "@portal-app/shared-kernel";
 
 import { MediaAsset } from "../domain/media-asset";
 import type { MediaType } from "../domain/media-type";
-import type { MediaQuery, MediaRepository } from "../domain/ports/media-repository";
+import type {
+	MediaQuery,
+	MediaRepository,
+} from "../domain/ports/media-repository";
 
 /**
  * Adapter Prisma da porta `MediaRepository`. Única camada que conhece Prisma;
@@ -19,7 +22,9 @@ export class PrismaMediaRepository implements MediaRepository {
 	}
 
 	async findByStorageKey(storageKey: string): Promise<MediaAsset | null> {
-		const row = await this.prisma.mediaAsset.findUnique({ where: { storageKey } });
+		const row = await this.prisma.mediaAsset.findUnique({
+			where: { storageKey },
+		});
 		return row ? toDomain(row) : null;
 	}
 
@@ -96,8 +101,14 @@ function toDomain(row: MediaRow): MediaAsset {
 		caption: row.caption,
 		credit: row.credit,
 		altText: row.altText,
-		dimensions: row.width !== null && row.height !== null ? { width: row.width, height: row.height } : null,
-		focalPoint: row.focalX !== null && row.focalY !== null ? { x: row.focalX, y: row.focalY } : null,
+		dimensions:
+			row.width !== null && row.height !== null
+				? { width: row.width, height: row.height }
+				: null,
+		focalPoint:
+			row.focalX !== null && row.focalY !== null
+				? { x: row.focalX, y: row.focalY }
+				: null,
 		folderId: row.folderId,
 	});
 }

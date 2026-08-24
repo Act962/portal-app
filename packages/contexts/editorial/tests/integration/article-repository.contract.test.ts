@@ -32,7 +32,12 @@ function prismaHarness(): Harness {
 const NOW = new Date("2026-08-05T12:00:00Z");
 
 /** Cria um rascunho publicável com id/slug/section/tags dados. */
-function draft(id: string, slug: string, sectionId: string, tagIds: string[]): Article {
+function draft(
+	id: string,
+	slug: string,
+	sectionId: string,
+	tagIds: string[],
+): Article {
 	return Article.createDraft({
 		id,
 		headline: `Matéria ${id}`,
@@ -65,7 +70,9 @@ function contract(label: string, make: () => Harness): void {
 		});
 
 		it("E05: salva e recupera por id e por slug, com todo o estado", async () => {
-			await h.repo.save(publish(draft("art-1", "enchente", "cidades", ["chuva"])));
+			await h.repo.save(
+				publish(draft("art-1", "enchente", "cidades", ["chuva"])),
+			);
 
 			const byId = await h.repo.findById("art-1");
 			expect(byId?.status).toBe("PUBLICADA");
@@ -94,7 +101,9 @@ function contract(label: string, make: () => Harness): void {
 
 		it("E06: conta publicadas por editoria e por tag (base do ContentUsage)", async () => {
 			await h.repo.save(draft("d-1", "rascunho", "cidades", ["chuva"])); // rascunho não conta
-			await h.repo.save(publish(draft("p-1", "publicada", "cidades", ["chuva", "clima"])));
+			await h.repo.save(
+				publish(draft("p-1", "publicada", "cidades", ["chuva", "clima"])),
+			);
 
 			expect(await h.repo.countPublishedInSection("cidades")).toBe(1);
 			expect(await h.repo.countPublishedInSection("esportes")).toBe(0);
@@ -115,7 +124,9 @@ function contract(label: string, make: () => Harness): void {
 			future.schedule(new Date("2026-08-05T20:00:00Z"), NOW);
 			await h.repo.save(future);
 
-			const due = await h.repo.listDueScheduled(new Date("2026-08-05T14:00:00Z"));
+			const due = await h.repo.listDueScheduled(
+				new Date("2026-08-05T14:00:00Z"),
+			);
 			expect(due.map((a) => a.id)).toEqual(["s-1"]);
 		});
 

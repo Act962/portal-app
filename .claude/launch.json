@@ -1,24 +1,24 @@
 {
-  "version": "0.0.1",
-  "configurations": [
-    {
-      "name": "web",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "web", "exec", "next", "dev"],
-      "port": 3001,
-      "autoPort": true
-    },
-    {
-      "name": "inngest",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": [
-        "--yes",
-        "inngest-cli@latest",
-        "dev",
-        "-u",
-        "http://localhost:3001/api/inngest"
-      ],
-      "port": 8288
-    }
-  ]
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "web",
+			"runtimeExecutable": "pnpm",
+			"runtimeArgs": ["--filter", "web", "exec", "next", "dev"],
+			"port": 3001,
+			"autoPort": true
+		},
+		{
+			"name": "inngest",
+			"runtimeExecutable": "npx",
+			"runtimeArgs": [
+				"--yes",
+				"inngest-cli@latest",
+				"dev",
+				"-u",
+				"http://localhost:3001/api/inngest"
+			],
+			"port": 8288
+		}
+	]
 }

@@ -41,18 +41,20 @@ describe("Byline", () => {
 		const b = Byline.create({ authorId: "a-1", name: "Ana" }).unwrap();
 		expect(b.authorId).toBe("a-1");
 		expect(b.name).toBe("Ana");
-		expect(Byline.create({ authorId: " ", name: "Ana" }).unwrapErr()).toBeInstanceOf(
-			BylineRequired,
-		);
-		expect(Byline.create({ authorId: "a-1", name: " " }).unwrapErr()).toBeInstanceOf(
-			BylineRequired,
-		);
+		expect(
+			Byline.create({ authorId: " ", name: "Ana" }).unwrapErr(),
+		).toBeInstanceOf(BylineRequired);
+		expect(
+			Byline.create({ authorId: "a-1", name: " " }).unwrapErr(),
+		).toBeInstanceOf(BylineRequired);
 	});
 });
 
 describe("Cover", () => {
 	it("guarda mídia e alt-text; hasAltText reflete a presença", () => {
-		expect(Cover.create({ mediaId: "m-1", altText: "Rua alagada" }).hasAltText()).toBe(true);
+		expect(
+			Cover.create({ mediaId: "m-1", altText: "Rua alagada" }).hasAltText(),
+		).toBe(true);
 		const semAlt = Cover.create({ mediaId: "m-1" });
 		expect(semAlt.hasAltText()).toBe(false);
 		expect(semAlt.mediaId).toBe("m-1");
@@ -62,7 +64,9 @@ describe("Cover", () => {
 
 describe("Slug", () => {
 	it("normaliza e rejeita inválido", () => {
-		expect(Slug.create("Enchente no Centro!").unwrap().value).toBe("enchente-no-centro");
+		expect(Slug.create("Enchente no Centro!").unwrap().value).toBe(
+			"enchente-no-centro",
+		);
 		expect(Slug.create("   ").unwrapErr()).toBeInstanceOf(InvalidSlug);
 		expect(Slug.create("chuva").unwrap().toString()).toBe("chuva");
 	});
@@ -115,8 +119,13 @@ describe("PublicationSchedule", () => {
 
 	it("rejeita passado ou presente", () => {
 		expect(
-			PublicationSchedule.create(new Date("2026-08-05T11:59:59Z"), now).unwrapErr(),
+			PublicationSchedule.create(
+				new Date("2026-08-05T11:59:59Z"),
+				now,
+			).unwrapErr(),
 		).toBeInstanceOf(ScheduleInPast);
-		expect(PublicationSchedule.create(now, now).unwrapErr()).toBeInstanceOf(ScheduleInPast);
+		expect(PublicationSchedule.create(now, now).unwrapErr()).toBeInstanceOf(
+			ScheduleInPast,
+		);
 	});
 });

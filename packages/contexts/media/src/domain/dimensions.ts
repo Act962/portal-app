@@ -1,4 +1,4 @@
-import { type Result, ValueObject, err, ok } from "@portal-app/shared-kernel";
+import { err, ok, type Result, ValueObject } from "@portal-app/shared-kernel";
 
 import { InvalidDimensions } from "./errors";
 
@@ -12,7 +12,10 @@ export class Dimensions extends ValueObject<{ width: number; height: number }> {
 		super({ width, height });
 	}
 
-	static create(width: number, height: number): Result<Dimensions, InvalidDimensions> {
+	static create(
+		width: number,
+		height: number,
+	): Result<Dimensions, InvalidDimensions> {
 		if (!isPositiveInt(width) || !isPositiveInt(height)) {
 			return err(new InvalidDimensions());
 		}

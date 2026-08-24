@@ -1,4 +1,4 @@
-import { type Result, err, ok } from "../result";
+import { err, ok, type Result } from "../result";
 
 /**
  * Scheduler — porta que abstrai "quem dispara o trabalho recorrente" (ADR 0007).

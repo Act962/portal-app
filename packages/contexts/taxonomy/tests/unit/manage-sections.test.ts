@@ -1,15 +1,15 @@
 import { SequentialIdGenerator } from "@portal-app/shared-kernel";
 import {
+	createSection,
+	deleteSection,
 	InMemorySectionRepository,
+	listSections,
 	MaxDepthExceeded,
+	reorderSections,
 	SectionInUse,
 	SectionNotFound,
 	SlugTaken,
 	StubNoUsage,
-	createSection,
-	deleteSection,
-	listSections,
-	reorderSections,
 	setSectionActive,
 	updateSection,
 } from "@portal-app/taxonomy";
@@ -24,7 +24,11 @@ let deps: {
 
 beforeEach(() => {
 	repo = new InMemorySectionRepository();
-	deps = { repo, usage: new StubNoUsage(), ids: new SequentialIdGenerator("sec") };
+	deps = {
+		repo,
+		usage: new StubNoUsage(),
+		ids: new SequentialIdGenerator("sec"),
+	};
 });
 
 describe("createSection", () => {
@@ -46,21 +50,31 @@ describe("createSection", () => {
 
 	it("cria subeditoria sob uma raiz", async () => {
 		const raiz = (await createSection({ name: "Esportes" }, deps)).unwrap();
-		const filha = (await createSection({ name: "Futebol", parentId: raiz.id }, deps)).unwrap();
+		const filha = (
+			await createSection({ name: "Futebol", parentId: raiz.id }, deps)
+		).unwrap();
 
 		expect(filha.parentId).toBe(raiz.id);
 	});
 
 	it("rejeita subeditoria de subeditoria (MaxDepthExceeded)", async () => {
 		const raiz = (await createSection({ name: "Esportes" }, deps)).unwrap();
-		const filha = (await createSection({ name: "Futebol", parentId: raiz.id }, deps)).unwrap();
-		const neta = await createSection({ name: "Copa", parentId: filha.id }, deps);
+		const filha = (
+			await createSection({ name: "Futebol", parentId: raiz.id }, deps)
+		).unwrap();
+		const neta = await createSection(
+			{ name: "Copa", parentId: filha.id },
+			deps,
+		);
 
 		expect(neta.unwrapErr()).toBeInstanceOf(MaxDepthExceeded);
 	});
 
 	it("rejeita mãe inexistente (SectionNotFound)", async () => {
-		const orphan = await createSection({ name: "Futebol", parentId: "nao-existe" }, deps);
+		const orphan = await createSection(
+			{ name: "Futebol", parentId: "nao-existe" },
+			deps,
+		);
 
 		expect(orphan.unwrapErr()).toBeInstanceOf(SectionNotFound);
 	});
@@ -69,7 +83,9 @@ describe("createSection", () => {
 describe("updateSection / setSectionActive", () => {
 	it("edita os detalhes de uma editoria existente", async () => {
 		const sec = (await createSection({ name: "Política" }, deps)).unwrap();
-		const updated = (await updateSection({ id: sec.id, name: "Política Nacional" }, deps)).unwrap();
+		const updated = (
+			await updateSection({ id: sec.id, name: "Política Nacional" }, deps)
+		).unwrap();
 
 		expect(updated.name).toBe("Política Nacional");
 	});
@@ -77,21 +93,25 @@ describe("updateSection / setSectionActive", () => {
 	it("desativa e reativa", async () => {
 		const sec = (await createSection({ name: "Política" }, deps)).unwrap();
 
-		expect((await setSectionActive({ id: sec.id, active: false }, deps)).unwrap().isActive()).toBe(
-			false,
-		);
-		expect((await setSectionActive({ id: sec.id, active: true }, deps)).unwrap().isActive()).toBe(
-			true,
-		);
+		expect(
+			(await setSectionActive({ id: sec.id, active: false }, deps))
+				.unwrap()
+				.isActive(),
+		).toBe(false);
+		expect(
+			(await setSectionActive({ id: sec.id, active: true }, deps))
+				.unwrap()
+				.isActive(),
+		).toBe(true);
 	});
 
 	it("erro ao editar editoria inexistente", async () => {
-		expect((await updateSection({ id: "x", name: "y" }, deps)).unwrapErr()).toBeInstanceOf(
-			SectionNotFound,
-		);
-		expect((await setSectionActive({ id: "x", active: true }, deps)).unwrapErr()).toBeInstanceOf(
-			SectionNotFound,
-		);
+		expect(
+			(await updateSection({ id: "x", name: "y" }, deps)).unwrapErr(),
+		).toBeInstanceOf(SectionNotFound);
+		expect(
+			(await setSectionActive({ id: "x", active: true }, deps)).unwrapErr(),
+		).toBeInstanceOf(SectionNotFound);
 	});
 });
 
@@ -100,14 +120,25 @@ describe("reorderSections", () => {
 		const a = (await createSection({ name: "A" }, deps)).unwrap();
 		const b = (await createSection({ name: "B" }, deps)).unwrap();
 
-		await reorderSections({ orders: [{ id: a.id, order: 10 }, { id: b.id, order: 5 }] }, deps);
+		await reorderSections(
+			{
+				orders: [
+					{ id: a.id, order: 10 },
+					{ id: b.id, order: 5 },
+				],
+			},
+			deps,
+		);
 		const listed = await listSections(deps);
 
 		expect(listed.map((s) => s.id)).toEqual([b.id, a.id]);
 	});
 
 	it("erro se algum id não existe", async () => {
-		const result = await reorderSections({ orders: [{ id: "x", order: 0 }] }, deps);
+		const result = await reorderSections(
+			{ orders: [{ id: "x", order: 0 }] },
+			deps,
+		);
 
 		expect(result.unwrapErr()).toBeInstanceOf(SectionNotFound);
 	});
@@ -137,6 +168,8 @@ describe("deleteSection (A17 via porta de uso)", () => {
 	});
 
 	it("erro ao excluir editoria inexistente", async () => {
-		expect((await deleteSection({ id: "x" }, deps)).unwrapErr()).toBeInstanceOf(SectionNotFound);
+		expect((await deleteSection({ id: "x" }, deps)).unwrapErr()).toBeInstanceOf(
+			SectionNotFound,
+		);
 	});
 });

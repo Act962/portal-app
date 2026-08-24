@@ -1,6 +1,6 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm --filter @portal-app/db exec prisma migrate deploy; fi && pnpm turbo run build -F web"
+	"$schema": "https://openapi.vercel.sh/vercel.json",
+	"framework": "nextjs",
+	"installCommand": "pnpm install --frozen-lockfile",
+	"buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm --filter @portal-app/db exec prisma migrate deploy; fi && pnpm turbo run build -F web"
 }
