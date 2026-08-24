@@ -13,7 +13,7 @@ export function SearchBox({ defaultValue = "" }: { defaultValue?: string }) {
 				method="get"
 				className="mb-5 flex items-center gap-2.5 rounded-control border-[1.5px] border-brand-deep p-3 md:mb-stack md:gap-3 md:border-2 md:p-3.5"
 			>
-				<Search size={18} className="shrink-0 text-brand-deep" aria-hidden />
+				<Search size={18} className="shrink-0 text-brand-ink" aria-hidden />
 
 				<label htmlFor="site-search" className="sr-only">
 					Buscar no portal

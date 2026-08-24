@@ -52,7 +52,7 @@ export function AdminUserMenu({ user }: { user: AdminUser }) {
 						}
 					>
 						<Avatar className="size-8 rounded-lg">
-							<AvatarFallback className="rounded-lg bg-brand-red text-white text-xs">
+							<AvatarFallback className="rounded-lg bg-brand-accent text-on-accent text-xs">
 								{user.initials}
 							</AvatarFallback>
 						</Avatar>

@@ -174,23 +174,37 @@
 	--font-serif: var(--font-lora), Georgia, "Times New Roman", serif;
 	--font-mono: var(--font-plex-mono), ui-monospace, monospace;
 
-	/* Brand — Portal 7 Cidades. O `deep` é a superfície institucional
-	   (cabeçalho, rodapé, painel do menu, blocos) E a cor de manchete sobre
-	   claro: das 76 chamadas, 43 são `text-brand-deep`. Os dois papéis moram no
-	   mesmo token, então ele tem que ser escuro nos dois — 12,2:1 sobre o
-	   `canvas`, 12,8:1 com branco por cima.
+	/* Brand — Portal 7 Cidades. O `deep` é a SUPERFÍCIE institucional, e só
+	   ela: cabeçalho, rodapé, painel do menu, blocos. Até 21/08 ele acumulava
+	   também a cor de manchete sobre claro; o bloco `brand-ink` logo abaixo
+	   conta por que isso acabou.
 
-	   Estes tokens já se chamaram `brand-navy` (azul-marinho #011c39) e depois
-	   foram o marrom #3a1f0e. O nome é agnóstico de cor de propósito — nome de
-	   token que descreve o pigmento mente no dia seguinte ao rebranding, e este
-	   projeto já teve três.
+	   Estes tokens já se chamaram `brand-navy` (azul-marinho #011c39), depois
+	   foram o marrom #3a1f0e e depois o vinho #6b0206. O nome é agnóstico de
+	   cor de propósito — nome de token que descreve o pigmento mente no dia
+	   seguinte ao rebranding, e este projeto já teve QUATRO em três meses. É
+	   também por isso que `brand-red` deixou de existir: virou `brand-accent`
+	   quando o acento deixou de ser vermelho.
 
-	   O vinho veio da marca de 21/08/2026, que trocou o marrom por vermelho e
-	   laranja (`design/marca-new/`), e foi ESCOLHA DO CLIENTE entre quatro
-	   placas que passavam nos limiares. Custou o que está registrado no bloco do
-	   vermelho, logo abaixo. */
-	--color-brand-deep: #6b0206;
-	--color-brand-deep-hover: #820307;
+	   O vermelho vivo #ff0009 é o da marca de `design/marca-new/` e foi ESCOLHA
+	   DO CLIENTE, tomada com o número na mesa: branco por cima dá 4,00:1, abaixo
+	   do 4,5 de AA para corpo de texto. Passa em texto grande (3:1) e em forma
+	   gráfica. O que a decisão NÃO previa era o efeito colateral — a escala
+	   `on-brand` inteira colapsou, e isso está documentado lá embaixo. */
+	--color-brand-deep: #ff0009;
+	--color-brand-deep-hover: #d90008;
+
+	/* O SPLIT. `brand-deep` acumulava dois papéis — placa E manchete sobre
+	   claro — e sobreviveu a isso enquanto foi escuro nos dois. Com a placa
+	   vermelha viva não sobrevive mais: #ff0009 sobre o `canvas` dá 3,80:1,
+	   abaixo do 4,5 de AA, e uma home inteira de títulos vermelhos berra.
+
+	   Então a manchete ganhou token próprio. `ink` é vermelho quase-preto, não
+	   cinza: mantém a família da marca e devolve 13,6:1 — mais do que os 12,2:1
+	   que a placa vinho entregava. Regra: superfície é `deep`, texto sobre
+	   claro é `ink`. Não se trocam. */
+	--color-brand-ink: #5c0206;
+	--color-brand-ink-hover: #8c0005;
 
 	/* Órfão. Era a segunda cor da marca marrom, e hoje tem ZERO consumidores no
 	   produto — o valor sobrevive só porque o `--primary` do tema shadcn (o
@@ -199,27 +213,23 @@
 	--color-brand-gold: #7b5723;
 	--color-brand-gold-hover: #62451b;
 
-	/* O vermelho é significado — urgente, ao vivo, item ativo.
-	
-	   ISTO ENTROU EM TENSÃO e a tensão é conhecida. O texto aqui dizia que o
-	   vermelho "continua vermelho justamente porque não pode se confundir com a
-	   identidade". Com a placa vinho, ele se confunde: `brand-red` sobre
-	   `brand-deep` dá 2,9:1, abaixo do 3:1 que a WCAG pede até para forma
-	   sólida. A decisão de usar a placa vinho é do cliente e está tomada; o que
-	   sobra é onde cada vermelho pode viver.
+	/* O acento — urgente, ao vivo, item ativo. Chamava-se `brand-red` e virou
+	   o LARANJA da marca em 24/08/2026, porque a placa tomou o vermelho para
+	   si: acento e identidade não podem ser a mesma cor, ou o destaque deixa de
+	   destacar. O nome deixou de citar pigmento pelo motivo de sempre — este é
+	   o quarto.
 
-	   A regra que resolve: **`brand-red` só sobre superfície CLARA**, onde ele
-	   segue destacando. (Ele dá 4,17:1 no canvas — abaixo do 4,5 de AA para
-	   corpo de texto. É condição PRÉ-EXISTENTE, não veio da troca de placa, e
-	   está fora do que a troca decidiu; fica registrada aqui porque o número
-	   agora está escrito e alguém vai conferir.) Sobre a placa, quem carrega o
-	   significado é o `-soft` — e é por isso que ele foi reaberto de #ff5a60
-	   para #f9736a, que é o que devolve 4,7:1 contra o vinho (o valor antigo caía
-	   para 4,2:1 e reprovava). Mesmo papel do par `market-*`/`market-*-ink` logo
-	   abaixo: a mesma direção precisa de um tom por superfície. */
-	--color-brand-red: #ed1b24;
-	--color-brand-red-hover: #b3121a;
-	--color-brand-red-soft: #f9736a;
+	   O laranja NÃO É TINTA. #f58634 sobre o `canvas` dá 2,39:1: reprova o 4,5
+	   de AA e reprova até o 3:1 de forma gráfica. Ele só funciona CHEIO, como
+	   preenchimento, com tipo escuro por cima — `on-accent` devolve 6,91:1.
+	   Onde o acento precisa ser texto ou filete sobre claro, existe o
+	   `-ink`, que é o mesmo laranja escurecido até 5,03:1 e ainda lê como
+	   laranja. Usar `accent` como cor de texto é o erro que este comentário
+	   existe para impedir. */
+	--color-brand-accent: #f58634;
+	--color-brand-accent-hover: #d9741f;
+	--color-brand-accent-ink: #b04f0c;
+	--color-on-accent: #1a1a1a;
 
 	/* Surfaces */
 	--color-canvas: #faf9f7;
@@ -238,16 +248,17 @@
 	--color-meta: #96918a;
 	--color-meta-soft: #a8a49c;
 
-	/* Alta e baixa das cotações. Vivem SOBRE O MARROM ESCURO, então são as
-	   versões claras — o `--color-brand-red` normal (#ed1b24) fica escuro demais
-	   no fundo escuro e a queda sumiria. A baixa reaproveita o vermelho suave
-	   que já existe, em vez de inventar um segundo vermelho quase igual.
+	/* Alta e baixa SOBRE A PLACA. Foram refeitas na troca para o vermelho vivo:
+	   o verde #3fd67e caiu para 2,12:1 e a baixa, que reaproveitava o vermelho
+	   suave, para 1,46:1 — sumia dentro do próprio fundo. Numa placa #ff0009
+	   nada passa de ~3,6:1 (ver o bloco `on-brand`), então estas são as versões
+	   PÁLIDAS: 3,20:1 e 3,08:1, o teto disponível.
 
-	   Cor nunca é o único sinal: quem diz alta ou baixa é a SETA ao lado do
-	   número — a distinção entre verde e vermelho é justamente a que falta para
-	   a forma mais comum de daltonismo. */
-	--color-market-up: #3fd67e;
-	--color-market-down: var(--color-brand-red-soft);
+	   O sinal aqui depende mais da SETA do que nunca — verde-claro contra
+	   rosa-claro é uma distinção fraca, e era fraca de qualquer forma para a
+	   forma mais comum de daltonismo. A seta ao lado do número é quem diz. */
+	--color-market-up: #7dffb4;
+	--color-market-down: #ffd9da;
 
 	/* As mesmas duas direções SOBRE CLARO — a tira de cotações do cabeçalho
 	   passou a viver numa barra branca. Não dava para reaproveitar as de cima:
@@ -256,23 +267,29 @@
 	--color-market-up-ink: #157347;
 	--color-market-down-ink: #c62828;
 
-	/* Texto sobre a placa vinho. Cada tom foi RESOLVIDO para o mesmo contraste
-	   que a escala marrom entregava — não estimado no olho —, então os números
-	   abaixo são idênticos aos de antes da troca de placa:
-	     on-brand        12,8:1  ·  on-brand-soft   9,4:1
-	     on-brand-muted   6,9:1  ·  on-brand-dim    4,6:1 (AA no texto de 9–11px)
-	   `on-brand-rule` fica em 2,3:1 e por isso é SÓ filete e borda — nunca
-	   texto.
+	/* Texto sobre a placa vermelha. LEIA ISTO ANTES DE USAR:
 
-	   Continuam sendo TINTA, não cor: todos no matiz 28 — o do laranja da marca
-	   nova (#f58634) — com saturação 18. Matiz da marca mantém a família quente
-	   que o resto da paleta já assume; saturação baixa impede que uma legenda
-	   compita com a manchete ao lado. */
+	   a placa #ff0009 tem um TETO de 4,00:1 — é o que o branco puro alcança
+	   sobre ela. Não existe tom melhor; não é falta de calibragem. A escala
+	   tonal que existia sobre o vinho (12,8 / 9,4 / 6,9 / 4,6) não é
+	   reproduzível aqui, e tentar reproduzi-la só produz números falsos:
+	     on-brand        4,00:1  ·  on-brand-soft   3,67:1
+	     on-brand-muted  3,36:1  ·  on-brand-dim    3,08:1
+	   `on-brand-rule` fica em 1,65:1 — SÓ filete e borda, nunca texto.
+
+	   Consequência prática: sobre a placa, HIERARQUIA VEM DE PESO E TAMANHO,
+	   não de tom. Um `-muted` aqui não é "texto secundário legível", é texto
+	   secundário no limite. Nada abaixo de `-soft` deve carregar informação que
+	   o leitor precise ler para entender a página.
+
+	   Isso é dívida assumida, não descuido: o #ff0009 literal foi decisão do
+	   cliente, tomada com o 4,00:1 do branco na mesa. O que não estava na mesa
+	   era o colapso desta escala — fica registrado aqui. */
 	--color-on-brand: #ffffff;
-	--color-on-brand-soft: #e2dbd5;
-	--color-on-brand-muted: #c9bcb1;
-	--color-on-brand-dim: #ab9786;
-	--color-on-brand-rule: #786453;
+	--color-on-brand-soft: #fff2f3;
+	--color-on-brand-muted: #ffe6e6;
+	--color-on-brand-dim: #ffd9da;
+	--color-on-brand-rule: #ff8084;
 
 	/* Corner radii — 4 / 8 / 12 / 14, named by what they wrap */
 	--radius-tag: 4px;
@@ -350,7 +367,7 @@
 	   WYSIWYG. */
 	--tw-prose-body: var(--color-foreground);
 	--tw-prose-headings: var(--color-foreground);
-	--tw-prose-links: var(--color-brand-red);
+	--tw-prose-links: var(--color-brand-accent-ink);
 	--tw-prose-quotes: var(--color-foreground);
 	--tw-prose-bullets: var(--color-muted-foreground);
 	--tw-prose-counters: var(--color-muted-foreground);
@@ -369,7 +386,7 @@
 }
 
 .article-editor blockquote {
-	border-left-color: var(--color-brand-red);
+	border-left-color: var(--color-brand-accent-ink);
 	font-style: italic;
 }
 

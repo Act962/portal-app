@@ -138,7 +138,7 @@ export default async function HomePage() {
 						action={
 							<Link
 								href={routes.latest}
-								className="font-mono text-[10px] text-brand-red md:text-[11px]"
+								className="font-mono text-[10px] text-brand-accent-ink md:text-[11px]"
 							>
 								VER TODAS →
 							</Link>

@@ -77,7 +77,7 @@ export default async function ColumnistsPage() {
 							>
 								<Link
 									href={routes.author(columnist.slug)}
-									className="flex items-start gap-3.5 text-brand-deep"
+									className="flex items-start gap-3.5 text-brand-ink"
 								>
 									<AuthorAvatar
 										photoUrl={columnist.photoUrl}
@@ -89,7 +89,7 @@ export default async function ColumnistsPage() {
 											{columnist.name}
 										</span>
 										{columnist.beat ? (
-											<span className="my-1 block font-mono text-[9.5px] text-brand-red uppercase tracking-[0.1em]">
+											<span className="my-1 block font-mono text-[9.5px] text-brand-accent-ink uppercase tracking-[0.1em]">
 												{columnist.beat}
 											</span>
 										) : null}
@@ -116,7 +116,7 @@ export default async function ColumnistsPage() {
 												columnist.latest.sectionSlug,
 												columnist.latest.slug,
 											)}
-											className="block font-bold text-[13.5px] text-brand-deep leading-snug hover:text-brand-red"
+											className="block font-bold text-[13.5px] text-brand-ink leading-snug hover:text-brand-accent-ink"
 										>
 											{columnist.latest.title}
 										</Link>

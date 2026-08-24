@@ -21,7 +21,10 @@ export function ArticleHeader({ article, author, url }: ArticleHeaderProps) {
 		<header>
 			{/* Dark brown on mobile, red from `md` — the phone layout has no other brown
           anchor above the fold, the desktop one already has the masthead. */}
-			<Kicker variant="solid-deep" className="mb-2.5 md:mb-3.5 md:bg-brand-red">
+			<Kicker
+				variant="solid-deep"
+				className="mb-2.5 md:mb-3.5 md:bg-brand-accent"
+			>
 				{article.kicker}
 			</Kicker>
 
@@ -34,7 +37,7 @@ export function ArticleHeader({ article, author, url }: ArticleHeaderProps) {
 			*/}
 			<h1
 				data-speakable="headline"
-				className="mb-2.5 text-balance font-extrabold text-[27px] text-brand-deep leading-[1.1] tracking-[-0.025em] md:mb-3.5 md:text-[44px] md:leading-[1.03] md:tracking-[-0.035em]"
+				className="mb-2.5 text-balance font-extrabold text-[27px] text-brand-ink leading-[1.1] tracking-[-0.025em] md:mb-3.5 md:text-[44px] md:leading-[1.03] md:tracking-[-0.035em]"
 			>
 				{article.title}
 			</h1>
@@ -54,10 +57,10 @@ export function ArticleHeader({ article, author, url }: ArticleHeaderProps) {
 				/>
 
 				<div className="min-w-0 flex-1">
-					<p className="font-bold text-[12.5px] text-brand-deep md:text-[13.5px]">
+					<p className="font-bold text-[12.5px] text-brand-ink md:text-[13.5px]">
 						<Link
 							href={routes.author(author.slug)}
-							className="hover:text-brand-red"
+							className="hover:text-brand-accent-ink"
 						>
 							{author.name}
 						</Link>

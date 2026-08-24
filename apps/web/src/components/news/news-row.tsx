@@ -25,7 +25,7 @@ export function NewsRow({
 		<article className="border-hairline border-b">
 			<Link
 				href={routes.article(article.sectionSlug, article.slug)}
-				className="group flex gap-3 py-3 text-brand-deep hover:text-brand-deep md:gap-5 md:py-4.5"
+				className="group flex gap-3 py-3 text-brand-ink hover:text-brand-ink md:gap-5 md:py-4.5"
 			>
 				<ArticleThumb
 					article={article}
@@ -39,7 +39,7 @@ export function NewsRow({
 						</Kicker>
 					) : null}
 
-					<h3 className="text-pretty font-bold text-[15px] leading-tight tracking-[-0.01em] group-hover:text-brand-red md:mb-2 md:text-[22px] md:tracking-[-0.02em]">
+					<h3 className="text-pretty font-bold text-[15px] leading-tight tracking-[-0.01em] group-hover:text-brand-accent-ink md:mb-2 md:text-[22px] md:tracking-[-0.02em]">
 						{article.title}
 					</h3>
 

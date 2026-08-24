@@ -97,7 +97,7 @@ export function MediaPickerDialog({
 									key={asset.id}
 									type="button"
 									onClick={() => onSelect(asset.id)}
-									className="group overflow-hidden rounded-lg border text-left transition hover:border-brand-red hover:ring-2 hover:ring-brand-red/30"
+									className="group overflow-hidden rounded-lg border text-left transition hover:border-brand-accent-ink hover:ring-2 hover:ring-brand-accent/30"
 								>
 									<AssetImage
 										src={asset.url}

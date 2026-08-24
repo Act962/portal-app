@@ -19,11 +19,11 @@ export function PollCard({ poll }: { poll: PollView | null }) {
 
 	return (
 		<section className="rounded-card border border-hairline bg-surface p-4">
-			<h2 className="mb-2 font-mono text-[9px] text-brand-red tracking-[0.14em]">
+			<h2 className="mb-2 font-mono text-[9px] text-brand-accent-ink tracking-[0.14em]">
 				ENQUETE DA SEMANA
 			</h2>
 
-			<p className="mb-3 text-pretty font-bold text-[17px] text-brand-deep leading-snug">
+			<p className="mb-3 text-pretty font-bold text-[17px] text-brand-ink leading-snug">
 				{poll.question}
 			</p>
 

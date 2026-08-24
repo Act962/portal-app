@@ -72,7 +72,7 @@ export async function SiteHeader() {
 				<Link
 					href={routes.search}
 					aria-label="Buscar"
-					className="flex size-11 items-center justify-center justify-self-end rounded-full bg-surface text-brand-deep transition-colors hover:bg-on-brand-soft"
+					className="flex size-11 items-center justify-center justify-self-end rounded-full bg-surface text-brand-ink transition-colors hover:bg-on-brand-soft"
 				>
 					<Search size={20} aria-hidden />
 				</Link>

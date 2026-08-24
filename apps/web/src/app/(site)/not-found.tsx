@@ -13,11 +13,11 @@ export default async function NotFound() {
 	const mostRead = await getMostRead();
 	return (
 		<Container className="max-w-article py-major">
-			<p className="mb-2 font-mono text-[10px] text-brand-red tracking-[0.16em]">
+			<p className="mb-2 font-mono text-[10px] text-brand-accent-ink tracking-[0.16em]">
 				ERRO 404
 			</p>
 
-			<h1 className="mb-3 font-extrabold text-4xl text-brand-deep leading-none tracking-[-0.04em]">
+			<h1 className="mb-3 font-extrabold text-4xl text-brand-ink leading-none tracking-[-0.04em]">
 				Página não encontrada
 			</h1>
 

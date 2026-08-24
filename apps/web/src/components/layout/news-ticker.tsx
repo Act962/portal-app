@@ -28,7 +28,7 @@ export function NewsTicker({ articles }: { articles: Article[] }) {
 			className="border-hairline border-b bg-surface"
 		>
 			<Container className="flex h-9 items-center gap-2.5 overflow-hidden md:h-[42px] md:gap-4">
-				<span className="shrink-0 rounded-tag bg-brand-red px-1.5 py-0.5 font-mono text-[9px] text-white tracking-[0.12em] md:px-2 md:py-1 md:text-[10px] md:tracking-[0.14em]">
+				<span className="shrink-0 rounded-tag bg-brand-accent px-1.5 py-0.5 font-mono text-[9px] text-on-accent tracking-[0.12em] md:px-2 md:py-1 md:text-[10px] md:tracking-[0.14em]">
 					ÚLTIMAS
 				</span>
 
@@ -37,7 +37,7 @@ export function NewsTicker({ articles }: { articles: Article[] }) {
 						<li key={article.slug}>
 							<Link
 								href={routes.article(article.sectionSlug, article.slug)}
-								className="font-semibold text-[12.5px] text-brand-deep hover:text-brand-red md:text-[13.5px]"
+								className="font-semibold text-[12.5px] text-brand-ink hover:text-brand-accent-ink md:text-[13.5px]"
 							>
 								{article.title}
 							</Link>

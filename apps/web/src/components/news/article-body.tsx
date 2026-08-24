@@ -49,7 +49,7 @@ function InlineContent({ nodes }: { nodes: InlineNode[] }) {
 					href={node.href}
 					target="_blank"
 					rel="noreferrer"
-					className="text-brand-red underline-offset-2 hover:underline"
+					className="text-brand-accent-ink underline-offset-2 hover:underline"
 				>
 					{node.text}
 				</a>
@@ -57,7 +57,7 @@ function InlineContent({ nodes }: { nodes: InlineNode[] }) {
 				<Link
 					key={key}
 					href={node.href as Route}
-					className="text-brand-red underline-offset-2 hover:underline"
+					className="text-brand-accent-ink underline-offset-2 hover:underline"
 				>
 					{node.text}
 				</Link>
@@ -71,7 +71,7 @@ function InlineContent({ nodes }: { nodes: InlineNode[] }) {
 function Block({ block }: { block: ArticleBlock }) {
 	if (block.kind === "subheading") {
 		return (
-			<h2 className="font-extrabold font-sans text-brand-deep text-xl leading-tight tracking-[-0.02em] md:text-2xl">
+			<h2 className="font-extrabold font-sans text-brand-ink text-xl leading-tight tracking-[-0.02em] md:text-2xl">
 				{block.text}
 			</h2>
 		);
@@ -79,7 +79,7 @@ function Block({ block }: { block: ArticleBlock }) {
 
 	if (block.kind === "quote") {
 		return (
-			<blockquote className="border-brand-red border-l-[3px] py-0.5 pl-3.5 text-[19px] text-brand-deep italic leading-[1.35] md:border-l-4 md:py-1 md:pl-5 md:text-2xl">
+			<blockquote className="border-brand-accent-ink border-l-[3px] py-0.5 pl-3.5 text-[19px] text-brand-ink italic leading-[1.35] md:border-l-4 md:py-1 md:pl-5 md:text-2xl">
 				<p>“{block.text}”</p>
 				{block.attribution ? (
 					<cite className="mt-2 block font-sans font-semibold text-meta text-xs uppercase not-italic tracking-[0.1em]">

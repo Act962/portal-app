@@ -35,7 +35,7 @@ export function NewsCard({
 		<article className={className}>
 			<Link
 				href={routes.article(article.sectionSlug, article.slug)}
-				className="group flex flex-col gap-2 text-brand-deep hover:text-brand-deep"
+				className="group flex flex-col gap-2 text-brand-ink hover:text-brand-ink"
 			>
 				<ArticleThumb
 					article={article}
@@ -46,7 +46,7 @@ export function NewsCard({
 
 				<h3
 					className={cn(
-						"text-pretty font-bold leading-tight group-hover:text-brand-red",
+						"text-pretty font-bold leading-tight group-hover:text-brand-accent-ink",
 						SIZES[size].title,
 					)}
 				>

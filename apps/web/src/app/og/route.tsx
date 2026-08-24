@@ -22,8 +22,13 @@ export const runtime = "nodejs";
 
 const SIZE = { width: 1200, height: 630 } as const;
 
-const DEEP = "#6b0206";
-const RED = "#ed1b24";
+// Espelham os tokens de `globals.css`; aqui são literais porque o Satori não
+// resolve custom property. Mesmo split de lá: `DEEP` é SUPERFÍCIE e filete,
+// `INK` é texto sobre claro. Trocar um pelo outro reprova contraste.
+const DEEP = "#ff0009";
+const INK = "#5c0206";
+const ACCENT = "#f58634";
+const ACCENT_INK = "#b04f0c";
 const CANVAS = "#faf9f7";
 
 const TITLE_MAX = 110;
@@ -60,7 +65,7 @@ export async function GET(request: Request) {
 				padding: "72px 80px",
 				// A faixa vermelha no topo é o único elemento de marca que sobrevive
 				// à miniatura de 200px do compartilhamento.
-				borderTop: `20px solid ${RED}`,
+				borderTop: `20px solid ${ACCENT}`,
 			}}
 		>
 			<div style={{ display: "flex", flexDirection: "column" }}>
@@ -68,7 +73,7 @@ export async function GET(request: Request) {
 					style={{
 						fontSize: 26,
 						letterSpacing: 6,
-						color: RED,
+						color: ACCENT_INK,
 						textTransform: "uppercase",
 						marginBottom: 28,
 					}}
@@ -79,7 +84,7 @@ export async function GET(request: Request) {
 					style={{
 						fontSize,
 						fontWeight: 700,
-						color: DEEP,
+						color: INK,
 						lineHeight: 1.1,
 						letterSpacing: -1.5,
 					}}
@@ -96,7 +101,7 @@ export async function GET(request: Request) {
 					borderTop: `4px solid ${DEEP}`,
 					paddingTop: 24,
 					fontSize: 30,
-					color: DEEP,
+					color: INK,
 				}}
 			>
 				<div style={{ display: "flex", fontWeight: 700 }}>{site.name}</div>

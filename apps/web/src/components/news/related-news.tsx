@@ -12,7 +12,7 @@ function RelatedRow({ article }: { article: Article }) {
 		<li className="border-hairline border-t">
 			<Link
 				href={routes.article(article.sectionSlug, article.slug)}
-				className="flex gap-3 py-3 text-brand-deep hover:text-brand-deep"
+				className="flex gap-3 py-3 text-brand-ink hover:text-brand-ink"
 			>
 				<ArticleThumb
 					article={article}

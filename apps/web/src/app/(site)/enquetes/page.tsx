@@ -66,7 +66,7 @@ export default async function PollsPage() {
 
 				{current ? (
 					<section className="mb-section">
-						<h2 className="mb-2.5 font-mono text-[9px] text-brand-red uppercase tracking-[0.16em]">
+						<h2 className="mb-2.5 font-mono text-[9px] text-brand-accent-ink uppercase tracking-[0.16em]">
 							No ar agora
 						</h2>
 						<PollCard poll={current} />
