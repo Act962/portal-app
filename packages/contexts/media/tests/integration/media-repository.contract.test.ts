@@ -110,9 +110,9 @@ function contract(label: string, make: () => Harness): void {
 			await h.repo.save(dentro);
 			await h.repo.save(imageAt("m-2", "uploads/2/b.jpg", "b.jpg"));
 
-			expect((await h.repo.list({ folderId: "f-1" })).map((a) => a.id)).toEqual([
-				"m-1",
-			]);
+			expect((await h.repo.list({ folderId: "f-1" })).map((a) => a.id)).toEqual(
+				["m-1"],
+			);
 			expect((await h.repo.list({ folderId: null })).map((a) => a.id)).toEqual([
 				"m-2",
 			]);

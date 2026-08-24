@@ -1,4 +1,4 @@
-import { Entity, type Result, err, ok } from "@portal-app/shared-kernel";
+import { Entity, err, ok, type Result } from "@portal-app/shared-kernel";
 
 import { MissingFolderName } from "./errors";
 

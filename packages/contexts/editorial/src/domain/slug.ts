@@ -1,11 +1,11 @@
-import { type Result, ValueObject, err, ok } from "@portal-app/shared-kernel";
+import { err, ok, type Result, ValueObject } from "@portal-app/shared-kernel";
 
 import { InvalidSlug } from "./errors";
 
 type SlugProps = { value: string };
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const DIACRITICS = new RegExp("[\\u0300-\\u036f]", "g");
+const DIACRITICS = /[\u0300-\u036f]/g;
 
 /**
  * Slug da matéria — vai na URL `/{editoria}/{slug}`. Mesmo VO que a taxonomia

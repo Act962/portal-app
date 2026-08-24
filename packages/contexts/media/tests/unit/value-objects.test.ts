@@ -23,7 +23,9 @@ describe("Credit", () => {
 
 describe("AltText", () => {
 	it("apara e aceita texto não-vazio", () => {
-		expect(AltText.create(" Torcida no estádio ").unwrap().value).toBe("Torcida no estádio");
+		expect(AltText.create(" Torcida no estádio ").unwrap().value).toBe(
+			"Torcida no estádio",
+		);
 	});
 
 	it("rejeita texto vazio (MissingAltText)", () => {
@@ -49,9 +51,15 @@ describe("Dimensions", () => {
 	});
 
 	it("rejeita zero, negativo ou fracionário (InvalidDimensions)", () => {
-		expect(Dimensions.create(0, 100).unwrapErr()).toBeInstanceOf(InvalidDimensions);
-		expect(Dimensions.create(100, -1).unwrapErr()).toBeInstanceOf(InvalidDimensions);
-		expect(Dimensions.create(10.5, 100).unwrapErr()).toBeInstanceOf(InvalidDimensions);
+		expect(Dimensions.create(0, 100).unwrapErr()).toBeInstanceOf(
+			InvalidDimensions,
+		);
+		expect(Dimensions.create(100, -1).unwrapErr()).toBeInstanceOf(
+			InvalidDimensions,
+		);
+		expect(Dimensions.create(10.5, 100).unwrapErr()).toBeInstanceOf(
+			InvalidDimensions,
+		);
 	});
 });
 
@@ -69,8 +77,14 @@ describe("FocalPoint (M08)", () => {
 	});
 
 	it("rejeita fora de [0,1] ou não-finito (InvalidFocalPoint)", () => {
-		expect(FocalPoint.create(-0.1, 0.5).unwrapErr()).toBeInstanceOf(InvalidFocalPoint);
-		expect(FocalPoint.create(0.5, 1.2).unwrapErr()).toBeInstanceOf(InvalidFocalPoint);
-		expect(FocalPoint.create(Number.NaN, 0.5).unwrapErr()).toBeInstanceOf(InvalidFocalPoint);
+		expect(FocalPoint.create(-0.1, 0.5).unwrapErr()).toBeInstanceOf(
+			InvalidFocalPoint,
+		);
+		expect(FocalPoint.create(0.5, 1.2).unwrapErr()).toBeInstanceOf(
+			InvalidFocalPoint,
+		);
+		expect(FocalPoint.create(Number.NaN, 0.5).unwrapErr()).toBeInstanceOf(
+			InvalidFocalPoint,
+		);
 	});
 });

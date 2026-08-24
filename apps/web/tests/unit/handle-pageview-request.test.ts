@@ -82,7 +82,9 @@ describe("handlePageviewRequest — abertura", () => {
 
 	it("sem referrer é tráfego direto", async () => {
 		await handlePageviewRequest(
-			request(JSON.stringify({ viewId: "v1", slug: "materia-x", referrer: "" })),
+			request(
+				JSON.stringify({ viewId: "v1", slug: "materia-x", referrer: "" }),
+			),
 			deps,
 		);
 
@@ -159,7 +161,10 @@ describe("handlePageviewRequest — saída", () => {
 
 describe("handlePageviewRequest — robustez", () => {
 	it("corpo malformado não derruba a rota", async () => {
-		const response = await handlePageviewRequest(request("isto não é json"), deps);
+		const response = await handlePageviewRequest(
+			request("isto não é json"),
+			deps,
+		);
 
 		expect(response.status).toBe(204);
 		expect(await counter.topSlugs(5, new Date())).toEqual([]);

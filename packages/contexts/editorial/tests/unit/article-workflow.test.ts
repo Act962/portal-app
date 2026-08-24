@@ -61,12 +61,27 @@ describe("Article — criação", () => {
 	});
 
 	it("rejeita título, autor, slug ou bloco inválidos", () => {
-		expect(Article.createDraft({ id: "x", headline: " ", byline: { authorId: "a", name: "A" } }).unwrapErr()).toBeInstanceOf(HeadlineRequired);
 		expect(
-			Article.createDraft({ id: "x", headline: "T", slug: "!!!", byline: { authorId: "a", name: "A" } }).isErr(),
+			Article.createDraft({
+				id: "x",
+				headline: " ",
+				byline: { authorId: "a", name: "A" },
+			}).unwrapErr(),
+		).toBeInstanceOf(HeadlineRequired);
+		expect(
+			Article.createDraft({
+				id: "x",
+				headline: "T",
+				slug: "!!!",
+				byline: { authorId: "a", name: "A" },
+			}).isErr(),
 		).toBe(true);
 		expect(
-			Article.createDraft({ id: "x", headline: "T", byline: { authorId: " ", name: " " } }).isErr(),
+			Article.createDraft({
+				id: "x",
+				headline: "T",
+				byline: { authorId: " ", name: " " },
+			}).isErr(),
 		).toBe(true);
 		expect(
 			Article.createDraft({
@@ -81,8 +96,14 @@ describe("Article — criação", () => {
 
 describe("Article — pendências de publicação (A04/E02)", () => {
 	it("lista tudo que falta em um rascunho vazio", () => {
-		const kinds = draft().publishPreflight().map((b) => b.name);
-		expect(kinds).toEqual(["BodyRequired", "SectionRequired", "CoverImageRequired"]);
+		const kinds = draft()
+			.publishPreflight()
+			.map((b) => b.name);
+		expect(kinds).toEqual([
+			"BodyRequired",
+			"SectionRequired",
+			"CoverImageRequired",
+		]);
 	});
 
 	it("aponta alt-text faltando quando há capa sem alt", () => {
@@ -91,7 +112,9 @@ describe("Article — pendências de publicação (A04/E02)", () => {
 			body: [{ type: "paragraph", text: "x" }],
 			cover: { mediaId: "m-1" },
 		});
-		expect(article.publishPreflight().map((b) => b.name)).toEqual(["AltTextRequired"]);
+		expect(article.publishPreflight().map((b) => b.name)).toEqual([
+			"AltTextRequired",
+		]);
 	});
 
 	it("um rascunho publicável não tem pendências", () => {
@@ -118,7 +141,9 @@ describe("Article — caminho feliz e eventos", () => {
 
 		const events = article.pullEvents();
 		expect(events[0]).toBeInstanceOf(ArticlePublished);
-		expect((events[0] as ArticlePublished).slug).toBe("enchente-atinge-o-centro");
+		expect((events[0] as ArticlePublished).slug).toBe(
+			"enchente-atinge-o-centro",
+		);
 		expect((events[0] as ArticlePublished).sectionId).toBe("cidades");
 		expect(article.pullEvents()).toHaveLength(0); // esvaziou
 	});
@@ -128,35 +153,58 @@ describe("Article — transições inválidas (E01)", () => {
 	it("cada transição fora de ordem é rejeitada", () => {
 		expect(draft().publish(NOW).unwrapErr()).toBeInstanceOf(InvalidTransition);
 		expect(draft().approve().unwrapErr()).toBeInstanceOf(InvalidTransition);
-		expect(draft().schedule(LATER, NOW).unwrapErr()).toBeInstanceOf(InvalidTransition);
-		expect(draft().cancelSchedule().unwrapErr()).toBeInstanceOf(InvalidTransition);
+		expect(draft().schedule(LATER, NOW).unwrapErr()).toBeInstanceOf(
+			InvalidTransition,
+		);
+		expect(draft().cancelSchedule().unwrapErr()).toBeInstanceOf(
+			InvalidTransition,
+		);
 		expect(draft().archive(NOW).unwrapErr()).toBeInstanceOf(InvalidTransition);
-		expect(draft().markUpdated(NOW).unwrapErr()).toBeInstanceOf(InvalidTransition);
+		expect(draft().markUpdated(NOW).unwrapErr()).toBeInstanceOf(
+			InvalidTransition,
+		);
 
 		const inReview = publishable();
 		inReview.submitForReview(NOW);
-		expect(inReview.submitForReview(NOW).unwrapErr()).toBeInstanceOf(InvalidTransition);
+		expect(inReview.submitForReview(NOW).unwrapErr()).toBeInstanceOf(
+			InvalidTransition,
+		);
 	});
 });
 
 describe("Article — publicação bloqueada por pendência (E02)", () => {
 	it("publish devolve a pendência que falta", () => {
-		const semCorpo = draft({ sectionId: "c", cover: { mediaId: "m", altText: "a" } });
+		const semCorpo = draft({
+			sectionId: "c",
+			cover: { mediaId: "m", altText: "a" },
+		});
 		semCorpo.submitForReview(NOW);
 		semCorpo.approve();
 		expect(semCorpo.publish(NOW).unwrapErr()).toBeInstanceOf(BodyRequired);
 
-		const semEditoria = draft({ body: [{ type: "paragraph", text: "x" }], cover: { mediaId: "m", altText: "a" } });
+		const semEditoria = draft({
+			body: [{ type: "paragraph", text: "x" }],
+			cover: { mediaId: "m", altText: "a" },
+		});
 		semEditoria.submitForReview(NOW);
 		semEditoria.approve();
-		expect(semEditoria.publish(NOW).unwrapErr()).toBeInstanceOf(SectionRequired);
+		expect(semEditoria.publish(NOW).unwrapErr()).toBeInstanceOf(
+			SectionRequired,
+		);
 
-		const semCapa = draft({ sectionId: "c", body: [{ type: "paragraph", text: "x" }] });
+		const semCapa = draft({
+			sectionId: "c",
+			body: [{ type: "paragraph", text: "x" }],
+		});
 		semCapa.submitForReview(NOW);
 		semCapa.approve();
 		expect(semCapa.publish(NOW).unwrapErr()).toBeInstanceOf(CoverImageRequired);
 
-		const semAlt = draft({ sectionId: "c", body: [{ type: "paragraph", text: "x" }], cover: { mediaId: "m" } });
+		const semAlt = draft({
+			sectionId: "c",
+			body: [{ type: "paragraph", text: "x" }],
+			cover: { mediaId: "m" },
+		});
 		semAlt.submitForReview(NOW);
 		semAlt.approve();
 		expect(semAlt.publish(NOW).unwrapErr()).toBeInstanceOf(AltTextRequired);
@@ -178,8 +226,12 @@ describe("Article — devolução com motivo (E04)", () => {
 	it("exige motivo e só devolve da revisão", () => {
 		const inReview = publishable();
 		inReview.submitForReview(NOW);
-		expect(inReview.reject("  ", NOW).unwrapErr()).toBeInstanceOf(RejectionReasonRequired);
-		expect(draft().reject("x", NOW).unwrapErr()).toBeInstanceOf(InvalidTransition);
+		expect(inReview.reject("  ", NOW).unwrapErr()).toBeInstanceOf(
+			RejectionReasonRequired,
+		);
+		expect(draft().reject("x", NOW).unwrapErr()).toBeInstanceOf(
+			InvalidTransition,
+		);
 	});
 
 	it("aprovar limpa o motivo de devolução anterior", () => {
@@ -207,16 +259,21 @@ describe("Article — agendamento", () => {
 	});
 
 	it("rejeita agendamento no passado", () => {
-		expect(approved().schedule(new Date("2026-08-05T06:00:00Z"), NOW).unwrapErr()).toBeInstanceOf(
-			ScheduleInPast,
-		);
+		expect(
+			approved().schedule(new Date("2026-08-05T06:00:00Z"), NOW).unwrapErr(),
+		).toBeInstanceOf(ScheduleInPast);
 	});
 
 	it("não agenda matéria com pendências", () => {
-		const article = draft({ sectionId: "c", cover: { mediaId: "m", altText: "a" } });
+		const article = draft({
+			sectionId: "c",
+			cover: { mediaId: "m", altText: "a" },
+		});
 		article.submitForReview(NOW);
 		article.approve();
-		expect(article.schedule(LATER, NOW).unwrapErr()).toBeInstanceOf(BodyRequired);
+		expect(article.schedule(LATER, NOW).unwrapErr()).toBeInstanceOf(
+			BodyRequired,
+		);
 	});
 
 	it("cancela o agendamento voltando para APROVADA", () => {
@@ -239,7 +296,9 @@ describe("Article — slug imutável após publicar (E03)", () => {
 		article.approve();
 		article.publish(NOW);
 
-		expect(article.changeSlug("outro").unwrapErr()).toBeInstanceOf(SlugImmutable);
+		expect(article.changeSlug("outro").unwrapErr()).toBeInstanceOf(
+			SlugImmutable,
+		);
 	});
 });
 
@@ -291,7 +350,9 @@ describe("Article — edição de conteúdo", () => {
 
 	it("valida título, corpo e autor na edição", () => {
 		const article = draft();
-		expect(article.editContent({ headline: " " }).unwrapErr()).toBeInstanceOf(HeadlineRequired);
+		expect(article.editContent({ headline: " " }).unwrapErr()).toBeInstanceOf(
+			HeadlineRequired,
+		);
 		expect(
 			article.editContent({ body: [{ type: "paragraph", text: "" }] }).isErr(),
 		).toBe(true);
@@ -302,7 +363,9 @@ describe("Article — edição de conteúdo", () => {
 		const article = approved();
 		article.publish(NOW);
 		article.archive(NOW);
-		expect(article.editContent({ headline: "x" }).unwrapErr()).toBeInstanceOf(InvalidTransition);
+		expect(article.editContent({ headline: "x" }).unwrapErr()).toBeInstanceOf(
+			InvalidTransition,
+		);
 	});
 });
 

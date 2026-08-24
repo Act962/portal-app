@@ -1,4 +1,9 @@
-import { type IdGenerator, type Result, err, ok } from "@portal-app/shared-kernel";
+import {
+	err,
+	type IdGenerator,
+	ok,
+	type Result,
+} from "@portal-app/shared-kernel";
 
 import {
 	CannotMergeIntoItself,
@@ -27,7 +32,11 @@ export async function createTag(
 	input: { name: string; slug?: string },
 	deps: Pick<Deps, "repo" | "ids">,
 ): Promise<Result<Tag, NameRequired | InvalidSlug | SlugTaken>> {
-	const created = Tag.create({ id: deps.ids.generate(), name: input.name, slug: input.slug });
+	const created = Tag.create({
+		id: deps.ids.generate(),
+		name: input.name,
+		slug: input.slug,
+	});
 	if (created.isErr()) {
 		return err(created.error);
 	}

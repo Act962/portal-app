@@ -2,8 +2,8 @@ import { createPrismaClient } from "@portal-app/db";
 import { type ArticleRepository, SyncEventBus } from "@portal-app/editorial";
 import { dispatchOutbox } from "@portal-app/editorial/infrastructure/outbox-relay";
 import { PrismaArticleRepository } from "@portal-app/editorial/infrastructure/prisma-article-repository";
-import { SystemClock, UuidGenerator } from "@portal-app/shared-kernel";
 import type { Page, PageRequest } from "@portal-app/shared-kernel";
+import { SystemClock, UuidGenerator } from "@portal-app/shared-kernel";
 import type { ContentUsage } from "@portal-app/taxonomy";
 
 /**

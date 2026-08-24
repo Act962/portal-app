@@ -19,7 +19,11 @@ export function BarList({
 	emptyLabel?: string;
 }) {
 	if (items.length === 0) {
-		return <p className="py-6 text-center text-muted-foreground text-sm">{emptyLabel}</p>;
+		return (
+			<p className="py-6 text-center text-muted-foreground text-sm">
+				{emptyLabel}
+			</p>
+		);
 	}
 
 	// Escala contra o MAIOR valor, não contra a soma: a leitura aqui é
@@ -41,7 +45,9 @@ export function BarList({
 					<div className="h-2 w-full rounded-full bg-muted">
 						<div
 							className="h-2 rounded-full bg-chart-3"
-							style={{ width: `${Math.max((item.value / max) * 100, item.value > 0 ? 2 : 0)}%` }}
+							style={{
+								width: `${Math.max((item.value / max) * 100, item.value > 0 ? 2 : 0)}%`,
+							}}
 						/>
 					</div>
 				</li>

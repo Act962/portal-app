@@ -1,38 +1,38 @@
 {
-  "name": "@portal-app/api",
-  "type": "module",
-  "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
-  },
-  "scripts": {},
-  "dependencies": {
-    "inngest": "catalog:",
-    "@portal-app/analytics": "workspace:*",
-    "@portal-app/auth": "workspace:*",
-    "@portal-app/broadcast": "workspace:*",
-    "@portal-app/columnists": "workspace:*",
-    "@portal-app/db": "workspace:*",
-    "@portal-app/editorial": "workspace:*",
-    "@portal-app/env": "workspace:*",
-    "@portal-app/identity": "workspace:*",
-    "@portal-app/media": "workspace:*",
-    "@portal-app/polls": "workspace:*",
-    "@portal-app/settings": "workspace:*",
-    "@portal-app/shared-kernel": "workspace:*",
-    "@portal-app/taxonomy": "workspace:*",
-    "@trpc/client": "catalog:",
-    "@trpc/server": "catalog:",
-    "dotenv": "catalog:",
-    "next": "catalog:",
-    "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@portal-app/config": "workspace:*",
-    "typescript": "catalog:"
-  }
+	"name": "@portal-app/api",
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {},
+	"dependencies": {
+		"inngest": "catalog:",
+		"@portal-app/analytics": "workspace:*",
+		"@portal-app/auth": "workspace:*",
+		"@portal-app/broadcast": "workspace:*",
+		"@portal-app/columnists": "workspace:*",
+		"@portal-app/db": "workspace:*",
+		"@portal-app/editorial": "workspace:*",
+		"@portal-app/env": "workspace:*",
+		"@portal-app/identity": "workspace:*",
+		"@portal-app/media": "workspace:*",
+		"@portal-app/polls": "workspace:*",
+		"@portal-app/settings": "workspace:*",
+		"@portal-app/shared-kernel": "workspace:*",
+		"@portal-app/taxonomy": "workspace:*",
+		"@trpc/client": "catalog:",
+		"@trpc/server": "catalog:",
+		"dotenv": "catalog:",
+		"next": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@portal-app/config": "workspace:*",
+		"typescript": "catalog:"
+	}
 }

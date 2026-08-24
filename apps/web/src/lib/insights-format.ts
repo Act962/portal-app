@@ -43,7 +43,10 @@ export function formatSource(source: string): string {
  * `now` entra por parâmetro (regra do CLAUDE.md): sem isso não dá para testar
  * a virada de mês nem congelar o relógio.
  */
-export function rangeForDays(days: number, now: Date): { from: Date; to: Date } {
+export function rangeForDays(
+	days: number,
+	now: Date,
+): { from: Date; to: Date } {
 	const to = new Date(now);
 	to.setHours(23, 59, 59, 999);
 	const from = new Date(now);

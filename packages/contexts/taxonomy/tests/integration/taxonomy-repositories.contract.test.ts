@@ -70,7 +70,11 @@ function sectionContract(label: string, make: () => SectionHarness): void {
 		it("persiste a hierarquia (parentId) e a reidrata", async () => {
 			const raiz = Section.create({ id: "raiz", name: "Esportes" }).unwrap();
 			await h.repo.save(raiz);
-			const filha = Section.create({ id: "filha", name: "Futebol", parent: raiz }).unwrap();
+			const filha = Section.create({
+				id: "filha",
+				name: "Futebol",
+				parent: raiz,
+			}).unwrap();
 			await h.repo.save(filha);
 
 			const loaded = await h.repo.findById("filha");
@@ -79,15 +83,21 @@ function sectionContract(label: string, make: () => SectionHarness): void {
 		});
 
 		it("lista ordenando por order e depois por nome", async () => {
-			await h.repo.save(Section.create({ id: "b", name: "B", order: 1 }).unwrap());
-			await h.repo.save(Section.create({ id: "a", name: "A", order: 0 }).unwrap());
+			await h.repo.save(
+				Section.create({ id: "b", name: "B", order: 1 }).unwrap(),
+			);
+			await h.repo.save(
+				Section.create({ id: "a", name: "A", order: 0 }).unwrap(),
+			);
 
 			const listed = await h.repo.list();
 			expect(listed.map((s) => s.id)).toEqual(["a", "b"]);
 		});
 
 		it("exclui e some da busca", async () => {
-			await h.repo.save(Section.create({ id: "sec-1", name: "Política" }).unwrap());
+			await h.repo.save(
+				Section.create({ id: "sec-1", name: "Política" }).unwrap(),
+			);
 			await h.repo.delete("sec-1");
 
 			expect(await h.repo.findById("sec-1")).toBeNull();
@@ -130,7 +140,9 @@ function tagContract(label: string, make: () => TagHarness): void {
 		});
 
 		it("M05: salva e recupera por id e por slug", async () => {
-			await h.repo.save(Tag.create({ id: "tag-1", name: "Eleições 2026" }).unwrap());
+			await h.repo.save(
+				Tag.create({ id: "tag-1", name: "Eleições 2026" }).unwrap(),
+			);
 
 			const byId = await h.repo.findById("tag-1");
 			expect(byId?.name).toBe("Eleições 2026");

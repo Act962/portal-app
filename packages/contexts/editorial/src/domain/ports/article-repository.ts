@@ -12,7 +12,10 @@ export type ArticleFilter = {
 };
 
 /** Estados que contam como "publicado" para a checagem de uso (ContentUsage). */
-export const PUBLISHED_STATUSES: readonly EditorialStatus[] = ["PUBLICADA", "ATUALIZADA"];
+export const PUBLISHED_STATUSES: readonly EditorialStatus[] = [
+	"PUBLICADA",
+	"ATUALIZADA",
+];
 
 /**
  * Porta de persistência do agregado `Article`. `save` é upsert por id. As
@@ -79,9 +82,7 @@ export class InMemoryArticleRepository implements ArticleRepository {
 		if (!page) {
 			return Promise.resolve(result);
 		}
-		return Promise.resolve(
-			result.slice(page.offset, page.offset + page.limit),
-		);
+		return Promise.resolve(result.slice(page.offset, page.offset + page.limit));
 	}
 
 	count(filter?: ArticleFilter): Promise<number> {
@@ -93,29 +94,41 @@ export class InMemoryArticleRepository implements ArticleRepository {
 		const term = filter?.search?.trim().toLowerCase();
 		return [...this.store.values()]
 			.filter((a) => (filter?.status ? a.status === filter.status : true))
-			.filter((a) => (filter?.sectionId ? a.sectionId === filter.sectionId : true))
-			.filter((a) => (filter?.authorId ? a.byline.authorId === filter.authorId : true))
+			.filter((a) =>
+				filter?.sectionId ? a.sectionId === filter.sectionId : true,
+			)
+			.filter((a) =>
+				filter?.authorId ? a.byline.authorId === filter.authorId : true,
+			)
 			.filter((a) => (term ? a.headline.toLowerCase().includes(term) : true))
-			.sort((a, b) => (this.order.get(b.id) ?? 0) - (this.order.get(a.id) ?? 0));
+			.sort(
+				(a, b) => (this.order.get(b.id) ?? 0) - (this.order.get(a.id) ?? 0),
+			);
 	}
 
 	listDueScheduled(now: Date): Promise<Article[]> {
 		const due = [...this.store.values()].filter((a) => {
 			const at = a.scheduledAt;
-			return a.status === "AGENDADA" && at !== null && at.getTime() <= now.getTime();
+			return (
+				a.status === "AGENDADA" && at !== null && at.getTime() <= now.getTime()
+			);
 		});
 		return Promise.resolve(due);
 	}
 
 	countPublishedInSection(sectionId: string): Promise<number> {
 		return Promise.resolve(
-			[...this.store.values()].filter((a) => a.isPublished() && a.sectionId === sectionId).length,
+			[...this.store.values()].filter(
+				(a) => a.isPublished() && a.sectionId === sectionId,
+			).length,
 		);
 	}
 
 	countPublishedWithTag(tagId: string): Promise<number> {
 		return Promise.resolve(
-			[...this.store.values()].filter((a) => a.isPublished() && a.tagIds.includes(tagId)).length,
+			[...this.store.values()].filter(
+				(a) => a.isPublished() && a.tagIds.includes(tagId),
+			).length,
 		);
 	}
 

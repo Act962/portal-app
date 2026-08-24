@@ -156,7 +156,11 @@ describe("Program.reorderTo", () => {
 });
 
 describe("Program.isLiveAt", () => {
-	const program = novo({ dayOfWeek: 2, startTime: "06:00", endTime: "09:00" }).unwrap();
+	const program = novo({
+		dayOfWeek: 2,
+		startTime: "06:00",
+		endTime: "09:00",
+	}).unwrap();
 
 	function at(day: number, hour: number, minute: number): Date {
 		// 2026-08-04 é uma terça-feira (dayOfWeek 2) — base fixa para o teste não

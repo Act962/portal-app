@@ -1,4 +1,4 @@
-import { type Result, ValueObject, err, ok } from "@portal-app/shared-kernel";
+import { err, ok, type Result, ValueObject } from "@portal-app/shared-kernel";
 
 import { InvalidSlug } from "./errors";
 
@@ -13,7 +13,7 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  * Diacríticos combinantes (U+0300–U+036F), removidos após a decomposição NFD.
  * Construído de string ASCII para não carregar caracteres combinantes no fonte.
  */
-const DIACRITICS = new RegExp("[\\u0300-\\u036f]", "g");
+const DIACRITICS = /[\u0300-\u036f]/g;
 
 /**
  * Slug — o identificador legível que vai na URL (`/politica`, `/politica-local`).

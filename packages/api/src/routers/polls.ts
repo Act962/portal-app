@@ -81,7 +81,9 @@ export const pollsRouter = router({
 	/** Resultado de uma enquete — o painel vê sempre, sem precisar votar. */
 	result: manage
 		.input(z.object({ id: z.string() }))
-		.query(async ({ input }) => resultDto(ensure(await pollResult(input, pollDeps)))),
+		.query(async ({ input }) =>
+			resultDto(ensure(await pollResult(input, pollDeps))),
+		),
 
 	create: manage
 		.input(
@@ -90,7 +92,9 @@ export const pollsRouter = router({
 				options: z.array(z.string()),
 			}),
 		)
-		.mutation(async ({ input }) => pollDto(ensure(await createPoll(input, pollDeps)))),
+		.mutation(async ({ input }) =>
+			pollDto(ensure(await createPoll(input, pollDeps))),
+		),
 
 	update: manage
 		.input(
@@ -100,15 +104,21 @@ export const pollsRouter = router({
 				options: z.array(z.string()).optional(),
 			}),
 		)
-		.mutation(async ({ input }) => pollDto(ensure(await updatePoll(input, pollDeps)))),
+		.mutation(async ({ input }) =>
+			pollDto(ensure(await updatePoll(input, pollDeps))),
+		),
 
 	publish: manage
 		.input(z.object({ id: z.string() }))
-		.mutation(async ({ input }) => pollDto(ensure(await publishPoll(input, pollDeps)))),
+		.mutation(async ({ input }) =>
+			pollDto(ensure(await publishPoll(input, pollDeps))),
+		),
 
 	close: manage
 		.input(z.object({ id: z.string() }))
-		.mutation(async ({ input }) => pollDto(ensure(await closePoll(input, pollDeps)))),
+		.mutation(async ({ input }) =>
+			pollDto(ensure(await closePoll(input, pollDeps))),
+		),
 
 	delete: manage
 		.input(z.object({ id: z.string() }))

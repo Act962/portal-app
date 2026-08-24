@@ -143,17 +143,27 @@ describe("vote", () => {
 		const [primeira, segunda] = poll.options;
 
 		await vote(
-			{ pollId: poll.id, optionId: primeira?.id as string, voterToken: "leitor-1" },
+			{
+				pollId: poll.id,
+				optionId: primeira?.id as string,
+				voterToken: "leitor-1",
+			},
 			deps,
 		);
 		const repetido = await vote(
-			{ pollId: poll.id, optionId: segunda?.id as string, voterToken: "leitor-1" },
+			{
+				pollId: poll.id,
+				optionId: segunda?.id as string,
+				voterToken: "leitor-1",
+			},
 			deps,
 		);
 
 		expect(repetido).toBeErr(AlreadyVoted);
 		// E o segundo voto não entrou na contagem.
-		expect((await repo.tally(poll.id)).reduce((t, i) => t + i.votes, 0)).toBe(1);
+		expect((await repo.tally(poll.id)).reduce((t, i) => t + i.votes, 0)).toBe(
+			1,
+		);
 	});
 
 	it("leitores diferentes votam na mesma enquete", async () => {

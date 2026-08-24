@@ -38,15 +38,15 @@ describe("MediaAsset — invariantes A29", () => {
 	});
 
 	it("M06: rejeita asset sem crédito (MissingCredit)", () => {
-		expect(MediaAsset.create({ ...imageInput, credit: "  " }).unwrapErr()).toBeInstanceOf(
-			MissingCredit,
-		);
+		expect(
+			MediaAsset.create({ ...imageInput, credit: "  " }).unwrapErr(),
+		).toBeInstanceOf(MissingCredit);
 	});
 
 	it("M07: imagem sem alt-text é rejeitada (MissingAltText)", () => {
-		expect(MediaAsset.create({ ...imageInput, altText: "" }).unwrapErr()).toBeInstanceOf(
-			MissingAltText,
-		);
+		expect(
+			MediaAsset.create({ ...imageInput, altText: "" }).unwrapErr(),
+		).toBeInstanceOf(MissingAltText);
 	});
 
 	it("M07: imagem sem dimensões é rejeitada (MissingDimensions)", () => {
@@ -57,13 +57,19 @@ describe("MediaAsset — invariantes A29", () => {
 
 	it("propaga erro de dimensões inválidas", () => {
 		expect(
-			MediaAsset.create({ ...imageInput, dimensions: { width: 0, height: 900 } }).unwrapErr(),
+			MediaAsset.create({
+				...imageInput,
+				dimensions: { width: 0, height: 900 },
+			}).unwrapErr(),
 		).toBeInstanceOf(InvalidDimensions);
 	});
 
 	it("propaga erro de ponto focal inválido", () => {
 		expect(
-			MediaAsset.create({ ...imageInput, focalPoint: { x: 2, y: 0 } }).unwrapErr(),
+			MediaAsset.create({
+				...imageInput,
+				focalPoint: { x: 2, y: 0 },
+			}).unwrapErr(),
 		).toBeInstanceOf(InvalidFocalPoint);
 	});
 
@@ -202,6 +208,8 @@ describe("MediaAsset — reidratação", () => {
 	});
 
 	it("estoura ao restaurar dados que violam o invariante", () => {
-		expect(() => MediaAsset.restore({ ...imageInput, credit: "" })).toThrow(MissingCredit);
+		expect(() => MediaAsset.restore({ ...imageInput, credit: "" })).toThrow(
+			MissingCredit,
+		);
 	});
 });

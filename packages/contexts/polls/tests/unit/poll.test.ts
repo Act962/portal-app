@@ -35,7 +35,9 @@ describe("Poll.create", () => {
 	});
 
 	it("recusa pergunta vazia", () => {
-		expect(novo({ question: "   " }).unwrapErr()).toBeInstanceOf(QuestionRequired);
+		expect(novo({ question: "   " }).unwrapErr()).toBeInstanceOf(
+			QuestionRequired,
+		);
 	});
 
 	it("recusa menos de duas opções — enquete de uma opção é afirmação", () => {
@@ -221,9 +223,9 @@ describe("Poll.ensureCanReceiveVote", () => {
 	});
 
 	it("recusa voto em rascunho", () => {
-		expect(novo().unwrap().ensureCanReceiveVote("o1").unwrapErr()).toBeInstanceOf(
-			PollNotOpen,
-		);
+		expect(
+			novo().unwrap().ensureCanReceiveVote("o1").unwrapErr(),
+		).toBeInstanceOf(PollNotOpen);
 	});
 
 	it("recusa voto em enquete fechada", () => {
@@ -231,15 +233,17 @@ describe("Poll.ensureCanReceiveVote", () => {
 		poll.publish(NOW);
 		poll.close();
 
-		expect(poll.ensureCanReceiveVote("o1").unwrapErr()).toBeInstanceOf(PollNotOpen);
+		expect(poll.ensureCanReceiveVote("o1").unwrapErr()).toBeInstanceOf(
+			PollNotOpen,
+		);
 	});
 
 	it("recusa voto em opção de outra enquete", () => {
 		const poll = novo().unwrap();
 		poll.publish(NOW);
 
-		expect(poll.ensureCanReceiveVote("opcao-alheia").unwrapErr()).toBeInstanceOf(
-			OptionNotInPoll,
-		);
+		expect(
+			poll.ensureCanReceiveVote("opcao-alheia").unwrapErr(),
+		).toBeInstanceOf(OptionNotInPoll);
 	});
 });

@@ -48,7 +48,8 @@ export class InMemoryPollRepository implements PollRepository {
 		const published = [...this.polls.values()]
 			.filter((poll) => poll.isOpen())
 			.sort(
-				(a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0),
+				(a, b) =>
+					(b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0),
 			);
 		return Promise.resolve(published[0] ?? null);
 	}

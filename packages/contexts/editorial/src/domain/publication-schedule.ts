@@ -1,4 +1,4 @@
-import { type Result, ValueObject, err, ok } from "@portal-app/shared-kernel";
+import { err, ok, type Result, ValueObject } from "@portal-app/shared-kernel";
 
 import { ScheduleInPast } from "./errors";
 
@@ -13,7 +13,10 @@ export class PublicationSchedule extends ValueObject<{ at: string }> {
 		super({ at: at.toISOString() });
 	}
 
-	static create(at: Date, now: Date): Result<PublicationSchedule, ScheduleInPast> {
+	static create(
+		at: Date,
+		now: Date,
+	): Result<PublicationSchedule, ScheduleInPast> {
 		if (at.getTime() <= now.getTime()) {
 			return err(new ScheduleInPast());
 		}

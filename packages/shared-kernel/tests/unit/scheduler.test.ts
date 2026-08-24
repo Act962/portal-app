@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { TaskRegistry, UnknownTask } from "../../src/index";
 
-function tarefa(overrides: Partial<Parameters<TaskRegistry["register"]>[0]> = {}) {
+function tarefa(
+	overrides: Partial<Parameters<TaskRegistry["register"]>[0]> = {},
+) {
 	return {
 		name: "publicar-agendadas",
 		cron: "*/5 * * * *",
@@ -19,20 +21,26 @@ describe("TaskRegistry.register", () => {
 		registry.register(tarefa({ name: "primeira" }));
 		registry.register(tarefa({ name: "segunda" }));
 
-		expect(registry.tasks().map((t) => t.name)).toEqual(["primeira", "segunda"]);
+		expect(registry.tasks().map((t) => t.name)).toEqual([
+			"primeira",
+			"segunda",
+		]);
 	});
 
 	// O nome vira segmento de URL e id de função no agendador externo. Um nome
 	// com espaço ou maiúscula passaria no registro e só quebraria em produção,
 	// na hora em que a tarefa deveria rodar — que é quando ninguém está olhando.
-	it.each(["Publicar", "publicar agendadas", "publicar_agendadas", "-publicar", ""])(
-		"recusa nome fora do kebab-case: %s",
-		(name) => {
-			const registry = new TaskRegistry();
+	it.each([
+		"Publicar",
+		"publicar agendadas",
+		"publicar_agendadas",
+		"-publicar",
+		"",
+	])("recusa nome fora do kebab-case: %s", (name) => {
+		const registry = new TaskRegistry();
 
-			expect(() => registry.register(tarefa({ name }))).toThrow(/inválido/);
-		},
-	);
+		expect(() => registry.register(tarefa({ name }))).toThrow(/inválido/);
+	});
 
 	it("recusa nome duplicado — a segunda tomaria o lugar da primeira em silêncio", () => {
 		const registry = new TaskRegistry();

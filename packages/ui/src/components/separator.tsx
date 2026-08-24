@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
+import { Separator as SeparatorPrimitive } from "@base-ui/react/separator";
 
-import { cn } from "@portal-app/ui/lib/utils"
+import { cn } from "@portal-app/ui/lib/utils";
 
 /**
  * O separador vertical CENTRALIZA, e não estica.
@@ -19,21 +19,21 @@ import { cn } from "@portal-app/ui/lib/utils"
  * (`h-4`, `h-full`, o que for). Sem ela, a altura é `auto` — ou seja, zero.
  */
 function Separator({
-  className,
-  orientation = "horizontal",
-  ...props
+	className,
+	orientation = "horizontal",
+	...props
 }: SeparatorPrimitive.Props) {
-  return (
-    <SeparatorPrimitive
-      data-slot="separator"
-      orientation={orientation}
-      className={cn(
-        "shrink-0 bg-border data-horizontal:h-px data-horizontal:w-full data-vertical:w-px data-vertical:self-center",
-        className
-      )}
-      {...props}
-    />
-  )
+	return (
+		<SeparatorPrimitive
+			data-slot="separator"
+			orientation={orientation}
+			className={cn(
+				"shrink-0 bg-border data-horizontal:h-px data-horizontal:w-full data-vertical:w-px data-vertical:self-center",
+				className,
+			)}
+			{...props}
+		/>
+	);
 }
 
-export { Separator }
+export { Separator };

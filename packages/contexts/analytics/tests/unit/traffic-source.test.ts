@@ -36,9 +36,9 @@ describe("classifyTrafficSource", () => {
 	});
 
 	it("navegação dentro do próprio portal é interno", () => {
-		expect(classifyTrafficSource("https://fm7cidades.com.br/cidades", OWN)).toBe(
-			"interno",
-		);
+		expect(
+			classifyTrafficSource("https://fm7cidades.com.br/cidades", OWN),
+		).toBe("interno");
 	});
 
 	it("subdomínio do próprio portal também é interno", () => {
@@ -56,7 +56,9 @@ describe("classifyTrafficSource", () => {
 	});
 
 	it("site qualquer é outro", () => {
-		expect(classifyTrafficSource("https://algumblog.com/post", OWN)).toBe("outro");
+		expect(classifyTrafficSource("https://algumblog.com/post", OWN)).toBe(
+			"outro",
+		);
 	});
 
 	it("referrer que não é URL válida vira outro, sem estourar", () => {

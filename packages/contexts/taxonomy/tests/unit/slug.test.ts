@@ -10,7 +10,9 @@ describe("Slug (M01)", () => {
 	});
 
 	it("colapsa separadores repetidos e apara hífens das pontas", () => {
-		expect(Slug.create("--Eleições__2026!!--").unwrap().value).toBe("eleicoes-2026");
+		expect(Slug.create("--Eleições__2026!!--").unwrap().value).toBe(
+			"eleicoes-2026",
+		);
 	});
 
 	it("rejeita entrada sem nenhum caractere aproveitável", () => {

@@ -34,7 +34,9 @@ export class InvalidColor extends Error {
  */
 export class MaxDepthExceeded extends Error {
 	constructor() {
-		super("Editorias têm no máximo dois níveis; uma subeditoria não pode ter filhas.");
+		super(
+			"Editorias têm no máximo dois níveis; uma subeditoria não pode ter filhas.",
+		);
 		this.name = "MaxDepthExceeded";
 	}
 }

@@ -1,11 +1,11 @@
 import type { PrismaClient } from "@portal-app/db/client";
 
 import { AlreadyVoted } from "../domain/errors";
+import { Poll, type PollStatus } from "../domain/poll";
 import type {
 	PollRepository,
 	VoteTally,
 } from "../domain/ports/poll-repository";
-import { Poll, type PollStatus } from "../domain/poll";
 
 /**
  * Adapter Prisma da porta `PollRepository`. Única camada que conhece Prisma.

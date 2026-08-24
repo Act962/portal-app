@@ -40,7 +40,9 @@ export class InMemoryTagRepository implements TagRepository {
 	}
 
 	list(): Promise<Tag[]> {
-		const all = [...this.store.values()].sort((a, b) => a.name.localeCompare(b.name));
+		const all = [...this.store.values()].sort((a, b) =>
+			a.name.localeCompare(b.name),
+		);
 		return Promise.resolve(all);
 	}
 

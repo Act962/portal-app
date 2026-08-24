@@ -11,7 +11,11 @@ import {
  * rede. É o que permite testar a tradução — que é a única lógica do adapter.
  */
 type Criada = {
-	options: { id: string; description?: string; triggers: Array<{ cron: string }> };
+	options: {
+		id: string;
+		description?: string;
+		triggers: Array<{ cron: string }>;
+	};
 	handler: () => Promise<unknown>;
 };
 
@@ -28,7 +32,11 @@ function fakeInngest(): InngestFunctionFactory<Criada> & { criadas: Criada[] } {
 }
 
 function registryCom(
-	...tarefas: Array<{ name: string; cron: string; run?: () => Promise<unknown> }>
+	...tarefas: Array<{
+		name: string;
+		cron: string;
+		run?: () => Promise<unknown>;
+	}>
 ): TaskRegistry {
 	const registry = new TaskRegistry();
 	for (const t of tarefas) {
@@ -65,7 +73,10 @@ describe("createTaskFunctions", () => {
 	it("usa o nome da tarefa como id, sem prefixo nem transformação", () => {
 		const inngest = fakeInngest();
 
-		createTaskFunctions(inngest, registryCom({ name: "publish-scheduled", cron: "*/5 * * * *" }));
+		createTaskFunctions(
+			inngest,
+			registryCom({ name: "publish-scheduled", cron: "*/5 * * * *" }),
+		);
 
 		expect(inngest.criadas[0]?.options.id).toBe("publish-scheduled");
 	});
@@ -76,27 +87,42 @@ describe("createTaskFunctions", () => {
 	it("propaga o cron declarado na tarefa, sem redigitar", () => {
 		const inngest = fakeInngest();
 
-		createTaskFunctions(inngest, registryCom({ name: "diaria", cron: "0 6 * * 1-5" }));
+		createTaskFunctions(
+			inngest,
+			registryCom({ name: "diaria", cron: "0 6 * * 1-5" }),
+		);
 
-		expect(inngest.criadas[0]?.options.triggers).toEqual([{ cron: "0 6 * * 1-5" }]);
+		expect(inngest.criadas[0]?.options.triggers).toEqual([
+			{ cron: "0 6 * * 1-5" },
+		]);
 	});
 
 	it("leva a descrição para o painel do Inngest", () => {
 		const inngest = fakeInngest();
 
-		createTaskFunctions(inngest, registryCom({ name: "diaria", cron: "0 6 * * *" }));
+		createTaskFunctions(
+			inngest,
+			registryCom({ name: "diaria", cron: "0 6 * * *" }),
+		);
 
-		expect(inngest.criadas[0]?.options.description).toBe("Descrição de diaria.");
+		expect(inngest.criadas[0]?.options.description).toBe(
+			"Descrição de diaria.",
+		);
 	});
 
 	it("o handler executa a tarefa e devolve o resultado dela", async () => {
 		const inngest = fakeInngest();
 		const run = vi.fn(async () => ({ published: 2 }));
 
-		createTaskFunctions(inngest, registryCom({ name: "diaria", cron: "0 6 * * *", run }));
+		createTaskFunctions(
+			inngest,
+			registryCom({ name: "diaria", cron: "0 6 * * *", run }),
+		);
 
 		expect(run).not.toHaveBeenCalled(); // só no disparo, não no registro
-		await expect(inngest.criadas[0]?.handler()).resolves.toEqual({ published: 2 });
+		await expect(inngest.criadas[0]?.handler()).resolves.toEqual({
+			published: 2,
+		});
 		expect(run).toHaveBeenCalledTimes(1);
 	});
 
@@ -117,7 +143,9 @@ describe("createTaskFunctions", () => {
 			}),
 		);
 
-		await expect(inngest.criadas[0]?.handler()).rejects.toThrow("banco fora do ar");
+		await expect(inngest.criadas[0]?.handler()).rejects.toThrow(
+			"banco fora do ar",
+		);
 	});
 
 	it("registro vazio não cria função nenhuma", () => {

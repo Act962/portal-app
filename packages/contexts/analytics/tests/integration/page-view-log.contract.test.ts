@@ -103,7 +103,9 @@ function contract(label: string, make: () => Harness): void {
 
 		it("fechar tempo de uma visualização inexistente não estoura", async () => {
 			// O primeiro beacon pode ter se perdido — não é motivo para erro.
-			await expect(h.log.setReadingTime("fantasma", 30)).resolves.toBeUndefined();
+			await expect(
+				h.log.setReadingTime("fantasma", 30),
+			).resolves.toBeUndefined();
 			expect(await h.log.listBetween(WIDE.from, WIDE.to)).toHaveLength(0);
 		});
 

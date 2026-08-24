@@ -1,4 +1,4 @@
-import { type Result, ValueObject, err, ok } from "@portal-app/shared-kernel";
+import { err, ok, type Result, ValueObject } from "@portal-app/shared-kernel";
 
 import { BylineRequired } from "./errors";
 
@@ -12,7 +12,10 @@ export class Byline extends ValueObject<{ authorId: string; name: string }> {
 		super({ authorId, name });
 	}
 
-	static create(input: { authorId: string; name: string }): Result<Byline, BylineRequired> {
+	static create(input: {
+		authorId: string;
+		name: string;
+	}): Result<Byline, BylineRequired> {
 		const authorId = input.authorId.trim();
 		const name = input.name.trim();
 		if (!authorId || !name) {

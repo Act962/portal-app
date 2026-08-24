@@ -98,7 +98,9 @@ export class InMemoryMediaRepository implements MediaRepository {
 			)
 			.filter((asset) => (query?.type ? asset.type === query.type : true))
 			.filter((asset) => (term ? matches(asset, term) : true))
-			.sort((a, b) => (this.order.get(b.id) ?? 0) - (this.order.get(a.id) ?? 0));
+			.sort(
+				(a, b) => (this.order.get(b.id) ?? 0) - (this.order.get(a.id) ?? 0),
+			);
 	}
 
 	clear(): void {

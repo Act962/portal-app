@@ -1,4 +1,4 @@
-import { type Result, err, ok } from "@portal-app/shared-kernel";
+import { err, ok, type Result } from "@portal-app/shared-kernel";
 
 import { UnsupportedMediaType } from "./errors";
 
@@ -58,4 +58,6 @@ export function mediaTypeFromMime(
 }
 
 /** O `accept` do input de arquivo — mesma lista, para a tela não divergir. */
-export const ACCEPTED_UPLOAD_MIME = ["image/*", ...DOCUMENT_MIME_TYPES].join(",");
+export const ACCEPTED_UPLOAD_MIME = ["image/*", ...DOCUMENT_MIME_TYPES].join(
+	",",
+);

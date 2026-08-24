@@ -44,7 +44,9 @@ describe("viewsByDay", () => {
 	});
 
 	it("dia sem visualização aparece com zero, não some do gráfico", () => {
-		const records = [view({ occurredAt: new Date("2026-08-07T10:00:00-03:00") })];
+		const records = [
+			view({ occurredAt: new Date("2026-08-07T10:00:00-03:00") }),
+		];
 
 		const result = viewsByDay(
 			records,
@@ -184,7 +186,9 @@ describe("overallAverageReadingSeconds", () => {
 	});
 
 	it("sem nenhuma medida devolve null — a tela decide o que mostrar", () => {
-		expect(overallAverageReadingSeconds([view({ readingSeconds: null })])).toBeNull();
+		expect(
+			overallAverageReadingSeconds([view({ readingSeconds: null })]),
+		).toBeNull();
 		expect(overallAverageReadingSeconds([])).toBeNull();
 	});
 });

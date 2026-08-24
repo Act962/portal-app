@@ -1,4 +1,9 @@
-import { type IdGenerator, type Result, err, ok } from "@portal-app/shared-kernel";
+import {
+	err,
+	type IdGenerator,
+	ok,
+	type Result,
+} from "@portal-app/shared-kernel";
 
 import type {
 	EndBeforeStart,
@@ -29,7 +34,12 @@ type CreateInput = {
 	endTime: string;
 };
 
-type SaveError = NameRequired | HostRequired | InvalidDayOfWeek | InvalidTime | EndBeforeStart;
+type SaveError =
+	| NameRequired
+	| HostRequired
+	| InvalidDayOfWeek
+	| InvalidTime
+	| EndBeforeStart;
 
 export function listPrograms(deps: Pick<Deps, "repo">): Promise<Program[]> {
 	return deps.repo.list();

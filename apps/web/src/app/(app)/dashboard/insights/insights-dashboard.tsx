@@ -156,7 +156,9 @@ export function InsightsDashboard() {
 
 						<Card>
 							<CardHeader>
-								<CardTitle className="text-base">Produção por editoria</CardTitle>
+								<CardTitle className="text-base">
+									Produção por editoria
+								</CardTitle>
 								<CardDescription>
 									Matérias publicadas no período.
 								</CardDescription>

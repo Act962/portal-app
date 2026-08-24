@@ -353,7 +353,9 @@ function ProgramForm({
 						label,
 					}))}
 					value={form.dayOfWeek}
-					onValueChange={(value) => value && onChange({ ...form, dayOfWeek: value })}
+					onValueChange={(value) =>
+						value && onChange({ ...form, dayOfWeek: value })
+					}
 				>
 					<SelectTrigger>
 						<SelectValue />
@@ -387,7 +389,9 @@ function ProgramForm({
 						type="time"
 						required
 						value={form.endTime}
-						onChange={(event) => onChange({ ...form, endTime: event.target.value })}
+						onChange={(event) =>
+							onChange({ ...form, endTime: event.target.value })
+						}
 					/>
 				</div>
 			</div>
