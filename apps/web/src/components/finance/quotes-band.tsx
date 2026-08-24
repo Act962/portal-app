@@ -45,7 +45,14 @@ export function QuotesBand({ quotes }: { quotes: Quote[] }) {
 				action={
 					updatedAt ? (
 						<span className="font-mono text-[10px] text-on-brand-dim md:text-[11px]">
-							ATUALIZADO <Timestamp iso={updatedAt} variant="relative" />
+							ATUALIZADO{" "}
+							<Timestamp
+								iso={updatedAt}
+								variant="relative"
+								// O padrão do Timestamp é `text-meta`, que é tinta de
+								// superfície clara: aqui dentro da placa daria 1,28:1.
+								className="text-on-brand-dim"
+							/>
 						</span>
 					) : null
 				}

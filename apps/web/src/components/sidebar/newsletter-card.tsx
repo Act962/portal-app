@@ -16,11 +16,11 @@ export function NewsletterCard() {
 
 	return (
 		<section className="-mx-4 bg-brand-deep px-4 py-5.5 md:mx-0 md:rounded-card md:border md:border-hairline md:bg-surface md:p-4.5">
-			<h2 className="mb-2 font-mono text-[9px] text-brand-red-soft tracking-[0.14em] md:text-brand-red">
+			<h2 className="mb-2 font-mono text-[9px] text-on-brand-soft tracking-[0.14em] md:text-brand-accent-ink">
 				NEWSLETTER
 			</h2>
 
-			<p className="mb-3 font-bold text-lg text-white leading-tight md:text-brand-deep">
+			<p className="mb-3 font-bold text-lg text-white leading-tight md:text-brand-ink">
 				Um resumo do Piauí todas as manhãs, às 7h
 			</p>
 

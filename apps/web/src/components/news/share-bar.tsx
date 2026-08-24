@@ -10,7 +10,7 @@ import { SocialIcon } from "@/components/social/social-icon";
  * a largura do seu ícone e a fileira saía irregular.
  */
 const CHIP =
-	"flex size-9 items-center justify-center rounded-control border border-hairline-strong text-ink-muted transition-colors hover:border-brand-red hover:text-brand-red";
+	"flex size-9 items-center justify-center rounded-control border border-hairline-strong text-ink-muted transition-colors hover:border-brand-accent-ink hover:text-brand-accent-ink";
 
 type ShareBarProps = {
 	url: string;
@@ -88,7 +88,7 @@ export function ShareBar({ url, title }: ShareBarProps) {
 					// tinha antes de virar símbolo. Sem isso a troca é instantânea e
 					// passa despercebida — que é justamente o risco de trocar palavra
 					// por ícone num aviso.
-					<Check className="zoom-in-50 size-4 animate-in text-brand-red duration-200" />
+					<Check className="zoom-in-50 size-4 animate-in text-brand-accent-ink duration-200" />
 				) : (
 					<Link2 className="size-4" />
 				)}

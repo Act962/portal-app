@@ -40,7 +40,7 @@ export function HeroStory({ article, headingLevel = "h1" }: HeroStoryProps) {
 			/>
 			<Link
 				href={routes.article(article.sectionSlug, article.slug)}
-				className="group block text-white hover:text-white md:text-brand-deep md:hover:text-brand-deep"
+				className="group block text-white hover:text-white md:text-brand-ink md:hover:text-brand-ink"
 			>
 				<ArticleThumb
 					article={article}
@@ -70,7 +70,7 @@ export function HeroStory({ article, headingLevel = "h1" }: HeroStoryProps) {
 						/>
 					</div>
 
-					<Heading className="mb-2 text-pretty font-extrabold text-[25px] leading-[1.13] tracking-[-0.02em] md:mb-2.5 md:text-[40px] md:leading-[1.04] md:tracking-[-0.035em] md:group-hover:text-brand-red">
+					<Heading className="mb-2 text-pretty font-extrabold text-[25px] leading-[1.13] tracking-[-0.02em] md:mb-2.5 md:text-[40px] md:leading-[1.04] md:tracking-[-0.035em] md:group-hover:text-brand-accent-ink">
 						{article.title}
 					</Heading>
 

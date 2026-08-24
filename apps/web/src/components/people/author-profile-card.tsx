@@ -49,7 +49,7 @@ export function AuthorProfileCard({ author }: { author: Author }) {
 					{author.role}
 				</p>
 
-				<h1 className="font-extrabold text-[26px] text-white leading-none tracking-[-0.03em] md:text-[38px] md:text-brand-deep md:tracking-[-0.04em]">
+				<h1 className="font-extrabold text-[26px] text-white leading-none tracking-[-0.03em] md:text-[38px] md:text-brand-ink md:tracking-[-0.04em]">
 					{author.name}
 				</h1>
 
@@ -74,7 +74,7 @@ export function AuthorProfileCard({ author }: { author: Author }) {
 								// precisa dizer DE QUEM é o perfil, porque "Instagram" solto
 								// numa lista de links não identifica destino nenhum.
 								aria-label={`${author.name} no ${SOCIAL_LABELS[key]}`}
-								className="text-on-brand-muted transition-colors hover:text-white md:text-meta md:hover:text-brand-red"
+								className="text-on-brand-muted transition-colors hover:text-white md:text-meta md:hover:text-brand-accent-ink"
 							>
 								<SocialIcon
 									network={SOCIAL_NETWORK[key]}
@@ -91,7 +91,7 @@ export function AuthorProfileCard({ author }: { author: Author }) {
 						{author.email ? (
 							<a
 								href={`mailto:${author.email}`}
-								className="flex items-center gap-1.5 text-on-brand-muted transition-colors hover:text-white md:text-meta md:hover:text-brand-red"
+								className="flex items-center gap-1.5 text-on-brand-muted transition-colors hover:text-white md:text-meta md:hover:text-brand-accent-ink"
 							>
 								<SocialIcon network="email" className="size-[15px]" />
 								<span className="font-mono text-[10px] md:text-[11px]">

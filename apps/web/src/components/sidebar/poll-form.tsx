@@ -59,11 +59,11 @@ export function PollForm({
 						disabled={hasVoted || pending}
 						aria-pressed={chosen === option.id}
 						className={cn(
-							"flex min-h-11 items-center justify-between gap-3 rounded-control border px-3 font-semibold text-[13px] text-brand-deep transition-colors",
+							"flex min-h-11 items-center justify-between gap-3 rounded-control border px-3 font-semibold text-[13px] text-brand-ink transition-colors",
 							chosen === option.id
-								? "border-brand-red bg-surface-alt"
+								? "border-brand-accent-ink bg-surface-alt"
 								: "border-hairline-strong",
-							!hasVoted && !pending && "hover:border-brand-red",
+							!hasVoted && !pending && "hover:border-brand-accent-ink",
 							pending && "opacity-70",
 						)}
 					>
@@ -78,7 +78,7 @@ export function PollForm({
 			</div>
 
 			{error ? (
-				<p role="alert" className="mt-2 text-[11px] text-brand-red">
+				<p role="alert" className="mt-2 text-[11px] text-brand-accent-ink">
 					{error}
 				</p>
 			) : null}

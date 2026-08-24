@@ -32,11 +32,11 @@ function SectionHeader({
 			<Heading
 				className={cn(
 					"flex items-center gap-2.5 font-extrabold text-[15px] uppercase tracking-[0.14em]",
-					tone === "dark" ? "text-white" : "text-brand-deep",
+					tone === "dark" ? "text-white" : "text-brand-ink",
 				)}
 			>
 				{variant === "bar" ? (
-					<span aria-hidden className="h-[17px] w-1 bg-brand-red" />
+					<span aria-hidden className="h-[17px] w-1 bg-brand-accent" />
 				) : null}
 				{title}
 			</Heading>

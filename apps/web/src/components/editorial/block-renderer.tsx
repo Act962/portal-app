@@ -43,7 +43,7 @@ function Inline({ nodes }: { nodes: readonly InlineNode[] }) {
 					href={node.href}
 					target="_blank"
 					rel="noreferrer"
-					className="text-brand-red underline"
+					className="text-brand-accent-ink underline"
 				>
 					{node.text}
 				</a>
@@ -114,7 +114,7 @@ function BlockView({
 		}
 		case "quote":
 			return (
-				<blockquote className="my-4 border-brand-red border-l-4 pl-4 italic">
+				<blockquote className="my-4 border-brand-accent-ink border-l-4 pl-4 italic">
 					<Inline nodes={block.content} />
 					{block.cite ? (
 						<cite className="mt-1 block text-muted-foreground text-sm">
@@ -128,7 +128,7 @@ function BlockView({
 				<p className="my-3">
 					<a
 						href={block.url}
-						className="text-brand-red underline"
+						className="text-brand-accent-ink underline"
 						target="_blank"
 						rel="noreferrer"
 					>

@@ -22,7 +22,7 @@ export default async function ResetPasswordPage({
 		<div className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
 			<div className="w-full max-w-sm">
 				<div className="mb-6 flex flex-col items-center gap-2 text-center">
-					<div className="flex size-11 items-center justify-center rounded-xl bg-brand-red text-white">
+					<div className="flex size-11 items-center justify-center rounded-xl bg-brand-accent text-on-accent">
 						<Radio className="size-5" />
 					</div>
 					<h1 className="font-semibold text-xl">{siteConfig.name}</h1>

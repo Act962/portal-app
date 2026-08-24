@@ -315,7 +315,7 @@ export function ArticleEditor({ id }: { id: string }) {
 
 	const publishButton = (
 		<Button
-			className="w-full bg-brand-red text-white hover:bg-brand-red-hover"
+			className="w-full bg-brand-accent text-on-accent hover:bg-brand-accent-hover"
 			disabled={!canPublish || publish.isPending}
 			onClick={() => publish.mutate({ id })}
 		>
@@ -412,7 +412,7 @@ export function ArticleEditor({ id }: { id: string }) {
 						<TabsContent value="preview">
 							<article className="rounded-lg border p-6">
 								{kicker ? (
-									<p className="font-bold text-brand-red text-sm uppercase">
+									<p className="font-bold text-brand-accent-ink text-sm uppercase">
 										{kicker}
 									</p>
 								) : null}

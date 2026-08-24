@@ -18,7 +18,7 @@ export function SectionBlock({ block }: { block: HomeBlock }) {
 				action={
 					<Link
 						href={routes.section(block.section.slug)}
-						className="font-mono text-[10.5px] text-brand-red"
+						className="font-mono text-[10.5px] text-brand-accent-ink"
 					>
 						VER MAIS +
 					</Link>
