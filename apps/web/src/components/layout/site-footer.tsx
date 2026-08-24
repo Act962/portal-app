@@ -32,7 +32,7 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 					  A MESMA marca do cabeçalho, e não o logo quadrado das Configurações
 					  (D8): aquele arquivo existe para schema.org, RSS, Open Graph e
 					  manifest, onde o pedido é uma arte quadrada. Aqui, como no topo, o
-					  arranjo é horizontal sobre o marrom — e as duas pontas da página
+					  arranjo é horizontal sobre a placa — e as duas pontas da página
 					  mostrando desenhos diferentes da marca era exatamente o problema.
 					*/}
 					{/* Com `alt`, ao contrário do cabeçalho: lá a marca mora dentro do

@@ -35,7 +35,7 @@ export function QuotesBand({ quotes }: { quotes: Quote[] }) {
 			  Canto inferior direito: a linha de rodapé da faixa ("VALORES DE
 			  COMPRA…") é curta e mora à esquerda, então este é o vão do bloco. A
 			  textura não pode encostar nela — é `on-brand-dim`, que sobre o
-			  grafismo cai para 2,3:1.
+			  grafismo cai para 2,9:1.
 			*/}
 			<RupestreTexture className="right-0 bottom-0 hidden h-14 translate-y-2 md:block" />
 			<SectionHeader

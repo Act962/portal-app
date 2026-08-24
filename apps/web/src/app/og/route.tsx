@@ -22,7 +22,7 @@ export const runtime = "nodejs";
 
 const SIZE = { width: 1200, height: 630 } as const;
 
-const DEEP = "#3a1f0e";
+const DEEP = "#6b0206";
 const RED = "#ed1b24";
 const CANVAS = "#faf9f7";
 

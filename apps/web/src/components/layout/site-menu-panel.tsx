@@ -87,7 +87,7 @@ export default function SiteMenuPanel({
 					</SheetTitle>
 
 					{/* O botão padrão do `SheetContent` é um `Button` do painel, que
-					    sobre o marrom fica quase invisível — daí o próprio, com os
+					    sobre a placa fica quase invisível — daí o próprio, com os
 					    44px de alvo que a WCAG 2.5.8 pede. */}
 					<button
 						type="button"

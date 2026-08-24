@@ -18,7 +18,17 @@ import Image from "next/image";
  * achataria tudo num borrão branco — apagando justamente o vermelho que
  * distingue "Portal" de "Cidades". A versão colorida, para fundo claro, fica
  * como arte-mestre em `design/marca/logo_7_cidades_hor.png` e não é servida:
- * hoje os dois lugares onde a marca aparece são marrons.
+ * hoje os dois lugares onde a marca aparece são a placa institucional.
+ *
+ * **A arte servida aqui ainda é a da marca de 14/08.** A placa virou vinho
+ * (#6b0206) em 21/08, mas o `logo-horizontal.png` continua sendo o derivado do
+ * lockup MARROM. Ele não quebrou: o branco, que é 80% do arquivo, dá 12,8:1
+ * sobre o vinho, e o vermelho de "Portal" dá 3,2:1 — passa o 3:1 de forma
+ * gráfica, mas por pouco, e é vermelho sobre vermelho. A marca nova
+ * (`design/marca-new/`) resolve isso sozinha, porque o lockup `_ver` dela não
+ * tem vermelho nenhum: é branco e laranja, e o laranja dá 5,1:1 sobre a placa.
+ * A troca do arquivo é a próxima etapa do rebranding e muda a PROPORÇÃO
+ * (2,73:1 → 3,53:1) — ou seja, mexe no `width`/`height`/`sizes` daqui.
  *
  * **Por que NÃO usa o logo das Configurações.** Aquele campo (D8) alimenta
  * schema.org, RSS, Open Graph e manifest — lugares onde o pedido é uma arte

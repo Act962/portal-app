@@ -29,10 +29,10 @@ export function HeroStory({ article, headingLevel = "h1" }: HeroStoryProps) {
 	return (
 		<article className="relative -mx-4 overflow-hidden bg-brand-deep md:mx-0 md:overflow-visible md:bg-transparent">
 			{/*
-			  Só no celular, porque só no celular este bloco é marrom — de `md`
-			  para cima ele vira fundo de página e a textura não teria onde morar.
-			  Sangra pelo canto inferior direito, abaixo da linha fina: o texto ali
-			  é `on-brand-soft`, que aguenta 4,6:1 sobre o grafismo.
+			  Só no celular, porque só no celular este bloco é da cor institucional
+			  — de `md` para cima ele vira fundo de página e a textura não teria
+			  onde morar. Sangra pelo canto inferior direito, abaixo da linha fina:
+			  o texto ali é `on-brand-soft`, que aguenta 5,8:1 sobre o grafismo.
 			*/}
 			<RupestreTexture
 				className="right-0 bottom-0 h-10 translate-y-6 md:hidden"
