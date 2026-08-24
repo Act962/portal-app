@@ -14,21 +14,22 @@ import Image from "next/image";
  *
  * **Sem filtro de cor.** O símbolo antigo era pintado de branco com
  * `brightness-0 invert`. Esta arte não passa por isso: ela já vem na versão de
- * fundo escuro (o marrom trocado por branco, o vermelho preservado), e o filtro
- * achataria tudo num borrão branco — apagando justamente o vermelho que
- * distingue "Portal" de "Cidades". A versão colorida, para fundo claro, fica
- * como arte-mestre em `design/marca/logo_7_cidades_hor.png` e não é servida:
- * hoje os dois lugares onde a marca aparece são a placa institucional.
+ * fundo escuro, e o filtro achataria tudo num borrão branco — apagando o
+ * laranja que distingue "Cidades". A versão colorida, para fundo claro, fica
+ * como arte-mestre em `design/marca-new/logo_7_cidades_hor.png` e não é
+ * servida: hoje os dois lugares onde a marca aparece são a placa institucional.
  *
- * **A arte servida aqui ainda é a da marca de 14/08.** A placa virou vinho
- * (#6b0206) em 21/08, mas o `logo-horizontal.png` continua sendo o derivado do
- * lockup MARROM. Ele não quebrou: o branco, que é 80% do arquivo, dá 12,8:1
- * sobre o vinho, e o vermelho de "Portal" dá 3,2:1 — passa o 3:1 de forma
- * gráfica, mas por pouco, e é vermelho sobre vermelho. A marca nova
- * (`design/marca-new/`) resolve isso sozinha, porque o lockup `_ver` dela não
- * tem vermelho nenhum: é branco e laranja, e o laranja dá 5,1:1 sobre a placa.
- * A troca do arquivo é a próxima etapa do rebranding e muda a PROPORÇÃO
- * (2,73:1 → 3,53:1) — ou seja, mexe no `width`/`height`/`sizes` daqui.
+ * **Esta é a arte da marca de 21/08**, e a troca corrigiu um contraste que
+ * reprovava. O lockup anterior era branco + vermelho #ed1b24; sobre a placa
+ * vinho (#6b0206) esse vermelho dá **2,92:1**, abaixo do 3:1 que a WCAG pede
+ * até para forma gráfica. (O comentário que vivia aqui dizia 3,2:1 e dava a
+ * conta por aprovada — foi medida no arquivo, não estimada, e o número certo
+ * reprova.) O lockup novo não tem vermelho nenhum: branco #fefefe a 12,72:1 e
+ * laranja #f58634 a 5,10:1.
+ *
+ * **Só fundo escuro.** O mesmo laranja dá 2,39:1 sobre o `canvas` claro. Se um
+ * dia a marca precisar aparecer sobre claro, é outro arquivo — não este com um
+ * filtro por cima.
  *
  * **Por que NÃO usa o logo das Configurações.** Aquele campo (D8) alimenta
  * schema.org, RSS, Open Graph e manifest — lugares onde o pedido é uma arte
@@ -59,13 +60,13 @@ export function SiteLogo({
 			src={LOGO}
 			alt={alt}
 			width={640}
-			height={235}
+			height={181}
 			priority={priority}
-			// A marca nunca passa de 153px de largura (56px de altura na proporção
-			// 2,73:1). Sem esta dica o Next monta o srcset pelos `deviceSizes` e pede
+			// A marca nunca passa de 198px de largura (56px de altura na proporção
+			// 3,53:1). Sem esta dica o Next monta o srcset pelos `deviceSizes` e pede
 			// `w=1920` num aparelho 3x — três vezes o tamanho do próprio arquivo de
 			// origem, transformado à toa.
-			sizes="160px"
+			sizes="200px"
 			// Um pouco maior que o símbolo sozinho (era 36/48): a mesma altura agora
 			// carrega o símbolo E a assinatura, e é ela que decide se "Cidades" é
 			// legível. Continua folgada dentro do cabeçalho, de 56px no celular e

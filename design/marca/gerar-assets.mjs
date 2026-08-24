@@ -37,6 +37,11 @@ const SAIDA = path.join(RAIZ, "apps/web/public/brand");
 const MARROM = "#3a1f0e";
 const origem = (nome) => path.join(AQUI, `${nome}.png`);
 
+// A marca de 21/08/2026 mora em `design/marca-new/`. Só o lockup horizontal
+// migrou até agora — favicon e ícones continuam saindo da arte antiga, e ainda
+// são achatados sobre o MARROM morto logo acima. É a próxima etapa.
+const origemNova = (nome) => path.join(AQUI, "..", "marca-new", `${nome}.png`);
+
 /**
  * Monta um `.ico` com cada imagem embutida como PNG.
  *
@@ -86,8 +91,8 @@ const chapadaNoMarrom = (size) =>
 		.toBuffer();
 
 /** Arte transparente reduzida. `palette` corta ~85% do peso em cor chapada. */
-const transparente = (nome, width) =>
-	sharp(origem(nome))
+const transparente = (arquivo, width) =>
+	sharp(arquivo)
 		.resize({ width, withoutEnlargement: true })
 		.png({ compressionLevel: 9, palette: true })
 		.toBuffer();
@@ -115,22 +120,34 @@ escrever("apple-icon.png", await chapadaNoMarrom(180));
 // --- Artes transparentes ---------------------------------------------------
 // O símbolo do cabeçalho precisa de alfa: o masthead o pinta de branco com
 // `brightness-0 invert`, e uma arte chapada viraria um quadrado branco.
-escrever("symbol.png", await transparente("icon_7_cidades", 512));
-escrever("logo-7-cidades.png", await transparente("logo_7_cidades", 1024));
-escrever("rupestre.png", await transparente("transparence_rupestre", 900));
+escrever("symbol.png", await transparente(origem("icon_7_cidades"), 512));
+escrever(
+	"logo-7-cidades.png",
+	await transparente(origem("logo_7_cidades"), 1024),
+);
+escrever(
+	"rupestre.png",
+	await transparente(origem("transparence_rupestre"), 900),
+);
 
-// O lockup horizontal do cabeçalho e do rodapé, na versão de fundo escuro — a
-// que tem o marrom trocado por branco. A colorida (`logo_7_cidades_hor`) fica
-// só como arte-mestre: os dois lugares onde a marca aparece hoje são marrons.
+// O lockup horizontal do cabeçalho e do rodapé, na versão de fundo escuro. Vem
+// da marca NOVA, e a troca não foi estética: a arte anterior era branco +
+// vermelho #ed1b24, e sobre a placa vinho (#6b0206) esse vermelho dá 2,92:1 —
+// abaixo do 3:1 que a WCAG pede até para forma gráfica. O lockup novo não tem
+// vermelho nenhum: é branco #fefefe (12,72:1) e laranja #f58634 (5,10:1).
 //
-// 640px para uma arte que é desenhada com no máximo 131px (48px de altura na
-// proporção 2,73:1): cobre a tela de 3x com folga, e por ser cor chapada o
-// arquivo continua abaixo de 20 KB. Nada de filtro CSS aqui — esta arte JÁ vem
-// com a cor certa, e o `brightness-0 invert` do símbolo a achataria num borrão
-// branco, apagando o vermelho.
+// Só serve para fundo ESCURO. O mesmo laranja dá 2,39:1 sobre o `canvas`
+// claro, então esta arte não pode migrar para um cabeçalho claro sem trocar de
+// arquivo — a colorida (`logo_7_cidades_hor`) é que existe para isso.
+//
+// 640px para uma arte que é desenhada com no máximo 198px (56px de altura na
+// proporção 3,53:1): cobre a tela de 3x com folga (594px), e por ser cor
+// chapada o arquivo continua abaixo de 20 KB. Nada de filtro CSS aqui — esta
+// arte JÁ vem com a cor certa, e o `brightness-0 invert` do símbolo a
+// achataria num borrão branco.
 escrever(
 	"logo-horizontal.png",
-	await transparente("logo_7_cidades_hor_ver", 640),
+	await transparente(origemNova("logo_7_cidades_hor_ver"), 640),
 );
 
 for (const f of fs.readdirSync(SAIDA).sort()) {
