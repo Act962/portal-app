@@ -57,8 +57,27 @@ export class PrismaArticleRepository implements ArticleRepository {
 		});
 	}
 
-	async delete(id: string): Promise<void> {
-		await this.prisma.article.delete({ where: { id } });
+	/**
+	 * Apaga a linha E grava os eventos pendentes no outbox, na MESMA transação —
+	 * espelho exato do `save`. A ordem importa: o outbox primeiro, o `delete`
+	 * depois, para que uma falha na remoção não deixe um `ArticleDeleted`
+	 * anunciando o apagamento de uma matéria que continua lá.
+	 */
+	async delete(article: Article): Promise<void> {
+		const events = article.pullEvents();
+		await this.prisma.$transaction(async (tx) => {
+			if (events.length > 0) {
+				await tx.outboxEvent.createMany({
+					data: events.map((event) => ({
+						aggregateId: article.id,
+						eventName: event.eventName,
+						payload: JSON.parse(JSON.stringify(event)),
+						occurredAt: event.occurredAt,
+					})),
+				});
+			}
+			await tx.article.delete({ where: { id: article.id } });
+		});
 	}
 
 	async list(filter?: ArticleFilter, page?: PageRequest): Promise<Article[]> {

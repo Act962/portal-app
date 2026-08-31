@@ -131,9 +131,23 @@ function contract(label: string, make: () => Harness): void {
 		});
 
 		it("exclui e some da busca", async () => {
-			await h.repo.save(draft("art-1", "x", "cidades", []));
-			await h.repo.delete("art-1");
+			const article = draft("art-1", "x", "cidades", []);
+			await h.repo.save(article);
+			await h.repo.delete(article);
 			expect(await h.repo.findById("art-1")).toBeNull();
+		});
+
+		it("apagar esvazia a fila de eventos do agregado", async () => {
+			// O adapter Prisma os grava no outbox e por isso os PUXA; o fake não
+			// tem onde entregá-los, mas precisa deixar o agregado no mesmo estado.
+			// Divergir aqui é o tipo de coisa que passa nos dois e só aparece em
+			// produção, como um evento entregue duas vezes.
+			const article = draft("art-1", "x", "cidades", []);
+			await h.repo.save(article);
+			article.markDeleted(NOW);
+
+			await h.repo.delete(article);
+			expect(article.pullEvents()).toHaveLength(0);
 		});
 
 		it("busca inexistente devolve null", async () => {

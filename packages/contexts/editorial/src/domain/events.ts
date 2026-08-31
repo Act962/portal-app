@@ -70,3 +70,49 @@ export class ArticleUnpublished extends DomainEvent {
 		super(occurredAt);
 	}
 }
+
+/**
+ * Matéria que NUNCA foi ao ar, arquivada — o rascunho abandonado, a pauta que
+ * não vingou.
+ *
+ * É um evento SEPARADO do `ArticleUnpublished` de propósito, apesar de a
+ * transição de estado ser a mesma (→ `ARQUIVADA`). São dois fatos diferentes:
+ * "despublicada" significa que havia uma URL viva e ela deixou de existir — o
+ * que um dia vai obrigar a revalidar a home, a editoria e o sitemap. Descartar
+ * um rascunho não tira nada da web, porque nada estava lá. Um consumidor que
+ * reage ao primeiro NÃO pode ser acordado pelo segundo, e um evento só, com
+ * bandeira dentro, garantiria que cedo ou tarde alguém esqueceria de olhar a
+ * bandeira.
+ */
+export class ArticleDiscarded extends DomainEvent {
+	readonly eventName = "ArticleDiscarded";
+	constructor(
+		readonly articleId: string,
+		occurredAt: Date,
+	) {
+		super(occurredAt);
+	}
+}
+
+/**
+ * Matéria APAGADA de vez. O único evento do editorial cujo agregado não existe
+ * mais depois dele.
+ *
+ * Por isso ele carrega `headline` e `slug` no corpo, e não só o id: a linha da
+ * auditoria passa a ser o ÚNICO registro de que aquela matéria existiu, e uma
+ * auditoria que só sabe dizer "art_7h2k foi apagada" não presta contas de nada.
+ * `wasPublished` distingue o descarte de rascunho do apagamento de algo que
+ * esteve na web e cujo endereço agora responde 404.
+ */
+export class ArticleDeleted extends DomainEvent {
+	readonly eventName = "ArticleDeleted";
+	constructor(
+		readonly articleId: string,
+		readonly headline: string,
+		readonly slug: string,
+		readonly wasPublished: boolean,
+		occurredAt: Date,
+	) {
+		super(occurredAt);
+	}
+}

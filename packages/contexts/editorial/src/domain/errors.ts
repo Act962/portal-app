@@ -69,6 +69,24 @@ export class RejectionReasonRequired extends Error {
 	}
 }
 
+/**
+ * Matéria no ar não se apaga.
+ *
+ * Não é zelo excessivo: o endereço dela está indexado no Google, colado em
+ * grupo de WhatsApp e linkado por outros sites. Apagar transforma tudo isso em
+ * 404 de uma vez. ARQUIVAR tira do portal e preserva o registro — quem quiser
+ * mesmo eliminar passa por lá primeiro, e essa segunda parada é justamente o
+ * ponto em que dá para mudar de ideia.
+ */
+export class ArticleOnAir extends Error {
+	constructor() {
+		super(
+			"Matéria no ar não pode ser apagada: arquive primeiro para tirá-la do portal.",
+		);
+		this.name = "ArticleOnAir";
+	}
+}
+
 /** Só se agenda para o futuro (A12). */
 export class ScheduleInPast extends Error {
 	constructor() {

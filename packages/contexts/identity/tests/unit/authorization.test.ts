@@ -106,6 +106,66 @@ describe("article:edit-own só no próprio recurso (I05)", () => {
 	});
 });
 
+/**
+ * `article:delete` não segue nem a regra do `edit-own` nem a das editorias
+ * vinculadas — é a mistura das duas, e por um motivo concreto: o rascunho
+ * recém-criado ainda NÃO TEM editoria, então uma regra só por editoria deixaria
+ * o próprio autor sem como descartar o que acabou de criar.
+ *
+ * Esta matriz decide QUEM age. O que pode ou não ser apagado (matéria no ar,
+ * nunca) é do agregado, e o degrau extra para o que já esteve publicado é do
+ * caso de uso — ver `manage-articles.test.ts`.
+ */
+describe("article:delete — o próprio, ou o da editoria", () => {
+	it("o redator apaga o que é dele", () => {
+		expect(can(redator, "article:delete", { authorId: "redator-1" })).toBe(
+			true,
+		);
+	});
+
+	it("o redator não apaga o dos outros", () => {
+		expect(can(redator, "article:delete", { authorId: "outro" })).toBe(false);
+	});
+
+	it("o redator não apaga por ser de uma editoria", () => {
+		expect(can(redator, "article:delete", { sectionId: "politica" })).toBe(
+			false,
+		);
+	});
+
+	it("o editor apaga o da editoria dele, mesmo sendo de outra pessoa", () => {
+		expect(
+			can(editor, "article:delete", {
+				authorId: "outro",
+				sectionId: "politica",
+			}),
+		).toBe(true);
+	});
+
+	it("o editor não apaga o de editoria alheia", () => {
+		expect(
+			can(editor, "article:delete", {
+				authorId: "outro",
+				sectionId: "esportes",
+			}),
+		).toBe(false);
+	});
+
+	it("o editor apaga o PRÓPRIO rascunho ainda sem editoria", () => {
+		// A segunda via que existe justamente para este caso.
+		expect(can(editor, "article:delete", { authorId: "editor-1" })).toBe(true);
+	});
+
+	it("sem recurso nenhum, ninguém abaixo de admin apaga", () => {
+		expect(can(redator, "article:delete")).toBe(false);
+		expect(can(editor, "article:delete")).toBe(false);
+	});
+
+	it("o admin apaga qualquer uma", () => {
+		expect(can(admin, "article:delete", { authorId: "outro" })).toBe(true);
+	});
+});
+
 describe("staff inativo não pode nada (I04)", () => {
 	const inactiveAdmin = staff({
 		id: "admin-1",

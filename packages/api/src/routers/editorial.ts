@@ -6,6 +6,8 @@ import {
 	cancelSchedule,
 	changeSlug,
 	createDraft,
+	deleteArticle,
+	deleteMany,
 	EDITORIAL_STATUSES,
 	getArticle,
 	listArticles,
@@ -123,6 +125,11 @@ function articleDto(article: Article) {
 		byline: { authorId: article.byline.authorId, name: article.byline.name },
 		scheduledAt: article.scheduledAt,
 		publishedAt: article.publishedAt,
+		// A tela usa isto para saber se apagar destrói um ENDEREÇO que o público
+		// conhece — o que decide a força da confirmação. `publishedAt` não serve:
+		// ele responde "quando foi ao ar da última vez", e uma matéria despublicada
+		// e republicada tem os dois preenchidos.
+		firstPublishedAt: article.firstPublishedAt,
 		rejectionReason: article.rejectionReason,
 		// A04: pendências que impedem publicar, para a UI listar antes do clique.
 		pendencias: article.publishPreflight().map((blocker) => blocker.message),
@@ -135,6 +142,10 @@ function codeFor(error: Error): TRPCError["code"] {
 			return "FORBIDDEN";
 		case "ArticleNotFound":
 			return "NOT_FOUND";
+		// Não é entrada malformada: o pedido está correto, o ESTADO é que não
+		// permite. Uma matéria no ar só vira apagável depois de arquivada.
+		case "ArticleOnAir":
+			return "CONFLICT";
 		default:
 			return "BAD_REQUEST";
 	}
@@ -308,6 +319,33 @@ export const editorialRouter = router({
 			.input(z.object({ ids: z.array(z.string()).min(1).max(100) }))
 			.mutation(async ({ ctx, input }) => {
 				const outcome = await archiveMany(ctx.staff, input, articleDeps);
+				await dispatchEditorialEvents();
+				return outcome;
+			}),
+
+		/**
+		 * Apaga UMA matéria. Devolve o que sumiu (título e endereço), porque
+		 * depois disto não há mais o que consultar — e um aviso dizendo apenas
+		 * "apagada" não deixa a redação conferir se apagou o que queria.
+		 */
+		remove: staffProcedure
+			.input(z.object({ id: z.string() }))
+			.mutation(async ({ ctx, input }) => {
+				const result = await deleteArticle(ctx.staff, input, articleDeps);
+				if (result.isErr()) {
+					const error = result.unwrapErr();
+					throw new TRPCError({ code: codeFor(error), message: error.message });
+				}
+				// O `ArticleDeleted` já está no outbox (mesma transação do apagamento);
+				// isto o entrega à auditoria, que é o que sobra da matéria.
+				await dispatchEditorialEvents();
+				return result.unwrap();
+			}),
+
+		removeMany: staffProcedure
+			.input(z.object({ ids: z.array(z.string()).min(1).max(100) }))
+			.mutation(async ({ ctx, input }) => {
+				const outcome = await deleteMany(ctx.staff, input, articleDeps);
 				await dispatchEditorialEvents();
 				return outcome;
 			}),

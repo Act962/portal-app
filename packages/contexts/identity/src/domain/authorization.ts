@@ -49,6 +49,11 @@ function canRedator(
 		case "article:submit":
 			return true;
 		case "article:edit-own":
+		// Descartar de vez o PRÓPRIO rascunho é parte de escrever. O que o
+		// redator NÃO pode apagar (matéria no ar, e o registro de qualquer uma
+		// que já esteve no ar) é barrado no caso de uso e no agregado, não aqui:
+		// esta matriz decide sobre QUEM age, não sobre o estado da matéria.
+		case "article:delete":
 			return ownsResource(staff, resource);
 		default:
 			return false;
@@ -73,6 +78,16 @@ function canEditor(
 			return true;
 		case "article:edit-own":
 			return ownsResource(staff, resource);
+		// Ou é da editoria do editor, ou é dele. O "ou é dele" não é folga: um
+		// rascunho ainda SEM editoria não pertence a editoria nenhuma, e sem esta
+		// segunda via o próprio editor não conseguiria descartar o rascunho que
+		// acabou de criar.
+		case "article:delete":
+			return (
+				ownsResource(staff, resource) ||
+				(resource?.sectionId !== undefined &&
+					staff.belongsToSection(resource.sectionId))
+			);
 		case "article:edit-any":
 		case "article:approve":
 		case "article:publish":

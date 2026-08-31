@@ -1,6 +1,9 @@
 import {
 	AltTextRequired,
 	Article,
+	ArticleDeleted,
+	ArticleDiscarded,
+	ArticleOnAir,
 	ArticlePublished,
 	ArticleRejected,
 	ArticleScheduled,
@@ -159,7 +162,10 @@ describe("Article — transições inválidas (E01)", () => {
 		expect(draft().cancelSchedule().unwrapErr()).toBeInstanceOf(
 			InvalidTransition,
 		);
-		expect(draft().archive(NOW).unwrapErr()).toBeInstanceOf(InvalidTransition);
+		// `archive` saiu desta lista de propósito: arquivar um rascunho passou a
+		// ser válido. A ÚNICA transição de arquivamento que continua proibida é
+		// ARQUIVADA → ARQUIVADA, e ela está coberta em "Article — arquivar de
+		// qualquer estado".
 		expect(draft().markUpdated(NOW).unwrapErr()).toBeInstanceOf(
 			InvalidTransition,
 		);
@@ -415,5 +421,157 @@ describe("Article — reidratação", () => {
 				status: "RASCUNHO",
 			}),
 		).toThrow();
+	});
+});
+
+/**
+ * Arquivar deixou de ser exclusividade do que está no ar. A regra nova é uma
+ * só — de qualquer estado, menos do próprio arquivo —, mas ela tem duas bordas
+ * que só aparecem em teste: o EVENTO muda conforme a matéria já tenha ido ao
+ * público ou não, e a AGENDADA precisa perder a hora marcada ao ser arquivada.
+ */
+describe("Article — arquivar de qualquer estado", () => {
+	it("arquiva o rascunho abandonado, sem passar pelo fluxo", () => {
+		const article = draft();
+		expect(article.archive(NOW).isOk()).toBe(true);
+		expect(article.status).toBe("ARQUIVADA");
+	});
+
+	it("rascunho arquivado emite ArticleDiscarded, não ArticleUnpublished", () => {
+		// A distinção não é cosmética: quem reage a "despublicada" vai ter de
+		// revalidar home, editoria e sitemap. Descartar rascunho não tira nada
+		// da web, porque nada estava lá.
+		const article = draft();
+		article.archive(NOW);
+		const [event] = article.pullEvents();
+		expect(event).toBeInstanceOf(ArticleDiscarded);
+		expect(event).not.toBeInstanceOf(ArticleUnpublished);
+	});
+
+	it("publicada arquivada continua emitindo ArticleUnpublished", () => {
+		const article = publishable();
+		article.submitForReview(NOW);
+		article.approve();
+		article.publish(NOW);
+		article.pullEvents();
+
+		article.archive(LATER);
+		expect(article.pullEvents()[0]).toBeInstanceOf(ArticleUnpublished);
+	});
+
+	it("arquivar a AGENDADA cancela o agendamento junto", () => {
+		// Sem isto sobraria no banco uma matéria arquivada com hora marcada para
+		// ir ao ar — um estado que não quer dizer nada.
+		const article = publishable();
+		article.submitForReview(NOW);
+		article.approve();
+		article.schedule(LATER, NOW);
+		expect(article.scheduledAt).not.toBeNull();
+
+		article.archive(NOW);
+		expect(article.status).toBe("ARQUIVADA");
+		expect(article.scheduledAt).toBeNull();
+	});
+
+	it("de EM_REVISAO e de APROVADA também sai", () => {
+		const emRevisao = publishable();
+		emRevisao.submitForReview(NOW);
+		expect(emRevisao.archive(NOW).isOk()).toBe(true);
+
+		const aprovada = publishable();
+		aprovada.submitForReview(NOW);
+		aprovada.approve();
+		expect(aprovada.archive(NOW).isOk()).toBe(true);
+	});
+
+	it("já arquivada não se arquiva de novo", () => {
+		const article = draft();
+		article.archive(NOW);
+		const again = article.archive(NOW);
+		expect(again.unwrapErr()).toBeInstanceOf(InvalidTransition);
+	});
+});
+
+describe("Article — apagar", () => {
+	it("recusa apagar o que está NO AR", () => {
+		const article = publishable();
+		article.submitForReview(NOW);
+		article.approve();
+		article.publish(NOW);
+
+		expect(article.markDeleted(NOW).unwrapErr()).toBeInstanceOf(ArticleOnAir);
+	});
+
+	it("recusa também a ATUALIZADA", () => {
+		const article = publishable();
+		article.submitForReview(NOW);
+		article.approve();
+		article.publish(NOW);
+		article.markUpdated(LATER);
+
+		expect(article.markDeleted(LATER).unwrapErr()).toBeInstanceOf(ArticleOnAir);
+	});
+
+	it("aceita rascunho, revisão, aprovada, agendada e arquivada", () => {
+		const rascunho = draft();
+		expect(rascunho.markDeleted(NOW).isOk()).toBe(true);
+
+		const emRevisao = publishable();
+		emRevisao.submitForReview(NOW);
+		expect(emRevisao.markDeleted(NOW).isOk()).toBe(true);
+
+		const aprovada = publishable();
+		aprovada.submitForReview(NOW);
+		aprovada.approve();
+		expect(aprovada.markDeleted(NOW).isOk()).toBe(true);
+
+		const agendada = publishable();
+		agendada.submitForReview(NOW);
+		agendada.approve();
+		agendada.schedule(LATER, NOW);
+		expect(agendada.markDeleted(NOW).isOk()).toBe(true);
+
+		const arquivada = draft();
+		arquivada.archive(NOW);
+		expect(arquivada.markDeleted(NOW).isOk()).toBe(true);
+	});
+
+	it("o evento carrega título e endereço — é o que sobra da matéria", () => {
+		// Depois do apagamento a linha da auditoria é o ÚNICO registro de que
+		// aquilo existiu, e "art-1 foi apagada" não presta contas de nada.
+		const article = draft({ headline: "Enchente atinge o centro" });
+		article.markDeleted(NOW);
+
+		const [event] = article.pullEvents();
+		expect(event).toBeInstanceOf(ArticleDeleted);
+		const deleted = event as ArticleDeleted;
+		expect(deleted.headline).toBe("Enchente atinge o centro");
+		expect(deleted.slug).toBe("enchente-atinge-o-centro");
+		expect(deleted.wasPublished).toBe(false);
+	});
+
+	it("marca wasPublished quando a matéria já esteve no ar", () => {
+		const article = publishable();
+		article.submitForReview(NOW);
+		article.approve();
+		article.publish(NOW);
+		article.archive(LATER);
+		article.pullEvents();
+
+		article.markDeleted(LATER);
+		expect((article.pullEvents()[0] as ArticleDeleted).wasPublished).toBe(true);
+	});
+
+	it("wasEverPublished não é o mesmo que estar publicada agora", () => {
+		const article = publishable();
+		expect(article.wasEverPublished()).toBe(false);
+
+		article.submitForReview(NOW);
+		article.approve();
+		article.publish(NOW);
+		article.archive(LATER);
+
+		expect(article.isPublished()).toBe(false);
+		expect(article.wasEverPublished()).toBe(true);
 	});
 });
