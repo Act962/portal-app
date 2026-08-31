@@ -7,6 +7,12 @@ import { useState } from "react";
 /**
  * Sticky 320×50 anchor unit, mobile only.
  *
+ * O anúncio chega como `children`, montado por quem chama. É um componente
+ * CLIENTE (precisa do estado de "fechado"), e componente cliente não renderiza
+ * Server Component assíncrono — mas recebe um pronto por prop. Quem decide se
+ * esta barra existe é o SERVIDOR: sem anúncio para servir, ela não é
+ * renderizada, e não sobra nem a faixa nem o botão de fechar.
+ *
  * Dismissible by design: an anchor that cannot be closed eats the bottom of
  * every screen and is the kind of thing that gets a site penalised for
  * intrusive interstitials.
@@ -23,7 +29,7 @@ import { useState } from "react";
  * grupo `(site)`, e sem medida escrita à mão para alguém errar de novo quando
  * a altura do banner mudar.
  */
-export function AnchorAd() {
+export function AnchorAd({ children }: { children: React.ReactNode }) {
 	const [dismissed, setDismissed] = useState(false);
 
 	if (dismissed) {
@@ -36,9 +42,7 @@ export function AnchorAd() {
 			className="sticky bottom-0 z-30 border-[#e0ddd6] border-t bg-surface-alt md:hidden"
 		>
 			<Container className="flex items-center gap-2.5 py-1.5">
-				<div className="hatch-muted flex h-[50px] flex-1 items-center justify-center rounded-card border border-[#cfcac1] border-dashed font-mono text-[#9c968c] text-[9.5px]">
-					âncora mobile 320×50
-				</div>
+				<div className="flex-1">{children}</div>
 				<button
 					type="button"
 					onClick={() => setDismissed(true)}

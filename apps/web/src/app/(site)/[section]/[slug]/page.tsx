@@ -201,7 +201,16 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 						) : null}
 					</figure>
 
-					<ArticleBody blocks={article.body} adAfterBlock={2} />
+					<ArticleBody
+						blocks={article.body}
+						adAfterBlock={2}
+						ad={
+							<AdPlacement
+								slot="in-content"
+								sectionId={(await getSection(article.sectionSlug))?.id ?? null}
+							/>
+						}
+					/>
 
 					<ArticleTags tags={article.tags} />
 				</article>

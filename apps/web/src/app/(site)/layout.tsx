@@ -9,7 +9,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SkipLink } from "@/components/layout/skip-link";
 import { TopBar } from "@/components/layout/top-bar";
 import { JsonLd } from "@/components/seo/json-ld";
-import { getAdSenseScript } from "@/data/ads";
+import { getAdSenseScript, hasAdFor } from "@/data/ads";
 import { getSections, getTicker } from "@/data/queries";
 import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { organizationSchema } from "@/lib/structured-data";
@@ -50,6 +50,7 @@ export default async function SiteLayout({
 		loadSiteIdentity(),
 		getAdSenseScript(),
 	]);
+	const anchorAd = await hasAdFor("anchor-mobile", null);
 
 	return (
 		<>
@@ -89,16 +90,26 @@ export default async function SiteLayout({
 				<NewsTicker articles={ticker} />
 
 				{/*
-				  Onde o mockup põe o banner. Altura reservada pelo `AdSlot`, então a
-				  entrada do criativo não desloca o conteúdo (CLS).
+				  Onde o mockup põe o banner. A altura é reservada pelo `AdPlacement`,
+				  então a entrada do criativo não desloca o conteúdo (CLS).
 
-				  O `hidden md:block` está no CONTÊINER, não no anúncio: com ele só no
-				  `AdSlot`, o wrapper continuava no fluxo no celular e o `pt-4` virava
-				  uma faixa branca de 16px entre o cabeçalho e a manchete — espaço
-				  reservado para algo que nunca aparece naquela largura.
+				  O ESPAÇAMENTO (`pt-4`) e a visibilidade (`hidden md:block`) moram no
+				  ANÚNCIO, não no contêiner. Já foi o contrário, e o `pt-4` no contêiner
+				  virava uma faixa branca de 16px entre o cabeçalho e a manchete no
+				  celular — espaço reservado para algo que nunca aparecia naquela
+				  largura. Agora o `AdPlacement` não renderiza NADA quando não há
+				  anúncio, e o mesmo defeito voltaria por outro caminho: a faixa
+				  apareceria em toda tela sem campanha, em qualquer largura. Com as
+				  duas classes no anúncio, sumir o anúncio some o espaço junto.
+
+				  O `Container` fica: ele só tem margem horizontal, então vazio ele
+				  não ocupa altura nenhuma.
 				*/}
-				<Container className="hidden pt-4 md:block">
-					<AdPlacement slot="billboard" className="mx-auto" />
+				<Container>
+					<AdPlacement
+						slot="billboard"
+						className="mx-auto hidden pt-4 md:block"
+					/>
 				</Container>
 
 				<main id="conteudo" className="flex-1">
@@ -113,7 +124,15 @@ export default async function SiteLayout({
 				  espaço voltaria a depender de um padding no wrapper, que é Server
 				  Component e não fica sabendo que o leitor fechou o banner.
 				*/}
-				<AnchorAd />
+				{/* Sem anúncio para a âncora, a barra inteira não existe — nem o
+				    botão de fechar. Quem pergunta é o SERVIDOR, porque o `AnchorAd` é
+				    cliente e não pode consultar banco; o `cache()` faz esta leitura e
+				    a do `AdPlacement` logo abaixo serem a mesma. */}
+				{anchorAd ? (
+					<AnchorAd>
+						<AdPlacement slot="anchor-mobile" />
+					</AnchorAd>
+				) : null}
 			</div>
 
 			<JsonLd schema={organizationSchema(site)} />

@@ -127,7 +127,7 @@ const loadCreatives = cache(
  * pertencem a editoria nenhuma. Não é omissão: é a informação de que uma
  * campanha segmentada NÃO deve aparecer ali, porque não foi isso que se vendeu.
  */
-export async function getSlotContent(
+export const getSlotContent = cache(async function getSlotContent(
 	slot: AdSlot,
 	sectionId: string | null,
 ): Promise<SlotContent> {
@@ -178,6 +178,23 @@ export async function getSlotContent(
 		},
 		EMPTY,
 	);
+});
+
+/**
+ * Há algo para servir nesta posição?
+ *
+ * Existe para quem precisa decidir a MOLDURA antes de renderizar o anúncio —
+ * hoje a âncora do celular, que é uma barra fixa com botão de fechar: sem
+ * anúncio, a barra inteira não deve existir, e não só o miolo dela. O
+ * `cache()` do React faz esta pergunta e o `AdPlacement` seguinte dividirem a
+ * MESMA leitura, então não custa consulta a mais.
+ */
+export async function hasAdFor(
+	slot: AdSlot,
+	sectionId: string | null,
+): Promise<boolean> {
+	const { campaigns, adsense } = await getSlotContent(slot, sectionId);
+	return campaigns.length > 0 || adsense !== null;
 }
 
 /** A configuração do AdSense, para o `<head>` e para o `/ads.txt`. */

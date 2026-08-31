@@ -32,6 +32,23 @@ export async function AdPlacement({
 	const format = AD_FORMATS[slot];
 	const { campaigns, adsense } = await getSlotContent(slot, sectionId);
 
+	// SEM NADA PARA SERVIR, a posição não existe na página.
+	//
+	// Antes ficava aqui uma moldura tracejada escrita "banner 300×600". Ela
+	// fazia sentido enquanto era andaime — mostrava ao cliente onde o anúncio
+	// entraria. Agora que a posição serve conteúdo de verdade, a moldura vazia
+	// é só uma caixa cinza de 600px empurrando a notícia para baixo, e a
+	// notícia é o produto (ui-ux.md §1).
+	//
+	// E isto NÃO reabre o problema de CLS que a altura reservada resolve: a
+	// reserva existe para o anúncio que VAI chegar depois (o do Google, que é
+	// assíncrono). Quando o servidor já sabe que não há nada, nada vai chegar —
+	// não existe deslocamento a evitar. A reserva continua nos dois casos em
+	// que ela vale, logo abaixo.
+	if (campaigns.length === 0 && !adsense) {
+		return null;
+	}
+
 	const maxWidth = "maxWidth" in format ? format.maxWidth : undefined;
 
 	return (
@@ -40,14 +57,9 @@ export async function AdPlacement({
 				PUBLICIDADE
 			</p>
 			<div
-				className={cn(
-					"flex w-full items-center justify-center overflow-hidden",
-					// A moldura tracejada é o estado VAZIO. Com anúncio dentro ela sai:
-					// borda pontilhada em volta de um banner pago parece defeito.
-					campaigns.length === 0 &&
-						!adsense &&
-						"hatch-muted rounded-card border border-[#cfcac1] border-dashed font-mono text-[#9c968c] text-[10px]",
-				)}
+				className="flex w-full items-center justify-center overflow-hidden"
+				// A altura é reservada ANTES de o criativo carregar — é o que mantém
+				// o CLS em zero (ui-ux.md §110).
 				style={{ height: format.height, maxWidth }}
 			>
 				{campaigns.length > 0 ? (
@@ -59,9 +71,7 @@ export async function AdPlacement({
 						nonPersonalized={adsense.nonPersonalized}
 						className="w-full"
 					/>
-				) : (
-					format.caption
-				)}
+				) : null}
 			</div>
 		</aside>
 	);

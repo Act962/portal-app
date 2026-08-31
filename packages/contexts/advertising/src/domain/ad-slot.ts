@@ -19,6 +19,7 @@ export const AD_SLOTS = [
 	"sidebar",
 	"sidebar-tall",
 	"mobile-top",
+	"anchor-mobile",
 ] as const;
 
 export type AdSlot = (typeof AD_SLOTS)[number];
@@ -35,4 +36,5 @@ export const AD_SLOT_LABELS: Record<AdSlot, string> = {
 	sidebar: "Lateral (300×250)",
 	"sidebar-tall": "Lateral alta (300×600)",
 	"mobile-top": "Topo no celular (320×70)",
+	"anchor-mobile": "Âncora no rodapé do celular (320×50)",
 };
