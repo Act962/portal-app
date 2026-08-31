@@ -9,7 +9,9 @@ import {
 	pinnedOffsets,
 	readStoredWidths,
 	resizeColumn,
+	STACK,
 	serializeWidths,
+	stackLevel,
 	tableMinWidth,
 } from "@/lib/table-columns";
 
@@ -136,7 +138,9 @@ describe("pinnedOffsets", () => {
 
 describe("tableMinWidth", () => {
 	it("é a soma das colunas — sem ela não existe rolagem horizontal", () => {
-		expect(tableMinWidth(SPECS, defaultWidths(SPECS))).toBe(44 + 380 + 140 + 180);
+		expect(tableMinWidth(SPECS, defaultWidths(SPECS))).toBe(
+			44 + 380 + 140 + 180,
+		);
 	});
 
 	it("acompanha o redimensionamento", () => {
@@ -212,5 +216,19 @@ describe("hasCustomWidths", () => {
 	it("uma coluna fora do padrão já habilita o restaurar", () => {
 		const widths = resizeColumn(defaultWidths(SPECS), SPECS, "status", 200);
 		expect(hasCustomWidths(SPECS, widths)).toBe(true);
+	});
+});
+
+describe("ordem de empilhamento", () => {
+	it("cabeçalho congelado ACIMA da alça, e a alça acima da célula do corpo", () => {
+		// A invariante que já quebrou: alça e cabeçalho congelado empatados em
+		// `z-20`. Empate não é empate — decide a ordem no DOM, e a alça de uma
+		// coluna já fora da vista pintava por cima do cabeçalho congelado.
+		expect(stackLevel(STACK.pinnedHeader)).toBeGreaterThan(
+			stackLevel(STACK.resizeHandle),
+		);
+		expect(stackLevel(STACK.resizeHandle)).toBeGreaterThan(
+			stackLevel(STACK.pinnedCell),
+		);
 	});
 });

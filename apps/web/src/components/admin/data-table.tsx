@@ -21,6 +21,7 @@ import {
 	pinnedOffsets,
 	readStoredWidths,
 	resizeColumn,
+	STACK,
 	serializeWidths,
 	tableMinWidth,
 } from "@/lib/table-columns";
@@ -257,7 +258,8 @@ export function ColumnResizeHandle({
 			className={cn(
 				// A alça é ESTREITA e a área de pegada é LARGA (o `after`): mirar 2px
 				// com o mouse é um teste de pontaria, não uma interface.
-				"absolute inset-y-0 right-0 z-20 w-px cursor-col-resize bg-border transition-colors",
+				"absolute inset-y-0 right-0 w-px cursor-col-resize bg-border transition-colors",
+				STACK.resizeHandle,
 				"after:absolute after:inset-y-0 after:-right-2 after:-left-2 after:content-['']",
 				"hover:bg-brand-accent focus-visible:bg-brand-accent focus-visible:outline-none",
 				"focus-visible:ring-2 focus-visible:ring-brand-accent/40",
@@ -334,8 +336,9 @@ export function DataTable({
 
 /**
  * As props de uma célula CONGELADA. Devolve classe e estilo juntos porque os
- * dois são inseparáveis: o `left` sem o `position` não gruda, e o `position`
- * sem o fundo opaco deixa o conteúdo rolar POR BAIXO, visível.
+ * dois são inseparáveis: o `left` sem o `position` não gruda, o `position` sem
+ * o fundo opaco deixa o conteúdo rolar POR BAIXO visível, e o `z-index` errado
+ * deixa o que rola pintar POR CIMA.
  *
  * `bg-inherit` e não uma cor fixa: a linha muda de fundo ao passar o mouse e ao
  * ser selecionada, e uma célula com cor própria ficaria como um retalho parado
@@ -356,7 +359,7 @@ export function pinnedProps(
 		style: { left: `var(--pin-${key})` },
 		className: cn(
 			"sticky bg-inherit",
-			options?.header ? "z-20" : "z-10",
+			options?.header ? STACK.pinnedHeader : STACK.pinnedCell,
 			// A sombra vai só na ÚLTIMA congelada: é a fronteira entre o que fica
 			// e o que rola. Nas outras, seria uma listra no meio do bloco parado.
 			last &&

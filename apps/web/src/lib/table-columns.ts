@@ -186,3 +186,30 @@ export function hasCustomWidths(
 	const defaults = defaultWidths(specs);
 	return specs.some((spec) => widths[spec.key] !== defaults[spec.key]);
 }
+
+/**
+ * A ORDEM DE EMPILHAMENTO da tabela.
+ *
+ * Mora aqui, e não no componente, porque é uma REGRA e não um estilo — e
+ * porque já foi quebrada: a alça de arrasto e o cabeçalho congelado ficaram
+ * ambos em `z-20`, e empate de `z-index` não é empate: quem ganha é o último
+ * no DOM. A alça de uma coluna que já tinha rolado para fora da vista aparecia
+ * como uma listra vertical no meio do cabeçalho congelado.
+ *
+ * As classes são LITERAIS de propósito: o Tailwind lê o código-fonte para
+ * decidir o que gerar, e um `z-${n}` montado em tempo de execução não existiria
+ * na folha de estilo final.
+ */
+export const STACK = {
+	/** Célula congelada do corpo — acima das células que rolam por baixo. */
+	pinnedCell: "z-10",
+	/** Alça de arrasto — acima do cabeçalho comum, abaixo do congelado. */
+	resizeHandle: "z-20",
+	/** Cabeçalho congelado — acima de tudo o que passa por baixo dele. */
+	pinnedHeader: "z-30",
+} as const;
+
+/** O número dentro da classe, para a invariante da ordem ser verificável. */
+export function stackLevel(token: string): number {
+	return Number(token.replace("z-", ""));
+}
