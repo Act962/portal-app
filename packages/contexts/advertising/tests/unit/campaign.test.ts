@@ -339,3 +339,188 @@ describe("AdSenseSettings", () => {
 		expect(AdSenseSettings.restore(null).adsTxtLine()).toBeNull();
 	});
 });
+
+describe("edit — cada campo tem seu caminho, e cada um pode falhar", () => {
+	function nova() {
+		return Campaign.create({
+			...base,
+			creative: { mediaId: "m-1", altText: "Promoção" },
+		}).unwrap();
+	}
+
+	it("troca nome e anunciante, aparando espaços", () => {
+		const c = nova();
+		expect(
+			c.edit({ name: "  Novo  ", advertiser: "  Outra Loja  " }).isOk(),
+		).toBe(true);
+		expect(c.name).toBe("Novo");
+		expect(c.advertiser).toBe("Outra Loja");
+	});
+
+	it("nome ou anunciante vazios são recusados", () => {
+		expect(nova().edit({ name: "   " }).unwrapErr().name).toBe(
+			"CampaignNameRequired",
+		);
+		expect(nova().edit({ advertiser: "" }).unwrapErr().name).toBe(
+			"AdvertiserRequired",
+		);
+	});
+
+	it("troca a posição", () => {
+		const c = nova();
+		expect(c.edit({ slot: "billboard" }).isOk()).toBe(true);
+		expect(c.slot).toBe("billboard");
+	});
+
+	it("posição desconhecida é recusada e NÃO altera a atual", () => {
+		const c = nova();
+		expect(c.edit({ slot: "rodape" }).unwrapErr().name).toBe("InvalidSlot");
+		expect(c.slot).toBe("sidebar");
+	});
+
+	it("troca o link de destino", () => {
+		const c = nova();
+		c.edit({ destinationUrl: "https://outra.com.br/promo" });
+		expect(c.destination.host).toBe("outra.com.br");
+	});
+
+	it("link inválido é recusado e o antigo permanece", () => {
+		const c = nova();
+		expect(c.edit({ destinationUrl: "javascript:alert(1)" }).isErr()).toBe(
+			true,
+		);
+		expect(c.destination.host).toBe("lojadoze.com.br");
+	});
+
+	it("mudar SÓ o início mantém o término", () => {
+		// O caso que quebra se `edit` reconstruir o período do zero em vez de
+		// reaproveitar o lado que não veio: o término contratado sumiria.
+		const c = nova();
+		const novoInicio = new Date("2026-09-10T00:00:00Z");
+		expect(c.edit({ startsAt: novoInicio }).isOk()).toBe(true);
+		expect(c.flight.startsAt).toEqual(novoInicio);
+		expect(c.flight.endsAt).toEqual(base.endsAt);
+	});
+
+	it("mudar SÓ o término mantém o início", () => {
+		const c = nova();
+		const novoFim = new Date("2026-11-01T00:00:00Z");
+		expect(c.edit({ endsAt: novoFim }).isOk()).toBe(true);
+		expect(c.flight.startsAt).toEqual(base.startsAt);
+		expect(c.flight.endsAt).toEqual(novoFim);
+	});
+
+	it("apagar o término deixa a campanha sem fim combinado", () => {
+		const c = nova();
+		expect(c.edit({ endsAt: null }).isOk()).toBe(true);
+		expect(c.flight.endsAt).toBeNull();
+	});
+
+	it("período inválido é recusado e o antigo permanece", () => {
+		const c = nova();
+		expect(
+			c.edit({ endsAt: new Date("2026-08-01T00:00:00Z") }).unwrapErr().name,
+		).toBe("InvalidFlight");
+		expect(c.flight.endsAt).toEqual(base.endsAt);
+	});
+
+	it("troca o peso, e recusa peso fora da faixa", () => {
+		const c = nova();
+		expect(c.edit({ weight: 5 }).isOk()).toBe(true);
+		expect(c.weight).toBe(5);
+		expect(c.edit({ weight: 99 }).unwrapErr().name).toBe("InvalidWeight");
+		expect(c.weight).toBe(5);
+	});
+
+	it("troca as editorias, e esvaziar volta a ser global", () => {
+		const c = nova();
+		c.edit({ sectionIds: ["s-1"] });
+		expect(c.isGlobal).toBe(false);
+		c.edit({ sectionIds: [] });
+		expect(c.isGlobal).toBe(true);
+	});
+
+	it("guarda CÓPIA das editorias — a lista de quem chamou não vaza para dentro", () => {
+		const c = nova();
+		const lista = ["s-1"];
+		c.edit({ sectionIds: lista });
+		lista.push("s-2");
+		expect(c.sectionIds).toEqual(["s-1"]);
+	});
+
+	it("troca a arte, e removê-la tira a campanha do ar", () => {
+		const c = nova();
+		c.activate();
+		expect(c.isLiveAt(new Date("2026-09-15T00:00:00Z"))).toBe(true);
+
+		c.edit({ creative: null });
+		// Continua "ATIVA" no status, mas sem arte não há o que servir: é
+		// `isLiveAt` que decide a veiculação, e ele exige o criativo.
+		expect(c.status).toBe("ATIVA");
+		expect(c.isLiveAt(new Date("2026-09-15T00:00:00Z"))).toBe(false);
+	});
+
+	it("edit sem nenhum campo não muda nada", () => {
+		const c = nova();
+		expect(c.edit({}).isOk()).toBe(true);
+		expect(c.name).toBe(base.name);
+		expect(c.weight).toBe(1);
+	});
+});
+
+describe("restore — o que volta do banco", () => {
+	it("campanha sem arte volta sem arte", () => {
+		const c = Campaign.restore({
+			id: "c-1",
+			name: "X",
+			advertiser: "Y",
+			slot: "sidebar",
+			destinationUrl: "https://x.com.br/",
+			startsAt: base.startsAt,
+			endsAt: null,
+			weight: 1,
+			sectionIds: [],
+			creative: null,
+			status: "RASCUNHO",
+			createdAt: CREATED,
+		});
+		expect(c.creative).toBeNull();
+		expect(c.flight.endsAt).toBeNull();
+		expect(c.createdAt).toEqual(CREATED);
+	});
+
+	it("NÃO revalida o que já está gravado", () => {
+		// O que passou pela validação na entrada não é recusado na leitura —
+		// recusar aqui esconderia a campanha em vez de corrigi-la.
+		const c = Campaign.restore({
+			id: "c-1",
+			name: "X",
+			advertiser: "Y",
+			slot: "sidebar",
+			destinationUrl: "isto-nao-e-url",
+			startsAt: base.startsAt,
+			endsAt: null,
+			weight: 99,
+			sectionIds: [],
+			creative: null,
+			status: "ATIVA",
+			createdAt: CREATED,
+		});
+		expect(c.weight).toBe(99);
+		// `host` de um valor corrompido cai no próprio valor, sem estourar.
+		expect(c.destination.host).toBe("isto-nao-e-url");
+	});
+});
+
+describe("Flight — os dois lados do período", () => {
+	it("sem término, nunca terminou", () => {
+		const semFim = Flight.create(base.startsAt, null).unwrap();
+		expect(semFim.endedAt(new Date("2099-01-01T00:00:00Z"))).toBe(false);
+	});
+
+	it("startsAfter é o espelho de containsAt no começo", () => {
+		const f = Flight.create(base.startsAt, base.endsAt).unwrap();
+		expect(f.startsAfter(new Date("2026-08-01T00:00:00Z"))).toBe(true);
+		expect(f.startsAfter(base.startsAt)).toBe(false);
+	});
+});

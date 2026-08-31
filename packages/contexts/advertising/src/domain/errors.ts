@@ -55,6 +55,9 @@ export class InvalidSlot extends Error {
 export class CampaignNotReady extends Error {
 	override readonly name = "CampaignNotReady";
 	constructor(readonly blockers: readonly string[]) {
+		/* v8 ignore next -- o `??` é só para o tipo: quem constrói este erro é
+		   `activate`, e só quando há ao menos um impedimento. Lista vazia aqui é
+		   inalcançável. */
 		super(blockers[0] ?? "A campanha não está pronta para ir ao ar.");
 	}
 }
