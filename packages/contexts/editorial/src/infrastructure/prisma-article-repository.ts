@@ -8,6 +8,7 @@ import {
 	type ArticleFilter,
 	type ArticleRepository,
 	PUBLISHED_STATUSES,
+	wantsArchived,
 } from "../domain/ports/article-repository";
 
 /**
@@ -174,7 +175,14 @@ function toDomain(row: ArticleRow): Article {
 function whereFrom(filter?: ArticleFilter) {
 	const term = filter?.search?.trim();
 	return {
-		status: filter?.status,
+		// Sem status pedido, o arquivo fica fora — a não ser que a lista peça.
+		// `not` e não uma lista dos outros seis: status novo entra na lista
+		// sozinho, sem ninguém lembrar de vir aqui adicioná-lo.
+		...(filter?.status
+			? { status: filter.status }
+			: wantsArchived(filter)
+				? {}
+				: { status: { not: "ARQUIVADA" as const } }),
 		sectionId: filter?.sectionId,
 		authorId: filter?.authorId,
 		...(term

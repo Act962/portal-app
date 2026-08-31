@@ -795,6 +795,7 @@ export function ArticleEditor({ id }: { id: string }) {
 					setPickingCover(false);
 				}}
 				title="Escolher imagem de capa"
+				confirmLabel="Usar como capa"
 			/>
 
 			<Dialog open={rejecting} onOpenChange={setRejecting}>

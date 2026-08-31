@@ -5,7 +5,18 @@ import {
 	type EditorialStatus,
 } from "@portal-app/editorial";
 import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@portal-app/ui/components/alert-dialog";
 import { Button } from "@portal-app/ui/components/button";
+import { Checkbox } from "@portal-app/ui/components/checkbox";
 import {
 	Dialog,
 	DialogClose,
@@ -39,8 +50,9 @@ import {
 	TableHeader,
 	TableRow,
 } from "@portal-app/ui/components/table";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+	Archive,
 	ExternalLink,
 	MoreHorizontal,
 	Plus,
@@ -55,6 +67,15 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/admin/page-header";
 import { PaginationBar } from "@/components/admin/pagination-bar";
 import { STATUS_LABELS, StatusBadge } from "@/components/admin/status-badge";
+import {
+	archiveResultMessage,
+	countLabel,
+	headerCheckboxState,
+	isArchivable,
+	pruneSelection,
+	toggleAll,
+	toggleSelection,
+} from "@/lib/article-selection";
 import { trpc } from "@/utils/trpc";
 
 const articleHref = (id: string) => `/dashboard/articles/${id}` as Route;
@@ -63,18 +84,30 @@ const ALL = "__all__";
 
 export function ArticlesList() {
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const [status, setStatus] = useState<string>(ALL);
 	const [sectionId, setSectionId] = useState<string>(ALL);
 	const [search, setSearch] = useState("");
+	const [showArchived, setShowArchived] = useState(false);
 	const [page, setPage] = useState(1);
 	const [headline, setHeadline] = useState("");
 	const [creating, setCreating] = useState(false);
+	// A seleção do arquivamento em lote. Guarda ids, e não os objetos: a lista
+	// se recarrega a cada filtro, e um objeto guardado envelheceria calado.
+	const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+	/** Confirmação de UMA matéria (linha) ou do LOTE (barra). */
+	const [confirming, setConfirming] = useState<
+		{ kind: "one"; id: string; headline: string } | { kind: "bulk" } | null
+	>(null);
 
 	const list = useQuery(
 		trpc.editorial.articles.list.queryOptions({
 			...(status === ALL ? {} : { status: status as EditorialStatus }),
 			...(sectionId === ALL ? {} : { sectionId }),
 			...(search.trim() ? { search: search.trim() } : {}),
+			// Arquivada é matéria fora de circulação: some da lista, a não ser que
+			// a redação peça para vê-la.
+			...(showArchived ? { includeArchived: true } : {}),
 			page,
 		}),
 	);
@@ -100,12 +133,41 @@ export function ArticlesList() {
 		}),
 	);
 
+	/** Arquivar mexe na contagem por status da visão geral — que é outra query. */
+	const refreshAfterArchive = async () => {
+		setSelected(new Set());
+		await Promise.all([
+			list.refetch(),
+			queryClient.invalidateQueries({
+				queryKey: trpc.editorial.articles.counts.queryKey(),
+			}),
+		]);
+	};
+
+	const archiveOne = useMutation(
+		trpc.editorial.articles.archive.mutationOptions({
+			onSuccess: async () => {
+				toast.success("Matéria arquivada.");
+				await refreshAfterArchive();
+			},
+		}),
+	);
+	const archiveMany = useMutation(
+		trpc.editorial.articles.archiveMany.mutationOptions({
+			onSuccess: async (outcome) => {
+				const { tone, message } = archiveResultMessage(outcome);
+				toast[tone](message);
+				await refreshAfterArchive();
+			},
+		}),
+	);
+
 	// Mudou o filtro, volta para a primeira página. Sem isto, filtrar estando na
 	// página 5 devolve lista vazia — e parece que o filtro não achou nada.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reagir à MUDANÇA dos filtros, não ao valor de `page`
 	useEffect(() => {
 		setPage(1);
-	}, [status, sectionId, search]);
+	}, [status, sectionId, search, showArchived]);
 
 	const sectionName = (id: string | null) =>
 		sections.data?.find((s) => s.id === id)?.name ?? "—";
@@ -114,7 +176,43 @@ export function ArticlesList() {
 	const total = list.data?.total ?? 0;
 	const perPage = list.data?.perPage ?? DEFAULT_PAGE_SIZE;
 	const hasFilters =
-		status !== ALL || sectionId !== ALL || search.trim() !== "";
+		status !== ALL || sectionId !== ALL || search.trim() !== "" || showArchived;
+
+	// A seleção só vale para o que está NA TELA: virou a página, mudou o filtro,
+	// o lote terminou — o que sumiu sai da conta. Uma barra dizendo "3
+	// selecionadas" sobre linhas invisíveis arquivaria às cegas.
+	useEffect(() => {
+		const visible = (list.data?.items ?? []).map((a) => a.id);
+		setSelected((current) => {
+			const next = pruneSelection(current, visible);
+			return next.size === current.size ? current : next;
+		});
+	}, [list.data]);
+
+	const selectable = articles.filter((a) =>
+		isArchivable(a.status as EditorialStatus),
+	);
+	const headerState = headerCheckboxState(
+		articles.map((a) => ({ id: a.id, status: a.status as EditorialStatus })),
+		selected,
+	);
+	const selectedCount = selected.size;
+
+	const confirmedIds =
+		confirming?.kind === "one" ? [confirming.id] : [...selected];
+	const archiving = archiveOne.isPending || archiveMany.isPending;
+
+	const runArchive = () => {
+		if (!confirming) {
+			return;
+		}
+		if (confirming.kind === "one") {
+			archiveOne.mutate({ id: confirming.id });
+		} else if (selected.size > 0) {
+			archiveMany.mutate({ ids: [...selected] });
+		}
+		setConfirming(null);
+	};
 
 	return (
 		<>
@@ -255,6 +353,19 @@ export function ArticlesList() {
 					</SelectContent>
 				</Select>
 
+				{/* O arquivo continua a um clique de distância — escondido não é
+				    sumido. Fica desabilitado quando o filtro de status já pede
+				    "Arquivada": aí a lista É o arquivo, e a chave não teria efeito. */}
+				<Button
+					variant={showArchived ? "secondary" : "outline"}
+					aria-pressed={showArchived}
+					disabled={status === "ARQUIVADA"}
+					onClick={() => setShowArchived((value) => !value)}
+				>
+					<Archive className="size-4" />
+					{showArchived ? "Ocultar arquivadas" : "Mostrar arquivadas"}
+				</Button>
+
 				{hasFilters ? (
 					<Button
 						variant="ghost"
@@ -262,6 +373,7 @@ export function ArticlesList() {
 							setStatus(ALL);
 							setSectionId(ALL);
 							setSearch("");
+							setShowArchived(false);
 						}}
 					>
 						Limpar
@@ -269,10 +381,57 @@ export function ArticlesList() {
 				) : null}
 			</div>
 
+			{/* A barra do lote só existe quando há seleção — e diz o número antes do
+			    botão, porque é o número que a pessoa precisa conferir. */}
+			{selectedCount > 0 ? (
+				<div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 px-4 py-2.5">
+					<span className="font-medium text-sm">
+						{countLabel(selectedCount)} selecionada
+						{selectedCount === 1 ? "" : "s"}
+					</span>
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => setSelected(new Set())}
+					>
+						Limpar seleção
+					</Button>
+					<Button
+						size="sm"
+						variant="destructive"
+						className="ms-auto"
+						disabled={archiving}
+						onClick={() => setConfirming({ kind: "bulk" })}
+					>
+						<Archive className="size-4" />
+						{archiving ? "Arquivando…" : "Arquivar"}
+					</Button>
+				</div>
+			) : null}
+
 			<div className="rounded-lg border">
 				<Table>
 					<TableHeader>
 						<TableRow>
+							<TableHead className="w-10">
+								<Checkbox
+									checked={headerState === "checked"}
+									indeterminate={headerState === "indeterminate"}
+									disabled={selectable.length === 0}
+									onCheckedChange={() =>
+										setSelected((current) =>
+											toggleAll(
+												articles.map((a) => ({
+													id: a.id,
+													status: a.status as EditorialStatus,
+												})),
+												current,
+											),
+										)
+									}
+									aria-label="Selecionar as matérias publicadas desta página"
+								/>
+							</TableHead>
 							<TableHead>Título</TableHead>
 							<TableHead className="w-32">Status</TableHead>
 							<TableHead className="w-40">Editoria</TableHead>
@@ -284,7 +443,7 @@ export function ArticlesList() {
 						{list.isLoading ? (
 							["a", "b", "c", "d", "e"].map((k) => (
 								<TableRow key={k}>
-									<TableCell colSpan={5}>
+									<TableCell colSpan={6}>
 										{/* Mesma altura da linha final: sem salto de layout. */}
 										<Skeleton className="h-6 w-full" />
 									</TableCell>
@@ -292,7 +451,7 @@ export function ArticlesList() {
 							))
 						) : articles.length === 0 ? (
 							<TableRow>
-								<TableCell colSpan={5} className="py-12 text-center">
+								<TableCell colSpan={6} className="py-12 text-center">
 									<p className="font-medium">
 										{hasFilters
 											? "Nenhuma matéria com esses filtros."
@@ -306,70 +465,110 @@ export function ArticlesList() {
 								</TableCell>
 							</TableRow>
 						) : (
-							articles.map((article) => (
-								<TableRow key={article.id}>
-									<TableCell>
-										<Link
-											href={articleHref(article.id)}
-											className="block font-medium hover:underline"
-										>
-											{article.kicker ? (
-												<span className="block text-muted-foreground text-xs uppercase tracking-wide">
-													{article.kicker}
-												</span>
-											) : null}
-											{article.headline}
-										</Link>
-									</TableCell>
-									<TableCell>
-										<StatusBadge status={article.status as EditorialStatus} />
-									</TableCell>
-									<TableCell className="text-muted-foreground">
-										{sectionName(article.sectionId)}
-									</TableCell>
-									<TableCell className="text-muted-foreground">
-										{article.byline.name}
-									</TableCell>
-									<TableCell>
-										<DropdownMenu>
-											<DropdownMenuTrigger
-												render={
-													<Button
-														variant="ghost"
-														size="icon"
-														aria-label={`Ações de ${article.headline}`}
-													/>
+							articles.map((article) => {
+								const archivable = isArchivable(
+									article.status as EditorialStatus,
+								);
+								return (
+									<TableRow
+										key={article.id}
+										data-state={
+											selected.has(article.id) ? "selected" : undefined
+										}
+									>
+										<TableCell>
+											<Checkbox
+												checked={selected.has(article.id)}
+												disabled={!archivable}
+												onCheckedChange={() =>
+													setSelected((current) =>
+														toggleSelection(current, article.id),
+													)
 												}
+												aria-label={
+													archivable
+														? `Selecionar ${article.headline}`
+														: `${article.headline} não pode ser arquivada: só matéria no ar entra no arquivo`
+												}
+											/>
+										</TableCell>
+										<TableCell>
+											<Link
+												href={articleHref(article.id)}
+												className="block font-medium hover:underline"
 											>
-												<MoreHorizontal className="size-4" />
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end">
-												<DropdownMenuItem
-													render={<Link href={articleHref(article.id)} />}
-												>
-													Editar
-												</DropdownMenuItem>
-												{article.status === "PUBLICADA" ||
-												article.status === "ATUALIZADA" ? (
-													<DropdownMenuItem
-														render={
-															// biome-ignore lint/a11y/useAnchorContent: conteúdo vem do item
-															<a
-																href={`/${sections.data?.find((s) => s.id === article.sectionId)?.slug ?? "geral"}/${article.slug}`}
-																target="_blank"
-																rel="noreferrer"
-															/>
-														}
-													>
-														<ExternalLink />
-														Ver no portal
-													</DropdownMenuItem>
+												{article.kicker ? (
+													<span className="block text-muted-foreground text-xs uppercase tracking-wide">
+														{article.kicker}
+													</span>
 												) : null}
-											</DropdownMenuContent>
-										</DropdownMenu>
-									</TableCell>
-								</TableRow>
-							))
+												{article.headline}
+											</Link>
+										</TableCell>
+										<TableCell>
+											<StatusBadge status={article.status as EditorialStatus} />
+										</TableCell>
+										<TableCell className="text-muted-foreground">
+											{sectionName(article.sectionId)}
+										</TableCell>
+										<TableCell className="text-muted-foreground">
+											{article.byline.name}
+										</TableCell>
+										<TableCell>
+											<DropdownMenu>
+												<DropdownMenuTrigger
+													render={
+														<Button
+															variant="ghost"
+															size="icon"
+															aria-label={`Ações de ${article.headline}`}
+														/>
+													}
+												>
+													<MoreHorizontal className="size-4" />
+												</DropdownMenuTrigger>
+												<DropdownMenuContent align="end">
+													<DropdownMenuItem
+														render={<Link href={articleHref(article.id)} />}
+													>
+														Editar
+													</DropdownMenuItem>
+													{article.status === "PUBLICADA" ||
+													article.status === "ATUALIZADA" ? (
+														<DropdownMenuItem
+															render={
+																// biome-ignore lint/a11y/useAnchorContent: conteúdo vem do item
+																<a
+																	href={`/${sections.data?.find((s) => s.id === article.sectionId)?.slug ?? "geral"}/${article.slug}`}
+																	target="_blank"
+																	rel="noreferrer"
+																/>
+															}
+														>
+															<ExternalLink />
+															Ver no portal
+														</DropdownMenuItem>
+													) : null}
+													{archivable ? (
+														<DropdownMenuItem
+															onClick={() =>
+																setConfirming({
+																	kind: "one",
+																	id: article.id,
+																	headline: article.headline,
+																})
+															}
+														>
+															<Archive />
+															Arquivar
+														</DropdownMenuItem>
+													) : null}
+												</DropdownMenuContent>
+											</DropdownMenu>
+										</TableCell>
+									</TableRow>
+								);
+							})
 						)}
 					</TableBody>
 				</Table>
@@ -382,6 +581,43 @@ export function ArticlesList() {
 					unidade={{ singular: "matéria", plural: "matérias" }}
 				/>
 			</div>
+
+			{/* Uma confirmação só, para a linha e para o lote: é a MESMA ação, e
+			    duas telas diferentes para ela seriam duas chances de discordarem
+			    sobre o que arquivar significa. */}
+			<AlertDialog
+				open={confirming !== null}
+				onOpenChange={(open) => !open && setConfirming(null)}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{confirming?.kind === "one"
+								? `Arquivar “${confirming.headline}”?`
+								: `Arquivar ${countLabel(confirmedIds.length)}?`}
+						</AlertDialogTitle>
+						{/* O texto diz que NÃO TEM VOLTA porque não tem: `ARQUIVADA` é
+						    estado terminal no agregado — `publish` só aceita APROVADA ou
+						    AGENDADA, e `editContent` recusa matéria arquivada. Prometer
+						    aqui um "dá para republicar depois" que o domínio não cumpre
+						    seria a pior espécie de confirmação: a que faz clicar com
+						    confiança justamente onde não há desfazer. */}
+						<AlertDialogDescription>
+							{confirmedIds.length === 1
+								? "Ela sai do portal — some da home, da editoria e da busca. O texto e o endereço continuam guardados no arquivo, mas ARQUIVAR NÃO TEM VOLTA pelo painel: matéria arquivada não volta ao ar nem pode ser editada."
+								: "Elas saem do portal — somem da home, das editorias e da busca. Os textos e os endereços continuam guardados no arquivo, mas ARQUIVAR NÃO TEM VOLTA pelo painel: matéria arquivada não volta ao ar nem pode ser editada."}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancelar</AlertDialogCancel>
+						{/* `destructive` porque a ação é irreversível — o botão precisa
+						    parecer o que faz, e não um "OK" qualquer. */}
+						<AlertDialogAction variant="destructive" onClick={runArchive}>
+							Arquivar
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</>
 	);
 }

@@ -2,6 +2,7 @@ import {
 	type Article,
 	approve,
 	archive,
+	archiveMany,
 	cancelSchedule,
 	changeSlug,
 	createDraft,
@@ -178,6 +179,8 @@ export const editorialRouter = router({
 						sectionId: z.string().optional(),
 						authorId: z.string().optional(),
 						search: z.string().optional(),
+						/** Traz também as arquivadas. Por padrão elas ficam de fora. */
+						includeArchived: z.boolean().optional(),
 						/** 1-based, como a UI conta. `toPageRequest` normaliza e limita. */
 						page: z.number().int().optional(),
 						perPage: z.number().int().optional(),
@@ -292,6 +295,22 @@ export const editorialRouter = router({
 			.mutation(async ({ ctx, input }) =>
 				commit(await archive(ctx.staff, input, articleDeps)),
 			),
+
+		/**
+		 * Arquiva a seleção da lista. Devolve o que passou e o que ficou em vez
+		 * de estourar no primeiro erro: a tela precisa dizer "7 arquivadas, 1
+		 * já estava arquivada", e um `TRPCError` só saberia contar a falha.
+		 *
+		 * O teto de 100 não é burocracia — é o tamanho acima do qual uma ação de
+		 * clique único vira uma migração de acervo, e essa passa por outro lugar.
+		 */
+		archiveMany: staffProcedure
+			.input(z.object({ ids: z.array(z.string()).min(1).max(100) }))
+			.mutation(async ({ ctx, input }) => {
+				const outcome = await archiveMany(ctx.staff, input, articleDeps);
+				await dispatchEditorialEvents();
+				return outcome;
+			}),
 	}),
 
 	schedules: router({

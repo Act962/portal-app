@@ -9,7 +9,24 @@ export type ArticleFilter = {
 	sectionId?: string;
 	authorId?: string;
 	search?: string;
+	/**
+	 * Traz também as ARQUIVADAS. Sem isto elas ficam DE FORA — arquivar é
+	 * justamente tirar a matéria de circulação, e uma lista que continua a
+	 * mostrar o que foi arquivado não tira nada do caminho de ninguém.
+	 *
+	 * Pedir `status: "ARQUIVADA"` já é pedir o arquivo: nesse caso o filtro de
+	 * status manda, e esta bandeira não faz falta.
+	 */
+	includeArchived?: boolean;
 };
+
+/**
+ * A lista pediu o arquivo? Ou pela bandeira, ou pelo status explícito — em um
+ * lugar só, para o fake e o adapter Prisma não divergirem na resposta.
+ */
+export function wantsArchived(filter?: ArticleFilter): boolean {
+	return filter?.includeArchived === true || filter?.status === "ARQUIVADA";
+}
 
 /** Estados que contam como "publicado" para a checagem de uso (ContentUsage). */
 export const PUBLISHED_STATUSES: readonly EditorialStatus[] = [
@@ -92,7 +109,9 @@ export class InMemoryArticleRepository implements ArticleRepository {
 	/** O filtro e a ordem, sem a fatia — para `list` e `count` não divergirem. */
 	private matching(filter?: ArticleFilter): Article[] {
 		const term = filter?.search?.trim().toLowerCase();
+		const archived = wantsArchived(filter);
 		return [...this.store.values()]
+			.filter((a) => (archived ? true : a.status !== "ARQUIVADA"))
 			.filter((a) => (filter?.status ? a.status === filter.status : true))
 			.filter((a) =>
 				filter?.sectionId ? a.sectionId === filter.sectionId : true,
