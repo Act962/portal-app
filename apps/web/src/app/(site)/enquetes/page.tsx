@@ -1,6 +1,6 @@
-import { AdSlot } from "@portal-app/ui/components/ad-slot";
 import type { Metadata } from "next";
 
+import { AdPlacement } from "@/components/ads/ad-placement";
 import { ContentWithSidebar } from "@/components/layout/content-with-sidebar";
 import { MostReadList } from "@/components/news/most-read-list";
 import { PageHeading } from "@/components/news/page-heading";
@@ -53,7 +53,7 @@ export default async function PollsPage() {
 				gap="section"
 				sidebar={
 					<>
-						<AdSlot format="sidebar" />
+						<AdPlacement slot="sidebar" />
 						<MostReadList articles={mostRead} />
 					</>
 				}

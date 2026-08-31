@@ -8,6 +8,9 @@
  */
 
 export type Section = {
+	/** O id do banco. O portal navega por SLUG, mas a segmentação de campanha
+	 * publicitária é por id — slug pode ser reescrito, id não. */
+	id: string;
 	slug: string;
 	name: string;
 	description: string;

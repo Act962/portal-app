@@ -1,10 +1,10 @@
-import { AdSlot } from "@portal-app/ui/components/ad-slot";
 import { Container } from "@portal-app/ui/components/container";
 import { ctaButtonVariants } from "@portal-app/ui/components/cta-button";
 import { SectionHeader } from "@portal-app/ui/components/section-header";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AdPlacement } from "@/components/ads/ad-placement";
 import { QuotesBand } from "@/components/finance/quotes-band";
 import { ContentWithSidebar } from "@/components/layout/content-with-sidebar";
 import { HeroStory } from "@/components/news/hero-story";
@@ -109,7 +109,7 @@ export default async function HomePage() {
 				sidebar={
 					<>
 						<MostReadList articles={mostRead} period="24H" />
-						<AdSlot format="sidebar" />
+						<AdPlacement slot="sidebar" />
 						<PollCard poll={poll} />
 
 						{/* A directory of sections replaces the desktop nav rail on a phone. */}
@@ -120,7 +120,7 @@ export default async function HomePage() {
 
 						<ScheduleCard />
 						<WhatsappCard />
-						<AdSlot format="sidebar-tall" className="hidden lg:block" />
+						<AdPlacement slot="sidebar-tall" className="hidden lg:block" />
 					</>
 				}
 			>
@@ -129,7 +129,7 @@ export default async function HomePage() {
 					<SecondaryStoryList articles={secondary} />
 				</div>
 
-				<AdSlot format="mobile-top" className="mt-3.5 md:hidden" />
+				<AdPlacement slot="mobile-top" className="mt-3.5 md:hidden" />
 
 				<section className="pt-stack">
 					<SectionHeader
@@ -158,7 +158,7 @@ export default async function HomePage() {
 					</Link>
 				</section>
 
-				<AdSlot format="in-content" className="mt-section hidden md:block" />
+				<AdPlacement slot="in-content" className="mt-section hidden md:block" />
 
 				{/* Desktop only: on a phone these repeat the "Últimas" list and the
 				    section directory that already sit above them. */}

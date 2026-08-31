@@ -471,6 +471,7 @@ const loadPublished = cache(async (): Promise<Article[]> => {
 export async function getSections(): Promise<Section[]> {
 	const rows = await loadSections();
 	return rows.map((s) => ({
+		id: s.id,
 		slug: s.slug,
 		name: s.name,
 		description: s.description,

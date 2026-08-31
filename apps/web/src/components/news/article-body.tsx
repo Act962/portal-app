@@ -1,4 +1,3 @@
-import { AdSlot } from "@portal-app/ui/components/ad-slot";
 import type { Route } from "next";
 import Link from "next/link";
 import { Fragment } from "react";
@@ -128,15 +127,25 @@ type ArticleBodyProps = {
 	blocks: ArticleBlock[];
 	/** Index after which an in-content ad is inserted. Omit for no ad. */
 	adAfterBlock?: number;
+	/**
+	 * O anúncio, pronto, vindo de quem chama.
+	 *
+	 * Chega como `ReactNode` em vez de este componente montar o `AdPlacement`
+	 * sozinho porque a veiculação precisa saber a EDITORIA da página (campanha
+	 * segmentada não aparece fora do que foi vendido), e o corpo da matéria não
+	 * conhece nem quer conhecer isso — ele recebe blocos e os desenha. Assim ele
+	 * também segue renderizável sem banco, que é o que o mantém testável.
+	 */
+	ad?: React.ReactNode;
 };
 
-export function ArticleBody({ blocks, adAfterBlock }: ArticleBodyProps) {
+export function ArticleBody({ blocks, adAfterBlock, ad }: ArticleBodyProps) {
 	return (
 		<div className="flex max-w-reading flex-col gap-4 pt-4.5 font-serif text-[16.5px] text-ink leading-[1.65] md:gap-5 md:pt-stack md:text-[18.5px] md:leading-[1.68]">
 			{blocks.map((block, index) => (
 				<Fragment key={blockKey(block, index)}>
 					<Block block={block} />
-					{adAfterBlock === index ? <AdSlot format="in-content" /> : null}
+					{adAfterBlock === index ? ad : null}
 				</Fragment>
 			))}
 		</div>

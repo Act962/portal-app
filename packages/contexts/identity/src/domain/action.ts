@@ -18,6 +18,9 @@ export const ACTIONS = [
 	"broadcast:manage",
 	"columnists:manage",
 	"polls:manage",
+	// Publicidade é RECEITA, não redação: só ADMIN. Um editor não deve conseguir
+	// subir um anúncio, nem por engano.
+	"ads:manage",
 	"user:manage",
 	"settings:manage",
 	"audit:view",

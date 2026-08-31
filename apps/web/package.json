@@ -14,6 +14,7 @@
 		"@dnd-kit/sortable": "^10.0.0",
 		"@dnd-kit/utilities": "^3.2.2",
 		"@portal-app/analytics": "workspace:*",
+		"@portal-app/advertising": "workspace:*",
 		"@portal-app/api": "workspace:*",
 		"@portal-app/auth": "workspace:*",
 		"@portal-app/columnists": "workspace:*",
