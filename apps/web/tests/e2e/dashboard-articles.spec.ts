@@ -61,3 +61,34 @@ test.describe("painel — capa da matéria", () => {
 
 	test.fixme("fechar o diálogo no meio do envio descarta o arquivo escolhido", async () => {});
 });
+
+/**
+ * ESQUELETO — colunas congeladas e redimensionáveis.
+ *
+ * A ARITMÉTICA tem teste de verdade (`apps/web/tests/unit/table-columns.test.ts`,
+ * 30 casos): limites, deslocamento das congeladas, o que se guarda e o que se
+ * descarta ao ler o disco. O que falta aqui é o que só o NAVEGADOR sabe — se a
+ * célula realmente gruda ao rolar, se o fundo dela é opaco o bastante para o
+ * conteúdo não passar por baixo, e se o gesto de arrastar chega ao fim.
+ *
+ * Este último já mordeu uma vez: a primeira versão lia o estado do React dentro
+ * dos handlers de ponteiro, e num arrasto RÁPIDO os três eventos caem no mesmo
+ * tick — o `pointerup` via `dragging === false` e abortava antes de gravar. Foi
+ * pego na verificação manual, não por teste. É exatamente o caso que o
+ * `dragTo` do Playwright reproduz de graça.
+ */
+test.describe("painel — colunas da lista", () => {
+	test.fixme("caixinha e título ficam parados enquanto o resto rola", async () => {});
+
+	test.fixme("a célula congelada tem fundo opaco — nada passa por baixo ao rolar", async () => {});
+
+	test.fixme("arrastar a alça do título muda a largura, inclusive num gesto rápido", async () => {});
+
+	test.fixme("arrastar além do mínimo trava no mínimo", async () => {});
+
+	test.fixme("a alça responde ao teclado (setas, Shift+seta e Home)", async () => {});
+
+	test.fixme("a largura escolhida sobrevive ao recarregamento", async () => {});
+
+	test.fixme("'Restaurar largura das colunas' devolve o padrão e some do menu", async () => {});
+});

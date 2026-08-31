@@ -43,16 +43,17 @@ import {
 } from "@portal-app/ui/components/select";
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import {
-	Table,
 	TableBody,
 	TableCell,
 	TableHead,
 	TableHeader,
 	TableRow,
 } from "@portal-app/ui/components/table";
+import { cn } from "@portal-app/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	Archive,
+	Columns3,
 	ExternalLink,
 	MoreHorizontal,
 	Plus,
@@ -64,6 +65,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+	ColumnResizeHandle,
+	DataTable,
+	pinnedProps,
+	useColumnWidths,
+} from "@/components/admin/data-table";
 import { PageHeader } from "@/components/admin/page-header";
 import { PaginationBar } from "@/components/admin/pagination-bar";
 import { STATUS_LABELS, StatusBadge } from "@/components/admin/status-badge";
@@ -76,7 +83,57 @@ import {
 	toggleAll,
 	toggleSelection,
 } from "@/lib/article-selection";
+import type { ColumnSpec } from "@/lib/table-columns";
 import { trpc } from "@/utils/trpc";
+
+/**
+ * As colunas da lista.
+ *
+ * A caixinha e o título ficam CONGELADOS: rolar para ver o autor sem eles
+ * deixaria a linha sem sujeito — "Política · João Gabriel · Publicada" não diz
+ * de qual matéria se trata. A caixinha não redimensiona (a largura dela é a do
+ * controle, não uma preferência), e o título tem o maior teto porque é onde
+ * cabe manchete longa.
+ */
+const COLUMNS: readonly ColumnSpec[] = [
+	{ key: "selecao", width: 44, minWidth: 44, pinned: true },
+	{
+		key: "titulo",
+		width: 420,
+		minWidth: 200,
+		maxWidth: 760,
+		resizable: true,
+		pinned: true,
+	},
+	{ key: "status", width: 140, minWidth: 110, maxWidth: 220, resizable: true },
+	{
+		key: "editoria",
+		width: 180,
+		minWidth: 120,
+		maxWidth: 320,
+		resizable: true,
+	},
+	{ key: "autor", width: 200, minWidth: 120, maxWidth: 320, resizable: true },
+	{ key: "acoes", width: 56, minWidth: 56 },
+];
+
+/** A preferência é POR TELA: a largura boa para matérias não é a boa para
+ * mídia, e uma chave só faria uma sobrescrever a outra. */
+const COLUMNS_STORAGE_KEY = "portal:colunas:materias";
+
+/** Os cabeçalhos que ganham alça de arrasto, na ordem em que aparecem. */
+const RESIZABLE_HEADERS = [
+	{ key: "titulo", label: "Título" },
+	{ key: "status", label: "Status" },
+	{ key: "editoria", label: "Editoria" },
+	{ key: "autor", label: "Autor" },
+] as const;
+
+const headerCell = (key: string) => pinnedProps(COLUMNS, key, { header: true });
+const bodyCell = (key: string) => pinnedProps(COLUMNS, key);
+
+/** Colunas + a coluna-sobra — o `colSpan` das linhas de estado vazio. */
+const COLUMN_COUNT = COLUMNS.length + 1;
 
 const articleHref = (id: string) => `/dashboard/articles/${id}` as Route;
 
@@ -99,6 +156,8 @@ export function ArticlesList() {
 	const [confirming, setConfirming] = useState<
 		{ kind: "one"; id: string; headline: string } | { kind: "bulk" } | null
 	>(null);
+
+	const columns = useColumnWidths(COLUMNS, COLUMNS_STORAGE_KEY);
 
 	const list = useQuery(
 		trpc.editorial.articles.list.queryOptions({
@@ -240,6 +299,15 @@ export function ArticlesList() {
 								>
 									<Timer />
 									Publicar agendadas vencidas
+								</DropdownMenuItem>
+								{/* Só aparece habilitado quando há o que desfazer — um item
+								    permanentemente inerte só ensina a ignorar o menu. */}
+								<DropdownMenuItem
+									onClick={columns.reset}
+									disabled={!columns.canReset}
+								>
+									<Columns3 />
+									Restaurar largura das colunas
 								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
@@ -410,10 +478,16 @@ export function ArticlesList() {
 			) : null}
 
 			<div className="rounded-lg border">
-				<Table>
+				<DataTable specs={COLUMNS} api={columns}>
 					<TableHeader>
-						<TableRow>
-							<TableHead className="w-10">
+						{/* Fundo OPACO na linha: as células congeladas herdam daqui, e
+						    fundo translúcido deixaria o conteúdo rolar por baixo,
+						    visível. */}
+						<TableRow className="bg-background hover:bg-background">
+							<TableHead
+								{...headerCell("selecao")}
+								className={cn("px-2", headerCell("selecao").className)}
+							>
 								<Checkbox
 									checked={headerState === "checked"}
 									indeterminate={headerState === "indeterminate"}
@@ -432,18 +506,34 @@ export function ArticlesList() {
 									aria-label="Selecionar as matérias publicadas desta página"
 								/>
 							</TableHead>
-							<TableHead>Título</TableHead>
-							<TableHead className="w-32">Status</TableHead>
-							<TableHead className="w-40">Editoria</TableHead>
-							<TableHead className="w-40">Autor</TableHead>
-							<TableHead className="w-12" />
+							{RESIZABLE_HEADERS.map(({ key, label }) => {
+								const spec = COLUMNS.find((c) => c.key === key) as ColumnSpec;
+								const pinned = headerCell(key);
+								return (
+									<TableHead
+										key={key}
+										style={pinned.style}
+										className={cn("relative", pinned.className)}
+									>
+										{label}
+										<ColumnResizeHandle
+											spec={spec}
+											api={columns}
+											label={label}
+										/>
+									</TableHead>
+								);
+							})}
+							<TableHead />
+							{/* A coluna-sobra: existe no `colgroup`, precisa existir aqui. */}
+							<TableHead />
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{list.isLoading ? (
 							["a", "b", "c", "d", "e"].map((k) => (
 								<TableRow key={k}>
-									<TableCell colSpan={6}>
+									<TableCell colSpan={COLUMN_COUNT}>
 										{/* Mesma altura da linha final: sem salto de layout. */}
 										<Skeleton className="h-6 w-full" />
 									</TableCell>
@@ -451,7 +541,7 @@ export function ArticlesList() {
 							))
 						) : articles.length === 0 ? (
 							<TableRow>
-								<TableCell colSpan={6} className="py-12 text-center">
+								<TableCell colSpan={COLUMN_COUNT} className="py-12 text-center">
 									<p className="font-medium">
 										{hasFilters
 											? "Nenhuma matéria com esses filtros."
@@ -475,8 +565,12 @@ export function ArticlesList() {
 										data-state={
 											selected.has(article.id) ? "selected" : undefined
 										}
+										// Fundos OPACOS: a célula congelada herda o fundo da
+										// linha, e o `bg-muted/50` original deixaria o conteúdo
+										// rolar por baixo dela, visível através do meio-tom.
+										className="bg-background hover:bg-muted data-[state=selected]:bg-muted"
 									>
-										<TableCell>
+										<TableCell {...bodyCell("selecao")}>
 											<Checkbox
 												checked={selected.has(article.id)}
 												disabled={!archivable}
@@ -492,26 +586,35 @@ export function ArticlesList() {
 												}
 											/>
 										</TableCell>
-										<TableCell>
+										<TableCell {...bodyCell("titulo")}>
 											<Link
 												href={articleHref(article.id)}
-												className="block font-medium hover:underline"
+												className="block hover:underline"
 											>
 												{article.kicker ? (
-													<span className="block text-muted-foreground text-xs uppercase tracking-wide">
+													<span className="block truncate text-muted-foreground text-xs uppercase tracking-wide">
 														{article.kicker}
 													</span>
 												) : null}
-												{article.headline}
+												{/* `truncate` porque a coluna agora tem largura
+												    declarada: sem isto a manchete longa esticaria a
+												    célula e a largura que o usuário escolheu seria
+												    ignorada. O título inteiro fica no `title`. */}
+												<span
+													className="block truncate font-medium"
+													title={article.headline}
+												>
+													{article.headline}
+												</span>
 											</Link>
 										</TableCell>
 										<TableCell>
 											<StatusBadge status={article.status as EditorialStatus} />
 										</TableCell>
-										<TableCell className="text-muted-foreground">
+										<TableCell className="truncate text-muted-foreground">
 											{sectionName(article.sectionId)}
 										</TableCell>
-										<TableCell className="text-muted-foreground">
+										<TableCell className="truncate text-muted-foreground">
 											{article.byline.name}
 										</TableCell>
 										<TableCell>
@@ -566,12 +669,14 @@ export function ArticlesList() {
 												</DropdownMenuContent>
 											</DropdownMenu>
 										</TableCell>
+										{/* A coluna-sobra. */}
+										<TableCell />
 									</TableRow>
 								);
 							})
 						)}
 					</TableBody>
-				</Table>
+				</DataTable>
 
 				<PaginationBar
 					page={page}
