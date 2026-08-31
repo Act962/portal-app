@@ -258,6 +258,43 @@ export function archive(
 	);
 }
 
+/** O que aconteceu com CADA matéria de um arquivamento em lote. */
+export type BulkArchiveOutcome = {
+	archived: string[];
+	failed: { id: string; reason: string }[];
+};
+
+/**
+ * Arquiva várias matérias de uma vez (o seletor da lista).
+ *
+ * PARCIAL DE PROPÓSITO: cada matéria passa pela MESMA autorização e pela mesma
+ * máquina de estados de `archive`, e o que falha não derruba o que deu certo.
+ * Uma seleção de dez em que a sétima já fora arquivada por outra pessoa não
+ * pode desfazer as seis primeiras — o lote é conveniência de tela, não uma
+ * transação de negócio. Quem chama recebe a lista dos dois lados e diz à
+ * redação exatamente o que passou e o que ficou.
+ *
+ * Sequencial, não `Promise.all`: cada `archive` grava agregado + outbox na
+ * própria transação, e disparar N escritas concorrentes numa ação de tela só
+ * troca latência por contenção no banco.
+ */
+export async function archiveMany(
+	actor: StaffMember,
+	input: { ids: readonly string[] },
+	deps: Deps,
+): Promise<BulkArchiveOutcome> {
+	const outcome: BulkArchiveOutcome = { archived: [], failed: [] };
+	for (const id of input.ids) {
+		const result = await archive(actor, { id }, deps);
+		if (result.isOk()) {
+			outcome.archived.push(id);
+		} else {
+			outcome.failed.push({ id, reason: result.unwrapErr().message });
+		}
+	}
+	return outcome;
+}
+
 /**
  * Uma PÁGINA da lista editorial (A10). Devolve o total junto porque a tela
  * precisa dizer "de N" — e porque descobrir que a página pedida não existe só

@@ -2,6 +2,7 @@ import {
 	ArticleNotFound,
 	approve,
 	archive,
+	archiveMany,
 	createDraft,
 	getArticle,
 	InMemoryArticleRepository,
@@ -209,5 +210,99 @@ describe("erros de carga", () => {
 		expect(
 			(await archive(admin, { id: "nao-existe" }, deps)).unwrapErr(),
 		).toBeInstanceOf(ArticleNotFound);
+	});
+});
+
+describe("arquivo (o que a lista esconde)", () => {
+	/** Cria e leva ao ar — só matéria publicada pode ser arquivada. */
+	async function publishedBy(actor: StaffMember, headline: string) {
+		const article = (
+			await createDraft(actor, { ...content, headline }, deps)
+		).unwrap();
+		await submitForReview(actor, { id: article.id }, deps);
+		await approve(actor, { id: article.id }, deps);
+		(await publish(actor, { id: article.id }, deps)).unwrap();
+		return article.id;
+	}
+
+	it("arquivada some da lista por padrão", async () => {
+		const admin = staff("ADMIN", "adm");
+		const guardada = await publishedBy(admin, "Obras na BR-343");
+		const noAr = await publishedBy(admin, "Chuva alaga o centro");
+		(await archive(admin, { id: guardada }, deps)).unwrap();
+
+		const page = await listArticles({}, deps);
+		expect(page.items.map((a) => a.id)).toEqual([noAr]);
+		// O total conta o MESMO que a lista mostra: divergir aqui deixa a última
+		// página vazia sem explicação.
+		expect(page.total).toBe(1);
+	});
+
+	it("`includeArchived` traz o arquivo de volta", async () => {
+		const admin = staff("ADMIN", "adm");
+		const guardada = await publishedBy(admin, "Obras na BR-343");
+		(await archive(admin, { id: guardada }, deps)).unwrap();
+
+		const page = await listArticles({ includeArchived: true }, deps);
+		expect(page.items.map((a) => a.id)).toContain(guardada);
+		expect(page.total).toBe(1);
+	});
+
+	it("pedir status ARQUIVADA já é pedir o arquivo, sem a bandeira", async () => {
+		const admin = staff("ADMIN", "adm");
+		const guardada = await publishedBy(admin, "Obras na BR-343");
+		await publishedBy(admin, "Chuva alaga o centro");
+		(await archive(admin, { id: guardada }, deps)).unwrap();
+
+		const page = await listArticles({ status: "ARQUIVADA" }, deps);
+		expect(page.items.map((a) => a.id)).toEqual([guardada]);
+	});
+
+	it("filtrar por outro status continua fora do arquivo", async () => {
+		const admin = staff("ADMIN", "adm");
+		const guardada = await publishedBy(admin, "Obras na BR-343");
+		(await archive(admin, { id: guardada }, deps)).unwrap();
+
+		expect(
+			(await listArticles({ status: "PUBLICADA" }, deps)).items,
+		).toHaveLength(0);
+	});
+
+	it("arquiva o lote e diz o que passou", async () => {
+		const admin = staff("ADMIN", "adm");
+		const um = await publishedBy(admin, "Obras na BR-343");
+		const dois = await publishedBy(admin, "Chuva alaga o centro");
+
+		const outcome = await archiveMany(admin, { ids: [um, dois] }, deps);
+		expect(outcome.archived).toEqual([um, dois]);
+		expect(outcome.failed).toEqual([]);
+		expect((await listArticles({}, deps)).items).toHaveLength(0);
+	});
+
+	it("o que falha no lote não derruba o que deu certo", async () => {
+		const admin = staff("ADMIN", "adm");
+		const noAr = await publishedBy(admin, "Obras na BR-343");
+		const rascunho = (await draftBy(admin)).id;
+
+		const outcome = await archiveMany(admin, { ids: [rascunho, noAr] }, deps);
+		expect(outcome.archived).toEqual([noAr]);
+		expect(outcome.failed.map((f) => f.id)).toEqual([rascunho]);
+		// A que passou FICOU arquivada — o lote não é transação, e desfazer as
+		// boas por causa da ruim é o comportamento que este teste proíbe.
+		expect((await getArticle(noAr, { repo }))?.status).toBe("ARQUIVADA");
+	});
+
+	it("redator não arquiva matéria alheia, nem em lote", async () => {
+		const admin = staff("ADMIN", "adm");
+		const alheia = await publishedBy(admin, "Obras na BR-343");
+
+		const outcome = await archiveMany(
+			staff("REDATOR", "red"),
+			{ ids: [alheia] },
+			deps,
+		);
+		expect(outcome.archived).toEqual([]);
+		expect(outcome.failed).toHaveLength(1);
+		expect((await getArticle(alheia, { repo }))?.status).toBe("PUBLICADA");
 	});
 });

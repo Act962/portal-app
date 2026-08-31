@@ -68,12 +68,12 @@ export const ADMIN_NAV: NavGroup[] = [
 				icon: "Tags",
 				action: "taxonomy:manage",
 			},
-			{
-				href: "/dashboard/programacao",
-				label: "Programação",
-				icon: "Radio",
-				action: "broadcast:manage",
-			},
+			// "Programação" (/dashboard/programacao) saiu do menu a pedido da
+			// redação — a grade da rádio muda de mês em mês, não de hora em hora,
+			// e o item ocupava lugar de coisa usada todo dia. A TELA CONTINUA DE
+			// PÉ: quem precisa dela chega pelo endereço, e o rótulo do breadcrumb
+			// segue abaixo justamente por isso. Voltar ao menu é reinserir estas
+			// cinco linhas.
 			{
 				href: "/dashboard/colunistas",
 				label: "Colunistas",
