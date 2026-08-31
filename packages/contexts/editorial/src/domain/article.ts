@@ -6,6 +6,7 @@ import { Cover } from "./cover";
 import type { EditorialStatus } from "./editorial-status";
 import {
 	AltTextRequired,
+	ArticleOnAir,
 	BodyRequired,
 	type BylineRequired,
 	CoverImageRequired,
@@ -20,6 +21,8 @@ import {
 	SlugImmutable,
 } from "./errors";
 import {
+	ArticleDeleted,
+	ArticleDiscarded,
 	ArticlePublished,
 	ArticleRejected,
 	ArticleScheduled,
@@ -440,16 +443,75 @@ export class Article extends AggregateRoot<string> {
 		return ok(undefined);
 	}
 
-	/** Arquiva (nunca apaga) uma matéria publicada — integridade do acervo. */
+	/**
+	 * Tira a matéria de circulação. Estado TERMINAL: de `ARQUIVADA` não se sai.
+	 *
+	 * Vale de QUALQUER estado, não só do ar. Antes só aceitava
+	 * `PUBLICADA`/`ATUALIZADA`, pela ideia de que arquivar é "despublicar" — e
+	 * isso deixava a redação sem saída para o rascunho abandonado e para a pauta
+	 * que morreu na revisão: a única ação oferecida era empurrá-la adiante no
+	 * fluxo. Arquivar é mais amplo que despublicar: é dizer "esta matéria não
+	 * anda mais", e um rascunho de 2023 precisa disso tanto quanto uma matéria
+	 * no ar.
+	 *
+	 * O EVENTO muda conforme o caso — `ArticleUnpublished` quando havia URL
+	 * viva, `ArticleDiscarded` quando não havia. Ver a justificativa em
+	 * `events.ts`.
+	 *
+	 * Arquivar uma AGENDADA também DESMARCA o agendamento. O poller já filtra
+	 * por `status === "AGENDADA"` e portanto não a publicaria, mas deixar a data
+	 * para trás manteria no banco uma matéria arquivada com hora marcada para ir
+	 * ao ar — um estado que não quer dizer nada e que a próxima pessoa a ler
+	 * aquela linha teria de decifrar.
+	 */
 	archive(now: Date): Result<void, InvalidTransition> {
-		if (
-			this.state.status !== "PUBLICADA" &&
-			this.state.status !== "ATUALIZADA"
-		) {
-			return err(new InvalidTransition(this.state.status, "ARQUIVADA"));
+		if (this.state.status === "ARQUIVADA") {
+			return err(new InvalidTransition("ARQUIVADA", "ARQUIVADA"));
 		}
+		const wasOnAir = this.isPublished();
 		this.state.status = "ARQUIVADA";
-		this.record(new ArticleUnpublished(this.id, now));
+		this.state.schedule = null;
+		this.record(
+			wasOnAir
+				? new ArticleUnpublished(this.id, now)
+				: new ArticleDiscarded(this.id, now),
+		);
+		return ok(undefined);
+	}
+
+	/** Esteve publicada alguma vez? É o que separa apagar um rascunho de apagar
+	 * um endereço que o mundo conhece. */
+	wasEverPublished(): boolean {
+		return this.state.firstPublishedAt !== null;
+	}
+
+	/**
+	 * Registra o apagamento DEFINITIVO — o repositório remove a linha logo em
+	 * seguida, na mesma transação em que grava este evento.
+	 *
+	 * A regra é uma só: o que está NO AR não se apaga. Todo o resto pode —
+	 * rascunho, matéria em revisão, aprovada, agendada e arquivada. É por isso
+	 * que existe o caminho de duas etapas: quem quer eliminar uma matéria
+	 * publicada arquiva primeiro (tirando-a do portal) e só então apaga, e essa
+	 * parada no meio é a chance de mudar de ideia.
+	 *
+	 * O agregado não se "auto-apaga": ele só grava o fato. Quem some com a
+	 * linha é o repositório — apagar é operação de persistência, e um objeto em
+	 * memória não tem como se remover de lugar nenhum.
+	 */
+	markDeleted(now: Date): Result<void, ArticleOnAir> {
+		if (this.isPublished()) {
+			return err(new ArticleOnAir());
+		}
+		this.record(
+			new ArticleDeleted(
+				this.id,
+				this.state.headline.value,
+				this.state.slug.value,
+				this.wasEverPublished(),
+				now,
+			),
+		);
 		return ok(undefined);
 	}
 }

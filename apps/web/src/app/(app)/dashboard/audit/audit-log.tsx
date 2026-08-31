@@ -32,6 +32,8 @@ const ACTION_LABELS: Record<string, string> = {
 	ArticleUpdated: "Atualizada",
 	ArticleArchived: "Arquivada",
 	ArticleUnpublished: "Despublicada",
+	ArticleDiscarded: "Arquivada sem ter ido ao ar",
+	ArticleDeleted: "Apagada",
 };
 
 export function AuditLog() {

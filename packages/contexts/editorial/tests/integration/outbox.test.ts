@@ -64,6 +64,54 @@ describe("Outbox transacional (ADR 0005)", () => {
 		).toBeNull();
 	});
 
+	/**
+	 * Apagar é a única operação do editorial que destrói o que auditou. O evento
+	 * precisa sair NA MESMA transação da remoção — senão a matéria sumiria do
+	 * banco sem deixar registro de ter existido, e a auditoria passaria a ter um
+	 * buraco exatamente no lugar em que ela mais serve.
+	 */
+	it("apagar grava o ArticleDeleted no outbox e some com a linha", async () => {
+		const article = publishedArticle("art-1", "enchente");
+		await repo.save(article);
+		article.archive(NOW);
+		await repo.save(article);
+
+		article.markDeleted(NOW);
+		await repo.delete(article);
+
+		const deleted = await prisma.outboxEvent.findFirst({
+			where: { aggregateId: "art-1", eventName: "ArticleDeleted" },
+		});
+		expect(deleted).not.toBeNull();
+		// O título viaja no corpo: é o que sobra para a auditoria dizer O QUE foi
+		// apagado, agora que a matéria não existe para ser consultada.
+		expect((deleted?.payload as { headline: string }).headline).toBe(
+			"Matéria art-1",
+		);
+		expect((deleted?.payload as { wasPublished: boolean }).wasPublished).toBe(
+			true,
+		);
+		expect(
+			await prisma.article.findUnique({ where: { id: "art-1" } }),
+		).toBeNull();
+	});
+
+	it("apagar não apaga o histórico: os eventos anteriores continuam lá", async () => {
+		const article = publishedArticle("art-1", "enchente");
+		await repo.save(article);
+		article.archive(NOW);
+		await repo.save(article);
+		article.markDeleted(NOW);
+		await repo.delete(article);
+
+		const names = (
+			await prisma.outboxEvent.findMany({ where: { aggregateId: "art-1" } })
+		).map((row) => row.eventName);
+		expect(names).toContain("ArticlePublished");
+		expect(names).toContain("ArticleUnpublished");
+		expect(names).toContain("ArticleDeleted");
+	});
+
 	it("E08: despachar duas vezes não reentrega (idempotência)", async () => {
 		await repo.save(publishedArticle("art-1", "enchente"));
 		const bus = new InMemoryEventBus();

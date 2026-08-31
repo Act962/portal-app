@@ -5,16 +5,6 @@ import {
 	type EditorialStatus,
 } from "@portal-app/editorial";
 import { DEFAULT_PAGE_SIZE } from "@portal-app/shared-kernel";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "@portal-app/ui/components/alert-dialog";
 import { Button } from "@portal-app/ui/components/button";
 import { Checkbox } from "@portal-app/ui/components/checkbox";
 import {
@@ -31,6 +21,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@portal-app/ui/components/dropdown-menu";
 import { Input } from "@portal-app/ui/components/input";
@@ -59,12 +50,14 @@ import {
 	Plus,
 	Search,
 	Timer,
+	Trash2,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDestructiveDialog } from "@/components/admin/confirm-destructive-dialog";
 import {
 	ColumnResizeHandle,
 	DataTable,
@@ -75,11 +68,16 @@ import { PageHeader } from "@/components/admin/page-header";
 import { PaginationBar } from "@/components/admin/pagination-bar";
 import { STATUS_LABELS, StatusBadge } from "@/components/admin/status-badge";
 import {
-	archiveResultMessage,
+	allows,
+	type BulkAction,
+	bulkResultMessage,
+	canArchive,
+	canDelete,
 	countLabel,
 	headerCheckboxState,
-	isArchivable,
 	pruneSelection,
+	requiresTypedConfirmation,
+	skippedNotice,
 	toggleAll,
 	toggleSelection,
 } from "@/lib/article-selection";
@@ -139,6 +137,58 @@ const articleHref = (id: string) => `/dashboard/articles/${id}` as Route;
 
 const ALL = "__all__";
 
+/** Uma linha da lista, reduzida ao que as regras do seletor precisam saber. */
+type Target = {
+	id: string;
+	status: EditorialStatus;
+	headline: string;
+	firstPublishedAt: Date | string | null;
+};
+
+/**
+ * O texto da confirmação, para as duas ações.
+ *
+ * Fica FORA do componente e num lugar só porque é a parte da tela que precisa
+ * ser exata: descrever mal a consequência de uma ação sem volta é pior do que
+ * não confirmar nada — leva a pessoa a clicar com confiança justamente onde não
+ * há desfazer. Já aconteceu aqui: o texto do arquivamento prometia um "dá para
+ * publicar de novo" que o agregado não cumpre.
+ */
+function confirmCopy(action: BulkAction, targets: readonly Target[]) {
+	const one = targets.length === 1;
+	const name = one ? `“${targets[0]?.headline}”` : countLabel(targets.length);
+
+	if (action === "archive") {
+		return {
+			title: `Arquivar ${name}?`,
+			// ARQUIVADA é estado terminal no agregado: `publish` só aceita APROVADA
+			// ou AGENDADA, e `editContent` recusa matéria arquivada.
+			description: one
+				? "Ela sai do portal — some da home, da editoria e da busca. O texto e o endereço continuam guardados no arquivo, mas ARQUIVAR NÃO TEM VOLTA pelo painel: matéria arquivada não volta ao ar nem pode ser editada."
+				: "Elas saem do portal — somem da home, das editorias e da busca. Os textos e os endereços continuam guardados no arquivo, mas ARQUIVAR NÃO TEM VOLTA pelo painel: matéria arquivada não volta ao ar nem pode ser editada.",
+			confirmLabel: "Arquivar",
+		};
+	}
+
+	// Apagar destrói o registro. Se alguma delas já esteve no ar, o endereço
+	// público morre junto — e isso precisa estar escrito, não subentendido.
+	const wasPublished = targets.some(
+		(target) => target.firstPublishedAt != null,
+	);
+	const base = one
+		? "Ela some do banco de dados para sempre. Não vai para o arquivo, não dá para restaurar pelo painel e não há backup ao alcance da redação."
+		: "Elas somem do banco de dados para sempre. Não vão para o arquivo, não dá para restaurar pelo painel e não há backup ao alcance da redação.";
+	const published = one
+		? " Esta matéria já esteve publicada: o endereço dela continua indexado no Google e circulando por aí, e vai passar a responder “página não encontrada”."
+		: " Há matérias que já estiveram publicadas: os endereços delas continuam indexados no Google e circulando por aí, e vão passar a responder “página não encontrada”.";
+
+	return {
+		title: `Apagar ${name}?`,
+		description: wasPublished ? base + published : base,
+		confirmLabel: one ? "Apagar" : `Apagar ${countLabel(targets.length)}`,
+	};
+}
+
 export function ArticlesList() {
 	const router = useRouter();
 	const queryClient = useQueryClient();
@@ -152,9 +202,17 @@ export function ArticlesList() {
 	// A seleção do arquivamento em lote. Guarda ids, e não os objetos: a lista
 	// se recarrega a cada filtro, e um objeto guardado envelheceria calado.
 	const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-	/** Confirmação de UMA matéria (linha) ou do LOTE (barra). */
+	/**
+	 * O que está para ser confirmado: qual AÇÃO, e sobre uma matéria (o menu da
+	 * linha) ou sobre a seleção (a barra). Guarda o alvo da linha em vez de só o
+	 * id porque o diálogo precisa do título e de saber se aquela matéria já
+	 * esteve no ar — e reabrir a lista para descobrir isso enquanto o diálogo
+	 * está aberto é a maneira mais fácil de mostrar uma coisa e apagar outra.
+	 */
 	const [confirming, setConfirming] = useState<
-		{ kind: "one"; id: string; headline: string } | { kind: "bulk" } | null
+		| { action: BulkAction; kind: "one"; target: Target }
+		| { action: BulkAction; kind: "bulk" }
+		| null
 	>(null);
 
 	const columns = useColumnWidths(COLUMNS, COLUMNS_STORAGE_KEY);
@@ -192,8 +250,9 @@ export function ArticlesList() {
 		}),
 	);
 
-	/** Arquivar mexe na contagem por status da visão geral — que é outra query. */
-	const refreshAfterArchive = async () => {
+	/** Arquivar e apagar mexem na contagem por status da visão geral — que é
+	 * outra query. */
+	const refreshAfterBulk = async () => {
 		setSelected(new Set());
 		await Promise.all([
 			list.refetch(),
@@ -207,17 +266,41 @@ export function ArticlesList() {
 		trpc.editorial.articles.archive.mutationOptions({
 			onSuccess: async () => {
 				toast.success("Matéria arquivada.");
-				await refreshAfterArchive();
+				await refreshAfterBulk();
 			},
+			onError: (error) => toast.error(error.message),
 		}),
 	);
 	const archiveMany = useMutation(
 		trpc.editorial.articles.archiveMany.mutationOptions({
 			onSuccess: async (outcome) => {
-				const { tone, message } = archiveResultMessage(outcome);
+				const { tone, message } = bulkResultMessage(outcome, "archive");
 				toast[tone](message);
-				await refreshAfterArchive();
+				await refreshAfterBulk();
 			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const removeOne = useMutation(
+		trpc.editorial.articles.remove.mutationOptions({
+			// Repete o TÍTULO do que sumiu. "Matéria apagada" seria a mesma frase
+			// para o acerto e para o engano, e é justamente depois de um apagamento
+			// que a pessoa quer conferir se foi essa mesmo.
+			onSuccess: async ({ headline }) => {
+				toast.success(`“${headline}” foi apagada.`);
+				await refreshAfterBulk();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const removeMany = useMutation(
+		trpc.editorial.articles.removeMany.mutationOptions({
+			onSuccess: async (outcome) => {
+				const { tone, message } = bulkResultMessage(outcome, "delete");
+				toast[tone](message);
+				await refreshAfterBulk();
+			},
+			onError: (error) => toast.error(error.message),
 		}),
 	);
 
@@ -248,27 +331,59 @@ export function ArticlesList() {
 		});
 	}, [list.data]);
 
-	const selectable = articles.filter((a) =>
-		isArchivable(a.status as EditorialStatus),
-	);
-	const headerState = headerCheckboxState(
-		articles.map((a) => ({ id: a.id, status: a.status as EditorialStatus })),
-		selected,
-	);
+	// A lista, no formato que as regras do seletor entendem. O `status` do DTO
+	// chega como `string` (é o que o tRPC infere do banco); o estreitamento para
+	// `EditorialStatus` acontece UMA vez, aqui, em vez de num `as` espalhado por
+	// cada uso.
+	const rows: Target[] = articles.map((article) => ({
+		id: article.id,
+		status: article.status as EditorialStatus,
+		headline: article.headline,
+		firstPublishedAt: article.firstPublishedAt,
+	}));
+
+	const headerState = headerCheckboxState(rows, selected);
 	const selectedCount = selected.size;
 
-	const confirmedIds =
-		confirming?.kind === "one" ? [confirming.id] : [...selected];
-	const archiving = archiveOne.isPending || archiveMany.isPending;
+	/** Da seleção, o que ESTA ação alcança. */
+	const eligible = (action: BulkAction) =>
+		rows.filter((row) => selected.has(row.id) && allows(row.status, action));
 
-	const runArchive = () => {
+	const archivableSelected = eligible("archive");
+	const deletableSelected = eligible("delete");
+
+	const confirmTargets =
+		confirming === null
+			? []
+			: confirming.kind === "one"
+				? [confirming.target]
+				: eligible(confirming.action);
+
+	const busy =
+		archiveOne.isPending ||
+		archiveMany.isPending ||
+		removeOne.isPending ||
+		removeMany.isPending;
+
+	const runConfirmed = () => {
 		if (!confirming) {
 			return;
 		}
-		if (confirming.kind === "one") {
-			archiveOne.mutate({ id: confirming.id });
-		} else if (selected.size > 0) {
-			archiveMany.mutate({ ids: [...selected] });
+		const ids = confirmTargets.map((target) => target.id);
+		if (ids.length === 0) {
+			setConfirming(null);
+			return;
+		}
+		if (confirming.action === "archive") {
+			if (confirming.kind === "one") {
+				archiveOne.mutate({ id: ids[0] as string });
+			} else {
+				archiveMany.mutate({ ids });
+			}
+		} else if (confirming.kind === "one") {
+			removeOne.mutate({ id: ids[0] as string });
+		} else {
+			removeMany.mutate({ ids });
 		}
 		setConfirming(null);
 	};
@@ -464,16 +579,30 @@ export function ArticlesList() {
 					>
 						Limpar seleção
 					</Button>
-					<Button
-						size="sm"
-						variant="destructive"
-						className="ms-auto"
-						disabled={archiving}
-						onClick={() => setConfirming({ kind: "bulk" })}
-					>
-						<Archive className="size-4" />
-						{archiving ? "Arquivando…" : "Arquivar"}
-					</Button>
+					{/* Os dois botões mostram QUANTAS a ação alcança, não quantas
+					    estão marcadas. Marcar cinco linhas e ler "Apagar (3)" já conta
+					    a história antes do clique; sem o número, a diferença só
+					    apareceria no aviso de lote parcial, depois de feito. */}
+					<div className="ms-auto flex items-center gap-2">
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={busy || archivableSelected.length === 0}
+							onClick={() => setConfirming({ action: "archive", kind: "bulk" })}
+						>
+							<Archive className="size-4" />
+							Arquivar ({archivableSelected.length})
+						</Button>
+						<Button
+							size="sm"
+							variant="destructive"
+							disabled={busy || deletableSelected.length === 0}
+							onClick={() => setConfirming({ action: "delete", kind: "bulk" })}
+						>
+							<Trash2 className="size-4" />
+							Apagar ({deletableSelected.length})
+						</Button>
+					</div>
 				</div>
 			) : null}
 
@@ -488,22 +617,18 @@ export function ArticlesList() {
 								{...headerCell("selecao")}
 								className={cn("px-2", headerCell("selecao").className)}
 							>
+								{/* Sem `disabled`: toda matéria serve a pelo menos uma das duas
+								    ações (o teste em `article-selection.test.ts` percorre os
+								    status e garante isso), então uma caixinha inerte aqui só
+								    esconderia a ação que ainda cabe. */}
 								<Checkbox
 									checked={headerState === "checked"}
 									indeterminate={headerState === "indeterminate"}
-									disabled={selectable.length === 0}
+									disabled={rows.length === 0}
 									onCheckedChange={() =>
-										setSelected((current) =>
-											toggleAll(
-												articles.map((a) => ({
-													id: a.id,
-													status: a.status as EditorialStatus,
-												})),
-												current,
-											),
-										)
+										setSelected((current) => toggleAll(rows, current))
 									}
-									aria-label="Selecionar as matérias publicadas desta página"
+									aria-label="Selecionar todas as matérias desta página"
 								/>
 							</TableHead>
 							{RESIZABLE_HEADERS.map(({ key, label }) => {
@@ -556,9 +681,7 @@ export function ArticlesList() {
 							</TableRow>
 						) : (
 							articles.map((article) => {
-								const archivable = isArchivable(
-									article.status as EditorialStatus,
-								);
+								const status = article.status as EditorialStatus;
 								return (
 									<TableRow
 										key={article.id}
@@ -573,17 +696,12 @@ export function ArticlesList() {
 										<TableCell {...bodyCell("selecao")}>
 											<Checkbox
 												checked={selected.has(article.id)}
-												disabled={!archivable}
 												onCheckedChange={() =>
 													setSelected((current) =>
 														toggleSelection(current, article.id),
 													)
 												}
-												aria-label={
-													archivable
-														? `Selecionar ${article.headline}`
-														: `${article.headline} não pode ser arquivada: só matéria no ar entra no arquivo`
-												}
+												aria-label={`Selecionar ${article.headline}`}
 											/>
 										</TableCell>
 										<TableCell {...bodyCell("titulo")}>
@@ -652,19 +770,54 @@ export function ArticlesList() {
 															Ver no portal
 														</DropdownMenuItem>
 													) : null}
-													{archivable ? (
+													{canArchive(status) ? (
 														<DropdownMenuItem
 															onClick={() =>
 																setConfirming({
+																	action: "archive",
 																	kind: "one",
-																	id: article.id,
-																	headline: article.headline,
+																	target: {
+																		id: article.id,
+																		status,
+																		headline: article.headline,
+																		firstPublishedAt: article.firstPublishedAt,
+																	},
 																})
 															}
 														>
 															<Archive />
 															Arquivar
 														</DropdownMenuItem>
+													) : null}
+													{/* Apagar fica DEPOIS de um separador, e em vermelho:
+													    é a única ação do menu que não volta, e precisa
+													    estar longe do dedo que veio clicar em "Editar".
+													    Some para matéria no ar — quem quiser eliminá-la
+													    arquiva antes, e essa parada é a chance de mudar de
+													    ideia. */}
+													{canDelete(status) ? (
+														<>
+															<DropdownMenuSeparator />
+															<DropdownMenuItem
+																variant="destructive"
+																onClick={() =>
+																	setConfirming({
+																		action: "delete",
+																		kind: "one",
+																		target: {
+																			id: article.id,
+																			status,
+																			headline: article.headline,
+																			firstPublishedAt:
+																				article.firstPublishedAt,
+																		},
+																	})
+																}
+															>
+																<Trash2 />
+																Apagar
+															</DropdownMenuItem>
+														</>
 													) : null}
 												</DropdownMenuContent>
 											</DropdownMenu>
@@ -687,42 +840,28 @@ export function ArticlesList() {
 				/>
 			</div>
 
-			{/* Uma confirmação só, para a linha e para o lote: é a MESMA ação, e
-			    duas telas diferentes para ela seriam duas chances de discordarem
-			    sobre o que arquivar significa. */}
-			<AlertDialog
-				open={confirming !== null}
+			{/* Uma confirmação só, para a linha e para o lote, para arquivar e para
+			    apagar: telas diferentes para a mesma ação seriam chances de
+			    discordarem sobre o que ela significa. */}
+			<ConfirmDestructiveDialog
+				open={confirming !== null && confirmTargets.length > 0}
 				onOpenChange={(open) => !open && setConfirming(null)}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>
-							{confirming?.kind === "one"
-								? `Arquivar “${confirming.headline}”?`
-								: `Arquivar ${countLabel(confirmedIds.length)}?`}
-						</AlertDialogTitle>
-						{/* O texto diz que NÃO TEM VOLTA porque não tem: `ARQUIVADA` é
-						    estado terminal no agregado — `publish` só aceita APROVADA ou
-						    AGENDADA, e `editContent` recusa matéria arquivada. Prometer
-						    aqui um "dá para republicar depois" que o domínio não cumpre
-						    seria a pior espécie de confirmação: a que faz clicar com
-						    confiança justamente onde não há desfazer. */}
-						<AlertDialogDescription>
-							{confirmedIds.length === 1
-								? "Ela sai do portal — some da home, da editoria e da busca. O texto e o endereço continuam guardados no arquivo, mas ARQUIVAR NÃO TEM VOLTA pelo painel: matéria arquivada não volta ao ar nem pode ser editada."
-								: "Elas saem do portal — somem da home, das editorias e da busca. Os textos e os endereços continuam guardados no arquivo, mas ARQUIVAR NÃO TEM VOLTA pelo painel: matéria arquivada não volta ao ar nem pode ser editada."}
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancelar</AlertDialogCancel>
-						{/* `destructive` porque a ação é irreversível — o botão precisa
-						    parecer o que faz, e não um "OK" qualquer. */}
-						<AlertDialogAction variant="destructive" onClick={runArchive}>
-							Arquivar
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+				{...confirmCopy(confirming?.action ?? "archive", confirmTargets)}
+				notice={
+					confirming?.kind === "bulk"
+						? skippedNotice(
+								selectedCount - confirmTargets.length,
+								confirming.action,
+							)
+						: null
+				}
+				requireTyping={
+					confirming?.action === "delete" &&
+					requiresTypedConfirmation(confirmTargets)
+				}
+				pending={busy}
+				onConfirm={runConfirmed}
+			/>
 		</>
 	);
 }

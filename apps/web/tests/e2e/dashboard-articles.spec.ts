@@ -47,6 +47,61 @@ test.describe("painel — arquivar matérias", () => {
 });
 
 /**
+ * ESQUELETO — apagar matéria.
+ *
+ * A parte que DECIDE tem teste de verdade, em três camadas: o agregado recusa
+ * apagar o que está no ar (`article-workflow.test.ts`), o caso de uso exige a
+ * permissão de despublicar para o que já esteve publicado e relata o lote
+ * parcial (`manage-articles.test.ts`), e a tela sabe quem pode o quê e quando
+ * cobrar a palavra digitada (`article-selection.test.ts`).
+ *
+ * O que falta aqui é o que só o navegador prova, e é a parte mais perigosa
+ * desta entrega: que o botão destravado corresponde à palavra digitada, e que
+ * a linha some da tela — não a linha vizinha. Um erro de mira no `onClick` de
+ * um `DropdownMenuItem` apaga a matéria errada com todos os testes verdes.
+ *
+ * Herda o mesmo bloqueio dos casos acima: falta uma sessão de staff
+ * compartilhada, porque `auth.spec.ts` reivindica a vaga do primeiro usuário
+ * (que é o único que nasce ADMIN sem convite).
+ */
+test.describe("painel — apagar matérias", () => {
+	test.fixme("matéria PUBLICADA não oferece 'Apagar' nas elipses", async () => {});
+
+	test.fixme("apagar um rascunho que nunca foi ao ar confirma com um clique, sem digitar", async () => {});
+
+	test.fixme("apagar matéria que já esteve publicada exige digitar APAGAR", async () => {});
+
+	test.fixme("o botão de confirmar fica travado enquanto a palavra não confere", async () => {});
+
+	test.fixme("reabrir o diálogo depois de confirmar volta com o campo vazio", async () => {});
+
+	test.fixme("apagar em lote pega só o que pode e avisa do que ficou de fora", async () => {});
+
+	test.fixme("a barra mostra a contagem de cada ação, não o total marcado", async () => {});
+
+	test.fixme("apagar pela tela da matéria volta para a lista", async () => {});
+
+	test.fixme("a matéria apagada continua aparecendo na auditoria, com o título", async () => {});
+});
+
+/**
+ * ESQUELETO — as saídas do rascunho incompleto.
+ *
+ * O caso que originou a mudança: a matéria criada por engano, sem corpo e sem
+ * editoria, cujo único botão era "Enviar para revisão". O que o navegador
+ * precisa provar é que as duas saídas aparecem SEM as pendências resolvidas —
+ * um `disabled` herdado do fluxo de publicação recriaria o beco sem saída, e
+ * nenhum teste de unidade veria isso.
+ */
+test.describe("painel — arquivar e apagar o rascunho incompleto", () => {
+	test.fixme("o rascunho sem corpo, editoria e capa oferece Arquivar e Apagar", async () => {});
+
+	test.fixme("arquivar pela tela da matéria pede confirmação antes", async () => {});
+
+	test.fixme("matéria arquivada não oferece mais 'Arquivar'", async () => {});
+});
+
+/**
  * ESQUELETO — o envio direto de imagem pelo diálogo de capa.
  *
  * Mesma situação: o fluxo de upload em si (`useDirectUpload`) fala com o

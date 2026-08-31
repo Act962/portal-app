@@ -20,6 +20,8 @@ const AUDITED_EVENTS = [
 	"ArticlePublished",
 	"ArticleUpdated",
 	"ArticleUnpublished",
+	"ArticleDiscarded",
+	"ArticleDeleted",
 	"SiteSettingsChanged",
 ] as const;
 
@@ -178,19 +180,40 @@ export async function listAuditLog(page: PageRequest): Promise<
 	]);
 
 	// Só os títulos DESTA página — uma consulta, não uma por linha.
+	const ids = [...new Set(rows.map((row) => row.aggregateId))];
 	const articles = await prisma.article.findMany({
-		where: { id: { in: [...new Set(rows.map((row) => row.aggregateId))] } },
+		where: { id: { in: ids } },
 		select: { id: true, headline: true },
 	});
 	const headlines = new Map(articles.map((a) => [a.id, a.headline]));
+
+	// O que a consulta acima NÃO achou ou foi apagado, ou nunca foi matéria.
+	// Para o primeiro caso o título ainda existe: o `ArticleDeleted` o guardou no
+	// corpo justamente porque a linha ia sumir. Sem esta segunda busca, apagar
+	// uma matéria zeraria o título de TODA a história dela na auditoria — as
+	// dezenas de linhas anteriores viravam "art_7h2k", e um registro que não diz
+	// sobre o que fala não presta contas de nada.
+	const missing = ids.filter((id) => !headlines.has(id));
+	if (missing.length > 0) {
+		const deletions = await prisma.auditLog.findMany({
+			where: { action: "ArticleDeleted", aggregateId: { in: missing } },
+			select: { aggregateId: true, detail: true },
+		});
+		for (const row of deletions) {
+			const headline = (row.detail as { headline?: unknown } | null)?.headline;
+			if (typeof headline === "string") {
+				headlines.set(row.aggregateId, headline);
+			}
+		}
+	}
 
 	return {
 		items: rows.map((row) => ({
 			id: row.id,
 			action: row.action,
 			aggregateId: row.aggregateId,
-			// Nulo quando o evento não é de matéria, ou quando a matéria foi
-			// apagada — a auditoria sobrevive ao que auditou, de propósito.
+			// Nulo quando o evento não é de matéria — a auditoria sobrevive ao que
+			// auditou, de propósito.
 			headline: headlines.get(row.aggregateId) ?? null,
 			occurredAt: row.occurredAt,
 			createdAt: row.createdAt,

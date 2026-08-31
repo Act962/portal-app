@@ -1,9 +1,12 @@
 import {
 	ArticleNotFound,
+	ArticleOnAir,
 	approve,
 	archive,
 	archiveMany,
 	createDraft,
+	deleteArticle,
+	deleteMany,
 	getArticle,
 	InMemoryArticleRepository,
 	listArticles,
@@ -274,7 +277,7 @@ describe("arquivo (o que a lista esconde)", () => {
 		const dois = await publishedBy(admin, "Chuva alaga o centro");
 
 		const outcome = await archiveMany(admin, { ids: [um, dois] }, deps);
-		expect(outcome.archived).toEqual([um, dois]);
+		expect(outcome.done).toEqual([um, dois]);
 		expect(outcome.failed).toEqual([]);
 		expect((await listArticles({}, deps)).items).toHaveLength(0);
 	});
@@ -282,11 +285,19 @@ describe("arquivo (o que a lista esconde)", () => {
 	it("o que falha no lote não derruba o que deu certo", async () => {
 		const admin = staff("ADMIN", "adm");
 		const noAr = await publishedBy(admin, "Obras na BR-343");
-		const rascunho = (await draftBy(admin)).id;
+		// Já arquivada por outra pessoa antes do clique: é o caso real de falha
+		// depois que arquivar passou a valer de qualquer estado (um rascunho no
+		// meio do lote agora PASSA, e não serve mais de exemplo de recusa).
+		const jaArquivada = (await draftBy(admin)).id;
+		(await archive(admin, { id: jaArquivada }, deps)).unwrap();
 
-		const outcome = await archiveMany(admin, { ids: [rascunho, noAr] }, deps);
-		expect(outcome.archived).toEqual([noAr]);
-		expect(outcome.failed.map((f) => f.id)).toEqual([rascunho]);
+		const outcome = await archiveMany(
+			admin,
+			{ ids: [jaArquivada, noAr] },
+			deps,
+		);
+		expect(outcome.done).toEqual([noAr]);
+		expect(outcome.failed.map((f) => f.id)).toEqual([jaArquivada]);
 		// A que passou FICOU arquivada — o lote não é transação, e desfazer as
 		// boas por causa da ruim é o comportamento que este teste proíbe.
 		expect((await getArticle(noAr, { repo }))?.status).toBe("ARQUIVADA");
@@ -301,8 +312,191 @@ describe("arquivo (o que a lista esconde)", () => {
 			{ ids: [alheia] },
 			deps,
 		);
-		expect(outcome.archived).toEqual([]);
+		expect(outcome.done).toEqual([]);
 		expect(outcome.failed).toHaveLength(1);
 		expect((await getArticle(alheia, { repo }))?.status).toBe("PUBLICADA");
+	});
+});
+
+describe("descartar o próprio rascunho", () => {
+	/**
+	 * O caso que motivou tudo isto: a matéria criada por engano, ainda sem corpo
+	 * e sem editoria. Antes, arquivar exigia `article:unpublish` — permissão que
+	 * o redator não tem e que o editor só tem DENTRO das editorias dele. Um
+	 * rascunho sem editoria não satisfaz nem uma coisa nem outra, então a única
+	 * ação oferecida era empurrá-lo para a revisão.
+	 */
+	it("o redator arquiva o rascunho que ele mesmo criou", async () => {
+		const redator = staff("REDATOR", "red");
+		const rascunho = await draftBy(redator);
+
+		expect((await archive(redator, { id: rascunho.id }, deps)).isOk()).toBe(
+			true,
+		);
+		expect((await getArticle(rascunho.id, { repo }))?.status).toBe("ARQUIVADA");
+	});
+
+	it("o redator NÃO arquiva o rascunho alheio", async () => {
+		const rascunho = await draftBy(staff("REDATOR", "outra"));
+
+		expect(
+			(
+				await archive(staff("REDATOR", "red"), { id: rascunho.id }, deps)
+			).unwrapErr(),
+		).toBeInstanceOf(Forbidden);
+	});
+
+	it("tirar do AR continua exigindo a permissão de despublicar", async () => {
+		// A porta que se abriu foi para o rascunho, não para o portal: o redator
+		// não passa a poder derrubar matéria que o público está lendo.
+		const admin = staff("ADMIN", "adm");
+		const redator = staff("REDATOR", "red");
+		const article = await draftBy(redator);
+		await submitForReview(redator, { id: article.id }, deps);
+		await approve(admin, { id: article.id }, deps);
+		(await publish(admin, { id: article.id }, deps)).unwrap();
+
+		expect(
+			(await archive(redator, { id: article.id }, deps)).unwrapErr(),
+		).toBeInstanceOf(Forbidden);
+		expect((await getArticle(article.id, { repo }))?.status).toBe("PUBLICADA");
+	});
+});
+
+describe("apagar de vez", () => {
+	async function published(actor: StaffMember) {
+		const article = await draftBy(actor);
+		await submitForReview(actor, { id: article.id }, deps);
+		await approve(actor, { id: article.id }, deps);
+		(await publish(actor, { id: article.id }, deps)).unwrap();
+		return article.id;
+	}
+
+	it("apaga o rascunho e ele some do repositório", async () => {
+		const admin = staff("ADMIN", "adm");
+		const rascunho = await draftBy(admin);
+
+		const result = await deleteArticle(admin, { id: rascunho.id }, deps);
+		expect(result.unwrap().headline).toBe(content.headline);
+		expect(await getArticle(rascunho.id, { repo })).toBeNull();
+	});
+
+	it("recusa matéria no ar, e ela CONTINUA lá", async () => {
+		const admin = staff("ADMIN", "adm");
+		const noAr = await published(admin);
+
+		expect(
+			(await deleteArticle(admin, { id: noAr }, deps)).unwrapErr(),
+		).toBeInstanceOf(ArticleOnAir);
+		expect((await getArticle(noAr, { repo }))?.status).toBe("PUBLICADA");
+	});
+
+	it("arquivar primeiro destrava o apagamento", async () => {
+		// O caminho de duas etapas: a parada no meio é a chance de mudar de ideia.
+		const admin = staff("ADMIN", "adm");
+		const noAr = await published(admin);
+		(await archive(admin, { id: noAr }, deps)).unwrap();
+
+		expect((await deleteArticle(admin, { id: noAr }, deps)).isOk()).toBe(true);
+		expect(await getArticle(noAr, { repo })).toBeNull();
+	});
+
+	it("matéria inexistente é NOT_FOUND, não sucesso silencioso", async () => {
+		expect(
+			(
+				await deleteArticle(staff("ADMIN", "adm"), { id: "nao-existe" }, deps)
+			).unwrapErr(),
+		).toBeInstanceOf(ArticleNotFound);
+	});
+
+	it("o redator apaga o próprio rascunho", async () => {
+		const redator = staff("REDATOR", "red");
+		const rascunho = await draftBy(redator);
+
+		expect(
+			(await deleteArticle(redator, { id: rascunho.id }, deps)).isOk(),
+		).toBe(true);
+	});
+
+	it("o redator NÃO apaga rascunho alheio", async () => {
+		const alheio = await draftBy(staff("REDATOR", "outra"));
+
+		expect(
+			(
+				await deleteArticle(staff("REDATOR", "red"), { id: alheio.id }, deps)
+			).unwrapErr(),
+		).toBeInstanceOf(Forbidden);
+	});
+
+	it("o redator NÃO apaga o que já esteve no ar, nem sendo dele", async () => {
+		// Apagar o registro de algo que foi público é mexer no acervo: exige
+		// também a permissão de tirar do ar. É a segunda checagem do caso de uso,
+		// e sem ela o autor eliminaria sozinho um endereço que o mundo conhece.
+		const admin = staff("ADMIN", "adm");
+		const redator = staff("REDATOR", "red");
+		const article = await draftBy(redator);
+		await submitForReview(redator, { id: article.id }, deps);
+		await approve(admin, { id: article.id }, deps);
+		(await publish(admin, { id: article.id }, deps)).unwrap();
+		(await archive(admin, { id: article.id }, deps)).unwrap();
+
+		expect(
+			(await deleteArticle(redator, { id: article.id }, deps)).unwrapErr(),
+		).toBeInstanceOf(Forbidden);
+		expect(await getArticle(article.id, { repo })).not.toBeNull();
+	});
+
+	it("o editor da editoria apaga o arquivado dela", async () => {
+		const admin = staff("ADMIN", "adm");
+		const editor = staff("EDITOR", "ed", ["cidades"]);
+		const article = await published(admin);
+		(await archive(admin, { id: article }, deps)).unwrap();
+
+		expect((await deleteArticle(editor, { id: article }, deps)).isOk()).toBe(
+			true,
+		);
+	});
+
+	it("o editor de OUTRA editoria não apaga", async () => {
+		const admin = staff("ADMIN", "adm");
+		const article = await published(admin);
+		(await archive(admin, { id: article }, deps)).unwrap();
+
+		expect(
+			(
+				await deleteArticle(
+					staff("EDITOR", "ed", ["esportes"]),
+					{ id: article },
+					deps,
+				)
+			).unwrapErr(),
+		).toBeInstanceOf(Forbidden);
+	});
+
+	it("o lote apaga o que pode e relata o que não pôde", async () => {
+		const admin = staff("ADMIN", "adm");
+		const rascunho = (await draftBy(admin)).id;
+		const noAr = await published(admin);
+
+		const outcome = await deleteMany(admin, { ids: [rascunho, noAr] }, deps);
+		expect(outcome.done).toEqual([rascunho]);
+		expect(outcome.failed.map((f) => f.id)).toEqual([noAr]);
+		// A recusada continua inteira: o lote é conveniência de tela, não uma
+		// transação que se desfaz por causa de um item.
+		expect(await getArticle(rascunho, { repo })).toBeNull();
+		expect((await getArticle(noAr, { repo }))?.status).toBe("PUBLICADA");
+	});
+
+	it("o lote com id inexistente não derruba os outros", async () => {
+		const admin = staff("ADMIN", "adm");
+		const rascunho = (await draftBy(admin)).id;
+
+		const outcome = await deleteMany(
+			admin,
+			{ ids: ["nao-existe", rascunho] },
+			deps,
+		);
+		expect(outcome.done).toEqual([rascunho]);
+		expect(outcome.failed).toHaveLength(1);
 	});
 });

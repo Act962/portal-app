@@ -44,7 +44,16 @@ export interface ArticleRepository {
 	findById(id: string): Promise<Article | null>;
 	findBySlug(slug: string): Promise<Article | null>;
 	save(article: Article): Promise<void>;
-	delete(id: string): Promise<void>;
+	/**
+	 * Apaga a matéria e publica no outbox os eventos que ela acumulou — na mesma
+	 * transação, como faz o `save`.
+	 *
+	 * Recebe o AGREGADO, e não o id, exatamente por causa disso. Apagar é a única
+	 * operação do editorial que destrói o que auditou: sem o evento saindo junto
+	 * com a linha, a matéria sumiria do banco sem deixar registro de que existiu,
+	 * e um id solto não tem eventos para entregar.
+	 */
+	delete(article: Article): Promise<void>;
 	/**
 	 * Lista com filtro e, opcionalmente, uma FATIA. Sem `page`, devolve tudo —
 	 * é o que o poller e o calendário editorial precisam. Com `page`, o corte
@@ -88,9 +97,14 @@ export class InMemoryArticleRepository implements ArticleRepository {
 		return Promise.resolve();
 	}
 
-	delete(id: string): Promise<void> {
-		this.store.delete(id);
-		this.order.delete(id);
+	delete(article: Article): Promise<void> {
+		// Esvazia a fila de eventos como o adapter Prisma faz ao gravá-los no
+		// outbox. O fake não tem onde entregá-los, mas precisa DEIXAR o agregado
+		// no mesmo estado — senão o contrato passa nos dois e a divergência só
+		// aparece em produção.
+		article.pullEvents();
+		this.store.delete(article.id);
+		this.order.delete(article.id);
 		return Promise.resolve();
 	}
 

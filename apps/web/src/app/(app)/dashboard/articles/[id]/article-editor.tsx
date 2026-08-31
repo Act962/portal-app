@@ -60,8 +60,17 @@ import {
 	TooltipTrigger,
 } from "@portal-app/ui/components/tooltip";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, ImageIcon, Loader2, Tag } from "lucide-react";
+import {
+	AlertTriangle,
+	Archive,
+	Check,
+	ImageIcon,
+	Loader2,
+	Tag,
+	Trash2,
+} from "lucide-react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import {
 	useCallback,
 	useEffect,
@@ -72,10 +81,17 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDestructiveDialog } from "@/components/admin/confirm-destructive-dialog";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { BlockRenderer } from "@/components/editorial/block-renderer";
 import { MediaPickerDialog } from "@/components/media/media-picker-dialog";
+import {
+	type BulkAction,
+	canArchive,
+	canDelete,
+	requiresTypedConfirmation,
+} from "@/lib/article-selection";
 import { trpc } from "@/utils/trpc";
 
 // O TipTap não pode renderizar no servidor (hidratação divergente).
@@ -103,6 +119,7 @@ function countHint(value: number, min: number, max: number) {
 }
 
 export function ArticleEditor({ id }: { id: string }) {
+	const router = useRouter();
 	const queryClient = useQueryClient();
 	const article = useQuery(trpc.editorial.articles.get.queryOptions({ id }));
 	const sections = useQuery(trpc.taxonomy.sections.list.queryOptions());
@@ -148,6 +165,17 @@ export function ArticleEditor({ id }: { id: string }) {
 	const archive = useMutation(
 		trpc.editorial.articles.archive.mutationOptions(workflowOptions),
 	);
+	const remove = useMutation(
+		trpc.editorial.articles.remove.mutationOptions({
+			// A matéria deixa de existir: ficar na tela dela mostraria um editor
+			// carregando um id que o servidor não conhece mais.
+			onSuccess: ({ headline }) => {
+				toast.success(`“${headline}” foi apagada.`);
+				router.push("/dashboard/articles");
+			},
+			onError: onWorkflowError,
+		}),
+	);
 
 	const [headline, setHeadline] = useState("");
 	const [authorName, setAuthorName] = useState("");
@@ -163,6 +191,8 @@ export function ArticleEditor({ id }: { id: string }) {
 	const [savedAt, setSavedAt] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState(false);
 	const [pickingCover, setPickingCover] = useState(false);
+	/** Qual ação sem volta está esperando confirmação. */
+	const [confirming, setConfirming] = useState<BulkAction | null>(null);
 
 	// Só as mídias que ESTA matéria referencia (capa + imagens do corpo), pelo
 	// id. Antes pedia a biblioteca inteira, o que passou a ser uma página: com
@@ -198,6 +228,10 @@ export function ArticleEditor({ id }: { id: string }) {
 
 	const loaded = useRef(false);
 	const status = article.data?.status as EditorialStatus | undefined;
+	// As duas saídas do cartão de publicação. Calculadas aqui porque `status`
+	// ainda pode ser indefinido enquanto a matéria carrega.
+	const canArchiveThis = status !== undefined && canArchive(status);
+	const canDeleteThis = status !== undefined && canDelete(status);
 
 	const bylineId = useId();
 
@@ -540,16 +574,6 @@ export function ArticleEditor({ id }: { id: string }) {
 								</>
 							) : null}
 
-							{status === "PUBLICADA" || status === "ATUALIZADA" ? (
-								<Button
-									variant="outline"
-									className="w-full"
-									onClick={() => archive.mutate({ id })}
-								>
-									Arquivar
-								</Button>
-							) : null}
-
 							{article.data.rejectionReason ? (
 								<Alert>
 									<AlertTitle>Devolvida</AlertTitle>
@@ -557,6 +581,45 @@ export function ArticleEditor({ id }: { id: string }) {
 										{article.data.rejectionReason}
 									</AlertDescription>
 								</Alert>
+							) : null}
+
+							{/*
+							  AS SAÍDAS. Ficam disponíveis em QUALQUER estado — antes só
+							  apareciam depois de publicada, e o rascunho incompleto tinha
+							  como único botão "Enviar para revisão": quem se arrependeu de
+							  uma matéria pela metade era obrigado a empurrá-la fluxo
+							  adiante para poder tirá-la do caminho.
+
+							  Separadas por uma linha e no fim do cartão, longe das ações
+							  do fluxo. As duas confirmam antes — inclusive arquivar, que
+							  até aqui disparava no primeiro clique, apesar de ser
+							  irreversível.
+							*/}
+							{canArchiveThis || canDeleteThis ? (
+								<div className="flex flex-col gap-2 border-t pt-3">
+									{canArchiveThis ? (
+										<Button
+											variant="outline"
+											className="w-full"
+											disabled={archive.isPending || remove.isPending}
+											onClick={() => setConfirming("archive")}
+										>
+											<Archive className="size-4" />
+											Arquivar
+										</Button>
+									) : null}
+									{canDeleteThis ? (
+										<Button
+											variant="ghost"
+											className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+											disabled={archive.isPending || remove.isPending}
+											onClick={() => setConfirming("delete")}
+										>
+											<Trash2 className="size-4" />
+											Apagar matéria
+										</Button>
+									) : null}
+								</div>
 							) : null}
 						</CardContent>
 					</Card>
@@ -796,6 +859,43 @@ export function ArticleEditor({ id }: { id: string }) {
 				}}
 				title="Escolher imagem de capa"
 				confirmLabel="Usar como capa"
+			/>
+
+			<ConfirmDestructiveDialog
+				open={confirming !== null}
+				onOpenChange={(open) => !open && setConfirming(null)}
+				title={
+					confirming === "delete"
+						? `Apagar “${article.data.headline}”?`
+						: `Arquivar “${article.data.headline}”?`
+				}
+				description={
+					confirming === "delete"
+						? article.data.firstPublishedAt
+							? "Ela some do banco de dados para sempre — não vai para o arquivo e não dá para restaurar pelo painel. E como já esteve publicada, o endereço dela, que continua indexado no Google e circulando por aí, vai passar a responder “página não encontrada”."
+							: "Ela some do banco de dados para sempre. Não vai para o arquivo, não dá para restaurar pelo painel e não há backup ao alcance da redação."
+						: "Ela sai do portal — some da home, da editoria e da busca. O texto e o endereço continuam guardados no arquivo, mas ARQUIVAR NÃO TEM VOLTA pelo painel: matéria arquivada não volta ao ar nem pode ser editada."
+				}
+				confirmLabel={confirming === "delete" ? "Apagar" : "Arquivar"}
+				requireTyping={
+					confirming === "delete" &&
+					requiresTypedConfirmation([
+						{
+							id,
+							status: status ?? "RASCUNHO",
+							firstPublishedAt: article.data.firstPublishedAt,
+						},
+					])
+				}
+				pending={archive.isPending || remove.isPending}
+				onConfirm={() => {
+					if (confirming === "delete") {
+						remove.mutate({ id });
+					} else if (confirming === "archive") {
+						archive.mutate({ id });
+					}
+					setConfirming(null);
+				}}
 			/>
 
 			<Dialog open={rejecting} onOpenChange={setRejecting}>

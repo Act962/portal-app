@@ -448,6 +448,46 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
 - [ ] Métricas de impressão/clique ficam para depois (exigem rota de tracking e
       cuidado com cache).
 
+### Apagar matéria e saídas do rascunho — ✅ ENTREGUE (2026-08-31)
+
+Três decisões de produto que valem estar escritas, porque são as que a redação
+vai questionar depois:
+
+1. **O que pode ser apagado.** Tudo, menos o que está NO AR
+   (`PUBLICADA`/`ATUALIZADA`). Quem quiser eliminar uma matéria publicada
+   **arquiva primeiro** e apaga depois — e essa parada no meio é de propósito:
+   é a chance de mudar de ideia antes de destruir um endereço que o Google
+   indexou e que circula em conversa de WhatsApp. A regra mora no agregado
+   (`Article.markDeleted`), não na tela.
+
+2. **Arquivar deixou de exigir matéria no ar.** Era o que prendia o usuário: o
+   rascunho criado por engano, sem corpo e sem editoria, só oferecia "Enviar
+   para revisão". Agora arquivar vale de qualquer estado menos do próprio
+   arquivo, e a permissão acompanha — tirar do AR continua exigindo
+   `article:unpublish` (decisão de quem responde pela editoria), mas guardar o
+   próprio rascunho passa por `article:edit-own`, que é parte de escrevê-lo.
+
+3. **A digitação de "APAGAR" NÃO é pedida sempre**, e isso é escolha, não
+   esquecimento. Confirmação que aparece em toda ação vira reflexo: a pessoa
+   digita sem ler, e a trava deixa de proteger justamente na vez que importava.
+   Ela fica reservada a dois casos — quando alguma das matérias **já esteve
+   publicada** (o endereço público morre junto) ou quando é **mais de uma de
+   uma vez** (o erro de mira do lote não se desfaz). Um rascunho solto que
+   nunca saiu do painel confirma com um clique. A palavra aceita minúscula e
+   espaço sobrando: o que se compra com ela é deliberação, não acerto de
+   grafia.
+
+**A auditoria sobrevive ao apagamento.** O evento `ArticleDeleted` carrega
+título, slug e `wasPublished` no corpo, e é gravado na MESMA transação que
+remove a linha. Sem isso, apagar uma matéria zeraria o título de toda a
+história dela na auditoria — as linhas anteriores virariam um id solto, e um
+registro que não diz sobre o que fala não presta contas de nada.
+
+**Falta uma decisão humana:** hoje um redator pode apagar de vez o próprio
+rascunho, sem lixeira e sem restauração. Se a redação preferir uma lixeira com
+prazo (apagar de verdade só depois de N dias), é outra feature — e é mais fácil
+decidir isso antes de alguém perder um texto do que depois.
+
 ### Sobrou da spec 05b (configurações)
 - [x] ~~**Favicon fixo no código**~~ ✅ Resolvido em 12/08: `faviconMediaId` nas
       Configurações, campo próprio na aba Identidade. Coluna separada do
@@ -617,6 +657,7 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
 | **Testes de formatação de data** | idem | `apps/web/tests/unit/format.test.ts` — módulo que já quebrou duas vezes em produção; os dois casos de fumaça cobrem esse par, o resto é `it.todo` |
 | **E2E do arquivamento pelo seletor e do envio direto de capa** | Entregue sem E2E (31/08) | A LÓGICA tem teste de verdade — `apps/web/tests/unit/article-selection.test.ts` (quem pode ser marcado, o que "marcar tudo" marca, o texto do aviso final) e os casos de arquivo/lote em `packages/contexts/editorial/tests/unit/manage-articles.test.ts`. Falta a FIAÇÃO: caixinha → barra → diálogo → mutação → lista. **Esqueleto** em `apps/web/tests/e2e/dashboard-articles.spec.ts` (12 `test.fixme`); preencher exige antes uma sessão de staff compartilhada — hoje só `auth.spec.ts` tem uma, porque a vaga de primeiro-ADMIN é de uso único por banco |
 | **E2E das colunas congeladas e redimensionáveis** | Entregue sem E2E (31/08) | A aritmética tem teste de verdade (`apps/web/tests/unit/table-columns.test.ts`, 30 casos). Falta o que só o navegador sabe: se a célula gruda ao rolar, se o fundo dela é opaco, e se o arrasto chega ao fim. **Este último já mordeu**: a primeira versão lia estado do React nos handlers de ponteiro e perdia o gesto quando ele era rápido — pego na verificação manual, não por teste. **Esqueleto** em `dashboard-articles.spec.ts` (7 `test.fixme`) |
+| **E2E de apagar matéria e das saídas do rascunho** | Entregue sem E2E (31/08) | A parte que DECIDE tem teste real em três camadas: o agregado recusa apagar o que está no ar (`article-workflow.test.ts`), o caso de uso exige `article:unpublish` para o que já esteve publicado e relata o lote parcial (`manage-articles.test.ts`), e a tela sabe quando cobrar a palavra digitada (`article-selection.test.ts`). Falta o que só o navegador prova, e é o mais perigoso desta entrega: que o botão destravado corresponde à palavra digitada, e que some a linha certa — um `onClick` com a mira errada num `DropdownMenuItem` apaga a matéria errada com o CI verde. **Esqueleto** em `dashboard-articles.spec.ts` (12 `test.fixme`) |
 | **E2E da publicidade** | Entregue sem E2E (31/08) | A lógica tem 129 testes reais em cinco arquivos (regra de veiculação, agregado, casos de uso, contrato contra Postgres, sorteio no cliente, corpo do beacon e sincronia das listas de posição). Falta o que só o navegador sabe — e **dois defeitos desta entrega só apareceram ali**: o `z.record` com chaves de enum recusando o salvamento do AdSense, e o cliente Prisma não regenerado degradando o portal para "sem anúncio" em silêncio. **Esqueleto** em `apps/web/tests/e2e/ads.spec.ts` (16 `test.fixme`) |
 | **`next/image` no painel e no portal** | Falta `images.remotePatterns` para o host do R2 | Imagens servidas sem otimização; pesa no Core Web Vitals. A spec 07 deixou o barato feito (`fetchPriority="high"` na capa, `width`/`height` quando a mídia foi medida), mas a otimização por host segue de fora — é decisão de custo, não de código |
 | **Fonte da marca na imagem social (`/og`)** | O `ImageResponse` usa a fonte padrão do Satori, não a Archivo do portal | O cartão do WhatsApp não é tipograficamente igual ao site. Carregar a fonte custa ler o `.ttf` no servidor a cada geração; entra quando alguém reclamar, não antes |
