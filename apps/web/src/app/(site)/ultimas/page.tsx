@@ -1,6 +1,6 @@
-import { AdSlot } from "@portal-app/ui/components/ad-slot";
 import type { Metadata } from "next";
 
+import { AdPlacement } from "@/components/ads/ad-placement";
 import { ContentWithSidebar } from "@/components/layout/content-with-sidebar";
 import { ArticleList } from "@/components/news/article-list";
 import { MostReadList } from "@/components/news/most-read-list";
@@ -57,7 +57,7 @@ export default async function LatestPage({ searchParams }: LatestPageProps) {
 			<ContentWithSidebar
 				sidebar={
 					<>
-						<AdSlot format="sidebar" />
+						<AdPlacement slot="sidebar" />
 						<MostReadList articles={mostRead} period="24H" />
 					</>
 				}

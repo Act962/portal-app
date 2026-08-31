@@ -1,0 +1,101 @@
+// Contexto de Publicidade (Bloco C). Campanhas da casa + configuração do
+// Google AdSense.
+//
+// Sem dado pessoal (LGPD/N09), como no resto do portal: a contagem de
+// impressão e clique é agregada POR DIA e por campanha. Nem IP, nem
+// user-agent, nem identificador de leitor — a redação precisa saber quanto o
+// espaço rendeu, não quem viu.
+
+model AdCampaign {
+  id         String @id
+  // Nome interno, para a equipe achar a campanha na lista.
+  name       String
+  advertiser String
+
+  // "billboard" | "in-content" | "sidebar" | "sidebar-tall" | "mobile-top".
+  // A lista canônica vive no domínio (`ad-slot.ts`); aqui é só o valor.
+  slot String
+
+  destinationUrl String
+  coverMediaId   String?
+  coverAltText   String?
+
+  startsAt DateTime
+  // Nulo = "até segunda ordem". Contrato sem fim combinado existe, e obrigar
+  // uma data faria a equipe inventar "2099" — que apaga a informação.
+  endsAt   DateTime?
+
+  // Peso do rodízio, 1..10. Peso 3 aparece 3× mais que peso 1 na mesma posição.
+  weight Int @default(1)
+
+  // Vazio = global. Preenchido, restringe às editorias listadas.
+  sectionIds String[] @default([])
+
+  // "RASCUNHO" | "ATIVA" | "PAUSADA". AGENDADA e ENCERRADA NÃO são guardados:
+  // saem do período no momento da leitura, para não existir um status gravado
+  // que discorde das datas no dia em que um job falhar.
+  status String @default("RASCUNHO")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stats AdDailyStat[]
+
+  // A consulta da VEICULAÇÃO, que roda em toda página do portal: as campanhas
+  // de uma posição que estão no ar agora.
+  @@index([slot, status, startsAt, endsAt])
+  // A checagem de uso da biblioteca de mídia, antes de deixar apagar um arquivo.
+  @@index([coverMediaId])
+  @@map("ad_campaign")
+}
+
+// Impressões e cliques AGREGADOS POR DIA. Uma linha por campanha por dia, e não
+// uma linha por evento: um banner no topo do portal produz dezenas de milhares
+// de impressões por dia, e guardá-las uma a uma encheria o banco para responder
+// exatamente a mesma pergunta que um contador responde.
+model AdDailyStat {
+  id         String     @id
+  campaignId String
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  // O dia em UTC, à meia-noite. O corte é UTC no domínio E aqui: um lado em
+  // UTC e outro no fuso local faria o relatório de "ontem" mudar conforme onde
+  // o código roda.
+  day DateTime
+
+  impressions Int @default(0)
+  clicks      Int @default(0)
+
+  // A garantia de UMA linha por campanha por dia. Fica no banco, e não numa
+  // checagem antes do upsert, porque só o banco resiste a duas impressões
+  // simultâneas — que é o caso normal aqui, não a exceção.
+  @@unique([campaignId, day])
+  @@index([day])
+  @@map("ad_daily_stat")
+}
+
+// Configuração do AdSense. Registro único, como SiteSettings — o `id` fixo
+// existe para o upsert ter em que se ancorar.
+model AdSenseSettings {
+  id String @id @default("adsense")
+
+  // Não é segredo: aparece no código-fonte de toda página que serve anúncio.
+  // Fica no banco, e não em variável de ambiente, para o cliente trocá-lo sem
+  // depender de um deploy.
+  publisherId String?
+
+  // A chave geral. Desligada, nenhum script do Google carrega em lugar nenhum.
+  enabled Boolean @default(false)
+
+  // { "sidebar": "1234567890", ... } — o ID da unidade de cada posição.
+  slotIds Json @default("{}")
+
+  // Pede anúncios NÃO personalizados. Começa LIGADO: personalizar depende de
+  // rastrear o leitor entre sites, e isso exige base legal e um aviso que o
+  // portal ainda não tem. Ver docs/pendencias.md.
+  nonPersonalized Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("adsense_settings")
+}

@@ -1,6 +1,7 @@
-import { AdSlot } from "@portal-app/ui/components/ad-slot";
 import { Container } from "@portal-app/ui/components/container";
+import Script from "next/script";
 
+import { AdPlacement } from "@/components/ads/ad-placement";
 import { AnchorAd } from "@/components/layout/anchor-ad";
 import { NewsTicker } from "@/components/layout/news-ticker";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -8,6 +9,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SkipLink } from "@/components/layout/skip-link";
 import { TopBar } from "@/components/layout/top-bar";
 import { JsonLd } from "@/components/seo/json-ld";
+import { getAdSenseScript } from "@/data/ads";
 import { getSections, getTicker } from "@/data/queries";
 import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { organizationSchema } from "@/lib/structured-data";
@@ -42,14 +44,34 @@ export const revalidate = 60;
 export default async function SiteLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
-	const [sections, ticker, site] = await Promise.all([
+	const [sections, ticker, site, adsense] = await Promise.all([
 		getSections(),
 		getTicker(),
 		loadSiteIdentity(),
+		getAdSenseScript(),
 	]);
 
 	return (
 		<>
+			{/*
+			  O script do Google só entra quando o AdSense está LIGADO e configurado
+			  — desligado no painel, nenhuma requisição sai para o Google em página
+			  nenhuma. É o que permite cortar a monetização num clique, sem deploy.
+
+			  `afterInteractive`: depois da página estar utilizável. Publicidade não
+			  pode competir com o carregamento da notícia, que é o produto
+			  (ui-ux.md §1).
+			*/}
+			{adsense ? (
+				<Script
+					id="adsense"
+					strategy="afterInteractive"
+					async
+					src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsense.publisherId}`}
+					crossOrigin="anonymous"
+				/>
+			) : null}
+
 			<div className="flex min-h-svh flex-col bg-canvas text-ink">
 				<SkipLink />
 				<TopBar />
@@ -76,7 +98,7 @@ export default async function SiteLayout({
 				  reservado para algo que nunca aparece naquela largura.
 				*/}
 				<Container className="hidden pt-4 md:block">
-					<AdSlot format="billboard" className="mx-auto" />
+					<AdPlacement slot="billboard" className="mx-auto" />
 				</Container>
 
 				<main id="conteudo" className="flex-1">

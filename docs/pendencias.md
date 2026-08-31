@@ -396,7 +396,39 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
       painel e card da home) e a identidade "93,9 FM" no cabeçalho/rodapé — são
       informação sobre o veículo, não dependiam do player.
 
-### Bloco C — Banners e anúncios
+### Bloco C — Banners e anúncios ✅ ENTREGUE (2026-08-31)
+
+> Contexto `advertising` novo: agregado `Campaign` (arte, link, posição,
+> período, peso, editorias), configuração do AdSense, contador diário de
+> impressões e cliques, tela em `/dashboard/campaigns` e `/ads.txt`. Os 9
+> pontos de veiculação passaram do `AdSlot` placeholder para o `AdPlacement`
+> (RSC), que serve campanha real.
+>
+> **As duas decisões que os docs mandavam tomar antes de escrever, e as
+> respostas dadas pelo cliente:** rodízio COM PESO (não uma campanha por
+> posição), e global COM segmentação opcional por editoria. Campanha
+> segmentada tem prioridade sobre a global na editoria vendida — sem isso,
+> quem compra "só Esportes" disputaria no peso com uma global e apareceria
+> uma vez a cada onze.
+>
+> **Métricas saíram do "para depois"**: impressão só conta com 50% do anúncio
+> na tela (régua da IAB), o rodízio é sorteado no CLIENTE (sortear no servidor
+> congelaria junto com o `revalidate = 60`) e a contagem é agregada por dia,
+> sem nenhum dado pessoal.
+
+**O que ficou pendente de AÇÃO HUMANA antes de monetizar:**
+
+1. **A política de privacidade precisa de revisão jurídica.** O texto foi
+   atualizado para descrever os cookies do Google e passou a ser condicional
+   (só afirma o que está realmente ligado), mas continua sem revisão de
+   advogado — é o item 1 desta lista desde 12/08, agora com mais superfície.
+2. **Não há banner de consentimento.** Por isso o padrão é pedir anúncios NÃO
+   PERSONALIZADOS. Para tráfego da Europa o Google exige um CMP certificado,
+   que não existe aqui — ligar personalização sem isso expõe o portal.
+3. **`/ads.txt` só sai do ar com o `publisherId` cadastrado.** Sem ele o
+   Google trata o inventário como não autorizado e a receita despenca.
+
+#### Histórico do que era o Bloco C
 
 > **Confirmado pelo cliente em 2026-08-10: anúncios/banners ESTÃO no contrato.**
 > Deixa de ser escopo em dúvida e passa a ser entrega devida. É o maior item
@@ -585,6 +617,7 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
 | **Testes de formatação de data** | idem | `apps/web/tests/unit/format.test.ts` — módulo que já quebrou duas vezes em produção; os dois casos de fumaça cobrem esse par, o resto é `it.todo` |
 | **E2E do arquivamento pelo seletor e do envio direto de capa** | Entregue sem E2E (31/08) | A LÓGICA tem teste de verdade — `apps/web/tests/unit/article-selection.test.ts` (quem pode ser marcado, o que "marcar tudo" marca, o texto do aviso final) e os casos de arquivo/lote em `packages/contexts/editorial/tests/unit/manage-articles.test.ts`. Falta a FIAÇÃO: caixinha → barra → diálogo → mutação → lista. **Esqueleto** em `apps/web/tests/e2e/dashboard-articles.spec.ts` (12 `test.fixme`); preencher exige antes uma sessão de staff compartilhada — hoje só `auth.spec.ts` tem uma, porque a vaga de primeiro-ADMIN é de uso único por banco |
 | **E2E das colunas congeladas e redimensionáveis** | Entregue sem E2E (31/08) | A aritmética tem teste de verdade (`apps/web/tests/unit/table-columns.test.ts`, 30 casos). Falta o que só o navegador sabe: se a célula gruda ao rolar, se o fundo dela é opaco, e se o arrasto chega ao fim. **Este último já mordeu**: a primeira versão lia estado do React nos handlers de ponteiro e perdia o gesto quando ele era rápido — pego na verificação manual, não por teste. **Esqueleto** em `dashboard-articles.spec.ts` (7 `test.fixme`) |
+| **E2E da publicidade** | Entregue sem E2E (31/08) | A lógica tem 129 testes reais em cinco arquivos (regra de veiculação, agregado, casos de uso, contrato contra Postgres, sorteio no cliente, corpo do beacon e sincronia das listas de posição). Falta o que só o navegador sabe — e **dois defeitos desta entrega só apareceram ali**: o `z.record` com chaves de enum recusando o salvamento do AdSense, e o cliente Prisma não regenerado degradando o portal para "sem anúncio" em silêncio. **Esqueleto** em `apps/web/tests/e2e/ads.spec.ts` (16 `test.fixme`) |
 | **`next/image` no painel e no portal** | Falta `images.remotePatterns` para o host do R2 | Imagens servidas sem otimização; pesa no Core Web Vitals. A spec 07 deixou o barato feito (`fetchPriority="high"` na capa, `width`/`height` quando a mídia foi medida), mas a otimização por host segue de fora — é decisão de custo, não de código |
 | **Fonte da marca na imagem social (`/og`)** | O `ImageResponse` usa a fonte padrão do Satori, não a Archivo do portal | O cartão do WhatsApp não é tipograficamente igual ao site. Carregar a fonte custa ler o `.ttf` no servidor a cada geração; entra quando alguém reclamar, não antes |
 | **Mídia antiga sem `width`/`height`** | A coluna existe no banco, mas asset enviado antes da medição tem `null` | Aquelas matérias saem sem `og:image:width` — a prévia do WhatsApp funciona, só é mais lenta para decidir |

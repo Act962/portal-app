@@ -1,4 +1,5 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+import { advertisingRouter } from "./advertising";
 import { analyticsRouter } from "./analytics";
 import { broadcastRouter } from "./broadcast";
 import { columnistsRouter } from "./columnists";
@@ -28,5 +29,6 @@ export const appRouter = router({
 	columnists: columnistsRouter,
 	analytics: analyticsRouter,
 	polls: pollsRouter,
+	advertising: advertisingRouter,
 });
 export type AppRouter = typeof appRouter;

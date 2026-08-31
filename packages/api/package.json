@@ -12,6 +12,7 @@
 	"scripts": {},
 	"dependencies": {
 		"inngest": "catalog:",
+		"@portal-app/advertising": "workspace:*",
 		"@portal-app/analytics": "workspace:*",
 		"@portal-app/auth": "workspace:*",
 		"@portal-app/broadcast": "workspace:*",

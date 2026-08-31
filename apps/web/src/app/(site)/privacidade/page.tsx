@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { LegalPage } from "@/components/layout/legal-page";
 import { JsonLd } from "@/components/seo/json-ld";
+import { getAdSenseScript } from "@/data/ads";
 import { loadSiteSettings } from "@/data/queries";
 import { routes } from "@/lib/routes";
 import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
@@ -24,7 +25,7 @@ import { breadcrumbSchema } from "@/lib/structured-data";
  *
  * O nome e o contato saem das Configurações para não divergirem do rodapé.
  */
-const UPDATED_AT = "2026-08-12";
+const UPDATED_AT = "2026-08-31";
 
 export async function generateMetadata(): Promise<Metadata> {
 	const identity = await loadSiteIdentity();
@@ -39,9 +40,15 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PrivacyPage() {
-	const [site, identity] = await Promise.all([
+	// A seção de publicidade descreve o que está REALMENTE ligado. Sem isto o
+	// texto seria falso numa das duas pontas: prometeria cookies que não existem
+	// enquanto o AdSense estivesse desligado, ou negaria rastreadores que
+	// passaram a existir depois de ligado. É o mesmo princípio que fez este
+	// documento morar ao lado do código.
+	const [site, identity, adsense] = await Promise.all([
 		loadSiteSettings(),
 		loadSiteIdentity(),
+		getAdSenseScript(),
 	]);
 	const contact = site.contactEmail;
 
@@ -116,14 +123,37 @@ export default async function PrivacyPage() {
 						<strong>Sessão de administração</strong> — mantém a equipe
 						autenticada no painel. Só é criado após login.
 					</li>
+					{adsense ? (
+						<li>
+							<strong>Publicidade do Google</strong> — o portal exibe anúncios
+							do Google AdSense, que grava cookies próprios no seu navegador
+							para medir exibições e limitar a repetição do mesmo anúncio.
+						</li>
+					) : null}
 				</ul>
 				<p>
-					Não usamos cookies de publicidade comportamental, não vendemos dados
-					de navegação e não incorporamos rastreadores de terceiros para
-					perfilamento. Você pode apagar os cookies do portal a qualquer momento
-					pelas configurações do seu navegador; a única consequência é que uma
-					enquete em que você já votou voltará a aceitar o seu voto.
+					{adsense
+						? "Não vendemos dados de navegação. Os anúncios do Google são pedidos na modalidade não personalizada: são escolhidos pelo conteúdo da página que você está lendo, e não por um perfil montado a partir do seu histórico de navegação. Ainda assim, o Google grava cookies próprios para medição e controle de frequência."
+						: "Não usamos cookies de publicidade comportamental, não vendemos dados de navegação e não incorporamos rastreadores de terceiros para perfilamento."}{" "}
+					Você pode apagar os cookies do portal a qualquer momento pelas
+					configurações do seu navegador; a única consequência é que uma enquete
+					em que você já votou voltará a aceitar o seu voto.
 				</p>
+				{adsense ? (
+					<p>
+						Para controlar a publicidade do Google diretamente com ele, use as{" "}
+						<a
+							href="https://adssettings.google.com/"
+							target="_blank"
+							rel="noreferrer"
+						>
+							configurações de anúncios da sua Conta Google
+						</a>
+						. Já os anúncios vendidos diretamente pela {site.name} a anunciantes
+						locais não usam cookies: contamos apenas quantas vezes cada peça foi
+						exibida e clicada, sem identificar quem viu.
+					</p>
+				) : null}
 
 				<h2>Com quem os dados são compartilhados</h2>
 				<p>
@@ -167,7 +197,10 @@ export default async function PrivacyPage() {
 				<p>
 					Matérias podem conter links para outros sites. Ao segui-los, você
 					passa a estar sujeito à política de privacidade daquele site, sobre a
-					qual não temos controle.
+					qual não temos controle.{" "}
+					{adsense
+						? "O mesmo vale para os anúncios: ao clicar em um deles você vai para o site do anunciante, que tem política própria."
+						: ""}
 				</p>
 
 				<h2>Crianças e adolescentes</h2>

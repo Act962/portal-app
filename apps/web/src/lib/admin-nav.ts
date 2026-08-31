@@ -98,9 +98,13 @@ export const ADMIN_NAV: NavGroup[] = [
 				icon: "Settings",
 				action: "settings:manage",
 			},
-			// "Anúncios" (/dashboard/campaigns) VOLTA AQUI quando o Bloco C
-			// existir. Um item que leva a 404 é pior do que um item ausente:
-			// parece defeito, não roadmap.
+			// O Bloco C existe: campanhas da casa + Google AdSense.
+			{
+				href: "/dashboard/campaigns",
+				label: "Anúncios",
+				icon: "Megaphone",
+				action: "ads:manage",
+			},
 			{
 				href: "/dashboard/audit",
 				label: "Auditoria",
@@ -124,5 +128,6 @@ export const ROUTE_LABELS: Record<string, string> = {
 	"/dashboard/enquetes": "Enquetes",
 	"/dashboard/users": "Equipe",
 	"/dashboard/settings": "Configurações",
+	"/dashboard/campaigns": "Anúncios",
 	"/dashboard/audit": "Auditoria",
 };

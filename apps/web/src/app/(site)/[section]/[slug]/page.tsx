@@ -1,8 +1,8 @@
-import { AdSlot } from "@portal-app/ui/components/ad-slot";
 import { MediaPlaceholder } from "@portal-app/ui/components/media-placeholder";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { AdPlacement } from "@/components/ads/ad-placement";
 import { ContentWithSidebar } from "@/components/layout/content-with-sidebar";
 import { ArticleBody } from "@/components/news/article-body";
 import { ArticleHeader } from "@/components/news/article-header";
@@ -19,6 +19,7 @@ import {
 	getAuthor,
 	getMostRead,
 	getRelated,
+	getSection,
 	getSectionName,
 } from "@/data/queries";
 import { toDateTimeAttribute } from "@/lib/format";
@@ -133,7 +134,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 				contentClassName="max-w-article pt-3.5 md:pt-0"
 				sidebar={
 					<>
-						<AdSlot format="sidebar" />
+						<AdPlacement
+							slot="sidebar"
+							sectionId={(await getSection(article.sectionSlug))?.id ?? null}
+						/>
 						<MostReadList articles={mostRead} />
 						<NewsletterCard />
 					</>

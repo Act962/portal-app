@@ -1,7 +1,7 @@
-import { AdSlot } from "@portal-app/ui/components/ad-slot";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { AdPlacement } from "@/components/ads/ad-placement";
 import { ContentWithSidebar } from "@/components/layout/content-with-sidebar";
 import { ArticleList } from "@/components/news/article-list";
 import { FeatureStory } from "@/components/news/feature-story";
@@ -101,7 +101,7 @@ export default async function SectionPage({
 				gap="section"
 				sidebar={
 					<>
-						<AdSlot format="sidebar" />
+						<AdPlacement slot="sidebar" sectionId={section.id} />
 						<MostReadList
 							articles={await getMostRead()}
 							title={`Mais lidas em ${section.name}`}

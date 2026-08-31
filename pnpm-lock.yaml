@@ -147,6 +147,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.8)
+      '@portal-app/advertising':
+        specifier: workspace:*
+        version: link:../../packages/contexts/advertising
       '@portal-app/analytics':
         specifier: workspace:*
         version: link:../../packages/contexts/analytics
@@ -292,6 +295,9 @@ importers:
 
   packages/api:
     dependencies:
+      '@portal-app/advertising':
+        specifier: workspace:*
+        version: link:../contexts/advertising
       '@portal-app/analytics':
         specifier: workspace:*
         version: link:../contexts/analytics
@@ -389,6 +395,28 @@ importers:
         version: 6.0.3
 
   packages/config: {}
+
+  packages/contexts/advertising:
+    dependencies:
+      '@portal-app/db':
+        specifier: workspace:*
+        version: link:../../db
+      '@portal-app/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@portal-app/shared-kernel':
+        specifier: workspace:*
+        version: link:../../shared-kernel
+    devDependencies:
+      '@portal-app/config':
+        specifier: workspace:*
+        version: link:../../config
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
   packages/contexts/analytics:
     dependencies:
@@ -8749,7 +8777,7 @@ snapshots:
       obug: 2.1.4
       std-env: 4.2.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@20.19.43)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1(@noble/hashes@2.2.0))(msw@2.15.0(@types/node@20.19.43)(typescript@6.0.3))(vite@8.2.0(@types/node@20.19.43)(jiti@2.7.0)(yaml@2.9.0))
+      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1(@noble/hashes@2.2.0))(msw@2.15.0(@types/node@22.20.1)(typescript@6.0.3))(vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0)(yaml@2.9.0))
 
   '@vitest/expect@4.1.10':
     dependencies:
@@ -8768,6 +8796,7 @@ snapshots:
     optionalDependencies:
       msw: 2.15.0(@types/node@20.19.43)(typescript@6.0.3)
       vite: 8.2.0(@types/node@20.19.43)(jiti@2.7.0)(yaml@2.9.0)
+    optional: true
 
   '@vitest/mocker@4.1.10(msw@2.15.0(@types/node@22.20.1)(typescript@6.0.3))(vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0)(yaml@2.9.0))':
     dependencies:
@@ -11522,6 +11551,7 @@ snapshots:
       fsevents: 2.3.3
       jiti: 2.7.0
       yaml: 2.9.0
+    optional: true
 
   vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0)(yaml@2.9.0):
     dependencies:
@@ -11565,6 +11595,7 @@ snapshots:
       jsdom: 30.0.1(@noble/hashes@2.2.0)
     transitivePeerDependencies:
       - msw
+    optional: true
 
   vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1(@noble/hashes@2.2.0))(msw@2.15.0(@types/node@22.20.1)(typescript@6.0.3))(vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0)(yaml@2.9.0)):
     dependencies:
