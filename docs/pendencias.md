@@ -882,6 +882,65 @@ O que **de fato** estava errado era mais discreto, e foi corrigido:
 
 ---
 
+## Editor: o menu flutuante e o espaçamento (08/09, segunda rodada)
+
+Dois pedidos, e os dois renderam cicatriz que vale registrar.
+
+**O menu flutuante estava para trás.** Ele tinha quatro botões reescritos à mão
+dentro de `article-body-editor.tsx` — sem `aria-pressed`, sem tooltip e sem o
+estado reativo, então não acendiam quando o trecho já estava formatado. Quando a
+barra fixa ganhou sublinhado, riscado e alinhamento, ele ficou com os quatro de
+sempre: é o que acontece quando dois lugares desenham o mesmo botão. Agora o
+conteúdo mora em `toolbar.tsx` (`SelectionToolbar`), com o mesmo `ToolButton` e o
+mesmo `useToolbarState`. **Não é a barra inteira, de propósito:** entra o que se
+faz com um trecho SELECIONADO; ficam de fora imagem, incorporação,
+desfazer/refazer, tela cheia e o alinhamento (que é do bloco). O menu flutua por
+cima do texto — cada botão a mais é uma linha a menos visível.
+
+**Espaçamento entre linhas, como no Google Docs.** A extensão OFICIAL do TipTap
+(`LineHeight`, dentro de `@tiptap/extension-text-style`) não serve: guarda o
+valor no mark `textStyle`, isto é, num trecho inline. Duas coisas erradas de uma
+vez — o nosso `InlineNode` carrega marcas booleanas de conjunto fechado e não tem
+onde pôr um valor, e `line-height` num `<span>` no meio da linha não muda de
+forma confiável a entrelinha do parágrafo. Entrelinha é propriedade de BLOCO,
+como o alinhamento. `line-height.ts` é uma extensão da casa com
+`addGlobalAttributes` (a receita que a própria doc do TipTap usa para o
+`TextAlign`): trinta linhas, nenhuma dependência nova.
+
+O padrão é **"Padrão do portal"**, não "Simples". No Docs a primeira opção é a
+entrelinha natural da fonte; aqui o corpo é desenhado em 1,65 por conforto de
+leitura, e um "simples" que apertasse o texto para 1,0 seria um botão para
+estragar a tipografia do veículo sem ninguém perceber.
+
+### Duas armadilhas que custaram caro
+
+**1. `updateAttributes` reprova o tipo que não está na seleção, e um comando que
+reprova ABORTA a chain.** Escrito com `.every()` sobre os dois tipos de bloco
+(que é como se escreve por instinto), com o cursor num título a chamada para
+`paragraph` devolvia `false` e o comando inteiro reprovava — nada era despachado,
+sem erro nenhum no console. O menu abria, o clique chegava, o comando rodava, e a
+tela não mudava. É `.some()` sobre o resultado de um `.map()` (o `map` primeiro,
+senão o `some` para no primeiro `true` e deixa o segundo tipo sem aplicar). Ver
+`applyToBlocks` em `line-height.ts`.
+
+**2. Chunk defasado do dev server manda no diagnóstico.** Durante a investigação
+apareceu um `ReferenceError: LineHeightMenu is not defined` numa página em que o
+componente claramente renderizava — o websocket de HMR tinha caído no meio das
+edições. Mesma lição do cache das cotações: **ao investigar comportamento
+estranho no editor, apague o `.next` e suba de novo ANTES de concluir qualquer
+coisa.**
+
+O controle acabou em `Select`, e não em `DropdownMenu`: é o dropdown que o painel
+já usa nos filtros da lista, e é mais informativo — o valor em vigor se lê no
+gatilho, sem abrir nada.
+
+**O que o cliente pediu e não entrou:** "espaço antes/depois do parágrafo", que
+aparece no mesmo menu do Docs. É margem, e o corpo da matéria já tem um `gap`
+consistente entre blocos vindo do design; margem por parágrafo brigaria com ele.
+Fica para decisão, não para implementação silenciosa.
+
+---
+
 ## ⚠️ Data e fuso: o defeito que já voltou três vezes
 
 Vale isolar, porque deixou de ser coincidência e o próximo é previsível:

@@ -4,6 +4,7 @@ import {
 	archive,
 	archiveMany,
 	BLOCK_ALIGNMENTS,
+	BLOCK_LINE_HEIGHTS,
 	cancelSchedule,
 	changeSlug,
 	createDraft,
@@ -70,6 +71,9 @@ const inlineSchema = z.discriminatedUnion("type", [
 /** Alinhamento do bloco. `left` não existe: é o padrão, e a ausência o diz. */
 const alignSchema = z.enum(BLOCK_ALIGNMENTS).optional();
 
+/** Espaçamento entre linhas. Ausente = o do portal (ver `body.ts`). */
+const lineHeightSchema = z.enum(BLOCK_LINE_HEIGHTS).optional();
+
 /** Conteúdo de um bloco de texto. Aceita também o formato anterior ao ADR 0010
  * (uma string) — defesa em profundidade: o domínio normaliza de todo jeito. */
 const contentSchema = z.union([z.array(inlineSchema), z.string()]);
@@ -80,12 +84,14 @@ const blockSchema = z.discriminatedUnion("type", [
 		type: z.literal("paragraph"),
 		content: contentSchema,
 		align: alignSchema,
+		lineHeight: lineHeightSchema,
 	}),
 	z.object({
 		type: z.literal("heading"),
 		level: z.union([z.literal(2), z.literal(3)]),
 		content: contentSchema,
 		align: alignSchema,
+		lineHeight: lineHeightSchema,
 	}),
 	z.object({
 		type: z.literal("image"),

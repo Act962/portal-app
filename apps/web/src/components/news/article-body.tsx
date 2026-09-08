@@ -6,6 +6,7 @@ import { Fragment } from "react";
 import type {
 	ArticleBlock,
 	BlockAlign,
+	BlockLineHeight,
 	InlineMark,
 	InlineNode,
 } from "@/data/types";
@@ -124,6 +125,28 @@ function alignClass(align: BlockAlign | undefined): string | undefined {
 	return align === "justify" ? "text-justify hyphens-auto" : undefined;
 }
 
+/**
+ * A entrelinha escolhida na redação, como classe.
+ *
+ * Mapa literal, e não `leading-[${valor}]`: o Tailwind varre o código-fonte
+ * procurando nomes de classe INTEIROS, e uma classe montada por interpolação
+ * simplesmente não é gerada — o estilo sumiria em produção sem erro nenhum.
+ *
+ * Sem valor, nenhuma classe: o bloco herda o 1,65 do corpo da matéria, que é a
+ * medida de leitura do portal.
+ */
+const LINE_HEIGHT_CLASS: Record<BlockLineHeight, string> = {
+	"1.15": "leading-[1.15]",
+	"1.5": "leading-[1.5]",
+	"2": "leading-[2]",
+};
+
+function lineHeightClass(
+	lineHeight: BlockLineHeight | undefined,
+): string | undefined {
+	return lineHeight ? LINE_HEIGHT_CLASS[lineHeight] : undefined;
+}
+
 function Block({ block }: { block: ArticleBlock }) {
 	if (block.kind === "subheading") {
 		return (
@@ -131,6 +154,7 @@ function Block({ block }: { block: ArticleBlock }) {
 				className={cn(
 					"font-extrabold font-sans text-brand-ink text-xl leading-tight tracking-[-0.02em] md:text-2xl",
 					alignClass(block.align),
+					lineHeightClass(block.lineHeight),
 				)}
 			>
 				<InlineContent nodes={block.content} />
@@ -186,7 +210,9 @@ function Block({ block }: { block: ArticleBlock }) {
 	}
 
 	return (
-		<p className={cn(alignClass(block.align))}>
+		<p
+			className={cn(alignClass(block.align), lineHeightClass(block.lineHeight))}
+		>
 			<InlineContent nodes={block.content} />
 		</p>
 	);
