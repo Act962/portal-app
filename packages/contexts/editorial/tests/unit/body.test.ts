@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
  */
 
 describe("Body — formatação inline (ADR 0010)", () => {
-	it("preserva negrito, itálico e link dentro do parágrafo", () => {
+	it("converte o formato antigo (a marca como TIPO do nó) para o conjunto de marcas", () => {
 		const body = Body.create([
 			{
 				type: "paragraph",
@@ -29,16 +29,110 @@ describe("Body — formatação inline (ADR 0010)", () => {
 
 		const [block] = body.blocks;
 		expect(block?.type).toBe("paragraph");
+		// A entrada usa o formato anterior a 08/09 (`{type:"strong"}`), que é como
+		// o conteúdo já gravado está no banco. A saída é sempre o formato novo:
+		// texto com um CONJUNTO de marcas.
 		expect(block).toMatchObject({
 			content: [
 				{ type: "text" },
-				{ type: "strong", text: "R$ 4 milhões" },
+				{ type: "text", text: "R$ 4 milhões", marks: ["strong"] },
 				{ type: "text" },
-				{ type: "em", text: "em março" },
+				{ type: "text", text: "em março", marks: ["em"] },
 				{ type: "text" },
 				{ type: "link", href: "https://exemplo.com/edital" },
 			],
 		});
+	});
+
+	it("guarda marcas COMBINADAS — negrito e sublinhado no mesmo trecho", () => {
+		const body = Body.create([
+			{
+				type: "paragraph",
+				content: [
+					{
+						type: "text",
+						text: "Atenção",
+						marks: ["strong", "underline"],
+					},
+					{ type: "text", text: " ao prazo" },
+				],
+			},
+		]).unwrap();
+
+		expect(body.blocks[0]).toMatchObject({
+			content: [
+				{ type: "text", text: "Atenção", marks: ["strong", "underline"] },
+				{ type: "text", text: " ao prazo" },
+			],
+		});
+	});
+
+	it("ordena e deduplica as marcas, para o mesmo texto gerar sempre o mesmo JSON", () => {
+		const body = Body.create([
+			{
+				type: "paragraph",
+				content: [
+					{
+						type: "text",
+						text: "Prazo",
+						marks: ["strike", "strong", "strong"],
+					},
+				],
+			},
+		]).unwrap();
+
+		expect(body.blocks[0]).toMatchObject({
+			content: [{ marks: ["strong", "strike"] }],
+		});
+	});
+
+	it("descarta marca desconhecida sem perder o texto", () => {
+		const body = Body.create([
+			{
+				type: "paragraph",
+				content: [{ type: "text", text: "Nota", marks: ["blink", "strong"] }],
+			},
+		]).unwrap();
+
+		expect(body.blocks[0]).toMatchObject({
+			content: [{ type: "text", text: "Nota", marks: ["strong"] }],
+		});
+	});
+
+	it("link também aceita marcas — negrito dentro de link é normal", () => {
+		const body = Body.create([
+			{
+				type: "paragraph",
+				content: [
+					{
+						type: "link",
+						text: "edital",
+						href: "https://exemplo.com",
+						marks: ["strong"],
+					},
+				],
+			},
+		]).unwrap();
+
+		expect(body.blocks[0]).toMatchObject({
+			content: [
+				{ type: "link", href: "https://exemplo.com", marks: ["strong"] },
+			],
+		});
+	});
+
+	it("guarda o alinhamento do bloco, e omite o padrão (esquerda)", () => {
+		const body = Body.create([
+			{ type: "paragraph", content: "Justificado", align: "justify" },
+			{ type: "paragraph", content: "Normal" },
+			// `left` não está na lista: é o padrão, e gravá-lo encheria o JSON de
+			// ruído que o renderizador ignoraria de qualquer forma.
+			{ type: "paragraph", content: "Também normal", align: "left" },
+		]).unwrap();
+
+		expect(body.blocks[0]).toMatchObject({ align: "justify" });
+		expect(body.blocks[1]).not.toHaveProperty("align");
+		expect(body.blocks[2]).not.toHaveProperty("align");
 	});
 
 	it("aceita inline em título, citação e itens de lista", () => {

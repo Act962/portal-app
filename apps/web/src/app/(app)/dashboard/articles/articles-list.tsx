@@ -67,6 +67,7 @@ import {
 import { PageHeader } from "@/components/admin/page-header";
 import { PaginationBar } from "@/components/admin/pagination-bar";
 import { STATUS_LABELS, StatusBadge } from "@/components/admin/status-badge";
+import { tableDate, tableDateTitle, tableRelative } from "@/lib/admin-dates";
 import {
 	allows,
 	type BulkAction,
@@ -112,6 +113,24 @@ const COLUMNS: readonly ColumnSpec[] = [
 		resizable: true,
 	},
 	{ key: "autor", width: 200, minWidth: 120, maxWidth: 320, resizable: true },
+	// As três colunas de data, na ordem em que a redação pergunta: "mudou
+	// quando?", "saiu quando?", "nasceu quando?". A mais consultada fica
+	// primeiro, encostada no que já se estava lendo.
+	{
+		key: "atualizada",
+		width: 130,
+		minWidth: 96,
+		maxWidth: 200,
+		resizable: true,
+	},
+	{
+		key: "publicada",
+		width: 120,
+		minWidth: 92,
+		maxWidth: 200,
+		resizable: true,
+	},
+	{ key: "criada", width: 110, minWidth: 92, maxWidth: 200, resizable: true },
 	{ key: "acoes", width: 56, minWidth: 56 },
 ];
 
@@ -125,6 +144,9 @@ const RESIZABLE_HEADERS = [
 	{ key: "status", label: "Status" },
 	{ key: "editoria", label: "Editoria" },
 	{ key: "autor", label: "Autor" },
+	{ key: "atualizada", label: "Atualizada" },
+	{ key: "publicada", label: "Publicada" },
+	{ key: "criada", label: "Criada" },
 ] as const;
 
 const headerCell = (key: string) => pinnedProps(COLUMNS, key, { header: true });
@@ -315,6 +337,11 @@ export function ArticlesList() {
 		sections.data?.find((s) => s.id === id)?.name ?? "—";
 
 	const articles = list.data?.items ?? [];
+	// Um relógio só para a tabela inteira: lido por linha, duas linhas vizinhas
+	// poderiam cair em minutos diferentes e mostrar distâncias que não batem.
+	// Seguro no servidor porque a lista só existe depois que a query resolve —
+	// no primeiro render (e na hidratação) o que está na tela é o esqueleto.
+	const now = new Date();
 	const total = list.data?.total ?? 0;
 	const perPage = list.data?.perPage ?? DEFAULT_PAGE_SIZE;
 	const hasFilters =
@@ -734,6 +761,35 @@ export function ArticlesList() {
 										</TableCell>
 										<TableCell className="truncate text-muted-foreground">
 											{article.byline.name}
+										</TableCell>
+										{/*
+										  As três datas. `tabular-nums` para as colunas alinharem
+										  na vertical — numa tabela, comparar de relance é o
+										  ponto, e algarismo de largura variável desalinha a
+										  vírgula de uma linha para a outra.
+
+										  A "Atualizada" é relativa ("há 3 h") porque a pergunta
+										  dela é "isto ainda é o que está no ar?"; "Publicada" e
+										  "Criada" são absolutas, porque a pergunta delas é
+										  "quando". Nas três, o `title` traz o valor exato.
+										*/}
+										<TableCell
+											className="truncate text-muted-foreground tabular-nums"
+											title={tableDateTitle(article.updatedAt)}
+										>
+											{tableRelative(article.updatedAt, now)}
+										</TableCell>
+										<TableCell
+											className="truncate text-muted-foreground tabular-nums"
+											title={tableDateTitle(article.publishedAt)}
+										>
+											{tableDate(article.publishedAt)}
+										</TableCell>
+										<TableCell
+											className="truncate text-muted-foreground tabular-nums"
+											title={tableDateTitle(article.createdAt)}
+										>
+											{tableDate(article.createdAt)}
 										</TableCell>
 										<TableCell>
 											<DropdownMenu>

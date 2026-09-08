@@ -1,4 +1,10 @@
-import type { Block, InlineNode } from "@portal-app/editorial";
+import type {
+	Block,
+	BlockAlign,
+	InlineMark,
+	InlineNode,
+} from "@portal-app/editorial";
+import { cn } from "@portal-app/ui/lib/utils";
 import { Fragment } from "react";
 
 /**
@@ -26,16 +32,38 @@ export function BlockRenderer({
 	);
 }
 
-/** Formatação inline (ADR 0010): negrito, itálico e link dentro do texto. */
+/**
+ * Formatação inline (ADR 0010, revisto em 08/09).
+ *
+ * As marcas são um CONJUNTO: um trecho pode ser negrito **e** sublinhado. Vira
+ * um encadeamento de elementos, do mais externo para o mais interno, e não uma
+ * pilha de `if`s exclusivos — era esse `if/else` que fazia "negrito e
+ * sublinhado" render só um dos dois.
+ */
+const MARK_TAG = {
+	strong: "strong",
+	em: "em",
+	underline: "u",
+	strike: "s",
+} as const satisfies Record<InlineMark, string>;
+
+function withMarks(
+	text: React.ReactNode,
+	marks: readonly InlineMark[] | undefined,
+): React.ReactNode {
+	// `reduceRight`: a primeira marca da lista termina como o elemento de FORA,
+	// que é a ordem em que a barra as apresenta.
+	return (marks ?? []).reduceRight<React.ReactNode>((inner, mark) => {
+		const Tag = MARK_TAG[mark];
+		return <Tag>{inner}</Tag>;
+	}, text);
+}
+
 function Inline({ nodes }: { nodes: readonly InlineNode[] }) {
 	return nodes.map((node, index) => {
 		const key = `${node.type}:${index}`;
-		if (node.type === "strong") {
-			return <strong key={key}>{node.text}</strong>;
-		}
-		if (node.type === "em") {
-			return <em key={key}>{node.text}</em>;
-		}
+		const content = withMarks(node.text, node.marks);
+
 		if (node.type === "link") {
 			return (
 				<a
@@ -45,11 +73,11 @@ function Inline({ nodes }: { nodes: readonly InlineNode[] }) {
 					rel="noreferrer"
 					className="text-brand-accent-ink underline"
 				>
-					{node.text}
+					{content}
 				</a>
 			);
 		}
-		return <Fragment key={key}>{node.text}</Fragment>;
+		return <Fragment key={key}>{content}</Fragment>;
 	});
 }
 
@@ -63,17 +91,21 @@ function BlockView({
 	switch (block.type) {
 		case "paragraph":
 			return (
-				<p className="my-3 leading-relaxed">
+				<p className={cn("my-3 leading-relaxed", alignClass(block.align))}>
 					<Inline nodes={block.content} />
 				</p>
 			);
 		case "heading":
 			return block.level === 2 ? (
-				<h2 className="mt-6 mb-2 font-bold text-xl">
+				<h2
+					className={cn("mt-6 mb-2 font-bold text-xl", alignClass(block.align))}
+				>
 					<Inline nodes={block.content} />
 				</h2>
 			) : (
-				<h3 className="mt-5 mb-2 font-bold text-lg">
+				<h3
+					className={cn("mt-5 mb-2 font-bold text-lg", alignClass(block.align))}
+				>
 					<Inline nodes={block.content} />
 				</h3>
 			);
@@ -137,4 +169,20 @@ function BlockView({
 				</p>
 			);
 	}
+}
+
+/**
+ * O alinhamento como classe. Sem `align` a classe some — herdar do contêiner é
+ * exatamente o que "alinhado à esquerda" significa num portal em português, e
+ * uma classe `text-left` explícita atrapalharia um dia em que o contêiner
+ * mudasse.
+ */
+function alignClass(align: BlockAlign | undefined): string | undefined {
+	if (align === "center") {
+		return "text-center";
+	}
+	if (align === "right") {
+		return "text-right";
+	}
+	return align === "justify" ? "text-justify" : undefined;
 }

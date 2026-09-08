@@ -37,7 +37,19 @@ export function QuotesStrip({
 				const direction = quoteDirection(quote.direction, "light");
 
 				return (
-					<li key={quote.pair} className="flex items-baseline gap-1.5">
+					// O INSTANTE da cotação, no `title`.
+					//
+					// A faixa da home diz "ATUALIZADO há X"; esta tira não tinha onde
+					// dizer, e um número sem hora ao lado convida à comparação errada
+					// — foi exatamente o que aconteceu em 08/09, quando o dólar do
+					// portal (o preço vivo do dia) foi comparado com o fechamento da
+					// véspera e pareceu defeito. Visível a barra não comporta: ela já
+					// perde as cotações abaixo de `lg` por falta de largura.
+					<li
+						key={quote.pair}
+						title={quoteTitle(quote)}
+						className="flex items-baseline gap-1.5"
+					>
 						{/* `ink-muted`, não `meta`: o cinza de metadado rende 3,1:1 sobre
 						    branco, e este rótulo tem 10px — abaixo do mínimo da WCAG. */}
 						<span className="text-[10px] text-ink-muted uppercase tracking-[0.1em]">
@@ -69,4 +81,28 @@ export function QuotesStrip({
 			})}
 		</ul>
 	);
+}
+
+/**
+ * "Dólar · compra · 08/09/2026 11:00 · AwesomeAPI".
+ *
+ * Diz as três coisas que explicam uma divergência com o número que a pessoa
+ * viu em outro lugar: QUAL preço (compra, não venda), de QUANDO, e de ONDE.
+ */
+function quoteTitle(quote: Quote): string {
+	const parts = [quote.label, "compra"];
+	if (quote.updatedAt) {
+		parts.push(
+			new Intl.DateTimeFormat("pt-BR", {
+				timeZone: "America/Sao_Paulo",
+				day: "2-digit",
+				month: "2-digit",
+				year: "numeric",
+				hour: "2-digit",
+				minute: "2-digit",
+			}).format(new Date(quote.updatedAt)),
+		);
+	}
+	parts.push("AwesomeAPI");
+	return parts.join(" · ");
 }

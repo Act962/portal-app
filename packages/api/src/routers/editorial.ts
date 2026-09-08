@@ -3,6 +3,7 @@ import {
 	approve,
 	archive,
 	archiveMany,
+	BLOCK_ALIGNMENTS,
 	cancelSchedule,
 	changeSlug,
 	createDraft,
@@ -10,6 +11,7 @@ import {
 	deleteMany,
 	EDITORIAL_STATUSES,
 	getArticle,
+	INLINE_MARKS,
 	listArticles,
 	listScheduled,
 	publish,
@@ -36,14 +38,37 @@ import {
 } from "../editorial";
 import { requirePermission, router, staffProcedure } from "../index";
 import { mediaDeps } from "../media";
+import { revalidateArticlePaths } from "../portal-cache";
 
-/** Nó inline (ADR 0010): a formatação dentro de um texto. */
+/**
+ * Nó inline (ADR 0010): a formatação dentro de um texto.
+ *
+ * As marcas são um CONJUNTO desde 08/09 — ver `body.ts`. Os dois tipos antigos
+ * (`strong`/`em` como TIPO do nó) continuam aceitos porque o corpo de uma
+ * matéria gravada antes disso volta ao painel inteiro e é reenviado no
+ * salvamento seguinte; recusá-los aqui quebraria o autosave dessas matérias.
+ * O domínio converte para o formato novo.
+ */
+const markSchema = z.enum(INLINE_MARKS);
+
 const inlineSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("text"), text: z.string() }),
+	z.object({
+		type: z.literal("text"),
+		text: z.string(),
+		marks: z.array(markSchema).optional(),
+	}),
+	z.object({
+		type: z.literal("link"),
+		text: z.string(),
+		href: z.string(),
+		marks: z.array(markSchema).optional(),
+	}),
 	z.object({ type: z.literal("strong"), text: z.string() }),
 	z.object({ type: z.literal("em"), text: z.string() }),
-	z.object({ type: z.literal("link"), text: z.string(), href: z.string() }),
 ]);
+
+/** Alinhamento do bloco. `left` não existe: é o padrão, e a ausência o diz. */
+const alignSchema = z.enum(BLOCK_ALIGNMENTS).optional();
 
 /** Conteúdo de um bloco de texto. Aceita também o formato anterior ao ADR 0010
  * (uma string) — defesa em profundidade: o domínio normaliza de todo jeito. */
@@ -51,11 +76,16 @@ const contentSchema = z.union([z.array(inlineSchema), z.string()]);
 
 /** Blocos do corpo (D1) — espelha a união discriminada do domínio. */
 const blockSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("paragraph"), content: contentSchema }),
+	z.object({
+		type: z.literal("paragraph"),
+		content: contentSchema,
+		align: alignSchema,
+	}),
 	z.object({
 		type: z.literal("heading"),
 		level: z.union([z.literal(2), z.literal(3)]),
 		content: contentSchema,
+		align: alignSchema,
 	}),
 	z.object({
 		type: z.literal("image"),
@@ -130,6 +160,11 @@ function articleDto(article: Article) {
 		// ele responde "quando foi ao ar da última vez", e uma matéria despublicada
 		// e republicada tem os dois preenchidos.
 		firstPublishedAt: article.firstPublishedAt,
+		// Carimbos da linha, para as colunas "Criada" e "Atualizada" da lista.
+		// Nulos só em matéria recém-criada, antes de a leitura seguinte voltar do
+		// banco — a lista sempre lê do banco, então lá eles nunca faltam.
+		createdAt: article.createdAt,
+		updatedAt: article.updatedAt,
 		rejectionReason: article.rejectionReason,
 		// A04: pendências que impedem publicar, para a UI listar antes do clique.
 		pendencias: article.publishPreflight().map((blocker) => blocker.message),
@@ -159,14 +194,83 @@ function ensure(result: Result<Article, Error>) {
 	return articleDto(result.unwrap());
 }
 
+/** O endereço público de uma matéria, do jeito que o cache do portal o conhece. */
+type PublicRef = { slug: string; sectionId: string | null };
+
 /**
- * Desembrulha E despacha o outbox pelo bus síncrono — assim a auditoria e demais
- * consumidores reagem logo após a transação. Em produção um node-cron/Inngest
- * poderia dirigir o despacho; aqui é síncrono (§5.1).
+ * Onde a matéria mora no portal ANTES da mutação, e se ela chegou a estar no ar.
+ *
+ * Serve a dois usos, e os dois precisam do estado anterior: invalidar o endereço
+ * VELHO quando o slug ou a editoria mudam, e saber o que invalidar depois de um
+ * apagamento, quando já não há a quem perguntar.
  */
-async function commit(result: Result<Article, Error>) {
+async function snapshot(
+	id: string,
+): Promise<(PublicRef & { wasPublic: boolean }) | null> {
+	const article = await articleDeps.repo.findById(id);
+	return article
+		? {
+				slug: article.slug,
+				sectionId: article.sectionId,
+				wasPublic: article.firstPublishedAt !== null,
+			}
+		: null;
+}
+
+/**
+ * O mesmo retrato, para um lote. Sequencial pela mesma razão do `runBulk` do
+ * caso de uso: são leituras indexadas de uma ação de tela, e disparar cem
+ * consultas concorrentes trocaria latência por contenção no banco.
+ */
+async function snapshotMany(ids: readonly string[]) {
+	const before = new Map<string, PublicRef & { wasPublic: boolean }>();
+	for (const id of ids) {
+		const ref = await snapshot(id);
+		if (ref) {
+			before.set(id, ref);
+		}
+	}
+	return before;
+}
+
+/**
+ * Derruba o cache das que REALMENTE mudaram — `outcome.done`, não a seleção
+ * inteira. Um lote é parcial de propósito, e invalidar a página de uma matéria
+ * que a autorização recusou seria custo sem efeito.
+ */
+async function revalidateBulk(
+	before: Map<string, PublicRef & { wasPublic: boolean }>,
+	done: readonly string[],
+) {
+	for (const id of done) {
+		const ref = before.get(id);
+		if (ref?.wasPublic) {
+			await revalidateArticlePaths(ref);
+		}
+	}
+}
+
+/**
+ * Desembrulha, despacha o outbox pelo bus síncrono — assim a auditoria e demais
+ * consumidores reagem logo após a transação (em produção um node-cron/Inngest
+ * poderia dirigir o despacho; aqui é síncrono, §5.1) — e **derruba o cache da
+ * página pública** da matéria.
+ *
+ * A invalidação entra AQUI, no funil por onde passa toda mutação de uma matéria,
+ * e não espalhada por dez procedures: é assim que a próxima transição a ganhar
+ * de graça, em vez de alguém descobrir meses depois que só o `publish`
+ * invalidava. Ver `portal-cache.ts` para a medição que motivou isto.
+ *
+ * `firstPublishedAt` é o gatilho, e não o status: rascunho nunca teve endereço
+ * público, então não há cache a derrubar; e matéria que ACABOU de ser arquivada
+ * precisa da invalidação justamente porque a página dela tem de sair do ar.
+ */
+async function commit(result: Result<Article, Error>, previous?: PublicRef) {
 	const dto = ensure(result);
 	await dispatchEditorialEvents();
+	if (dto.firstPublishedAt !== null) {
+		await revalidateArticlePaths(dto, previous);
+	}
 	return dto;
 }
 
@@ -249,21 +353,30 @@ export const editorialRouter = router({
 					authorName: z.string().optional(),
 				}),
 			)
-			.mutation(async ({ ctx, input }) =>
-				commit(
+			.mutation(async ({ ctx, input }) => {
+				// Lido ANTES: mudar a EDITORIA muda o endereço público, e sem o
+				// anterior a página velha ficaria no ar em cache — com o texto novo
+				// disponível em outro caminho.
+				const previous = await snapshot(input.id);
+				return commit(
 					await updateArticle(
 						ctx.staff,
 						{ ...input, cover: await resolveCover(input.cover) },
 						articleDeps,
 					),
-				),
-			),
+					previous ?? undefined,
+				);
+			}),
 
 		changeSlug: staffProcedure
 			.input(z.object({ id: z.string(), slug: z.string() }))
-			.mutation(async ({ ctx, input }) =>
-				commit(await changeSlug(ctx.staff, input, articleDeps)),
-			),
+			.mutation(async ({ ctx, input }) => {
+				const previous = await snapshot(input.id);
+				return commit(
+					await changeSlug(ctx.staff, input, articleDeps),
+					previous ?? undefined,
+				);
+			}),
 
 		submit: staffProcedure
 			.input(z.object({ id: z.string() }))
@@ -318,8 +431,10 @@ export const editorialRouter = router({
 		archiveMany: staffProcedure
 			.input(z.object({ ids: z.array(z.string()).min(1).max(100) }))
 			.mutation(async ({ ctx, input }) => {
+				const before = await snapshotMany(input.ids);
 				const outcome = await archiveMany(ctx.staff, input, articleDeps);
 				await dispatchEditorialEvents();
+				await revalidateBulk(before, outcome.done);
 				return outcome;
 			}),
 
@@ -331,6 +446,11 @@ export const editorialRouter = router({
 		remove: staffProcedure
 			.input(z.object({ id: z.string() }))
 			.mutation(async ({ ctx, input }) => {
+				// Depois do apagamento não há a quem perguntar onde a matéria morava,
+				// e é justamente a página dela que precisa sair do cache — senão o
+				// portal segue servindo, por até um minuto, uma matéria que já não
+				// existe.
+				const before = await snapshot(input.id);
 				const result = await deleteArticle(ctx.staff, input, articleDeps);
 				if (result.isErr()) {
 					const error = result.unwrapErr();
@@ -339,14 +459,19 @@ export const editorialRouter = router({
 				// O `ArticleDeleted` já está no outbox (mesma transação do apagamento);
 				// isto o entrega à auditoria, que é o que sobra da matéria.
 				await dispatchEditorialEvents();
+				if (before?.wasPublic) {
+					await revalidateArticlePaths(before);
+				}
 				return result.unwrap();
 			}),
 
 		removeMany: staffProcedure
 			.input(z.object({ ids: z.array(z.string()).min(1).max(100) }))
 			.mutation(async ({ ctx, input }) => {
+				const before = await snapshotMany(input.ids);
 				const outcome = await deleteMany(ctx.staff, input, articleDeps);
 				await dispatchEditorialEvents();
+				await revalidateBulk(before, outcome.done);
 				return outcome;
 			}),
 	}),
@@ -364,6 +489,12 @@ export const editorialRouter = router({
 		runDue: staffProcedure.mutation(async () => {
 			const published = await publishDueScheduled(articleDeps);
 			await dispatchEditorialEvents();
+			// A agendada que venceu é matéria NOVA no ar: se já houver página em
+			// cache para aquele endereço (uma despublicada que voltou, por
+			// exemplo), ela precisa sair na hora.
+			for (const article of published) {
+				await revalidateArticlePaths(article);
+			}
 			return { published: published.length };
 		}),
 	}),

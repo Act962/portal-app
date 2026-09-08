@@ -47,12 +47,30 @@ const ENDPOINT = "https://economia.awesomeapi.com.br/json/last";
 const TIMEOUT_MS = 3000;
 
 /**
- * Cinco minutos, não um. Cotação de moeda não é notícia de última hora, e o
- * minuto de antes só existia por simetria com o `revalidate` do portal — que,
- * como se descobriu, nem governa esta chamada. Cinco vezes menos tráfego para
- * a API sem diferença perceptível na tela.
+ * Dois minutos.
+ *
+ * Já foram cinco, com o argumento de que cotação de moeda não é notícia de
+ * última hora — verdade, mas o cliente abriu o portal e comparou o dólar da
+ * faixa com o do celular dele (08/09). Trinta chamadas por hora, para o site
+ * inteiro, é ruído em qualquer cota; a diferença que a redação enxerga na tela
+ * é a metade da defasagem.
+ *
+ * **Esta é a ÚNICA janela de cache da cotação, e isso é deliberado.** O `fetch`
+ * lá embaixo tinha um `next: { revalidate: 300 }` próprio, aninhado dentro
+ * deste `unstable_cache` de 300s — duas validades independentes, uma dentro da
+ * outra. Elas não se somam por acaso: quando a de fora vencia, a de dentro
+ * podia devolver uma resposta guardada há quase cinco minutos, e o número na
+ * tela chegava a DEZ minutos de idade sem que nada estivesse quebrado. Uma
+ * camada manda; a outra pede sempre.
+ *
+ * **Ao mexer aqui, apague o `.next` antes de concluir qualquer coisa.** Esta
+ * camada guarda a FALHA junto com o acerto — é o que ela existe para fazer —, e
+ * o efeito colateral é que um teste que falhou por outro motivo continua
+ * devolvendo lista vazia pelos dois minutos seguintes, inclusive depois de o
+ * código ser consertado. Isso já custou meia hora perseguindo um defeito que
+ * não existia mais.
  */
-const REVALIDATE_SECONDS = 300;
+const REVALIDATE_SECONDS = 120;
 
 export type { Quote };
 
@@ -82,7 +100,11 @@ const fetchQuotes = unstable_cache(
 		try {
 			const response = await fetch(url, {
 				signal: AbortSignal.timeout(TIMEOUT_MS),
-				next: { revalidate: REVALIDATE_SECONDS },
+				// Sem cache NESTA camada — quem guarda é o `unstable_cache` em volta.
+				// Duas validades aninhadas empilhavam a defasagem (ver
+				// `REVALIDATE_SECONDS`). Isto não devolve o volume de requisições ao
+				// terceiro: este bloco só executa quando a camada de fora vence.
+				next: { revalidate: 0 },
 			});
 
 			// `fetch` só rejeita em falha de REDE: um 500 ou um 429 chegam aqui

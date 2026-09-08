@@ -48,6 +48,17 @@ model SiteSettings {
   institutional   Json
   popularSearches Json
 
+  /// A frase do rodapé, abaixo da marca (D2 do cliente, 08/09).
+  ///
+  /// Coluna própria, e não `tagline` reaproveitada: a tagline é identidade —
+  /// vai para `og:site_name`, para o cabeçalho e para o schema.org, em caixa
+  /// alta e curta. Esta é COPY: uma frase inteira, com pontuação, que a redação
+  /// troca quando quiser sem mexer no que os buscadores leem. Servir uma como a
+  /// outra estraga alguma das duas.
+  ///
+  /// Nulo cai no default do domínio, que é a frase em uso hoje.
+  footerTagline String?
+
   legal String?
 
   updatedAt DateTime @updatedAt

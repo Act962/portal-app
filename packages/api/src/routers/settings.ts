@@ -47,6 +47,7 @@ const updateSchema = z.object({
 	institutional: z.array(linkSchema).optional(),
 	popularSearches: z.array(z.string()).optional(),
 
+	footerTagline: z.string().nullable().optional(),
 	legal: z.string().nullable().optional(),
 });
 

@@ -1,4 +1,10 @@
-import type { Block, InlineNode } from "@portal-app/editorial";
+import type {
+	Block,
+	BlockAlign,
+	InlineMark,
+	InlineNode,
+} from "@portal-app/editorial";
+import { BLOCK_ALIGNMENTS, INLINE_MARKS } from "@portal-app/editorial";
 
 /**
  * A tradução entre o documento do TipTap (ProseMirror) e os blocos do domínio.
@@ -19,25 +25,55 @@ type PmNode = {
 
 // --- Blocos do domínio → documento do editor -------------------------------
 
+/**
+ * O nome da marca no domínio ↔ o nome dela no TipTap.
+ *
+ * Os dois discordam de propósito: `strong`/`em` são os nomes do HTML e do
+ * domínio, `bold`/`italic` são os das extensões do ProseMirror. Traduzir num
+ * lugar só é o que impede a divergência silenciosa — um `toggleBold()` que
+ * grava uma marca que o portal não conhece.
+ */
+const PM_MARK: Record<InlineMark, string> = {
+	strong: "bold",
+	em: "italic",
+	underline: "underline",
+	strike: "strike",
+};
+
+const DOMAIN_MARK = new Map<string, InlineMark>(
+	INLINE_MARKS.map((mark) => [PM_MARK[mark], mark]),
+);
+
 function inlineToPm(nodes: readonly InlineNode[]): PmNode[] {
 	return nodes
 		.filter((node) => node.text)
 		.map((node) => {
-			if (node.type === "strong") {
-				return { type: "text", text: node.text, marks: [{ type: "bold" }] };
-			}
-			if (node.type === "em") {
-				return { type: "text", text: node.text, marks: [{ type: "italic" }] };
-			}
+			const marks: PmMark[] = (node.marks ?? []).map((mark) => ({
+				type: PM_MARK[mark],
+			}));
 			if (node.type === "link") {
-				return {
-					type: "text",
-					text: node.text,
-					marks: [{ type: "link", attrs: { href: node.href } }],
-				};
+				marks.push({ type: "link", attrs: { href: node.href } });
 			}
-			return { type: "text", text: node.text };
+			return marks.length > 0
+				? { type: "text", text: node.text, marks }
+				: { type: "text", text: node.text };
 		});
+}
+
+/** `textAlign` do TipTap → `align` do domínio. `left` e ausente são a mesma
+ * coisa, e o domínio representa as duas pela ausência. */
+function alignToDomain(attrs: Record<string, unknown> | undefined): {
+	align?: BlockAlign;
+} {
+	const value = attrs?.textAlign;
+	return BLOCK_ALIGNMENTS.includes(value as BlockAlign)
+		? { align: value as BlockAlign }
+		: {};
+}
+
+/** O caminho de volta. `null` deixa a extensão aplicar o padrão dela. */
+function alignToPm(align: BlockAlign | undefined) {
+	return { textAlign: align ?? null };
 }
 
 export function blocksToDoc(blocks: readonly Block[]): PmNode {
@@ -46,12 +82,16 @@ export function blocksToDoc(blocks: readonly Block[]): PmNode {
 	for (const block of blocks) {
 		switch (block.type) {
 			case "paragraph":
-				content.push({ type: "paragraph", content: inlineToPm(block.content) });
+				content.push({
+					type: "paragraph",
+					attrs: alignToPm(block.align),
+					content: inlineToPm(block.content),
+				});
 				break;
 			case "heading":
 				content.push({
 					type: "heading",
-					attrs: { level: block.level },
+					attrs: { level: block.level, ...alignToPm(block.align) },
 					content: inlineToPm(block.content),
 				});
 				break;
@@ -92,12 +132,16 @@ export function blocksToDoc(blocks: readonly Block[]): PmNode {
 // --- Documento do editor → blocos do domínio -------------------------------
 
 /**
- * Achata as marcas do ProseMirror para a união plana do domínio.
+ * Traduz as marcas do ProseMirror para as do domínio.
  *
- * O ProseMirror permite marcas combinadas (`[bold, link]` no mesmo trecho); o
- * `InlineNode` não. A precedência é `link > strong > em`, e a perda está
- * registrada no ADR 0010 — um modelo aninhado complicaria domínio, validação e
- * dois renderizadores para um ganho editorial marginal.
+ * Já foi um ACHATAMENTO com precedência (`link > strong > em`): o domínio só
+ * comportava uma marca por trecho, e "negrito e sublinhado" voltava só negrito
+ * — texto que se escreve de um jeito e reaparece de outro. Desde 08/09 o
+ * domínio guarda um CONJUNTO, e este ponto deixou de perder informação. Ver
+ * `body.ts`.
+ *
+ * Marca que o domínio não conhece é ignorada, e o texto segue: é o que
+ * acontece com o que vem colado de fora com formatação que a barra não oferece.
  */
 function pmToInline(nodes: readonly PmNode[] | undefined): InlineNode[] {
 	const out: InlineNode[] = [];
@@ -115,21 +159,24 @@ function pmToInline(nodes: readonly PmNode[] | undefined): InlineNode[] {
 			continue;
 		}
 
-		const marks = node.marks ?? [];
-		const link = marks.find((mark) => mark.type === "link");
+		const pmMarks = node.marks ?? [];
+		const marks = INLINE_MARKS.filter((mark) =>
+			pmMarks.some((pm) => DOMAIN_MARK.get(pm.type) === mark),
+		);
+		const withMarks = marks.length > 0 ? { marks } : {};
+
+		const link = pmMarks.find((mark) => mark.type === "link");
 		if (link && typeof link.attrs?.href === "string") {
-			out.push({ type: "link", text: node.text, href: link.attrs.href });
+			out.push({
+				type: "link",
+				text: node.text,
+				href: link.attrs.href,
+				...withMarks,
+			});
 			continue;
 		}
-		if (marks.some((mark) => mark.type === "bold")) {
-			out.push({ type: "strong", text: node.text });
-			continue;
-		}
-		if (marks.some((mark) => mark.type === "italic")) {
-			out.push({ type: "em", text: node.text });
-			continue;
-		}
-		out.push({ type: "text", text: node.text });
+
+		out.push({ type: "text", text: node.text, ...withMarks });
 	}
 
 	return out;
@@ -159,7 +206,11 @@ export function docToBlocks(doc: PmNode | null | undefined): Block[] {
 				// `Body.create` rejeita parágrafo sem texto. Sem este descarte, todo
 				// autosave falharia com InvalidBlock.
 				if (!isBlank(content)) {
-					blocks.push({ type: "paragraph", content });
+					blocks.push({
+						type: "paragraph",
+						content,
+						...alignToDomain(node.attrs),
+					});
 				}
 				break;
 			}
@@ -167,7 +218,12 @@ export function docToBlocks(doc: PmNode | null | undefined): Block[] {
 				const content = pmToInline(node.content);
 				const level = node.attrs?.level === 3 ? 3 : 2;
 				if (!isBlank(content)) {
-					blocks.push({ type: "heading", level, content });
+					blocks.push({
+						type: "heading",
+						level,
+						content,
+						...alignToDomain(node.attrs),
+					});
 				}
 				break;
 			}

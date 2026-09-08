@@ -15,6 +15,7 @@ import type {
 	ArticleBlock,
 	Author,
 	AuthorSocials,
+	BlockAlign,
 	Columnist,
 	ColumnistListing,
 	Cover,
@@ -800,33 +801,58 @@ function mapArticle(
 	};
 }
 
+/** As marcas conhecidas, na ordem canônica — a mesma de `INLINE_MARKS`. */
+const MARKS = ["strong", "em", "underline", "strike"] as const;
+
 /**
  * Converte o conteúdo de um bloco de texto para os nós inline do portal.
  *
- * Tolera os DOIS formatos, porque aqui se lê o JSON do Prisma sem passar pelo
- * domínio: `content` (ADR 0010, com negrito/itálico/link) e `text` (o formato
- * anterior, texto puro). Sem esta tolerância o portal perderia parágrafos em
- * silêncio nas matérias antigas.
+ * Tolera os TRÊS formatos, porque aqui se lê o JSON do Prisma sem passar pelo
+ * domínio: `content` com marcas em conjunto (o de hoje), `content` com a marca
+ * como TIPO do nó (ADR 0010, até 08/09) e `text` puro (o anterior a tudo). Sem
+ * esta tolerância o portal perderia parágrafos em silêncio nas matérias antigas
+ * — e a conversão acontece na leitura de propósito: migrar o JSON de todas as
+ * matérias custaria mais e poderia falhar pela metade.
  */
 function mapInline(block: EditorialBlock): InlineNode[] {
 	if (Array.isArray(block.content)) {
 		const out: InlineNode[] = [];
 		for (const raw of block.content) {
-			const node = raw as { type?: string; text?: unknown; href?: unknown };
+			const node = raw as {
+				type?: string;
+				text?: unknown;
+				href?: unknown;
+				marks?: unknown;
+			};
 			if (typeof node.text !== "string" || !node.text) {
 				continue;
 			}
+
+			const declared = Array.isArray(node.marks) ? node.marks : [];
+			// O tipo legado vira uma marca, e assim o formato velho e o novo saem
+			// daqui indistinguíveis para quem renderiza.
+			const legacy =
+				node.type === "strong" || node.type === "em" ? [node.type] : [];
+			const marks = MARKS.filter(
+				(mark) => declared.includes(mark) || legacy.includes(mark),
+			);
+			const withMarks = marks.length > 0 ? { marks } : {};
+
 			if (node.type === "link" && typeof node.href === "string") {
-				out.push({ kind: "link", text: node.text, href: node.href });
-			} else if (node.type === "strong") {
-				out.push({ kind: "strong", text: node.text });
-			} else if (node.type === "em") {
-				out.push({ kind: "em", text: node.text });
+				out.push({
+					kind: "link",
+					text: node.text,
+					href: node.href,
+					...withMarks,
+				});
 			} else {
-				out.push({ kind: "text", text: node.text });
+				out.push({ kind: "text", text: node.text, ...withMarks });
 			}
 		}
 		return out;
+	}
+	if (typeof block.content === "string" && block.content) {
+		return [{ kind: "text", text: block.content }];
 	}
 	if (typeof block.text === "string" && block.text) {
 		return [{ kind: "text", text: block.text }];
@@ -834,11 +860,19 @@ function mapInline(block: EditorialBlock): InlineNode[] {
 	return [];
 }
 
-/** Texto corrido de um bloco, nos dois formatos. */
+/** Texto corrido de um bloco, em qualquer um dos formatos. */
 function plainOf(block: EditorialBlock): string {
 	return mapInline(block)
 		.map((node) => node.text)
 		.join("");
+}
+
+/** O alinhamento do bloco, quando declarado e reconhecido. */
+function alignOf(block: EditorialBlock): { align?: BlockAlign } {
+	const align = block.align;
+	return align === "center" || align === "right" || align === "justify"
+		? { align }
+		: {};
 }
 
 /** Mapeia os blocos do editorial para os blocos do portal, resolvendo a URL das
@@ -852,19 +886,21 @@ function mapBody(
 		if (block.type === "paragraph") {
 			const content = mapInline(block);
 			if (content.length > 0) {
-				out.push({ kind: "paragraph", content });
+				out.push({ kind: "paragraph", content, ...alignOf(block) });
 			}
 		} else if (block.type === "heading") {
-			const text = plainOf(block);
-			if (text) {
-				out.push({ kind: "subheading", text });
+			// `content`, e não o texto achatado: o intertítulo passou a carregar
+			// formatação inline como o parágrafo.
+			const content = mapInline(block);
+			if (content.length > 0) {
+				out.push({ kind: "subheading", content, ...alignOf(block) });
 			}
 		} else if (block.type === "quote") {
-			const text = plainOf(block);
-			if (text) {
+			const content = mapInline(block);
+			if (content.length > 0) {
 				out.push({
 					kind: "quote",
-					text,
+					content,
 					attribution: block.cite as string | undefined,
 				});
 			}
@@ -883,12 +919,10 @@ function mapBody(
 			const items = block.items
 				.map((item) =>
 					typeof item === "string"
-						? item
-						: mapInline({ type: "paragraph", content: item })
-								.map((node) => node.text)
-								.join(""),
+						? [{ kind: "text" as const, text: item }]
+						: mapInline({ type: "paragraph", content: item }),
 				)
-				.filter((item) => item.trim() !== "");
+				.filter((item) => item.some((node) => node.text.trim() !== ""));
 			if (items.length > 0) {
 				out.push({ kind: "list", ordered: Boolean(block.ordered), items });
 			}
