@@ -47,14 +47,44 @@ export const BLOCK_ALIGNMENTS = ["center", "right", "justify"] as const;
 export type BlockAlign = (typeof BLOCK_ALIGNMENTS)[number];
 
 /**
+ * Espaçamento entre linhas de um bloco de texto (pedido da redação, 08/09 —
+ * "como no Google Docs").
+ *
+ * **Ausente = o espaçamento do portal**, e não "1,0". No Docs a primeira opção
+ * é "Simples", que é a entrelinha natural da fonte; aqui o corpo da matéria é
+ * desenhado em 1,65 por conforto de leitura, e oferecer um "simples" que
+ * apertasse o texto para 1,0 seria dar à redação um botão para estragar a
+ * tipografia do veículo sem perceber. O padrão continua sendo o do portal; o
+ * que se escolhe aqui é para ABRIR o texto, que é o que se pede na prática.
+ *
+ * Lista fechada, e guardada como string: o valor vira `line-height` no CSS, e
+ * um número solto convidaria a gravar `1.4999999`. Os três valores são os do
+ * Docs — 1,15, 1,5 e duplo.
+ */
+export const BLOCK_LINE_HEIGHTS = ["1.15", "1.5", "2"] as const;
+
+export type BlockLineHeight = (typeof BLOCK_LINE_HEIGHTS)[number];
+
+/**
  * Blocos do corpo (D1/ADR 0003, estendido pelo ADR 0010). União discriminada por
  * `type`, validada no domínio: o corpo é dado estruturado, não HTML —
  * renderização controlada e segura (sem `dangerouslySetInnerHTML`), e novos
  * blocos entram sem migração.
  */
 export type Block =
-	| { type: "paragraph"; content: InlineNode[]; align?: BlockAlign }
-	| { type: "heading"; level: 2 | 3; content: InlineNode[]; align?: BlockAlign }
+	| {
+			type: "paragraph";
+			content: InlineNode[];
+			align?: BlockAlign;
+			lineHeight?: BlockLineHeight;
+	  }
+	| {
+			type: "heading";
+			level: 2 | 3;
+			content: InlineNode[];
+			align?: BlockAlign;
+			lineHeight?: BlockLineHeight;
+	  }
 	| { type: "image"; mediaId: string; caption?: string }
 	| { type: "list"; ordered: boolean; items: InlineNode[][] }
 	| { type: "quote"; content: InlineNode[]; cite?: string }
@@ -83,10 +113,32 @@ export type InlineNodeInput =
 export type InlineInput = readonly InlineNodeInput[] | string;
 
 export type BlockInput =
-	| { type: "paragraph"; content: InlineInput; align?: BlockAlign }
-	| { type: "paragraph"; text: string; align?: BlockAlign }
-	| { type: "heading"; level: 2 | 3; content: InlineInput; align?: BlockAlign }
-	| { type: "heading"; level: 2 | 3; text: string; align?: BlockAlign }
+	| {
+			type: "paragraph";
+			content: InlineInput;
+			align?: BlockAlign;
+			lineHeight?: BlockLineHeight;
+	  }
+	| {
+			type: "paragraph";
+			text: string;
+			align?: BlockAlign;
+			lineHeight?: BlockLineHeight;
+	  }
+	| {
+			type: "heading";
+			level: 2 | 3;
+			content: InlineInput;
+			align?: BlockAlign;
+			lineHeight?: BlockLineHeight;
+	  }
+	| {
+			type: "heading";
+			level: 2 | 3;
+			text: string;
+			align?: BlockAlign;
+			lineHeight?: BlockLineHeight;
+	  }
 	| { type: "quote"; content: InlineInput; cite?: string }
 	| { type: "quote"; text: string; cite?: string }
 	| { type: "image"; mediaId: string; caption?: string }
@@ -174,6 +226,7 @@ function normalizeBlock(input: BlockInput | undefined | null): Block | null {
 				type: "paragraph",
 				content: normalizeInline(contentOf(input)),
 				...alignOf(input),
+				...lineHeightOf(input),
 			};
 		case "heading":
 			return {
@@ -181,6 +234,7 @@ function normalizeBlock(input: BlockInput | undefined | null): Block | null {
 				level: (input as { level: 2 | 3 }).level,
 				content: normalizeInline(contentOf(input)),
 				...alignOf(input),
+				...lineHeightOf(input),
 			};
 		case "quote": {
 			const cite = (input as { cite?: string }).cite;
@@ -328,6 +382,24 @@ function normalizeMarks(raw: unknown): { marks?: InlineMark[] } {
  * com as mesmas marcas produz sempre o mesmo JSON. */
 function dedupe(raw: readonly unknown[]): InlineMark[] {
 	return INLINE_MARKS.filter((mark) => raw.includes(mark));
+}
+
+/**
+ * O espaçamento de um bloco, quando declarado e reconhecido.
+ *
+ * Valor fora da lista é DESCARTADO em silêncio, e não corrigido para o mais
+ * próximo: quem escreve este JSON é o editor, e um número que não está na lista
+ * é sinal de conteúdo vindo de outro lugar. O bloco cai no espaçamento do
+ * portal, que é sempre legível.
+ */
+function lineHeightOf(input: object): { lineHeight?: BlockLineHeight } {
+	if (!("lineHeight" in input)) {
+		return {};
+	}
+	const value = (input as { lineHeight?: unknown }).lineHeight;
+	return BLOCK_LINE_HEIGHTS.includes(value as BlockLineHeight)
+		? { lineHeight: value as BlockLineHeight }
+		: {};
 }
 
 /** O alinhamento de um bloco, quando declarado e reconhecido. */

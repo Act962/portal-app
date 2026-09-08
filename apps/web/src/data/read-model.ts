@@ -16,6 +16,7 @@ import type {
 	Author,
 	AuthorSocials,
 	BlockAlign,
+	BlockLineHeight,
 	Columnist,
 	ColumnistListing,
 	Cover,
@@ -875,6 +876,16 @@ function alignOf(block: EditorialBlock): { align?: BlockAlign } {
 		: {};
 }
 
+/** A entrelinha do bloco. Ausente ou desconhecida cai no padrão do portal. */
+function lineHeightOf(block: EditorialBlock): {
+	lineHeight?: BlockLineHeight;
+} {
+	const value = block.lineHeight;
+	return value === "1.15" || value === "1.5" || value === "2"
+		? { lineHeight: value }
+		: {};
+}
+
 /** Mapeia os blocos do editorial para os blocos do portal, resolvendo a URL das
  * imagens. Embed vira um parágrafo com link (reusa o nó inline existente). */
 function mapBody(
@@ -886,14 +897,24 @@ function mapBody(
 		if (block.type === "paragraph") {
 			const content = mapInline(block);
 			if (content.length > 0) {
-				out.push({ kind: "paragraph", content, ...alignOf(block) });
+				out.push({
+					kind: "paragraph",
+					content,
+					...alignOf(block),
+					...lineHeightOf(block),
+				});
 			}
 		} else if (block.type === "heading") {
 			// `content`, e não o texto achatado: o intertítulo passou a carregar
 			// formatação inline como o parágrafo.
 			const content = mapInline(block);
 			if (content.length > 0) {
-				out.push({ kind: "subheading", content, ...alignOf(block) });
+				out.push({
+					kind: "subheading",
+					content,
+					...alignOf(block),
+					...lineHeightOf(block),
+				});
 			}
 		} else if (block.type === "quote") {
 			const content = mapInline(block);

@@ -135,6 +135,22 @@ describe("Body — formatação inline (ADR 0010)", () => {
 		expect(body.blocks[2]).not.toHaveProperty("align");
 	});
 
+	it("guarda o espaçamento entre linhas, e ignora valor fora da lista", () => {
+		const body = Body.create([
+			{ type: "paragraph", content: "Arejado", lineHeight: "1.5" },
+			{ type: "heading", level: 2, content: "Duplo", lineHeight: "2" },
+			// Ausente é o padrão do PORTAL (1,65 no corpo), não "1,0" — por isso
+			// não há um valor para "simples" na lista.
+			{ type: "paragraph", content: "Padrão" },
+			{ type: "paragraph", content: "Inventado", lineHeight: "3.7" },
+		] as never).unwrap();
+
+		expect(body.blocks[0]).toMatchObject({ lineHeight: "1.5" });
+		expect(body.blocks[1]).toMatchObject({ lineHeight: "2" });
+		expect(body.blocks[2]).not.toHaveProperty("lineHeight");
+		expect(body.blocks[3]).not.toHaveProperty("lineHeight");
+	});
+
 	it("aceita inline em título, citação e itens de lista", () => {
 		const body = Body.create([
 			{

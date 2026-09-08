@@ -1,10 +1,15 @@
 import type {
 	Block,
 	BlockAlign,
+	BlockLineHeight,
 	InlineMark,
 	InlineNode,
 } from "@portal-app/editorial";
-import { BLOCK_ALIGNMENTS, INLINE_MARKS } from "@portal-app/editorial";
+import {
+	BLOCK_ALIGNMENTS,
+	BLOCK_LINE_HEIGHTS,
+	INLINE_MARKS,
+} from "@portal-app/editorial";
 
 /**
  * A tradução entre o documento do TipTap (ProseMirror) e os blocos do domínio.
@@ -76,6 +81,21 @@ function alignToPm(align: BlockAlign | undefined) {
 	return { textAlign: align ?? null };
 }
 
+/** `lineHeight` do editor → o do domínio. Valor fora da lista some: é o que o
+ * domínio faria de qualquer forma, e fazê-lo aqui evita a viagem. */
+function lineHeightToDomain(attrs: Record<string, unknown> | undefined): {
+	lineHeight?: BlockLineHeight;
+} {
+	const value = attrs?.lineHeight;
+	return BLOCK_LINE_HEIGHTS.includes(value as BlockLineHeight)
+		? { lineHeight: value as BlockLineHeight }
+		: {};
+}
+
+function lineHeightToPm(lineHeight: BlockLineHeight | undefined) {
+	return { lineHeight: lineHeight ?? null };
+}
+
 export function blocksToDoc(blocks: readonly Block[]): PmNode {
 	const content: PmNode[] = [];
 
@@ -84,14 +104,21 @@ export function blocksToDoc(blocks: readonly Block[]): PmNode {
 			case "paragraph":
 				content.push({
 					type: "paragraph",
-					attrs: alignToPm(block.align),
+					attrs: {
+						...alignToPm(block.align),
+						...lineHeightToPm(block.lineHeight),
+					},
 					content: inlineToPm(block.content),
 				});
 				break;
 			case "heading":
 				content.push({
 					type: "heading",
-					attrs: { level: block.level, ...alignToPm(block.align) },
+					attrs: {
+						level: block.level,
+						...alignToPm(block.align),
+						...lineHeightToPm(block.lineHeight),
+					},
 					content: inlineToPm(block.content),
 				});
 				break;
@@ -210,6 +237,7 @@ export function docToBlocks(doc: PmNode | null | undefined): Block[] {
 						type: "paragraph",
 						content,
 						...alignToDomain(node.attrs),
+						...lineHeightToDomain(node.attrs),
 					});
 				}
 				break;
@@ -223,6 +251,7 @@ export function docToBlocks(doc: PmNode | null | undefined): Block[] {
 						level,
 						content,
 						...alignToDomain(node.attrs),
+						...lineHeightToDomain(node.attrs),
 					});
 				}
 				break;

@@ -67,16 +67,32 @@ export type InlineNode =
 export type BlockAlign = "center" | "right" | "justify";
 
 /**
+ * Entrelinha de um bloco de texto. Ausente = o espaçamento do portal (1,65 no
+ * corpo da matéria), que é o padrão de leitura do veículo — e não "1,0".
+ */
+export type BlockLineHeight = "1.15" | "1.5" | "2";
+
+/**
  * The article body is a list of blocks, never an HTML string — the decision
  * recorded in docs/stack.md (Decisão 5). The renderer below is what proves
  * the same content can later feed the app, the newsletter and partner feeds.
  */
 export type ArticleBlock =
-	| { kind: "paragraph"; content: InlineNode[]; align?: BlockAlign }
+	| {
+			kind: "paragraph";
+			content: InlineNode[];
+			align?: BlockAlign;
+			lineHeight?: BlockLineHeight;
+	  }
 	// `content`, e não mais `text`: o intertítulo passou a carregar formatação
 	// inline como o parágrafo. Enquanto era texto puro, um nome próprio em
 	// itálico no meio de um intertítulo simplesmente sumia do portal.
-	| { kind: "subheading"; content: InlineNode[]; align?: BlockAlign }
+	| {
+			kind: "subheading";
+			content: InlineNode[];
+			align?: BlockAlign;
+			lineHeight?: BlockLineHeight;
+	  }
 	| { kind: "quote"; content: InlineNode[]; attribution?: string }
 	| { kind: "image"; url: string; alt: string; caption?: string }
 	| { kind: "list"; ordered: boolean; items: InlineNode[][] };

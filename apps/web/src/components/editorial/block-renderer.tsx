@@ -1,6 +1,7 @@
 import type {
 	Block,
 	BlockAlign,
+	BlockLineHeight,
 	InlineMark,
 	InlineNode,
 } from "@portal-app/editorial";
@@ -91,7 +92,13 @@ function BlockView({
 	switch (block.type) {
 		case "paragraph":
 			return (
-				<p className={cn("my-3 leading-relaxed", alignClass(block.align))}>
+				<p
+					className={cn(
+						"my-3 leading-relaxed",
+						alignClass(block.align),
+						lineHeightClass(block.lineHeight),
+					)}
+				>
 					<Inline nodes={block.content} />
 				</p>
 			);
@@ -185,4 +192,18 @@ function alignClass(align: BlockAlign | undefined): string | undefined {
 		return "text-right";
 	}
 	return align === "justify" ? "text-justify" : undefined;
+}
+
+/** Mapa literal pela mesma razão do renderizador do portal: classe montada por
+ * interpolação não é gerada pelo Tailwind. */
+const LINE_HEIGHT_CLASS: Record<BlockLineHeight, string> = {
+	"1.15": "leading-[1.15]",
+	"1.5": "leading-[1.5]",
+	"2": "leading-[2]",
+};
+
+function lineHeightClass(
+	lineHeight: BlockLineHeight | undefined,
+): string | undefined {
+	return lineHeight ? LINE_HEIGHT_CLASS[lineHeight] : undefined;
 }

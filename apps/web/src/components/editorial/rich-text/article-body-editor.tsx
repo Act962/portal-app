@@ -22,14 +22,14 @@ import type { Editor } from "@tiptap/react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
-import { Bold, Italic, Link2, Underline } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { MediaPickerDialog } from "@/components/media/media-picker-dialog";
 
+import { LineHeight } from "./line-height";
 import { Embed, MediaImage, MediaUrlProvider } from "./nodes";
 import { blocksToDoc, docToBlocks } from "./serialize";
-import { Toolbar } from "./toolbar";
+import { SelectionToolbar, Toolbar } from "./toolbar";
 
 type MediaInfo = { url: string; altText: string };
 
@@ -117,6 +117,10 @@ export function ArticleBodyEditor({
 				alignments: ["left", "center", "right", "justify"],
 				defaultAlignment: "",
 			}),
+			// Espaçamento entre linhas, por bloco. Extensão da casa, e não a
+			// `LineHeight` oficial: aquela guarda no mark `textStyle` (inline), e
+			// entrelinha é propriedade de parágrafo — ver `line-height.ts`.
+			LineHeight,
 			// Contagem de palavras/caracteres. Não impõe limite: a régua de tamanho
 			// é editorial, não técnica.
 			CharacterCount,
@@ -232,50 +236,19 @@ export function ArticleBodyEditor({
 					}}
 				/>
 
-				{/* Menu flutuante: a formatação inline ao alcance da seleção. */}
-				<BubbleMenu
-					editor={editor}
-					className="flex gap-1 rounded-md border bg-popover p-1 shadow-md"
-				>
-					<Button
-						type="button"
-						size="icon"
-						variant={editor.isActive("bold") ? "secondary" : "ghost"}
-						aria-label="Negrito"
-						onClick={() => editor.chain().focus().toggleBold().run()}
-					>
-						<Bold className="size-4" />
-					</Button>
-					<Button
-						type="button"
-						size="icon"
-						variant={editor.isActive("italic") ? "secondary" : "ghost"}
-						aria-label="Itálico"
-						onClick={() => editor.chain().focus().toggleItalic().run()}
-					>
-						<Italic className="size-4" />
-					</Button>
-					<Button
-						type="button"
-						size="icon"
-						variant={editor.isActive("underline") ? "secondary" : "ghost"}
-						aria-label="Sublinhado"
-						onClick={() => editor.chain().focus().toggleUnderline().run()}
-					>
-						<Underline className="size-4" />
-					</Button>
-					<Button
-						type="button"
-						size="icon"
-						variant={editor.isActive("link") ? "secondary" : "ghost"}
-						aria-label="Link"
-						onClick={() => {
+				{/*
+				  Menu flutuante: o que se faz com um trecho selecionado, ao alcance
+				  dele. O conteúdo vem de `toolbar.tsx` — os botões eram reescritos
+				  aqui, à mão, e ficaram para trás quando a barra fixa cresceu.
+				*/}
+				<BubbleMenu editor={editor}>
+					<SelectionToolbar
+						editor={editor}
+						onSetLink={() => {
 							setLinkUrl(editor.getAttributes("link").href ?? "");
 							setLinkOpen(true);
 						}}
-					>
-						<Link2 className="size-4" />
-					</Button>
+					/>
 				</BubbleMenu>
 
 				{/* Expandido, a rolagem é DESTE painel — não da página. Encaixotado,

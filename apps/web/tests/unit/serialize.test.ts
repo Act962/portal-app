@@ -232,6 +232,47 @@ describe("serialize (TipTap ↔ blocos do domínio)", () => {
 		expect(blocks[1]).toMatchObject({ align: "center", level: 2 });
 	});
 
+	it("preserva o espaçamento entre linhas", () => {
+		const blocks = docToBlocks(
+			doc(
+				{
+					type: "paragraph",
+					attrs: { lineHeight: "1.5" },
+					content: [text("Mais arejado")],
+				},
+				{
+					type: "heading",
+					attrs: { level: 3, lineHeight: "2" },
+					content: [text("Duplo")],
+				},
+			),
+		);
+
+		expect(blocks[0]).toMatchObject({ lineHeight: "1.5" });
+		expect(blocks[1]).toMatchObject({ lineHeight: "2", level: 3 });
+	});
+
+	it("descarta espaçamento fora da lista, em vez de aproximá-lo", () => {
+		// Quem escreve este atributo é o editor; um valor de fora é sinal de
+		// conteúdo colado, não de intenção editorial. O bloco cai no espaçamento
+		// do portal, que é sempre legível.
+		const blocks = docToBlocks(
+			doc({
+				type: "paragraph",
+				attrs: { lineHeight: "3.7" },
+				content: [text("Fora da lista")],
+			}),
+		);
+
+		expect(blocks[0]).not.toHaveProperty("lineHeight");
+	});
+
+	it("não grava espaçamento quando ninguém escolheu nenhum", () => {
+		expect(docToBlocks(doc(paragraph(text("Comum"))))[0]).not.toHaveProperty(
+			"lineHeight",
+		);
+	});
+
 	it("não grava o alinhamento padrão — 'left' e ausente são a mesma coisa", () => {
 		const blocks = docToBlocks(
 			doc(
@@ -347,6 +388,7 @@ describe("serialize (TipTap ↔ blocos do domínio)", () => {
 					},
 				],
 				align: "justify",
+				lineHeight: "1.5",
 			},
 			{
 				type: "list",
