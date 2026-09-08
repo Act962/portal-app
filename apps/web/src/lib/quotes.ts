@@ -156,20 +156,22 @@ const BRL = new Intl.NumberFormat("pt-BR", {
 	currency: "BRL",
 });
 
-const BRL_PRECISO = new Intl.NumberFormat("pt-BR", {
-	style: "currency",
-	currency: "BRL",
-	minimumFractionDigits: 4,
-	maximumFractionDigits: 4,
-});
-
 /**
- * Bitcoin passa de R$ 300 mil e o dólar se move na terceira e quarta decimal —
- * o mesmo formato não serve para os dois. Abaixo de mil, quatro casas; acima,
- * as duas de sempre, onde a quarta decimal seria ruído ao lado do milhar.
+ * Duas casas, para toda moeda — decisão do cliente (08/09).
+ *
+ * Já foram quatro abaixo de mil, pelo argumento de que o dólar se move na
+ * terceira e na quarta decimal. O argumento é verdadeiro e ainda assim a régua
+ * errada: quem lê a faixa não está operando câmbio, está conferindo o dólar de
+ * hoje, e é assim que todo portal o publica. Pior: a precisão de quatro casas
+ * PARECE exatidão em cima de um número que tem até dois minutos de idade — e
+ * foi exatamente o que convidou a comparação que abriu esta rodada, "o portal
+ * diz 5,0876 e o meu diz 5,13".
+ *
+ * O Bitcoin nunca dependeu do corte por valor: acima de mil o formato já era
+ * este. O que sai é a exceção, não a regra.
  */
 export function formatValue(value: number): string {
-	return value >= 1000 ? BRL.format(value) : BRL_PRECISO.format(value);
+	return BRL.format(value);
 }
 
 /** "+0,42%" / "−0,09%" / "0,00%". O sinal é parte da informação. */

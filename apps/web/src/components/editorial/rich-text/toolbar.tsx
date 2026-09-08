@@ -15,7 +15,12 @@ import { cn } from "@portal-app/ui/lib/utils";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import {
+	AlignCenter,
+	AlignJustify,
+	AlignLeft,
+	AlignRight,
 	Bold,
+	Eraser,
 	Heading2,
 	Heading3,
 	ImagePlus,
@@ -29,6 +34,8 @@ import {
 	Pilcrow,
 	Quote,
 	Redo2,
+	Strikethrough,
+	Underline,
 	Undo2,
 } from "lucide-react";
 
@@ -49,6 +56,8 @@ function useToolbarState(editor: Editor) {
 		selector: ({ editor: e }) => ({
 			isBold: e.isActive("bold"),
 			isItalic: e.isActive("italic"),
+			isUnderline: e.isActive("underline"),
+			isStrike: e.isActive("strike"),
 			isLink: e.isActive("link"),
 			isH2: e.isActive("heading", { level: 2 }),
 			isH3: e.isActive("heading", { level: 3 }),
@@ -56,6 +65,23 @@ function useToolbarState(editor: Editor) {
 			isBulletList: e.isActive("bulletList"),
 			isOrderedList: e.isActive("orderedList"),
 			isQuote: e.isActive("blockquote"),
+			/*
+			 * O alinhamento vale para o BLOCO, e o TipTap responde `false` a
+			 * `{ textAlign: "left" }` quando ninguém alinhou nada — o padrão da
+			 * extensão é vazio, não "left" (ver `article-body-editor.tsx`). Sem
+			 * este `||`, os quatro botões ficariam apagados num parágrafo comum,
+			 * e a barra não diria qual é o alinhamento em vigor.
+			 */
+			isAlignLeft:
+				e.isActive({ textAlign: "left" }) ||
+				!(
+					e.isActive({ textAlign: "center" }) ||
+					e.isActive({ textAlign: "right" }) ||
+					e.isActive({ textAlign: "justify" })
+				),
+			isAlignCenter: e.isActive({ textAlign: "center" }),
+			isAlignRight: e.isActive({ textAlign: "right" }),
+			isAlignJustify: e.isActive({ textAlign: "justify" }),
 			canUndo: e.can().undo(),
 			canRedo: e.can().redo(),
 		}),
@@ -147,6 +173,22 @@ export function Toolbar({
 				<Italic className="size-4" />
 			</ToolButton>
 			<ToolButton
+				label="Sublinhado"
+				shortcut="Ctrl+U"
+				active={state.isUnderline}
+				onClick={() => editor.chain().focus().toggleUnderline().run()}
+			>
+				<Underline className="size-4" />
+			</ToolButton>
+			<ToolButton
+				label="Riscado"
+				shortcut="Ctrl+Shift+S"
+				active={state.isStrike}
+				onClick={() => editor.chain().focus().toggleStrike().run()}
+			>
+				<Strikethrough className="size-4" />
+			</ToolButton>
+			<ToolButton
 				label={state.isLink ? "Remover link" : "Inserir link"}
 				shortcut="Ctrl+K"
 				active={state.isLink}
@@ -211,11 +253,69 @@ export function Toolbar({
 
 			<Separator orientation="vertical" className="mx-1 h-6" />
 
+			{/*
+			  Alinhamento. Os quatro juntos, e não só o "justificar" que a redação
+			  pediu: um botão de justificar sozinho não tem como ser DESFEITO — a
+			  pessoa justifica um parágrafo por engano e não encontra a volta.
+			*/}
+			<ToolButton
+				label="Alinhar à esquerda"
+				active={state.isAlignLeft}
+				onClick={() => editor.chain().focus().setTextAlign("left").run()}
+			>
+				<AlignLeft className="size-4" />
+			</ToolButton>
+			<ToolButton
+				label="Centralizar"
+				active={state.isAlignCenter}
+				onClick={() => editor.chain().focus().setTextAlign("center").run()}
+			>
+				<AlignCenter className="size-4" />
+			</ToolButton>
+			<ToolButton
+				label="Alinhar à direita"
+				active={state.isAlignRight}
+				onClick={() => editor.chain().focus().setTextAlign("right").run()}
+			>
+				<AlignRight className="size-4" />
+			</ToolButton>
+			<ToolButton
+				label="Justificar"
+				active={state.isAlignJustify}
+				onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+			>
+				<AlignJustify className="size-4" />
+			</ToolButton>
+
+			<Separator orientation="vertical" className="mx-1 h-6" />
+
 			<ToolButton label="Inserir imagem" onClick={onPickImage}>
 				<ImagePlus className="size-4" />
 			</ToolButton>
 			<ToolButton label="Incorporar link (vídeo, post)" onClick={onAddEmbed}>
 				<Link2 className="size-4" />
+			</ToolButton>
+
+			{/*
+			  Limpar formatação. É o botão que salva quem colou de um site ou do
+			  Word e trouxe junto negrito, sublinhado e alinhamento que não são do
+			  portal — tirar tudo de uma vez é bem mais rápido que caçar marca por
+			  marca. Tira as marcas E os blocos (título vira parágrafo), que é o
+			  que "limpar" significa para quem clica.
+			*/}
+			<ToolButton
+				label="Limpar formatação"
+				onClick={() =>
+					editor
+						.chain()
+						.focus()
+						.unsetAllMarks()
+						.clearNodes()
+						.setTextAlign("left")
+						.run()
+				}
+			>
+				<Eraser className="size-4" />
 			</ToolButton>
 
 			<div className="flex-1" />

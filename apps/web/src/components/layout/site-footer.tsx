@@ -39,13 +39,19 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 					    link para a home, que já se anuncia; aqui ela está sozinha, e sem
 					    isto o rodapé abriria sem dizer de quem é o site. */}
 					<SiteLogo className="mb-3" priority={false} alt={site.name} />
-					{/* A frase final é copy de rodapé, não identidade: o modelo não tem
-					    campo para ela e inventar um agora custaria outra migration.
-					    Registrado em pendencias.md. */}
+					{/*
+					  A frase agora vem do banco (`footerTagline`), editável em
+					  Configurações → Identidade. Era texto FIXO aqui, montado a partir
+					  da frequência e da cidade: trocar uma vírgula custava um deploy, e
+					  ela ainda anunciava "93,9 MHz" depois de a rádio se desvincular do
+					  portal. É copy, não identidade — a `tagline` continua sendo o que
+					  vai para `og:site_name` e para o schema.org.
+
+					  Sempre há texto: o domínio devolve o default quando o campo está
+					  vazio, então o rodapé nunca abre com um vão sob a marca.
+					*/}
 					<p className="max-w-[38ch] font-serif text-[13px] leading-relaxed md:text-sm">
-						{site.radioFrequency ? `${site.radioFrequency} · ` : ""}
-						{site.city} — {site.state}. Notícias do Piauí 24 horas no ar, em
-						todo lugar.
+						{site.footerTagline}
 					</p>
 				</div>
 

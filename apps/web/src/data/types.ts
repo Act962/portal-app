@@ -46,12 +46,25 @@ export type Tag = {
 	name: string;
 };
 
-/** Inline run inside a paragraph. Mirrors the block editor's inline model. */
+/**
+ * As marcas que cobrem um trecho de texto. Espelha `INLINE_MARKS` do editorial
+ * — a lista é a mesma dos dois lados, e o mapeamento vive em `read-model.ts`.
+ */
+export type InlineMark = "strong" | "em" | "underline" | "strike";
+
+/**
+ * Inline run inside a paragraph. Mirrors the block editor's inline model.
+ *
+ * As marcas são um CONJUNTO desde 08/09: um trecho pode ser negrito **e**
+ * sublinhado. Antes cada nó carregava UMA marca, e o que a redação escrevia
+ * combinado voltava pela metade.
+ */
 export type InlineNode =
-	| { kind: "text"; text: string }
-	| { kind: "strong"; text: string }
-	| { kind: "em"; text: string }
-	| { kind: "link"; text: string; href: string };
+	| { kind: "text"; text: string; marks?: InlineMark[] }
+	| { kind: "link"; text: string; href: string; marks?: InlineMark[] };
+
+/** Alinhamento de um bloco de texto. Ausente = esquerda, o padrão do portal. */
+export type BlockAlign = "center" | "right" | "justify";
 
 /**
  * The article body is a list of blocks, never an HTML string — the decision
@@ -59,11 +72,14 @@ export type InlineNode =
  * the same content can later feed the app, the newsletter and partner feeds.
  */
 export type ArticleBlock =
-	| { kind: "paragraph"; content: InlineNode[] }
-	| { kind: "subheading"; text: string }
-	| { kind: "quote"; text: string; attribution?: string }
+	| { kind: "paragraph"; content: InlineNode[]; align?: BlockAlign }
+	// `content`, e não mais `text`: o intertítulo passou a carregar formatação
+	// inline como o parágrafo. Enquanto era texto puro, um nome próprio em
+	// itálico no meio de um intertítulo simplesmente sumia do portal.
+	| { kind: "subheading"; content: InlineNode[]; align?: BlockAlign }
+	| { kind: "quote"; content: InlineNode[]; attribution?: string }
 	| { kind: "image"; url: string; alt: string; caption?: string }
-	| { kind: "list"; ordered: boolean; items: string[] };
+	| { kind: "list"; ordered: boolean; items: InlineNode[][] };
 
 /** Imagem de capa já resolvida para o portal: URL pública + ponto focal. */
 export type Cover = {

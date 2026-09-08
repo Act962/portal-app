@@ -287,6 +287,15 @@ function Form({ initial }: { initial: Settings }) {
 								<CardTitle>Rodapé e busca</CardTitle>
 							</CardHeader>
 							<CardContent className="flex flex-col gap-4">
+								{/* Campo próprio, e não a `tagline` reaproveitada: aquela é
+								    identidade (curta, em caixa alta, e vai para o og:site_name
+								    e para o schema.org). Esta é a frase inteira do rodapé. */}
+								<Area
+									label="Frase do rodapé"
+									value={draft.footerTagline ?? ""}
+									onChange={(v) => set("footerTagline", v)}
+									hint="Aparece logo abaixo da marca, no rodapé de todas as páginas. Em branco, volta à frase padrão."
+								/>
 								<Text
 									label="Linha legal"
 									value={draft.legal ?? ""}

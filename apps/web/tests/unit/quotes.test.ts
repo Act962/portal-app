@@ -159,13 +159,25 @@ describe("formatValue", () => {
 	 */
 	const NBSP = "\u00A0";
 
-	it("abaixo de mil, quatro casas — o dólar se move na terceira decimal", () => {
-		expect(formatValue(5.7276)).toBe(`R$${NBSP}5,7276`);
+	it("arredonda para duas casas — o que a API manda tem quatro", () => {
+		// A AwesomeAPI devolve `"bid": "5.7276"`. A faixa publica "R$ 5,73", que
+		// é como todo portal publica o dólar: quem lê não está operando câmbio.
+		expect(formatValue(5.7276)).toBe(`R$${NBSP}5,73`);
 	});
 
-	it("acima de mil, duas casas e separador de milhar", () => {
-		// Quarta decimal ao lado do milhar do Bitcoin é ruído.
+	it("arredonda para cima quando a terceira decimal manda", () => {
+		expect(formatValue(5.0876)).toBe(`R$${NBSP}5,09`);
+	});
+
+	it("duas casas também acima de mil, com separador de milhar", () => {
 		expect(formatValue(350123.45)).toBe(`R$${NBSP}350.123,45`);
+	});
+
+	it("completa a segunda casa em valor redondo, para as linhas alinharem", () => {
+		// Sem isto o Bitcoin sairia "R$ 400.000" e o dólar "R$ 5,09" — colunas
+		// com casas diferentes desalinham a vírgula de uma linha para a outra.
+		expect(formatValue(400000)).toBe(`R$${NBSP}400.000,00`);
+		expect(formatValue(5)).toBe(`R$${NBSP}5,00`);
 	});
 });
 

@@ -15,13 +15,14 @@ import {
 import { Input } from "@portal-app/ui/components/input";
 import { cn } from "@portal-app/ui/lib/utils";
 import CharacterCount from "@tiptap/extension-character-count";
+import TextAlign from "@tiptap/extension-text-align";
 import Typography from "@tiptap/extension-typography";
 import { Placeholder } from "@tiptap/extensions";
 import type { Editor } from "@tiptap/react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
-import { Bold, Italic, Link2 } from "lucide-react";
+import { Bold, Italic, Link2, Underline } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { MediaPickerDialog } from "@/components/media/media-picker-dialog";
@@ -65,12 +66,15 @@ export function ArticleBodyEditor({
 		extensions: [
 			StarterKit.configure({
 				heading: { levels: [2, 3] },
-				// O domínio não tem estes blocos — deixá-los ligados criaria
-				// conteúdo que o serializador descartaria em silêncio.
+				// Sublinhado e riscado passaram a existir no domínio (08/09), a
+				// pedido da redação — o corpo guarda um CONJUNTO de marcas, então
+				// "negrito e sublinhado" chega inteiro ao portal.
+				//
+				// O resto segue desligado: o domínio não tem estes blocos, e
+				// deixá-los ligados criaria conteúdo que o serializador
+				// descartaria em silêncio.
 				codeBlock: false,
 				code: false,
-				strike: false,
-				underline: false,
 				horizontalRule: false,
 				link: {
 					openOnClick: false,
@@ -96,6 +100,23 @@ export function ArticleBodyEditor({
 			// texto de portal de texto de bloco de notas — e é seguro para o
 			// domínio, porque mexe só no TEXTO, nunca na estrutura dos blocos.
 			Typography,
+			/*
+			 * Alinhamento (justificar, centralizar, alinhar à direita).
+			 *
+			 * Só em parágrafo e título: alinhar uma lista ou uma citação não é
+			 * pedido editorial nenhum, e o domínio guarda `align` apenas nesses
+			 * dois blocos — ligar aqui o que o `Block` não tem geraria atributo
+			 * que o serializador jogaria fora sem avisar.
+			 *
+			 * `defaultAlignment: ""` (e não `"left"`): assim o TipTap não carimba
+			 * `textAlign` em todo parágrafo que ninguém alinhou, e o corpo salvo
+			 * não engorda com o padrão repetido linha a linha.
+			 */
+			TextAlign.configure({
+				types: ["paragraph", "heading"],
+				alignments: ["left", "center", "right", "justify"],
+				defaultAlignment: "",
+			}),
 			// Contagem de palavras/caracteres. Não impõe limite: a régua de tamanho
 			// é editorial, não técnica.
 			CharacterCount,
@@ -233,6 +254,15 @@ export function ArticleBodyEditor({
 						onClick={() => editor.chain().focus().toggleItalic().run()}
 					>
 						<Italic className="size-4" />
+					</Button>
+					<Button
+						type="button"
+						size="icon"
+						variant={editor.isActive("underline") ? "secondary" : "ghost"}
+						aria-label="Sublinhado"
+						onClick={() => editor.chain().focus().toggleUnderline().run()}
+					>
+						<Underline className="size-4" />
 					</Button>
 					<Button
 						type="button"

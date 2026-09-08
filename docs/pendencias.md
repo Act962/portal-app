@@ -1,6 +1,6 @@
 # Pendências — o que falta para o produto ficar completo
 
-> **Atualizado:** 2026-08-13.
+> **Atualizado:** 2026-09-08.
 > Lista única e priorizada do que está em aberto, para a entrega em andamento.
 > Estado por fase em [`proximos-passos.md`](./proximos-passos.md); escopo em
 > [`specs/`](./specs/); operação em [`deploy.md`](./deploy.md).
@@ -652,7 +652,7 @@ decidir isso antes de alguém perder um texto do que depois.
 
 | Item | Razão | Risco se ficar |
 |---|---|---|
-| **Testes do serializador do TipTap** | Bloco A entregue sem testes novos, a pedido | Uma regressão no `docToBlocks` quebra o autosave silenciosamente. **Esqueleto pronto** em `apps/web/tests/unit/serialize.test.ts` (13 `it.todo` + 1 caso de fumaça); falta preencher |
+| ~~**Testes do serializador do TipTap**~~ | ✅ **Pago em 08/09.** O esqueleto virou 22 testes reais em `apps/web/tests/unit/serialize.test.ts`, escritos junto com a mudança que trouxe sublinhado, riscado e alinhamento. Cobrem o descarte do parágrafo vazio (o que sustenta o autosave), as marcas combinadas, a normalização da ordem, o alinhamento e o round-trip completo | — |
 | **Testes de router** para os dois defeitos de autorização corrigidos | idem | Nada impede a regressão voltar. **Esqueleto** em `packages/api/tests/unit/authorization.test.ts` — implementar exige antes tornar a raiz de composição injetável (`createAppRouter(deps)` no lugar dos singletons de módulo em `staff.ts`), senão o teste vira integração |
 | **Testes de formatação de data** | idem | `apps/web/tests/unit/format.test.ts` — módulo que já quebrou duas vezes em produção; os dois casos de fumaça cobrem esse par, o resto é `it.todo` |
 | **E2E do arquivamento pelo seletor e do envio direto de capa** | Entregue sem E2E (31/08) | A LÓGICA tem teste de verdade — `apps/web/tests/unit/article-selection.test.ts` (quem pode ser marcado, o que "marcar tudo" marca, o texto do aviso final) e os casos de arquivo/lote em `packages/contexts/editorial/tests/unit/manage-articles.test.ts`. Falta a FIAÇÃO: caixinha → barra → diálogo → mutação → lista. **Esqueleto** em `apps/web/tests/e2e/dashboard-articles.spec.ts` (12 `test.fixme`); preencher exige antes uma sessão de staff compartilhada — hoje só `auth.spec.ts` tem uma, porque a vaga de primeiro-ADMIN é de uso único por banco |
@@ -663,7 +663,7 @@ decidir isso antes de alguém perder um texto do que depois.
 | **Fonte da marca na imagem social (`/og`)** | O `ImageResponse` usa a fonte padrão do Satori, não a Archivo do portal | O cartão do WhatsApp não é tipograficamente igual ao site. Carregar a fonte custa ler o `.ttf` no servidor a cada geração; entra quando alguém reclamar, não antes |
 | **Mídia antiga sem `width`/`height`** | A coluna existe no banco, mas asset enviado antes da medição tem `null` | Aquelas matérias saem sem `og:image:width` — a prévia do WhatsApp funciona, só é mais lenta para decidir |
 | **Paginação por cursor (P12)** | Read model carrega tudo em memória | Só incomoda com muitas matérias; hoje é aceitável |
-| **Invalidação por evento** (Fase 4, Etapa 5) | Feito o mínimo: `revalidate = 60` no portal. Faltam o consumidor do outbox chamando `revalidateTag` e o Redis | Matéria publicada demora até 1 min para entrar no ar, e o portal consulta o banco de tempos em tempos mesmo sem novidade. Antes disto, as páginas eram **congeladas no build** e matéria nova só aparecia com um redeploy |
+| **Invalidação por evento** (Fase 4, Etapa 5) | ✅ **A parte que a redação sentia foi feita em 08/09** (`packages/api/src/portal-cache.ts`): toda mutação de matéria derruba o cache do endereço público dela, pelo funil do `commit`. Falta o resto do item — o consumidor do OUTBOX fazendo isso (hoje quem chama é o router, direto) e o Redis | O que sobra é arquitetura, não sintoma: o portal ainda consulta o banco de tempos em tempos sem novidade, e uma publicação disparada fora do painel (o cron das agendadas via `/api/cron`) continua dependendo do minuto do `revalidate` |
 | **Busca full-text** (Fase 4, Etapa 6) | Não chegou a ser feita | A busca é `includes` em memória — não erra, mas não escala nem tolera erro de digitação |
 | **Gate de lint (`biome ci`)** | Scaffold nunca formatado | Estilo diverge entre arquivos |
 | **Branch protection no `main`** | Precisa do owner (`Act962`) | Push direto em `main` é possível — foi o que aconteceu na entrega de 2026-08-07 |
@@ -793,6 +793,95 @@ espaço que mora do outro** — e é a forma que tende a voltar:
 
 ---
 
+## "Escrevi e o portal não mudou" — o cache que não era do editor (08/09)
+
+A redação relatou que acrescentar texto a uma matéria não aparecia no portal, e
+a suspeita natural caiu no editor: autosave que não salva, serializador que
+descarta bloco. **Não era nenhum dos dois** — os dois estavam certos o tempo
+todo, e é por isso que ninguém achava o defeito olhando para eles.
+
+**O que era.** Só a página da matéria (`/[section]/[slug]`) sai do build como
+SSG: `generateStaticParams` a pré-renderiza e o `revalidate = 60` do grupo
+`(site)` a mantém em ISR. Home, editoria, últimas e busca são dinâmicas (`ƒ` na
+tabela do build) — elas mostravam a edição no mesmo instante. A matéria, não.
+
+Medido num `next start` contra o banco de desenvolvimento: um parágrafo
+acrescentado levou **mais de 70 segundos e três recargas** para aparecer. Não é
+só o minuto da janela; é o `stale-while-revalidate`, que serve a versão VELHA
+justamente à requisição que dispara a regeneração. Quem escreve, salva e recarrega
+vê a página antiga duas ou três vezes seguidas — e a conclusão de quem está do
+outro lado é "o sistema perdeu meu texto", não "o cache ainda não venceu".
+
+Essa inconsistência entre páginas é o que tornava o relato difícil de acreditar:
+a mesma edição aparecia na home e não aparecia na matéria.
+
+**O conserto.** `packages/api/src/portal-cache.ts` — invalidação por evento, que
+já estava prevista no comentário do `(site)/layout.tsx` e na linha de "Invalidação
+por evento" acima. A chamada entra no `commit()` do router editorial, que é o
+funil por onde passa **toda** mutação de uma matéria: assim publicar, editar,
+arquivar, apagar, trocar slug ou editoria derrubam o cache sem que ninguém
+precise lembrar de cada transição. Mesma medição, depois: o parágrafo aparece na
+**primeira** leitura, sem espera.
+
+Três detalhes que valem mais que o resumo:
+
+- **O caminho concreto, não a rota.** `revalidatePath("/[section]/[slug]", "page")`
+  derrubaria o cache de todas as matérias — e o autosave dispara a cada pausa de
+  um segundo na digitação. O portal inteiro seria regenerado enquanto alguém
+  escreve.
+- **O endereço ANTERIOR também.** Mudar a editoria (ou o slug) muda o endereço
+  público. Sem invalidar o velho, a página antiga fica no ar em cache com o
+  texto desatualizado, enquanto o novo já responde — por isso o `snapshot()`
+  lido antes da mutação.
+- **`firstPublishedAt` é o gatilho, não o status.** Rascunho nunca teve endereço
+  público; não há cache a derrubar. E matéria recém-arquivada precisa da
+  invalidação justamente porque a página dela tem de SAIR do ar.
+
+Falha na invalidação não derruba a mutação: a matéria já está salva, e perder o
+texto por causa de um cache seria trocar um problema pequeno por um grande. No
+pior caso volta-se ao minuto de antes.
+
+**O que ainda falta.** Quem chama é o router, não o consumidor do outbox. Uma
+publicação disparada de fora do painel — o cron das agendadas em
+`/api/cron/[task]` — continua dependendo do `revalidate = 60`. É o resto do item
+"Invalidação por evento" da tabela de dívida.
+
+---
+
+## Cotações: o número estava certo, a comparação é que não (08/09)
+
+Relato: "o dólar hoje está 5,13 e o portal mostra 5,0876". Conferido contra a
+própria AwesomeAPI no dia, os dois números existem e são de coisas diferentes:
+**5,1259 era o fechamento da véspera** (07/09, feriado) e **5,08 era o preço
+naquele momento** — o dólar caiu 0,88% ao longo do dia. O portal estava certo;
+a referência de fora é que era do dia anterior. Não há defeito de leitura da API,
+e a faixa não precisa de conserto.
+
+O que **de fato** estava errado era mais discreto, e foi corrigido:
+
+- **Duas validades de cache aninhadas.** O `fetch` tinha `next: { revalidate: 300 }`
+  dentro de um `unstable_cache` também de 300s. Elas não se somam por acaso:
+  quando a de fora vencia, a de dentro podia devolver uma resposta guardada há
+  quase cinco minutos, e o número na tela chegava a **dez** minutos de idade sem
+  nada estar quebrado. Agora uma camada manda (`unstable_cache`) e a outra pede
+  sempre (`cache: "no-store"`).
+- **A janela caiu de 5 para 2 minutos.** Trinta chamadas por hora para o site
+  inteiro é ruído em qualquer cota — e é metade da defasagem na tela.
+- **Duas casas decimais, para toda moeda** (decisão do cliente). Eram quatro
+  abaixo de mil, pelo argumento de que o dólar se move na terceira e na quarta
+  decimal — verdadeiro, e ainda assim a régua errada: quem lê a faixa não está
+  operando câmbio. Pior, a precisão de quatro casas PARECE exatidão em cima de
+  um número que tem até dois minutos de idade, e foi o que convidou a comparação
+  que abriu esta rodada.
+- **A tira do topo não dizia de quando era o número.** A faixa da home sempre
+  disse ("ATUALIZADO há X"); a tira, que aparece em toda página, não tinha onde.
+  Ganhou um `title` com moeda, tipo de preço (compra), instante e fonte — que é
+  exatamente o que explica uma divergência com o número que a pessoa viu em
+  outro lugar. Visível a barra não comporta: ela já perde as cotações abaixo de
+  `lg` por falta de largura.
+
+---
+
 ## ⚠️ Data e fuso: o defeito que já voltou três vezes
 
 Vale isolar, porque deixou de ser coincidência e o próximo é previsível:
@@ -857,15 +946,17 @@ que resta, na ordem em que rende mais:
    defeito é mais caro. Merece commit próprio porque pode revelar erro
    acumulado.
 
-3. **Preencher os `it.todo`** (serializador do TipTap, autorização dos routers,
-   formatação de data). O de autorização exige antes tornar a raiz de
-   composição injetável (`createAppRouter(deps)`), senão o teste vira
-   integração. **Os de data subiram de prioridade:** o defeito de fuso já
-   voltou três vezes (ver a seção própria acima), e é a família que falha
-   mostrando um número plausível em vez de quebrar.
+3. **Preencher os `it.todo` que sobraram** (autorização dos routers, formatação
+   de data — o do serializador foi pago em 08/09). O de autorização exige antes
+   tornar a raiz de composição injetável (`createAppRouter(deps)`), senão o
+   teste vira integração. **Os de data subiram de prioridade:** o defeito de
+   fuso já voltou três vezes (ver a seção própria acima), e é a família que
+   falha mostrando um número plausível em vez de quebrar.
 
-4. **Invalidação por evento.** É o único item da lista que o leitor final
-   percebe todo dia: matéria publicada demora até 1 min para entrar no ar.
+4. **Invalidação por evento, o resto dela.** A parte que a redação sentia saiu
+   em 08/09 — ver a seção abaixo. O que falta é mover a chamada do router para
+   o consumidor do outbox, para que uma publicação disparada de fora do painel
+   (o cron das agendadas) também derrube o cache na hora.
 
 5. **Banners e patrocinadores**, quando houver anunciante. É o maior item que
    sobrou (contexto `advertising` inteiro) e não rende nada até existir

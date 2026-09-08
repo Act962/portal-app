@@ -55,6 +55,20 @@ export type SiteSettingsData = {
 	institutional: Link[];
 	popularSearches: string[];
 
+	/**
+	 * A frase do rodapé, logo abaixo da marca.
+	 *
+	 * Separada de `tagline` de propósito: aquela é IDENTIDADE (curta, em caixa
+	 * alta, e vai para `og:site_name`, cabeçalho e schema.org); esta é COPY de
+	 * rodapé — uma frase inteira que a redação reescreve quando quiser sem
+	 * mudar o que os buscadores leem sobre o veículo.
+	 *
+	 * Antes era texto FIXO no `site-footer.tsx`, montado a partir da frequência
+	 * e da cidade. Trocá-la custava um deploy; agora é um campo da tela de
+	 * Configurações.
+	 */
+	footerTagline: string | null;
+
 	legal: string | null;
 };
 
@@ -109,6 +123,9 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
 		"BR-343",
 		"Programação",
 	],
+
+	footerTagline:
+		"Portal 7 Cidades — O Piauí bem informado, o Brasil conectado.",
 
 	// A linha da razão social, ao lado do copyright. Trazia
 	// "PRINCÍPIOS EDITORIAIS · PRIVACIDADE · TERMOS DE USO", que PARECIA um
@@ -185,6 +202,8 @@ export class SiteSettings extends AggregateRoot<string> {
 			institutional: links(row.institutional) ?? d.institutional,
 			popularSearches: strings(row.popularSearches) ?? d.popularSearches,
 
+			footerTagline: nullableText(row.footerTagline) ?? d.footerTagline,
+
 			legal: nullableText(row.legal) ?? d.legal,
 		});
 	}
@@ -260,6 +279,7 @@ function normalize(
 		contactWhatsapp: blankToNull(data.contactWhatsapp),
 		contactEmail: blankToNull(data.contactEmail),
 		contactAddress: blankToNull(data.contactAddress),
+		footerTagline: blankToNull(data.footerTagline),
 		legal: blankToNull(data.legal),
 		popularSearches: data.popularSearches
 			.map((term) => term.trim())

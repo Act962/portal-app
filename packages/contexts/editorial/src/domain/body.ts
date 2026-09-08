@@ -3,15 +3,48 @@ import { err, ok, type Result, ValueObject } from "@portal-app/shared-kernel";
 import { InvalidBlock } from "./errors";
 
 /**
- * Nós inline — a formatação DENTRO de um texto (ADR 0010). União plana: um nó
- * carrega um trecho e a marca que o cobre. O editor achata marcas combinadas
- * (negrito dentro de link vira link), o que evita um modelo aninhado no domínio.
+ * As marcas que podem cobrir um trecho de texto.
+ *
+ * Lista fechada, e a ordem é a da barra do editor — é ela que a interface e o
+ * renderizador percorrem, então declarar aqui evita que as duas discordem.
+ */
+export const INLINE_MARKS = ["strong", "em", "underline", "strike"] as const;
+
+export type InlineMark = (typeof INLINE_MARKS)[number];
+
+/**
+ * Nós inline — a formatação DENTRO de um texto (ADR 0010, revisto em 08/09).
+ *
+ * **As marcas agora são um CONJUNTO, não uma escolha.** O modelo original era
+ * uma união plana (`{type:"strong"}`, `{type:"em"}`, …), em que cada trecho
+ * carregava UMA marca, e o serializador achatava o resto por precedência. Isso
+ * se sustentava com duas marcas; com sublinhado e riscado na barra, deixou de
+ * se sustentar: "negrito **e** sublinhado" é o pedido mais comum da redação, e
+ * a união plana devolveria só um dos dois — texto salvo que volta diferente do
+ * que se escreveu, que é a pior classe de defeito num editor.
+ *
+ * Restam dois tipos, porque `link` é a única coisa que carrega DESTINO além de
+ * aparência. Um link também aceita marcas: negrito dentro de link é normal.
+ *
+ * O formato antigo continua sendo LIDO (`normalizeInline` o converte na porta
+ * de entrada) — há conteúdo gravado assim, e ele não vai ser migrado: a
+ * conversão na leitura custa menos que uma migração de dados e não tem como
+ * falhar pela metade.
  */
 export type InlineNode =
-	| { type: "text"; text: string }
-	| { type: "strong"; text: string }
-	| { type: "em"; text: string }
-	| { type: "link"; text: string; href: string };
+	| { type: "text"; text: string; marks?: InlineMark[] }
+	| { type: "link"; text: string; href: string; marks?: InlineMark[] };
+
+/**
+ * Alinhamento de um bloco de texto.
+ *
+ * `left` não é representado: é o padrão de um portal em português, e gravá-lo
+ * encheria o JSON de `"align":"left"` em todo parágrafo — ruído que o
+ * renderizador teria de ignorar de qualquer forma. Ausente significa esquerda.
+ */
+export const BLOCK_ALIGNMENTS = ["center", "right", "justify"] as const;
+
+export type BlockAlign = (typeof BLOCK_ALIGNMENTS)[number];
 
 /**
  * Blocos do corpo (D1/ADR 0003, estendido pelo ADR 0010). União discriminada por
@@ -20,8 +53,8 @@ export type InlineNode =
  * blocos entram sem migração.
  */
 export type Block =
-	| { type: "paragraph"; content: InlineNode[] }
-	| { type: "heading"; level: 2 | 3; content: InlineNode[] }
+	| { type: "paragraph"; content: InlineNode[]; align?: BlockAlign }
+	| { type: "heading"; level: 2 | 3; content: InlineNode[]; align?: BlockAlign }
 	| { type: "image"; mediaId: string; caption?: string }
 	| { type: "list"; ordered: boolean; items: InlineNode[][] }
 	| { type: "quote"; content: InlineNode[]; cite?: string }
@@ -33,13 +66,27 @@ export type Block =
  * porque há conteúdo gravado assim. A normalização converte na porta de entrada;
  * de dentro para fora só existe o formato novo.
  */
-export type InlineInput = readonly InlineNode[] | string;
+/**
+ * Um nó inline como a ESCRITA o aceita: o formato de hoje **ou** o anterior a
+ * 08/09, em que a marca era o tipo do nó.
+ *
+ * O legado precisa estar aqui, e não só tolerado na normalização: o painel
+ * carrega o corpo inteiro da matéria, inclusive o gravado no formato antigo, e
+ * o devolve no autosave seguinte. Um tipo que só aceitasse o formato novo
+ * recusaria o salvamento de toda matéria anterior a esta data.
+ */
+export type InlineNodeInput =
+	| InlineNode
+	| { type: "strong"; text: string }
+	| { type: "em"; text: string };
+
+export type InlineInput = readonly InlineNodeInput[] | string;
 
 export type BlockInput =
-	| { type: "paragraph"; content: InlineInput }
-	| { type: "paragraph"; text: string }
-	| { type: "heading"; level: 2 | 3; content: InlineInput }
-	| { type: "heading"; level: 2 | 3; text: string }
+	| { type: "paragraph"; content: InlineInput; align?: BlockAlign }
+	| { type: "paragraph"; text: string; align?: BlockAlign }
+	| { type: "heading"; level: 2 | 3; content: InlineInput; align?: BlockAlign }
+	| { type: "heading"; level: 2 | 3; text: string; align?: BlockAlign }
 	| { type: "quote"; content: InlineInput; cite?: string }
 	| { type: "quote"; text: string; cite?: string }
 	| { type: "image"; mediaId: string; caption?: string }
@@ -123,12 +170,17 @@ function normalizeBlock(input: BlockInput | undefined | null): Block | null {
 
 	switch (input.type) {
 		case "paragraph":
-			return { type: "paragraph", content: normalizeInline(contentOf(input)) };
+			return {
+				type: "paragraph",
+				content: normalizeInline(contentOf(input)),
+				...alignOf(input),
+			};
 		case "heading":
 			return {
 				type: "heading",
 				level: (input as { level: 2 | 3 }).level,
 				content: normalizeInline(contentOf(input)),
+				...alignOf(input),
 			};
 		case "quote": {
 			const cite = (input as { cite?: string }).cite;
@@ -171,10 +223,22 @@ function normalizeBlock(input: BlockInput | undefined | null): Block | null {
 	}
 }
 
-/** Extrai o conteúdo inline, aceitando `content` (novo) ou `text` (legado). */
+/**
+ * Extrai o conteúdo inline, aceitando `content` (novo) ou `text` (legado).
+ *
+ * `content` como STRING também entra. Ela sempre esteve no tipo (`InlineInput =
+ * readonly InlineNode[] | string`) e no schema do tRPC, mas caía no `[]` daqui
+ * — um parágrafo enviado assim virava "parágrafo sem texto" e derrubava o
+ * salvamento inteiro com uma mensagem que não descrevia o problema.
+ */
 function contentOf(input: object): string | readonly unknown[] {
-	if ("content" in input && Array.isArray(input.content)) {
-		return input.content;
+	if ("content" in input) {
+		if (Array.isArray(input.content)) {
+			return input.content;
+		}
+		if (typeof input.content === "string") {
+			return input.content;
+		}
 	}
 	if ("text" in input && typeof input.text === "string") {
 		return input.text;
@@ -202,26 +266,79 @@ function normalizeInline(value: string | readonly unknown[]): InlineNode[] {
 		if (!raw || typeof raw !== "object") {
 			continue;
 		}
-		const node = raw as { type?: string; text?: unknown; href?: unknown };
+		const node = raw as {
+			type?: string;
+			text?: unknown;
+			href?: unknown;
+			marks?: unknown;
+		};
 		if (typeof node.text !== "string" || !node.text) {
 			continue;
 		}
+
+		const marks = normalizeMarks(node.marks);
+
 		if (node.type === "link") {
 			// Link sem destino não é link — degrada para texto em vez de sumir.
 			nodes.push(
 				typeof node.href === "string" && node.href
-					? { type: "link", text: node.text, href: node.href }
-					: { type: "text", text: node.text },
+					? { type: "link", text: node.text, href: node.href, ...marks }
+					: { type: "text", text: node.text, ...marks },
 			);
 			continue;
 		}
+
+		// Formato anterior a 08/09: a marca era o TIPO do nó. Vira uma marca do
+		// conjunto, e o conteúdo antigo passa a se comportar como o novo sem
+		// migração de dados.
 		if (node.type === "strong" || node.type === "em") {
-			nodes.push({ type: node.type, text: node.text });
+			nodes.push({
+				type: "text",
+				text: node.text,
+				marks: dedupe([node.type, ...(marks.marks ?? [])]),
+			});
 			continue;
 		}
-		nodes.push({ type: "text", text: node.text });
+
+		nodes.push({ type: "text", text: node.text, ...marks });
 	}
 	return nodes;
+}
+
+/**
+ * As marcas de um nó, saneadas.
+ *
+ * Devolve `{}` — e não `{ marks: [] }` — quando não há nenhuma: um array vazio
+ * em todo trecho de texto engordaria o JSON do corpo sem dizer nada, e faria
+ * duas gravações do MESMO texto compararem como diferentes.
+ *
+ * Marca desconhecida é descartada em silêncio: quem escreve o JSON é o editor,
+ * e um nome fora da lista é sinal de conteúdo colado de outro lugar, não de
+ * intenção editorial.
+ */
+function normalizeMarks(raw: unknown): { marks?: InlineMark[] } {
+	if (!Array.isArray(raw)) {
+		return {};
+	}
+	const marks = dedupe(raw);
+	return marks.length > 0 ? { marks } : {};
+}
+
+/** Sem repetição e na ordem canônica de `INLINE_MARKS` — assim o mesmo texto
+ * com as mesmas marcas produz sempre o mesmo JSON. */
+function dedupe(raw: readonly unknown[]): InlineMark[] {
+	return INLINE_MARKS.filter((mark) => raw.includes(mark));
+}
+
+/** O alinhamento de um bloco, quando declarado e reconhecido. */
+function alignOf(input: object): { align?: BlockAlign } {
+	if (!("align" in input)) {
+		return {};
+	}
+	const align = (input as { align?: unknown }).align;
+	return BLOCK_ALIGNMENTS.includes(align as BlockAlign)
+		? { align: align as BlockAlign }
+		: {};
 }
 
 // --- Validação -------------------------------------------------------------

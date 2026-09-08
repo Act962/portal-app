@@ -1,8 +1,14 @@
+import { cn } from "@portal-app/ui/lib/utils";
 import type { Route } from "next";
 import Link from "next/link";
 import { Fragment } from "react";
 
-import type { ArticleBlock, InlineNode } from "@/data/types";
+import type {
+	ArticleBlock,
+	BlockAlign,
+	InlineMark,
+	InlineNode,
+} from "@/data/types";
 
 /**
  * Renders the block document that makes up an article body.
@@ -23,21 +29,51 @@ function blockKey(block: ArticleBlock, index: number): string {
 	return `${block.kind}:${index}`;
 }
 
+/**
+ * A marca do domínio e o elemento que a representa no HTML publicado.
+ *
+ * `<u>` e `<s>` (e não `<span class="underline">`): o portal serve conteúdo
+ * jornalístico, e o elemento certo é o que dá sentido ao trecho para um leitor
+ * de tela, para o Google Notícias e para quem reaproveita o feed. A aparência
+ * vem depois, e é a mesma.
+ */
+const MARK_TAG = {
+	strong: "strong",
+	em: "em",
+	underline: "u",
+	strike: "s",
+} as const satisfies Record<InlineMark, string>;
+
+/** Classe própria por marca, onde o padrão do navegador não serve à tipografia
+ * do portal. Vazio quando o elemento sozinho já dá conta. */
+const MARK_CLASS: Partial<Record<InlineMark, string>> = {
+	strong: "font-semibold",
+	// O sublinhado do navegador corta as descidas do "g" e do "p" na serifada
+	// do corpo; afastá-lo devolve a linha inteira.
+	underline: "underline underline-offset-2",
+};
+
+/**
+ * Aninha as marcas de um trecho, da primeira (mais externa) à última.
+ *
+ * Era uma cadeia de `if`s exclusivos, um por marca — o que fazia um trecho
+ * negrito E sublinhado sair só negrito. As marcas são um CONJUNTO desde 08/09,
+ * e aqui elas se compõem.
+ */
+function withMarks(
+	text: React.ReactNode,
+	marks: readonly InlineMark[] | undefined,
+): React.ReactNode {
+	return (marks ?? []).reduceRight<React.ReactNode>((inner, mark) => {
+		const Tag = MARK_TAG[mark];
+		return <Tag className={MARK_CLASS[mark]}>{inner}</Tag>;
+	}, text);
+}
+
 function InlineContent({ nodes }: { nodes: InlineNode[] }) {
 	return nodes.map((node, index) => {
 		const key = inlineKey(node, index);
-
-		if (node.kind === "strong") {
-			return (
-				<strong key={key} className="font-semibold">
-					{node.text}
-				</strong>
-			);
-		}
-
-		if (node.kind === "em") {
-			return <em key={key}>{node.text}</em>;
-		}
+		const content = withMarks(node.text, node.marks);
 
 		if (node.kind === "link") {
 			// Link externo é âncora, não `next/link`: prefetch de um domínio de
@@ -50,7 +86,7 @@ function InlineContent({ nodes }: { nodes: InlineNode[] }) {
 					rel="noreferrer"
 					className="text-brand-accent-ink underline-offset-2 hover:underline"
 				>
-					{node.text}
+					{content}
 				</a>
 			) : (
 				<Link
@@ -58,20 +94,46 @@ function InlineContent({ nodes }: { nodes: InlineNode[] }) {
 					href={node.href as Route}
 					className="text-brand-accent-ink underline-offset-2 hover:underline"
 				>
-					{node.text}
+					{content}
 				</Link>
 			);
 		}
 
-		return <Fragment key={key}>{node.text}</Fragment>;
+		return <Fragment key={key}>{content}</Fragment>;
 	});
+}
+
+/**
+ * O alinhamento como classe.
+ *
+ * Sem `align` nenhuma classe é emitida: herdar do contêiner é o que "alinhado
+ * à esquerda" significa aqui, e o corpo da matéria já é uma coluna estreita
+ * alinhada à esquerda.
+ */
+function alignClass(align: BlockAlign | undefined): string | undefined {
+	if (align === "center") {
+		return "text-center";
+	}
+	if (align === "right") {
+		return "text-right";
+	}
+	// `hyphens-auto` acompanha o justificado, e não é enfeite: numa coluna de
+	// leitura estreita, justificar sem hifenização abre rios de espaço em
+	// branco entre as palavras — o defeito clássico do texto justificado na
+	// web. O `lang="pt-BR"` do documento é o que dá ao navegador o dicionário.
+	return align === "justify" ? "text-justify hyphens-auto" : undefined;
 }
 
 function Block({ block }: { block: ArticleBlock }) {
 	if (block.kind === "subheading") {
 		return (
-			<h2 className="font-extrabold font-sans text-brand-ink text-xl leading-tight tracking-[-0.02em] md:text-2xl">
-				{block.text}
+			<h2
+				className={cn(
+					"font-extrabold font-sans text-brand-ink text-xl leading-tight tracking-[-0.02em] md:text-2xl",
+					alignClass(block.align),
+				)}
+			>
+				<InlineContent nodes={block.content} />
 			</h2>
 		);
 	}
@@ -79,7 +141,9 @@ function Block({ block }: { block: ArticleBlock }) {
 	if (block.kind === "quote") {
 		return (
 			<blockquote className="border-brand-accent-ink border-l-[3px] py-0.5 pl-3.5 text-[19px] text-brand-ink italic leading-[1.35] md:border-l-4 md:py-1 md:pl-5 md:text-2xl">
-				<p>“{block.text}”</p>
+				<p>
+					“<InlineContent nodes={block.content} />”
+				</p>
 				{block.attribution ? (
 					<cite className="mt-2 block font-sans font-semibold text-meta text-xs uppercase not-italic tracking-[0.1em]">
 						{block.attribution}
@@ -108,7 +172,12 @@ function Block({ block }: { block: ArticleBlock }) {
 	}
 
 	if (block.kind === "list") {
-		const items = block.items.map((item, index) => <li key={index}>{item}</li>);
+		const items = block.items.map((item, index) => (
+			// biome-ignore lint/suspicious/noArrayIndexKey: a ordem É a identidade do item
+			<li key={index}>
+				<InlineContent nodes={item} />
+			</li>
+		));
 		return block.ordered ? (
 			<ol className="list-decimal pl-6">{items}</ol>
 		) : (
@@ -117,7 +186,7 @@ function Block({ block }: { block: ArticleBlock }) {
 	}
 
 	return (
-		<p>
+		<p className={cn(alignClass(block.align))}>
 			<InlineContent nodes={block.content} />
 		</p>
 	);

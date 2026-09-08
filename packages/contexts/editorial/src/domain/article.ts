@@ -50,6 +50,22 @@ type ArticleState = {
 	publishedAt: Date | null;
 	firstPublishedAt: Date | null;
 	rejectionReason: string | null;
+
+	/**
+	 * Carimbos da LINHA, não do agregado.
+	 *
+	 * Nenhuma regra de negócio os lê — quem os escreve é o Postgres
+	 * (`@default(now())` e `@updatedAt`), e o agregado só os carrega para a
+	 * frente porque a lista do painel precisa mostrar "criada em" e "última
+	 * alteração". Por isso são nulos em matéria recém-criada em memória: o valor
+	 * verdadeiro só existe depois que o banco gravou.
+	 *
+	 * Ficam aqui em vez de virarem uma consulta paralela em `packages/api`
+	 * porque a alternativa era a camada de API falar Prisma direto para buscar
+	 * duas colunas — o que `infra-nao-vaza` existe para impedir.
+	 */
+	createdAt: Date | null;
+	updatedAt: Date | null;
 };
 
 type DraftInput = {
@@ -122,6 +138,11 @@ export class Article extends AggregateRoot<string> {
 				publishedAt: null,
 				firstPublishedAt: null,
 				rejectionReason: null,
+				// Ainda não houve banco: quem preenche é o `restore` da próxima
+				// leitura. Inventar `new Date()` aqui seria fabricar um carimbo que
+				// o Postgres vai contradizer no mesmo segundo.
+				createdAt: null,
+				updatedAt: null,
 			}),
 		);
 	}
@@ -143,6 +164,8 @@ export class Article extends AggregateRoot<string> {
 		publishedAt?: Date | null;
 		firstPublishedAt?: Date | null;
 		rejectionReason?: string | null;
+		createdAt?: Date | null;
+		updatedAt?: Date | null;
 	}): Article {
 		const headline = Headline.create(props.headline);
 		const slug = Slug.create(props.slug);
@@ -169,6 +192,8 @@ export class Article extends AggregateRoot<string> {
 			publishedAt: props.publishedAt ?? null,
 			firstPublishedAt: props.firstPublishedAt ?? null,
 			rejectionReason: props.rejectionReason ?? null,
+			createdAt: props.createdAt ?? null,
+			updatedAt: props.updatedAt ?? null,
 		});
 	}
 
@@ -225,6 +250,22 @@ export class Article extends AggregateRoot<string> {
 	/** Instante da PRIMEIRA publicação — sela a imutabilidade do slug. */
 	get firstPublishedAt(): Date | null {
 		return this.state.firstPublishedAt;
+	}
+
+	/** Quando a matéria foi criada. Nulo até a primeira gravação. */
+	get createdAt(): Date | null {
+		return this.state.createdAt;
+	}
+
+	/**
+	 * Última alteração da LINHA, do `@updatedAt` do Prisma.
+	 *
+	 * Vale para a leitura recém-vinda do banco. Depois de uma mutação o valor em
+	 * memória está atrasado — o banco carimbou de novo e ninguém releu —, e é por
+	 * isso que a lista do painel o usa e a tela de edição não.
+	 */
+	get updatedAt(): Date | null {
+		return this.state.updatedAt;
 	}
 
 	get rejectionReason(): string | null {

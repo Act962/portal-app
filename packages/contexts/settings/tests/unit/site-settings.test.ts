@@ -80,6 +80,7 @@ describe("SiteSettings.fromStored — porta de leitura, nunca falha", () => {
 			social: [{ label: "Instagram", href: "https://instagram.com/nova" }],
 			institutional: [{ label: "Quem somos", href: "/quem-somos" }],
 			popularSearches: ["Eleições"],
+			footerTagline: "A rádio que fala com o Piauí.",
 			legal: "TERMOS",
 		};
 
