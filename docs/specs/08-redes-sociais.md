@@ -1,7 +1,7 @@
 # Spec — Fase 8: Redes Sociais (Instagram e Facebook)
 
 > **Status:** 🚧 Em execução — Fatias 1 e 2 entregues em 11/09/2026 (domínio,
-> persistência, gatilho, casos de uso e API).
+> persistência, gatilho, casos de uso e API); Fatia 3 (telas do painel) em 14/09/2026.
 > **Decisões do cliente:** tomadas em 11/09/2026 (D1–D4 abaixo).
 > **Referências:** `01-identidade-acesso.md` (as ações novas) ·
 > `../adr/0005-outbox-transacional.md` (o gatilho) ·
@@ -53,7 +53,7 @@ usa. O editorial não fica sabendo que redes sociais existem.
 |---|---|---|
 | F1 | Domínio puro: `SocialPost`, `Delivery`, `SocialAccount`, `Caption`, modelo de legenda, portas | ✅ 11/09 |
 | F2 | Persistência (Prisma), casos de uso, gatilho no `ArticlePublished`, tRPC | ✅ 11/09 |
-| F3 | Telas do painel: fila de aprovação, editor do post, conexão de contas | ⬜ |
+| F3 | Telas do painel: fila de aprovação, editor do post, conexão de contas | ✅ 14/09 |
 | F4 | Adapter real da Meta + OAuth + corte 1080×1080 da capa | ⬜ |
 | F5 | App Review da Meta e go-live | ⬜ |
 
@@ -412,10 +412,9 @@ A escrever na F4: contrato do `SocialPublisher` (fake ↔ Meta) e E2E da fila.
 - [x] O token é cifrado em repouso e não aparece em nenhum DTO do tRPC
 - [x] Nada além do adapter conhece o vocabulário da Meta — verificado pelo
       `dependency-cruiser`
-- [ ] A fila aparece no painel (F3)
+- [x] A fila aparece no painel, em "Redes sociais", para EDITOR e ADMIN (F3)
 - [ ] Aprovar publica de verdade nas duas redes, com o link do post salvo (F4)
-- [ ] Token vencendo avisa 7 dias antes **na tela** (a regra existe; falta a
-      tela — F3)
+- [x] Token vencendo avisa 7 dias antes na aba Contas (F3)
 - [ ] A capa é cortada em 1:1 respeitando o ponto focal (F4)
 
 ---
@@ -432,3 +431,37 @@ A escrever na F4: contrato do `SocialPublisher` (fake ↔ Meta) e E2E da fila.
 | Raiz de composição | `packages/api/src/social.ts` |
 | API | `packages/api/src/routers/social.ts` (`social.*`) |
 | Tarefa de envio | `publish-social`, em `packages/api/src/scheduler.ts` |
+
+## 12. O que a F3 entregou
+
+Tela `/dashboard/social`, no grupo **Redação** do menu (`social:publish`), em
+duas abas:
+
+| | Arquivo |
+|---|---|
+| Página e abas | `apps/web/src/app/(app)/dashboard/social/{page,social-manager}.tsx` |
+| Fila em cartões | `.../social-queue.tsx` — filtro por estado (começa em "Aguardando aprovação"), aprovar, revisar, descartar, tentar de novo, link para o post publicado |
+| Editor do post | `.../post-dialog.tsx` — redes, legenda com contador por rede, imagens com ordem do carrossel, link, impedimentos acima do botão |
+| Contas | `.../accounts-panel.tsx` — estado da autorização, aviso de vencimento, desconectar (só `social:manage`) |
+| Lógica pura | `.../social-labels.ts` + `apps/web/tests/unit/social-labels.test.ts` |
+
+Decisões da tela:
+
+- **Cartões, não tabela.** O que se aprova é visual — imagem e legenda como vão
+  sair. Uma célula truncada esconderia justamente isso.
+- **"Aprovar e publicar" grava antes de aprovar.** Aprovar publica o que está no
+  banco; sem a gravação, uma correção de última hora na legenda não iria ao ar.
+- **Os botões dependem do estado** (`availableActions`, testado): enquanto envia,
+  nenhum — inclusive nenhum "cancelar", que mentiria sobre uma chamada à Meta que
+  já pode ter saído.
+- **O contador usa o `Caption` do domínio**, a mesma contagem por pontos de
+  código do servidor. Um `text.length` na tela divergiria justamente no emoji.
+- **Sem botão "Conectar" até a F4.** A aba Contas explica que a conexão depende
+  do App aprovado pela Meta, em vez de oferecer um fluxo que não existe (D17).
+
+**Verificação:** typecheck e lint verdes; 16 testes da lógica da tela. No
+servidor de dev, a rota responde (redireciona para o login sem sessão) e o
+`social.*` está montado e protegido. **A tela autenticada não foi exercitada no
+navegador** — exige login, que não é feito pela automação. O E2E da fila está
+registrado como `test.fixme` em `apps/web/tests/e2e/social.spec.ts`.
+

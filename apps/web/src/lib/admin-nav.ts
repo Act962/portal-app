@@ -20,7 +20,8 @@ export type NavIcon =
 	| "Radio"
 	| "ChartLine"
 	| "Vote"
-	| "PenLine";
+	| "PenLine"
+	| "Share2";
 
 export type NavItem = {
 	href: string;
@@ -49,6 +50,14 @@ export const ADMIN_NAV: NavGroup[] = [
 			},
 			{ href: "/dashboard/articles", label: "Matérias", icon: "Newspaper" },
 			{ href: "/dashboard/media", label: "Mídia", icon: "Image" },
+			// Na Redação, não em Administração: aprovar o post é a mesma decisão
+			// de publicar a matéria, e o EDITOR a toma (spec 08, D11).
+			{
+				href: "/dashboard/social",
+				label: "Redes sociais",
+				icon: "Share2",
+				action: "social:publish",
+			},
 			// Fica na Redação, não em Administração: é insumo de pauta, e o
 			// EDITOR também enxerga.
 			{
@@ -121,6 +130,7 @@ export const ROUTE_LABELS: Record<string, string> = {
 	"/dashboard": "Visão geral",
 	"/dashboard/articles": "Matérias",
 	"/dashboard/media": "Mídia",
+	"/dashboard/social": "Redes sociais",
 	"/dashboard/insights": "Insights",
 	"/dashboard/taxonomy": "Editorias e tags",
 	"/dashboard/programacao": "Programação",

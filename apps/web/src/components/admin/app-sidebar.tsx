@@ -23,6 +23,7 @@ import {
 	Radio,
 	ScrollText,
 	Settings,
+	Share2,
 	Tags,
 	Users,
 	Vote,
@@ -53,6 +54,7 @@ const ICONS: Record<NavIcon, typeof LayoutDashboard> = {
 	ChartLine,
 	Vote,
 	PenLine,
+	Share2,
 };
 
 export function AppSidebar({
