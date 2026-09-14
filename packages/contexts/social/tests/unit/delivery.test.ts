@@ -63,6 +63,33 @@ describe("Delivery", () => {
 		expect(publicada.remoteId).toBe("fb-1");
 	});
 
+	it("requeue zera as tentativas e o erro — é um ciclo novo", () => {
+		const delivery = Delivery.pending("FACEBOOK");
+		delivery.markFailed("token expirado", AGORA);
+		delivery.requeue();
+		expect(delivery.isPending()).toBe(true);
+		expect(delivery.attempts).toBe(0);
+		expect(delivery.error).toBeNull();
+	});
+
+	it("falha passageira conta a tentativa e mostra o motivo, sem sair da fila", () => {
+		const delivery = Delivery.pending("INSTAGRAM");
+		delivery.markRetrying("instável", AGORA);
+		expect(delivery.isPending()).toBe(true);
+		expect(delivery.error).toBe("instável");
+		expect(delivery.attempts).toBe(1);
+		expect(delivery.lastAttemptAt).toEqual(AGORA);
+	});
+
+	it("falha passageira não mexe no que já está no ar", () => {
+		const delivery = Delivery.pending("INSTAGRAM");
+		delivery.markPublished("ig-1", null, AGORA);
+		delivery.markRetrying("instável", AGORA);
+		expect(delivery.isPublished()).toBe(true);
+		expect(delivery.error).toBeNull();
+		expect(delivery.attempts).toBe(1);
+	});
+
 	it("restore devolve a entrega do banco como ela estava", () => {
 		const delivery = Delivery.restore({
 			platform: "INSTAGRAM",

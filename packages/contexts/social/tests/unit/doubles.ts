@@ -3,6 +3,8 @@ import type { Page, PageRequest } from "@portal-app/shared-kernel";
 import { err, ok, type Result } from "@portal-app/shared-kernel";
 import type {
 	AccountCredentials,
+	ConnectionInspection,
+	ConnectionProbe,
 	PublishableImage,
 	PublishFailure,
 	PublishRequest,
@@ -115,6 +117,34 @@ export class InMemorySocialAccountRepository
 			accessToken: this.tokens.get(account.id) ?? "",
 		});
 	}
+
+	forget(platform: SocialPlatform): Promise<boolean> {
+		const account = this.accounts.get(platform);
+		if (!account) {
+			return Promise.resolve(false);
+		}
+		account.disconnect();
+		this.tokens.delete(account.id);
+		return Promise.resolve(true);
+	}
+}
+
+/** Sonda programável: devolve a inspeção que mandarem, por rede. */
+export class FakeConnectionProbe implements ConnectionProbe {
+	readonly inspected: SocialPlatform[] = [];
+	private readonly replies = new Map<SocialPlatform, ConnectionInspection>();
+
+	reply(platform: SocialPlatform, inspection: Partial<ConnectionInspection>) {
+		this.replies.set(platform, { problems: [], quota: null, ...inspection });
+		return this;
+	}
+
+	inspect(credentials: AccountCredentials): Promise<ConnectionInspection> {
+		this.inspected.push(credentials.platform);
+		return Promise.resolve(
+			this.replies.get(credentials.platform) ?? { problems: [], quota: null },
+		);
+	}
 }
 
 /** Publisher programável: registra o que recebeu e devolve o que mandarem. */
@@ -130,7 +160,7 @@ export class SpySocialPublisher implements SocialPublisher {
 		return this;
 	}
 
-	failOn(platform: SocialPlatform, reason: string, retryable = true) {
+	failOn(platform: SocialPlatform, reason: string, retryable = false) {
 		this.outcomes.set(
 			platform,
 			err<PublishSuccess, PublishFailure>({ reason, retryable }),
@@ -152,13 +182,15 @@ export class SpySocialPublisher implements SocialPublisher {
 /** Fonte de imagem que resolve tudo, menos os ids que mandarem sumir. */
 export class FakeImageSource implements SocialImageSource {
 	readonly missing = new Set<string>();
+	/** Troque para simular o armazenamento de dev (`http://localhost:9000/...`). */
+	baseUrl = "https://cdn.test";
 
 	resolve(mediaId: string): Promise<PublishableImage | null> {
 		if (this.missing.has(mediaId)) {
 			return Promise.resolve(null);
 		}
 		return Promise.resolve({
-			url: `https://cdn.local/${mediaId}.jpg`,
+			url: `${this.baseUrl}/${mediaId}.jpg`,
 			altText: `alt de ${mediaId}`,
 		});
 	}

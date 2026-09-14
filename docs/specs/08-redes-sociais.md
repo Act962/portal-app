@@ -1,7 +1,7 @@
 # Spec — Fase 8: Redes Sociais (Instagram e Facebook)
 
 > **Status:** 🚧 Em execução — Fatias 1 e 2 entregues em 11/09/2026 (domínio,
-> persistência, gatilho, casos de uso e API); Fatia 3 (telas do painel) e Fatia 4 (adapter real da Meta, login e corte da capa) em 14/09/2026. Falta a F5: App Review e go-live.
+> persistência, gatilho, casos de uso e API); Fatia 3 (telas do painel) e Fatia 4 (adapter real da Meta, login e corte da capa) em 14/09/2026. Fatia 5, parte do código (diagnóstico, cota, reenvio automático e callbacks exigidos pela Meta), em 14/09/2026. **Falta a parte fora do código**: criar o App, testar contra a Meta real e passar pelo App Review — roteiro em §14.3.
 > **Decisões do cliente:** tomadas em 11/09/2026 (D1–D4 abaixo).
 > **Referências:** `01-identidade-acesso.md` (as ações novas) ·
 > `../adr/0005-outbox-transacional.md` (o gatilho) ·
@@ -55,7 +55,7 @@ usa. O editorial não fica sabendo que redes sociais existem.
 | F2 | Persistência (Prisma), casos de uso, gatilho no `ArticlePublished`, tRPC | ✅ 11/09 |
 | F3 | Telas do painel: fila de aprovação, editor do post, conexão de contas | ✅ 14/09 |
 | F4 | Adapter real da Meta + OAuth + corte 1080×1080 da capa | ✅ 14/09 |
-| F5 | App Review da Meta e go-live | ⬜ |
+| F5 | Preparação do go-live: diagnóstico, cota, reenvio, callbacks da Meta (código) · App, teste real e App Review (fora do código) | 🟡 código 14/09 |
 
 ### Não entra (e por quê)
 
@@ -414,7 +414,7 @@ A escrever na F4: contrato do `SocialPublisher` (fake ↔ Meta) e E2E da fila.
 - [x] Nada além do adapter conhece o vocabulário da Meta — verificado pelo
       `dependency-cruiser`
 - [x] A fila aparece no painel, em "Redes sociais", para EDITOR e ADMIN (F3)
-- [~] Aprovar publica de verdade nas duas redes, com o link do post salvo — implementado e testado contra uma Graph API simulada; **não exercitado contra a Meta real** (depende do App, F5)
+- [~] Aprovar publica de verdade nas duas redes, com o link do post salvo — implementado e testado contra uma Graph API simulada; **não exercitado contra a Meta real** (depende do App — roteiro em §14.3)
 - [x] Token vencendo avisa 7 dias antes na aba Contas (F3)
 - [x] A capa é cortada em 1:1 respeitando o ponto focal, em JPEG 1080×1080 (F4)
 
@@ -502,4 +502,123 @@ Decisões da F4:
 - **Em dev a publicação falha no download da imagem.** A Meta baixa por URL pública, e o MinIO local não é alcançável pela internet. Para publicar de verdade, o armazenamento precisa ser o R2 (ou um túnel).
 - **O cookie do login pendente não é apagado depois da escolha**; ele vence sozinho em 10 minutos. O tRPC não tem acesso aos cabeçalhos de resposta, e o conteúdo é cifrado e restrito a `/api/trpc`.
 - **As rotas `connect`/`callback` e o selo do cookie não têm teste automatizado** — exigem sessão e ambiente. Estão cobertos pelo roteiro manual da F5.
+
+## 14. F5 — preparação do go-live
+
+A F5 tem duas metades de natureza diferente. A **do código** está entregue: é
+o que torna o primeiro contato com a Meta real diagnosticável e o que a Meta
+exige para aprovar o App. A **de fora do código** — criar o App, conectar a
+conta do veículo, publicar de verdade e passar pelo App Review — depende de
+quem tem acesso às contas e é o roteiro de §14.3.
+
+### 14.1 O que o código entregou
+
+| Entrega | Onde |
+|---|---|
+| **Verificar conexão** — por rede: token válido (`debug_token`), permissões concedidas, cota do dia e armazenamento alcançável, sem publicar nada | `application/diagnose-accounts.ts`, `infrastructure/meta/meta-connection-probe.ts`, `social.diagnose`, botão na aba Contas |
+| **Cota lida antes de publicar** (D13 agora implementado) | `infrastructure/meta/publishing-quota.ts`, `MetaSocialPublisher` |
+| **Reenvio automático de verdade** — falha passageira fica na fila por até 3 rodadas | `SocialPost.recordFailure`, `Delivery.markRetrying`, `publishPendingPosts` |
+| **Imagem em endereço interno recusada antes da Meta** | `domain/public-media-url.ts`, `publishPendingPosts` |
+| **Callback de desautorização** e **callback de exclusão de dados**, com `signed_request` conferido | `apps/web/src/app/api/social/meta/{deauthorize,data-deletion}/route.ts`, `infrastructure/meta/signed-request.ts`, `application/forget-credentials.ts` |
+| **Página de exclusão de dados** e seção na Política de Privacidade | `(site)/privacidade/exclusao-de-dados/page.tsx`, `(site)/privacidade/page.tsx` |
+
+**Bug corrigido.** Até a F4, o worker ignorava o `retryable` do publisher:
+toda falha virava `FALHOU` e parava, enquanto a mensagem gravada dizia "a
+publicação será tentada de novo". Nenhuma era tentada. É o D23.
+
+### 14.2 Decisões da F5
+
+- **D23 — Quem promete nova tentativa é o agregado, não o tradutor de erro.**
+  `recordFailure(…, { retryable })` mantém a entrega `PENDENTE` até
+  `MAX_AUTOMATIC_ATTEMPTS` (3, a cada rodada de 5 min) e só então a marca
+  `FALHOU`. As frases do `graph-errors` dizem o que houve, nunca o que vai
+  acontecer — só o agregado sabe quantas tentativas já foram. `attempts` passa
+  a contar **o ciclo**: o "Tentar de novo" zera, senão a entrega que esgotou as
+  três desistiria na primeira instabilidade depois do clique. O evento
+  `SocialPostFailed` sai só na falha definitiva.
+- **D24 — Endereço interno é recusado antes de chamar a Meta.** `localhost`,
+  IP de rede local e `.local` nunca serão baixados; a Meta responderia com um
+  erro genérico de download, depois de gastar a chamada. É checagem de formato,
+  não de alcance — um domínio público fora do ar passa e falha na Meta, o que é
+  certo, porque essa falha é passageira.
+- **D25 — Cota esgotada não é repetível pelo worker.** A cota volta em horas;
+  as tentativas automáticas são de minutos e só queimariam o ciclo. Consulta
+  de cota que FALHA não bloqueia: não saber a cota é diferente de não ter cota.
+- **D26 — O pedido de exclusão apaga as credenciais das DUAS redes.** O portal
+  não guarda o id do usuário da Meta que fez o login (só os da Página e do
+  Instagram), e as duas contas nascem do mesmo login. Apagar a mais se desfaz
+  com um novo "Conectar com a Meta"; apagar a menos manteria um token que
+  alguém pediu para sumir. O registro da conta fica (o histórico aponta para
+  ele); o token vira string vazia e a conta, `DESCONECTADA`.
+- **D27 — O diagnóstico é leitura de `social:publish`, disparada no clique.**
+  Quem aprova post precisa entender por que a fila não anda; nenhum token sai
+  pela resposta. Não roda ao abrir a aba porque cada verificação consulta a
+  Meta.
+
+### 14.3 Roteiro do go-live (fora do código)
+
+Cada passo depende do anterior. Quem executa precisa ser administrador da
+Página do veículo.
+
+1. **Pré-requisitos** — §6.1 inteiro (Instagram profissional vinculado à
+   Página, as duas no mesmo Portfólio Empresarial).
+2. **Criar o App** — §6.2.
+3. **Configurar o App** em developers.facebook.com:
+   - *Configurações → Básico*: domínio do portal; **URL da Política de
+     Privacidade** `https://<dominio>/privacidade`; **URL de callback de
+     exclusão de dados** `https://<dominio>/api/social/meta/data-deletion`.
+   - *Login do Facebook para Empresas → Configurações*: **URI de
+     redirecionamento** `https://<dominio>/api/social/meta/callback` (e o de
+     localhost, se for testar em dev); **URL de callback para desautorizar**
+     `https://<dominio>/api/social/meta/deauthorize`.
+4. **Variáveis no ambiente de produção** (Vercel): `META_APP_ID`,
+   `META_APP_SECRET` e o armazenamento apontando para o R2 (`S3_PUBLIC_URL`
+   público). Em dev, sem túnel, o diagnóstico vai acusar "endereço interno" —
+   é o esperado.
+5. **Papel no App.** Enquanto o App está em modo de desenvolvimento, só quem
+   tem papel nele (administrador, desenvolvedor, testador) consegue autorizar.
+   Adicione a conta que vai conectar.
+6. **Conectar.** Painel → Redes sociais → Contas → *Conectar com a Meta* →
+   aceitar todas as permissões → escolher a Página do veículo.
+7. **Verificar conexão.** As duas redes precisam aparecer como *Pronta para
+   publicar*. Qualquer outra coisa diz o que falta — resolva antes do passo 8.
+8. **Publicar de verdade**, nesta ordem, conferindo cada post nas redes e o
+   link salvo na fila:
+   1. post manual com uma imagem, só Facebook;
+   2. o mesmo, só Instagram;
+   3. carrossel com 3 imagens nas duas redes;
+   4. uma matéria publicada no portal → rascunho automático → aprovar.
+9. **Anotar o que divergir da documentação** (códigos de erro, formato de
+   resposta) e corrigir o adapter antes da review — os testes da F4 simulam a
+   Graph API a partir da documentação, e é aqui que ela se confirma.
+10. **Verificação de negócio** no Portfólio Empresarial (documentos da empresa).
+11. **App Review** — pedir as permissões da tabela abaixo, com um screencast
+    do fluxo dos passos 6–8 (login, escolha da Página, aprovar um post, o post
+    na rede).
+12. **Modo Live** depois da aprovação. Refazer o passo 7.
+
+**Justificativas para o App Review** (a revisão é em inglês):
+
+| Permissão | Justificativa |
+|---|---|
+| `pages_show_list` | After Facebook Login, the newsroom admin picks which Page the news portal publishes to. We list the Pages they manage so the right one is chosen. |
+| `pages_read_engagement` | Required together with `pages_manage_posts` to read the Page's basic data (name, picture) shown in the portal's connection screen. |
+| `pages_manage_posts` | Editors approve each post in our dashboard; on approval we publish the article's image, caption and link to the newspaper's own Page. Nothing is posted without human approval. |
+| `instagram_basic` | Identifies the Instagram professional account linked to the Page, so the dashboard shows which account will receive the post. |
+| `instagram_content_publish` | On editor approval, publishes the article's cover image (or a carousel) with its caption to the newspaper's own Instagram account. |
+| `business_management` | Pages owned by a Business Portfolio are only listed with this permission; without it the Page picker is empty for our client. |
+
+### 14.4 Limites conhecidos, honestos
+
+- **Continua sem teste contra a Meta real** — é o passo 8 do roteiro. Em
+  particular: o formato de `content_publishing_limit` e a lista `scopes` do
+  `debug_token` para token de Página vêm da referência, não de resposta vista.
+- **O contrato de integração do `forget` foi escrito, mas não rodou**: o Docker
+  estava fora do ar na sessão. Rode `pnpm test:integration` antes do merge.
+- **As rotas de callback não têm teste automatizado** — a lógica sim
+  (assinatura, exclusão); a cola das rotas está em `it.todo` em
+  `packages/api/tests/unit/social-meta-callbacks.test.ts`.
+- **O painel não expõe o erro de uma entrega que está sendo retentada** além
+  do que a fila já mostra por entrega; um contador "tentativa 2 de 3" é
+  conforto para depois.
 

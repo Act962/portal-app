@@ -363,13 +363,46 @@ export class SocialPost extends AggregateRoot<string> {
 		this.refreshStatus();
 	}
 
-	recordFailure(platform: SocialPlatform, reason: string, at: Date): void {
+	/**
+	 * Registra que a rede recusou.
+	 *
+	 * **`retryable` decide se a entrega sai da fila.** Uma falha passageira (a
+	 * Meta instável, limite de chamadas, rede) deixa a entrega `PENDENTE`, com o
+	 * motivo visível, para a próxima rodada do worker — até
+	 * `MAX_AUTOMATIC_ATTEMPTS`. Aí desiste e vira `FALHOU`, porque insistir para
+	 * sempre esconderia um problema que já não é passageiro atrás de um
+	 * "enviando" eterno.
+	 *
+	 * A promessa de nova tentativa é escrita AQUI, e não por quem traduz o erro
+	 * da Meta: só o agregado sabe quantas tentativas já foram, e uma frase "será
+	 * tentada de novo" na última seria mentira.
+	 *
+	 * O evento `SocialPostFailed` sai só na falha definitiva — a auditoria
+	 * registra o que deixou de ir ao ar, não cada soluço da rede.
+	 */
+	recordFailure(
+		platform: SocialPlatform,
+		reason: string,
+		at: Date,
+		options: { retryable?: boolean } = {},
+	): void {
 		const delivery = this.deliveryFor(platform);
 		if (!delivery || delivery.isPublished()) {
 			return;
 		}
-		delivery.markFailed(reason, at);
-		this.record(new SocialPostFailed(this.id, platform, reason, at));
+		if (options.retryable && delivery.attempts + 1 < MAX_AUTOMATIC_ATTEMPTS) {
+			delivery.markRetrying(
+				`${reason} Nova tentativa automática em alguns minutos.`,
+				at,
+			);
+			this.refreshStatus();
+			return;
+		}
+		const finalReason = options.retryable
+			? `${reason} Foram ${MAX_AUTOMATIC_ATTEMPTS} tentativas automáticas sem sucesso — use "Tentar de novo" quando o problema passar.`
+			: reason;
+		delivery.markFailed(finalReason, at);
+		this.record(new SocialPostFailed(this.id, platform, finalReason, at));
 		this.refreshStatus();
 	}
 
@@ -433,6 +466,16 @@ export class SocialPost extends AggregateRoot<string> {
 		}
 	}
 }
+
+/**
+ * Quantas vezes o worker tenta sozinho uma entrega que falhou por motivo
+ * passageiro, antes de desistir e pedir uma pessoa.
+ *
+ * Três, a cada rodada de cinco minutos: cobre a instabilidade típica da Meta
+ * (minutos) sem deixar uma notícia presa em "enviando" por uma hora. Cada
+ * "Tentar de novo" do painel abre um ciclo novo de três.
+ */
+export const MAX_AUTOMATIC_ATTEMPTS = 3;
 
 /**
  * Limpa e valida a lista de imagens.

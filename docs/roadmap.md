@@ -304,7 +304,10 @@ rich-text de verdade.
 > Facebook. Entrou por demanda do cliente (11/09/2026): a redação publicava a mesma notícia
 > duas vezes, uma no painel e outra no celular. O módulo é barato porque o gatilho já existe —
 > ele escuta o `ArticlePublished` que o outbox da Fase 3 já emite, e o editorial não fica
-> sabendo que redes sociais existem. Fatia 1 (domínio) entregue.
+> sabendo que redes sociais existem. Fatias 1–4 entregues (domínio, API, telas, adapter real da
+> Meta); da F5, a parte do código (diagnóstico, cota, reenvio, callbacks exigidos pela Meta).
+> Falta o que depende das contas do cliente: criar o App, publicar de verdade e o App Review —
+> roteiro em `specs/08-redes-sociais.md` §14.3.
 
 Sem data definida; entram por prioridade de negócio: cobertura ao vivo, especiais e séries,
 editoria de vídeo, PWA, enquetes, relatórios de produção. Cada um com sua spec.

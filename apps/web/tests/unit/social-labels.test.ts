@@ -4,9 +4,12 @@ import {
 	accountTone,
 	availableActions,
 	captionCounters,
+	DIAGNOSIS_LABELS,
+	diagnosisTone,
 	metaFlagMessage,
 	POST_STATUS_LABELS,
 	previewCaption,
+	quotaSummary,
 	summarizeDeliveries,
 } from "@/app/(app)/dashboard/social/social-labels";
 
@@ -141,5 +144,28 @@ describe("metaFlagMessage — a volta do login da Meta", () => {
 	it("parâmetro inventado na URL não vira aviso vermelho", () => {
 		expect(metaFlagMessage("qualquer-coisa")).toBeNull();
 		expect(metaFlagMessage(null)).toBeNull();
+	});
+});
+
+describe("diagnóstico — Verificar conexão", () => {
+	it("cada veredito tem rótulo e tom", () => {
+		expect(DIAGNOSIS_LABELS.BLOQUEADA).toBe("Não publica");
+		expect(diagnosisTone("PRONTA")).toBe("ok");
+		expect(diagnosisTone("ATENCAO")).toBe("atencao");
+		expect(diagnosisTone("BLOQUEADA")).toBe("erro");
+	});
+
+	it("a cota diz quantas ainda cabem hoje", () => {
+		expect(quotaSummary({ used: 12, total: 50 })).toBe(
+			"12 de 50 publicações nas últimas 24 h · restam 38",
+		);
+	});
+
+	it("singular quando resta uma", () => {
+		expect(quotaSummary({ used: 49, total: 50 })).toContain("resta 1");
+	});
+
+	it("cota estourada não mostra número negativo", () => {
+		expect(quotaSummary({ used: 52, total: 50 })).toContain("restam 0");
 	});
 });

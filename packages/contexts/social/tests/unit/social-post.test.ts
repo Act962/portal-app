@@ -1,6 +1,7 @@
 import {
 	Caption,
 	Delivery,
+	MAX_AUTOMATIC_ATTEMPTS,
 	type SocialPlatform,
 	SocialPost,
 	SocialPostApproved,
@@ -343,13 +344,91 @@ describe("resultado das entregas", () => {
 		expect(post.deliveryFor("FACEBOOK")).toBeUndefined();
 	});
 
-	it("conta as tentativas, para a tela parar de oferecer 'tentar de novo'", () => {
+	it("conta as tentativas do CICLO — o 'tentar de novo' abre um ciclo novo", () => {
 		const post = aprovado();
+		post.recordSuccess("FACEBOOK", "fb-1", null, AGORA);
 		post.recordFailure("INSTAGRAM", "erro 1", AGORA);
-		post.retryFailed();
+		expect(post.deliveryFor("INSTAGRAM")?.attempts).toBe(1);
+		expect(post.retryFailed().isOk()).toBe(true);
 		post.recordFailure("INSTAGRAM", "erro 2", AGORA);
-		expect(post.deliveryFor("INSTAGRAM")?.attempts).toBe(2);
+		// Zerado no requeue: sem isso, a entrega que já esgotou as tentativas
+		// automáticas desistiria na primeira instabilidade depois do clique.
+		expect(post.deliveryFor("INSTAGRAM")?.attempts).toBe(1);
 		expect(post.deliveryFor("INSTAGRAM")?.lastAttemptAt).toEqual(AGORA);
+	});
+
+	describe("falha passageira (retryable)", () => {
+		it("fica na fila com o motivo visível, e sem evento de falha", () => {
+			const post = aprovado();
+			post.recordFailure("INSTAGRAM", "O Instagram está instável.", AGORA, {
+				retryable: true,
+			});
+
+			const entrega = post.deliveryFor("INSTAGRAM");
+			expect(entrega?.isPending()).toBe(true);
+			expect(entrega?.error).toBe(
+				"O Instagram está instável. Nova tentativa automática em alguns minutos.",
+			);
+			expect(entrega?.attempts).toBe(1);
+			expect(post.status).toBe("PUBLICANDO");
+			// A auditoria registra o que deixou de ir ao ar, não cada soluço da rede.
+			expect(
+				post.pullEvents().some((event) => event instanceof SocialPostFailed),
+			).toBe(false);
+		});
+
+		it("desiste na última tentativa automática e diz o que fazer", () => {
+			const post = aprovado();
+			for (let attempt = 0; attempt < MAX_AUTOMATIC_ATTEMPTS; attempt += 1) {
+				post.recordFailure("INSTAGRAM", "Instável.", AGORA, {
+					retryable: true,
+				});
+			}
+
+			const entrega = post.deliveryFor("INSTAGRAM");
+			expect(entrega?.isFailed()).toBe(true);
+			expect(entrega?.attempts).toBe(MAX_AUTOMATIC_ATTEMPTS);
+			expect(entrega?.error).toContain("Tentar de novo");
+			// Nenhuma promessa de nova tentativa na mensagem final.
+			expect(entrega?.error).not.toContain("Nova tentativa automática");
+			expect(post.pullEvents()).toContainEventOfType(SocialPostFailed);
+		});
+
+		it("falha definitiva não espera: FALHOU na primeira, com a frase original", () => {
+			const post = aprovado();
+			post.recordFailure("INSTAGRAM", "A imagem é grande demais.", AGORA, {
+				retryable: false,
+			});
+			expect(post.deliveryFor("INSTAGRAM")?.isFailed()).toBe(true);
+			expect(post.deliveryFor("INSTAGRAM")?.error).toBe(
+				"A imagem é grande demais.",
+			);
+		});
+
+		it("passageira depois de publicada é ignorada", () => {
+			const post = aprovado();
+			post.recordSuccess("INSTAGRAM", "ig-1", null, AGORA);
+			post.recordFailure("INSTAGRAM", "Instável.", AGORA, { retryable: true });
+			expect(post.deliveryFor("INSTAGRAM")?.isPublished()).toBe(true);
+			expect(post.deliveryFor("INSTAGRAM")?.error).toBeNull();
+		});
+
+		it("o 'tentar de novo' devolve três tentativas automáticas novas", () => {
+			const post = aprovado();
+			post.recordSuccess("FACEBOOK", "fb-1", null, AGORA);
+			for (let attempt = 0; attempt < MAX_AUTOMATIC_ATTEMPTS; attempt += 1) {
+				post.recordFailure("INSTAGRAM", "Instável.", AGORA, {
+					retryable: true,
+				});
+			}
+			expect(post.status).toBe("PARCIAL");
+
+			post.retryFailed();
+			post.recordFailure("INSTAGRAM", "Instável.", AGORA, { retryable: true });
+
+			expect(post.deliveryFor("INSTAGRAM")?.isPending()).toBe(true);
+			expect(post.status).toBe("PUBLICANDO");
+		});
 	});
 });
 

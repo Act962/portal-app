@@ -42,4 +42,14 @@ export interface SocialAccountRepository {
 
 	/** Lido só pelo adapter da Meta, no momento da chamada. */
 	credentialsFor(platform: SocialPlatform): Promise<AccountCredentials | null>;
+
+	/**
+	 * APAGA o token e desliga a conta — o pedido de exclusão de dados da Meta.
+	 *
+	 * Diferente de `disconnect` + `save`, que guardam o token para uma reconexão
+	 * sem novo login: aqui o segredo deixa de existir. O registro da conta fica,
+	 * porque o histórico do que foi publicado aponta para ele e não contém dado
+	 * do usuário da Meta. Devolve `false` quando a rede não tinha conta.
+	 */
+	forget(platform: SocialPlatform): Promise<boolean>;
 }

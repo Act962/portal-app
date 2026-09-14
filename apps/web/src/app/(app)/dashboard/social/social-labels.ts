@@ -1,6 +1,7 @@
 import {
 	Caption,
 	type DeliveryStatus,
+	type DiagnosisVerdict,
 	PLATFORM_LABEL,
 	PLATFORM_LIMITS,
 	type PostStatus,
@@ -148,6 +149,36 @@ export const ACCOUNT_STATE_LABELS: Record<string, string> = {
 	EXPIRADA: "Autorização vencida",
 	DESCONECTADA: "Desconectada",
 };
+
+/** O veredito do "Verificar conexão", na língua de quem vai agir sobre ele. */
+export const DIAGNOSIS_LABELS: Record<DiagnosisVerdict, string> = {
+	PRONTA: "Pronta para publicar",
+	ATENCAO: "Publica, com ressalva",
+	BLOQUEADA: "Não publica",
+};
+
+export function diagnosisTone(
+	verdict: DiagnosisVerdict,
+): "ok" | "atencao" | "erro" {
+	switch (verdict) {
+		case "PRONTA":
+			return "ok";
+		case "ATENCAO":
+			return "atencao";
+		default:
+			return "erro";
+	}
+}
+
+/**
+ * A cota do Instagram numa linha. "Restam" é o número que decide alguma coisa
+ * — quantas notícias ainda cabem hoje —, então vem escrito, e não deixado para
+ * a pessoa subtrair.
+ */
+export function quotaSummary(quota: { used: number; total: number }): string {
+	const left = Math.max(0, quota.total - quota.used);
+	return `${quota.used} de ${quota.total} publicações nas últimas 24 h · ${left === 1 ? "resta 1" : `restam ${left}`}`;
+}
 
 export function accountTone(state: string): "ok" | "atencao" | "erro" {
 	switch (state) {

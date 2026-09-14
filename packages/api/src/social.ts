@@ -1,13 +1,19 @@
 import { createPrismaClient } from "@portal-app/db";
 import { env } from "@portal-app/env/server";
 import { SystemClock, UuidGenerator } from "@portal-app/shared-kernel";
+import { type DiagnoseDeps, forgetAllCredentials } from "@portal-app/social";
 import { MetaGraphClient } from "@portal-app/social/infrastructure/meta/graph-client";
+import { MetaConnectionProbe } from "@portal-app/social/infrastructure/meta/meta-connection-probe";
 import {
 	buildAuthorizeUrl,
 	MetaOAuth,
 	type MetaOAuthConfig,
 } from "@portal-app/social/infrastructure/meta/meta-oauth";
 import { MetaSocialPublisher } from "@portal-app/social/infrastructure/meta/meta-social-publisher";
+import {
+	parseSignedRequest,
+	type SignedRequest,
+} from "@portal-app/social/infrastructure/meta/signed-request";
 import { PrismaSocialAccountRepository } from "@portal-app/social/infrastructure/prisma-social-account-repository";
 import { PrismaSocialPostRepository } from "@portal-app/social/infrastructure/prisma-social-post-repository";
 import { TokenCipher } from "@portal-app/social/infrastructure/token-cipher";
@@ -89,6 +95,49 @@ export const socialDeps = {
 
 /** As redes que recebem o post automático de cada matéria publicada. */
 export const AUTO_POST_PLATFORMS = ["INSTAGRAM", "FACEBOOK"] as const;
+
+/**
+ * O diagnóstico das contas (spec 08, §14). A URL de amostra sai do MESMO
+ * armazenamento que monta as imagens publicadas: é ela que diz se a Meta vai
+ * conseguir baixá-las.
+ */
+export const diagnoseDeps: DiagnoseDeps = {
+	accounts: socialAccountRepo,
+	probe: metaConfig
+		? new MetaConnectionProbe({
+				client: graph,
+				appId: metaConfig.appId,
+				appSecret: metaConfig.appSecret,
+			})
+		: null,
+	clock: socialDeps.clock,
+	mediaSampleUrl: mediaStorage.publicUrl("social/diagnostico.jpg"),
+};
+
+// ── avisos que a Meta manda ao portal ─────────────────────────────────────────
+
+/**
+ * Lê e confere o `signed_request` de um aviso da Meta (remoção do App, pedido
+ * de exclusão de dados). `null` sem App configurado, sem o campo, ou com
+ * assinatura que não bate — as rotas respondem 400 nos três casos.
+ */
+export async function metaSignedRequestFrom(
+	request: Request,
+): Promise<SignedRequest | null> {
+	if (!metaConfig) {
+		return null;
+	}
+	const form = await request.formData().catch(() => null);
+	const signed = form?.get("signed_request");
+	return typeof signed === "string"
+		? parseSignedRequest(signed, metaConfig.appSecret)
+		: null;
+}
+
+/** Apaga as credenciais da Meta guardadas pelo portal. */
+export function forgetMetaCredentials() {
+	return forgetAllCredentials({ accounts: socialAccountRepo });
+}
 
 // ── cookies do login da Meta ──────────────────────────────────────────────────
 

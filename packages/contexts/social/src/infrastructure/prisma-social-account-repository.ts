@@ -80,6 +80,16 @@ export class PrismaSocialAccountRepository implements SocialAccountRepository {
 			accessToken: this.cipher.decrypt(row.accessToken),
 		};
 	}
+
+	/** `updateMany` e não `update`: rede sem conta é resposta (`false`), não
+	 * exceção de registro inexistente. */
+	async forget(platform: SocialPlatform): Promise<boolean> {
+		const { count } = await this.prisma.socialAccount.updateMany({
+			where: { platform },
+			data: { accessToken: "", status: "DESCONECTADA" },
+		});
+		return count > 0;
+	}
 }
 
 type AccountRow = {

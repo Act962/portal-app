@@ -1,5 +1,6 @@
 import { FixedClock } from "@portal-app/shared-kernel";
 import {
+	MAX_AUTOMATIC_ATTEMPTS,
 	publishPendingPosts,
 	SocialAccount,
 	type SocialPlatform,
@@ -76,7 +77,12 @@ describe("publishPendingPosts", () => {
 
 		const resultado = await publishPendingPosts(deps);
 
-		expect(resultado).toEqual({ posts: 1, published: 2, failed: 0 });
+		expect(resultado).toEqual({
+			posts: 1,
+			published: 2,
+			failed: 0,
+			retrying: 0,
+		});
 		expect(post.status).toBe("PUBLICADO");
 		expect(post.deliveryFor("INSTAGRAM")?.remoteId).toBe("ig-1");
 		expect(post.deliveryFor("FACEBOOK")?.remoteId).toBe("fb-1");
@@ -108,9 +114,9 @@ describe("publishPendingPosts", () => {
 		await publishPendingPosts(deps);
 
 		expect(publisher.requests[0]?.images.map((image) => image.url)).toEqual([
-			"https://cdn.local/m-1.jpg",
-			"https://cdn.local/m-2.jpg",
-			"https://cdn.local/m-3.jpg",
+			"https://cdn.test/m-1.jpg",
+			"https://cdn.test/m-2.jpg",
+			"https://cdn.test/m-3.jpg",
 		]);
 		expect(publisher.requests[0]?.images[0]?.altText).toBe("alt de m-1");
 	});
@@ -125,7 +131,12 @@ describe("publishPendingPosts", () => {
 
 		const resultado = await publishPendingPosts(deps);
 
-		expect(resultado).toEqual({ posts: 1, published: 1, failed: 1 });
+		expect(resultado).toEqual({
+			posts: 1,
+			published: 1,
+			failed: 1,
+			retrying: 0,
+		});
 		expect(post.status).toBe("PARCIAL");
 		expect(post.deliveryFor("INSTAGRAM")?.error).toBe(
 			"A imagem precisa ser JPEG.",
@@ -195,6 +206,75 @@ describe("publishPendingPosts", () => {
 			);
 			expect(publisher.requests).toHaveLength(0);
 		});
+
+		it("imagem em endereço interno falha antes de chamar a Meta", async () => {
+			// O ambiente de dev: MinIO em localhost. A Meta nunca alcançaria a foto,
+			// e o erro dela ("não foi possível baixar") não diria por quê.
+			conectar("INSTAGRAM");
+			images.baseUrl = "http://localhost:9000/portal-media";
+			const post = await postAprovado(["INSTAGRAM"]);
+
+			const resultado = await publishPendingPosts(deps);
+
+			expect(resultado.failed).toBe(1);
+			expect(post.deliveryFor("INSTAGRAM")?.error).toContain(
+				"endereço interno",
+			);
+			expect(publisher.requests).toHaveLength(0);
+		});
+	});
+
+	describe("falha passageira", () => {
+		it("NÃO vira FALHOU: fica na fila, com o motivo visível", async () => {
+			conectar("INSTAGRAM");
+			publisher.failOn(
+				"INSTAGRAM",
+				"O Instagram está instável no momento.",
+				true,
+			);
+			const post = await postAprovado(["INSTAGRAM"]);
+
+			const resultado = await publishPendingPosts(deps);
+
+			expect(resultado).toEqual({
+				posts: 1,
+				published: 0,
+				failed: 0,
+				retrying: 1,
+			});
+			expect(post.status).toBe("PUBLICANDO");
+			expect(post.deliveryFor("INSTAGRAM")?.error).toContain(
+				"Nova tentativa automática",
+			);
+		});
+
+		it("a rodada seguinte tenta sozinha e publica", async () => {
+			conectar("INSTAGRAM");
+			publisher.failOn("INSTAGRAM", "Instável.", true);
+			const post = await postAprovado(["INSTAGRAM"]);
+			await publishPendingPosts(deps);
+
+			publisher.succeedOn("INSTAGRAM", "ig-9");
+			await publishPendingPosts(deps);
+
+			expect(post.status).toBe("PUBLICADO");
+			expect(post.deliveryFor("INSTAGRAM")?.error).toBeNull();
+			expect(publisher.requests).toHaveLength(2);
+		});
+
+		it("desiste depois das tentativas automáticas e para de chamar a Meta", async () => {
+			conectar("INSTAGRAM");
+			publisher.failOn("INSTAGRAM", "Instável.", true);
+			const post = await postAprovado(["INSTAGRAM"]);
+
+			for (let round = 0; round < MAX_AUTOMATIC_ATTEMPTS + 2; round += 1) {
+				await publishPendingPosts(deps);
+			}
+
+			expect(post.status).toBe("FALHOU");
+			expect(post.deliveryFor("INSTAGRAM")?.error).toContain("Tentar de novo");
+			expect(publisher.requests).toHaveLength(MAX_AUTOMATIC_ATTEMPTS);
+		});
 	});
 
 	it("respeita o teto da rodada — a cota da Meta não volta", async () => {
@@ -223,6 +303,7 @@ describe("publishPendingPosts", () => {
 			posts: 0,
 			published: 0,
 			failed: 0,
+			retrying: 0,
 		});
 	});
 });

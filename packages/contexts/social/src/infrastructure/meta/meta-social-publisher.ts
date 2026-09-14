@@ -11,6 +11,7 @@ import type {
 } from "../../domain/ports/social-publisher";
 import type { GraphError, MetaGraphClient } from "./graph-client";
 import { toPublishFailure } from "./graph-errors";
+import { readInstagramQuota } from "./publishing-quota";
 
 export type MetaPublisherDeps = {
 	client: MetaGraphClient;
@@ -23,6 +24,10 @@ export type MetaPublisherDeps = {
 	/** Quantas vezes perguntar pelo processamento do container. */
 	pollAttempts?: number;
 	pollIntervalMs?: number;
+	/** Consultar a cota do Instagram antes de publicar (D13). Padrão: sim. Só o
+	 * teste da sequência de chamadas desliga, para não repetir a consulta em
+	 * cada roteiro. */
+	checkQuota?: boolean;
 };
 
 type IdResponse = { id: string };
@@ -88,6 +93,21 @@ export class MetaSocialPublisher implements SocialPublisher {
 	): Promise<Result<PublishSuccess, PublishFailure>> {
 		const igId = request.accountRemoteId;
 		const { client } = this.deps;
+
+		// A cota é LIDA da conta, não cravada (D13). Esgotada, nem cria container:
+		// a Meta recusaria o `media_publish` depois de a imagem já ter sido
+		// processada. Não é repetível pelo worker — a cota volta em horas, não nos
+		// quinze minutos das tentativas automáticas.
+		if (this.deps.checkQuota ?? true) {
+			const quota = await readInstagramQuota(client, igId, token);
+			if (quota && quota.used >= quota.total) {
+				return err({
+					reason: `O Instagram atingiu o limite de ${quota.total} publicações em 24 horas. Tente de novo mais tarde.`,
+					retryable: false,
+					providerCode: "QUOTA_EXCEEDED",
+				});
+			}
+		}
 
 		let creationId: string;
 
@@ -190,8 +210,7 @@ export class MetaSocialPublisher implements SocialPublisher {
 					});
 				case "EXPIRED":
 					return err({
-						reason:
-							"O Instagram descartou o envio antes de publicar. A publicação será tentada de novo.",
+						reason: "O Instagram descartou o envio antes de publicar.",
 						retryable: true,
 						providerCode: "CONTAINER_EXPIRED",
 					});
@@ -201,7 +220,7 @@ export class MetaSocialPublisher implements SocialPublisher {
 		}
 		return err({
 			reason:
-				"O Instagram ainda está processando a imagem. A publicação será tentada de novo.",
+				"O Instagram ainda estava processando a imagem quando o tempo de espera acabou.",
 			retryable: true,
 			providerCode: "CONTAINER_TIMEOUT",
 		});

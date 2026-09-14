@@ -53,6 +53,9 @@ function publisher(
 		sleep: async () => {},
 		pollAttempts: 3,
 		pollIntervalMs: 1,
+		// Os roteiros abaixo afirmam a sequência exata de chamadas; a consulta de
+		// cota tem testes próprios, no fim do arquivo.
+		checkQuota: false,
 		...overrides,
 	});
 }
@@ -495,5 +498,108 @@ describe("MetaSocialPublisher — guardas", () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+});
+
+describe("MetaSocialPublisher — cota do Instagram (D13)", () => {
+	const cota = (usage: number, total = 50): Reply => ({
+		body: {
+			data: [
+				{
+					quota_usage: usage,
+					config: { quota_total: total, quota_duration: 86400 },
+				},
+			],
+		},
+	});
+
+	/** O caminho feliz de uma foto, com a resposta da cota escolhida pelo teste. */
+	function roteiro(quota: Reply) {
+		return (call: Call): Reply => {
+			if (call.path === "ig-1/content_publishing_limit") {
+				return quota;
+			}
+			if (call.method === "POST" && call.path === "ig-1/media") {
+				return { body: { id: "c1" } };
+			}
+			if (call.path === "c1") {
+				return { body: { status_code: "FINISHED" } };
+			}
+			if (call.path === "ig-1/media_publish") {
+				return { body: { id: "m1" } };
+			}
+			return { body: {} };
+		};
+	}
+
+	it("cota esgotada: nem cria container, e não é repetível pelo worker", async () => {
+		// A cota volta em horas; as tentativas automáticas são de minutos e só
+		// queimariam a fila.
+		const { calls, client } = fakeGraph(roteiro(cota(50)));
+
+		const failure = (
+			await publisher(client, { checkQuota: true }).publish(
+				request("INSTAGRAM"),
+			)
+		).unwrapErr();
+
+		expect(failure.providerCode).toBe("QUOTA_EXCEEDED");
+		expect(failure.retryable).toBe(false);
+		expect(failure.reason).toContain("limite de 50");
+		expect(calls).toHaveLength(1);
+		expect(calls[0]?.params.get("fields")).toBe("config,quota_usage");
+		expect(calls[0]?.params.get("access_token")).toBe(TOKEN);
+	});
+
+	it("cota com folga: consulta primeiro e publica", async () => {
+		const { calls, client } = fakeGraph(roteiro(cota(3)));
+
+		const result = await publisher(client, { checkQuota: true }).publish(
+			request("INSTAGRAM"),
+		);
+
+		expect(result.isOk()).toBe(true);
+		expect(calls[0]?.path).toBe("ig-1/content_publishing_limit");
+		expect(calls[1]?.path).toBe("ig-1/media");
+	});
+
+	it("consulta de cota que falha NÃO impede a publicação", async () => {
+		// Não saber a cota é diferente de não ter cota: bloquear aqui trocaria um
+		// erro raro por um bloqueio certo.
+		const { client } = fakeGraph(
+			roteiro({ status: 500, body: { error: { message: "x", code: 1 } } }),
+		);
+		const result = await publisher(client, { checkQuota: true }).publish(
+			request("INSTAGRAM"),
+		);
+		expect(result.isOk()).toBe(true);
+	});
+
+	it("resposta de cota em formato inesperado é ignorada", async () => {
+		const { client } = fakeGraph(roteiro({ body: { data: [] } }));
+		const result = await publisher(client, { checkQuota: true }).publish(
+			request("INSTAGRAM"),
+		);
+		expect(result.isOk()).toBe(true);
+	});
+
+	it("quota_total zero é tratada como resposta inválida, não como bloqueio", async () => {
+		const { client } = fakeGraph(roteiro(cota(0, 0)));
+		const result = await publisher(client, { checkQuota: true }).publish(
+			request("INSTAGRAM"),
+		);
+		expect(result.isOk()).toBe(true);
+	});
+
+	it("o Facebook não tem essa cota e não a consulta", async () => {
+		const { calls, client } = fakeGraph((call) =>
+			call.method === "POST"
+				? { body: { id: "f", post_id: "page-1_1" } }
+				: { body: {} },
+		);
+		await publisher(client, { checkQuota: true }).publish(request("FACEBOOK"));
+		expect(calls.some((c) => c.path.includes("content_publishing_limit"))).toBe(
+			false,
+		);
 	});
 });

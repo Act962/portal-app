@@ -118,13 +118,37 @@ export class Delivery {
 		this.state.lastAttemptAt = at;
 	}
 
-	/** Devolve a entrega para a fila. Só o que falhou volta — é o que faz o
-	 * "tentar de novo" do painel nunca reenviar o que deu certo. */
+	/**
+	 * Registra uma falha PASSAGEIRA sem tirar a entrega da fila.
+	 *
+	 * A entrega continua `PENDENTE` — a próxima rodada do worker a pega de novo —
+	 * mas o erro fica visível, para a tela dizer por que ainda não saiu em vez de
+	 * mostrar um "enviando" mudo por quinze minutos.
+	 */
+	markRetrying(reason: string, at: Date): void {
+		if (this.state.status === "PUBLICADO") {
+			return;
+		}
+		this.state.status = "PENDENTE";
+		this.state.error = reason;
+		this.state.attempts += 1;
+		this.state.lastAttemptAt = at;
+	}
+
+	/**
+	 * Devolve a entrega para a fila. Só o que falhou volta — é o que faz o
+	 * "tentar de novo" do painel nunca reenviar o que deu certo.
+	 *
+	 * Zera `attempts`: cada "tentar de novo" abre um ciclo novo de tentativas
+	 * automáticas. Sem isso, uma entrega que já esgotou as três desistiria na
+	 * primeira instabilidade depois do clique — e o botão pareceria quebrado.
+	 */
 	requeue(): void {
 		if (this.state.status !== "FALHOU") {
 			return;
 		}
 		this.state.status = "PENDENTE";
 		this.state.error = null;
+		this.state.attempts = 0;
 	}
 }

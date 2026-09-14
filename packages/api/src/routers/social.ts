@@ -5,6 +5,7 @@ import {
 	connectMetaPage,
 	countPendingPosts,
 	createDraft,
+	diagnoseAccounts,
 	disconnectAccount,
 	getPost,
 	listAccounts,
@@ -20,6 +21,7 @@ import { z } from "zod";
 
 import { requirePermission, router } from "../index";
 import {
+	diagnoseDeps,
 	META_PENDING_COOKIE,
 	metaOAuth,
 	readCookie,
@@ -224,6 +226,24 @@ export const socialRouter = router({
 	/** O App da Meta está configurado neste ambiente? A tela só oferece o login
 	 * quando está — sem ele, o botão levaria a um erro. */
 	metaStatus: publish.query(() => ({ configured: metaOAuth !== null })),
+
+	/**
+	 * "Cada rede consegue publicar agora?", respondido SEM publicar: consulta a
+	 * Meta sobre o token e as permissões, lê a cota e confere se o armazenamento
+	 * é alcançável. É o primeiro passo do roteiro do go-live (spec 08, §14).
+	 *
+	 * Query, e não mutation, porque não muda nada — mas a tela só a dispara no
+	 * clique: cada chamada consulta a Meta.
+	 */
+	diagnose: publish.query(async ({ ctx }) =>
+		ensure(await diagnoseAccounts(ctx.staff, diagnoseDeps)).map((item) => ({
+			platform: item.platform,
+			verdict: item.verdict,
+			problems: [...item.problems],
+			warnings: [...item.warnings],
+			quota: item.quota,
+		})),
+	),
 
 	/**
 	 * As Páginas que a pessoa administra, depois do login da Meta.

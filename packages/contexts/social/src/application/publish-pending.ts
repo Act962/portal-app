@@ -8,6 +8,7 @@ import type {
 	SocialImageSource,
 	SocialPublisher,
 } from "../domain/ports/social-publisher";
+import { mediaUrlProblem } from "../domain/public-media-url";
 import type { SocialPost } from "../domain/social-post";
 
 export type PublishPendingDeps = {
@@ -21,8 +22,13 @@ export type PublishPendingDeps = {
 export type PublishPendingResult = {
 	posts: number;
 	published: number;
+	/** Falhas definitivas: a entrega saiu da fila e espera uma pessoa. */
 	failed: number;
+	/** Falhas passageiras: a entrega continua na fila para a próxima rodada. */
+	retrying: number;
 };
+
+type Outcome = "published" | "failed" | "retrying";
 
 /**
  * Quantos posts uma rodada tenta.
@@ -52,31 +58,28 @@ export async function publishPendingPosts(
 	batchSize: number = BATCH_SIZE,
 ): Promise<PublishPendingResult> {
 	const posts = await deps.repo.listAwaitingDelivery(batchSize);
-	let published = 0;
-	let failed = 0;
+	const totals: Record<Outcome, number> = {
+		published: 0,
+		failed: 0,
+		retrying: 0,
+	};
 
 	for (const post of posts) {
 		for (const delivery of [...post.pendingDeliveries()]) {
-			const outcome = await deliver(post, delivery.platform, deps);
-			if (outcome) {
-				published += 1;
-			} else {
-				failed += 1;
-			}
+			totals[await deliver(post, delivery.platform, deps)] += 1;
 			// Uma gravação por entrega — ver o porquê no cabeçalho.
 			await deps.repo.save(post);
 		}
 	}
 
-	return { posts: posts.length, published, failed };
+	return { posts: posts.length, ...totals };
 }
 
-/** Devolve `true` se a rede aceitou. */
 async function deliver(
 	post: SocialPost,
 	platform: SocialPlatform,
 	deps: PublishPendingDeps,
-): Promise<boolean> {
+): Promise<Outcome> {
 	const now = deps.clock.now();
 	const label = PLATFORM_LABEL[platform];
 
@@ -87,7 +90,7 @@ async function deliver(
 			`Nenhuma conta do ${label} está conectada ao portal.`,
 			now,
 		);
-		return false;
+		return "failed";
 	}
 	if (!account.isUsableAt(now)) {
 		post.recordFailure(
@@ -95,7 +98,7 @@ async function deliver(
 			`A conta do ${label} não pode publicar: ${account.unusableReasonAt(now)}.`,
 			now,
 		);
-		return false;
+		return "failed";
 	}
 
 	const images = await resolveImages(post, deps);
@@ -105,7 +108,22 @@ async function deliver(
 			"Uma das imagens não está mais na biblioteca de mídia.",
 			now,
 		);
-		return false;
+		return "failed";
+	}
+
+	// A Meta BAIXA a imagem. Endereço interno (o MinIO de dev) morreria lá do
+	// outro lado com um erro genérico; aqui a causa sai em português, antes de
+	// gastar a chamada.
+	for (const image of images) {
+		const problem = mediaUrlProblem(image.url);
+		if (problem) {
+			post.recordFailure(
+				platform,
+				`O ${label} não consegue baixar a imagem: ${problem}.`,
+				now,
+			);
+			return "failed";
+		}
 	}
 
 	const result = await deps.publisher.publish({
@@ -119,13 +137,15 @@ async function deliver(
 
 	if (result.isErr()) {
 		const failure = result.unwrapErr();
-		post.recordFailure(platform, failure.reason, now);
-		return false;
+		post.recordFailure(platform, failure.reason, now, {
+			retryable: failure.retryable,
+		});
+		return post.deliveryFor(platform)?.isPending() ? "retrying" : "failed";
 	}
 
 	const success = result.unwrap();
 	post.recordSuccess(platform, success.remoteId, success.permalink, now);
-	return true;
+	return "published";
 }
 
 /**

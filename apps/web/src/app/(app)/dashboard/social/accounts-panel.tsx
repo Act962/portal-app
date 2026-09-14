@@ -20,7 +20,7 @@ import { Button } from "@portal-app/ui/components/button";
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import { cn } from "@portal-app/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Info, LogIn, Unplug } from "lucide-react";
+import { AlertTriangle, Info, LogIn, Stethoscope, Unplug } from "lucide-react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -31,7 +31,10 @@ import { trpc } from "@/utils/trpc";
 import {
 	ACCOUNT_STATE_LABELS,
 	accountTone,
+	DIAGNOSIS_LABELS,
+	diagnosisTone,
 	metaFlagMessage,
+	quotaSummary,
 } from "./social-labels";
 
 const TONE_CLASSES = {
@@ -224,6 +227,8 @@ export function AccountsPanel({
 				})}
 			</div>
 
+			<DiagnosisPanel />
+
 			<AlertDialog
 				open={disconnecting !== null}
 				onOpenChange={(open) => !open && setDisconnecting(null)}
@@ -252,6 +257,102 @@ export function AccountsPanel({
 				</AlertDialogContent>
 			</AlertDialog>
 		</div>
+	);
+}
+
+/**
+ * "Verificar conexão": pergunta à Meta se cada rede consegue publicar agora,
+ * sem publicar nada (spec 08, §14).
+ *
+ * Só roda no clique (`enabled: false`): cada verificação consulta a Meta, e
+ * abrir a aba não deveria gastar chamada. É o primeiro passo do roteiro do
+ * go-live — descobrir aqui que faltou uma permissão custa um clique;
+ * descobrir pela fila custa uma notícia que não saiu.
+ */
+function DiagnosisPanel() {
+	const diagnose = useQuery({
+		...trpc.social.diagnose.queryOptions(),
+		enabled: false,
+		retry: false,
+	});
+
+	return (
+		<section className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<div className="min-w-0 flex-1">
+					<h2 className="font-semibold">Verificar conexão</h2>
+					<p className="text-muted-foreground text-sm">
+						Pergunta à Meta se cada rede consegue publicar agora — sem publicar
+						nada.
+					</p>
+				</div>
+				<Button
+					variant="outline"
+					disabled={diagnose.isFetching}
+					onClick={() => diagnose.refetch()}
+				>
+					<Stethoscope className="size-4" />
+					{diagnose.isFetching
+						? "Verificando…"
+						: diagnose.data
+							? "Verificar de novo"
+							: "Verificar agora"}
+				</Button>
+			</div>
+
+			{diagnose.isError ? (
+				<p className="text-destructive text-sm">{diagnose.error.message}</p>
+			) : null}
+
+			{diagnose.data ? (
+				<ul className="grid gap-3 md:grid-cols-2">
+					{diagnose.data.map((item) => (
+						<li
+							key={item.platform}
+							className="flex flex-col gap-2 rounded-md border p-3"
+						>
+							<div className="flex items-center justify-between gap-2">
+								<span className="font-medium text-sm">
+									{PLATFORM_LABEL[item.platform]}
+								</span>
+								<Badge
+									variant="secondary"
+									className={cn(TONE_CLASSES[diagnosisTone(item.verdict)])}
+								>
+									{DIAGNOSIS_LABELS[item.verdict]}
+								</Badge>
+							</div>
+							{item.problems.length + item.warnings.length > 0 ? (
+								<ul className="flex flex-col gap-1 text-sm">
+									{item.problems.map((problem) => (
+										<li key={problem} className="text-destructive">
+											{problem}
+										</li>
+									))}
+									{item.warnings.map((warning) => (
+										<li
+											key={warning}
+											className="text-amber-700 dark:text-amber-300"
+										>
+											{warning}
+										</li>
+									))}
+								</ul>
+							) : (
+								<p className="text-muted-foreground text-sm">
+									Token válido, permissões completas e imagens alcançáveis.
+								</p>
+							)}
+							{item.quota ? (
+								<p className="text-muted-foreground text-xs">
+									{quotaSummary(item.quota)}
+								</p>
+							) : null}
+						</li>
+					))}
+				</ul>
+			) : null}
+		</section>
 	);
 }
 

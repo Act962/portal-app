@@ -251,4 +251,32 @@ describe("PrismaSocialAccountRepository", () => {
 		// Mas o registro FICA: o histórico de posts aponta para ele.
 		expect(await prisma.socialAccount.count()).toBe(1);
 	});
+
+	it("esquecer APAGA o token do banco e desliga a conta (exclusão de dados)", async () => {
+		await accounts.connect(conta(), "EAACwTOKEN-de-verdade");
+
+		expect(await accounts.forget("INSTAGRAM")).toBe(true);
+
+		const linha = await prisma.socialAccount.findUnique({
+			where: { platform: "INSTAGRAM" },
+		});
+		// Nem cifrado: o segredo deixou de existir.
+		expect(linha?.accessToken).toBe("");
+		expect(linha?.status).toBe("DESCONECTADA");
+		expect(await accounts.credentialsFor("INSTAGRAM")).toBeNull();
+	});
+
+	it("esquecer rede sem conta devolve false", async () => {
+		expect(await accounts.forget("FACEBOOK")).toBe(false);
+	});
+
+	it("reconectar depois de esquecer volta a publicar", async () => {
+		await accounts.connect(conta("acc-1"), "token-antigo");
+		await accounts.forget("INSTAGRAM");
+		await accounts.connect(conta("acc-2"), "token-novo");
+
+		expect((await accounts.credentialsFor("INSTAGRAM"))?.accessToken).toBe(
+			"token-novo",
+		);
+	});
 });

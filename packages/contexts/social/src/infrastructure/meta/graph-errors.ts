@@ -6,6 +6,10 @@ import type { GraphError } from "./graph-client";
  * Traduz o erro da Meta no que a redação precisa ler — e decide se vale
  * repetir.
  *
+ * As frases dizem O QUE houve, nunca o que vai acontecer depois. Quem decide se
+ * haverá nova tentativa é o agregado (`SocialPost.recordFailure`), que sabe
+ * quantas já foram — prometer "será tentada de novo" aqui mentiria na terceira.
+ *
  * As duas metades erram caro, em sentidos opostos. Repetir um "imagem inválida"
  * queima a cota de publicações da conta sem chance de sucesso; desistir de um
  * "tente em instantes" descarta um post que teria ido ao ar sozinho.
@@ -33,10 +37,7 @@ export function toPublishFailure(
 
 	// Nem chegou a responder: rede, DNS, timeout.
 	if (error.status === 0) {
-		return failure(
-			`Não foi possível falar com o ${label} agora. A publicação será tentada de novo.`,
-			true,
-		);
+		return failure(`Não foi possível falar com o ${label} agora.`, true);
 	}
 
 	switch (error.code) {
@@ -61,16 +62,13 @@ export function toPublishFailure(
 		case 32:
 		case 613:
 			return failure(
-				`O ${label} pediu uma pausa por excesso de chamadas. A publicação será tentada de novo.`,
+				`O ${label} pediu uma pausa por excesso de chamadas.`,
 				true,
 			);
 		// Erros internos da Meta, documentados como temporários.
 		case 1:
 		case 2:
-			return failure(
-				`O ${label} está instável no momento. A publicação será tentada de novo.`,
-				true,
-			);
+			return failure(`O ${label} está instável no momento.`, true);
 		// A Meta não conseguiu baixar a imagem da URL informada.
 		case 9004:
 			return failure(
@@ -85,10 +83,7 @@ export function toPublishFailure(
 	}
 
 	if (error.isTransient || error.status >= 500) {
-		return failure(
-			`O ${label} está instável no momento. A publicação será tentada de novo.`,
-			true,
-		);
+		return failure(`O ${label} está instável no momento.`, true);
 	}
 
 	return failure(
