@@ -1,7 +1,7 @@
 # Spec — Fase 9: Padrões de arte para as redes sociais
 
-> **Status:** 🚧 Em execução — spec escrita em 14/09/2026; F1 (domínio do padrão)
-> em andamento.
+> **Status:** 🚧 Em execução — F1 (domínio), F2 (persistência e API) e F3
+> (desenhista e prévia) entregues em 14/09/2026. F4 (editor visual) em andamento.
 > **Decisões do cliente:** tomadas em 14/09/2026 (D1–D4 abaixo).
 > **Referências:** `08-redes-sociais.md` (a fila, as entregas e os Stories — §17) ·
 > `06-biblioteca-de-midia.md` (de onde vêm foto e moldura) ·
@@ -45,9 +45,9 @@ Ou seja: **camadas**. Foto embaixo, moldura por cima, textos por cima da moldura
 
 | Fatia | Entrega | Estado |
 |---|---|---|
-| F1 | Domínio: `ArtTemplate` (camadas, formato, validação), ajuste do texto ao espaço, chave da arte gerada | 🚧 |
-| F2 | Persistência, casos de uso e API dos padrões | — |
-| F3 | Renderizador no servidor (`next/og` + fontes embarcadas → JPEG) e prévia | — |
+| F1 | Domínio: `ArtTemplate` (camadas, formato, validação), ajuste do texto ao espaço, chave da arte gerada | ✅ 14/09 |
+| F2 | Persistência, casos de uso e API dos padrões | ✅ 14/09 |
+| F3 | Renderizador no servidor (Satori + resvg + fontes embarcadas → JPEG) e prévia | ✅ 14/09 |
 | F4 | Editor visual de padrões (aba **Padrões** em Redes sociais) | — |
 | F5 | Padrão aplicado ao post: por destino, textos editáveis, rascunho automático já com arte | — |
 | F6 | Na matéria: criar a publicação (feed e/ou story, rascunho ou aprovada) a partir do editor da matéria | — |
@@ -151,6 +151,28 @@ uma matéria.
 padrão (D9); apagar o padrão tiraria o desenho de quem ainda vai ser reenviado.
 Arquivado sai da escolha e deixa de ser padrão de destino. Para usá-lo de novo,
 duplica-se.
+
+**D14 — As fontes são achadas no disco, não resolvidas como módulo.** *(F3)* O
+Turbopack analisa no build toda resolução de módulo — inclusive o `.resolve` de
+um `createRequire`, e mesmo com `turbopackIgnore` — e, com caminho dinâmico,
+tenta casá-lo com o `exports` do `@fontsource`. Não consegue, e a rota do tRPC
+inteira caía com "module not found" (visto no servidor de desenvolvimento em
+14/09). A saída foi não usar `require`: `findInNodeModules` sobe as pastas a
+partir do arquivo em execução e do `cwd` procurando o `.woff`. Três
+consequências, todas no código:
+
+- as fontes são dependência de `packages/api` (testes) **e** de `apps/web`
+  (servidor) — com o pnpm, cada pacote só enxerga o próprio `node_modules`;
+- `outputFileTracingIncludes` no `next.config` leva os `.woff` para o deploy, que
+  o rastreador de arquivos também não enxerga;
+- `serverExternalPackages` carrega `satori` (WASM de layout) e `@resvg/resvg-js`
+  (binário nativo) do `node_modules`, e não do bundle.
+
+**D15 — A prévia é uma mutation que devolve a imagem.** *(F3)*
+`social.templates.preview` recebe o padrão AINDA NÃO SALVO, desenha com o mesmo
+`ArtRenderer` da arte publicada e devolve um PNG de 540 px em data URL, junto
+com os problemas do padrão e os avisos de texto cortado. Mutation só pelo
+tamanho do corpo: as camadas não cabem numa URL.
 
 ---
 

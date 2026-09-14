@@ -82,8 +82,15 @@ export function focalCrop(
 	focal: Focal,
 	aspect: CropAspect,
 ): CropBox {
-	const target = OUTPUT_SIZE[aspect];
-	const ratio = target.width / target.height;
+	return focalCropTo(image, focal, OUTPUT_SIZE[aspect]);
+}
+
+/**
+ * O mesmo corte, para uma proporção QUALQUER — a da caixa da foto num padrão de
+ * arte (spec 09), que não é 1:1 nem 4:5, é o retângulo que o padrão desenhou.
+ */
+export function focalCropTo(image: Size, focal: Focal, target: Size): CropBox {
+	const ratio = Math.max(1, target.width) / Math.max(1, target.height);
 
 	let width = image.width;
 	let height = Math.round(width / ratio);

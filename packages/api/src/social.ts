@@ -31,6 +31,7 @@ import { TokenCipher } from "@portal-app/social/infrastructure/token-cipher";
 import { UnconfiguredSocialPublisher } from "@portal-app/social/infrastructure/unconfigured-social-publisher";
 
 import { mediaDeps, mediaStorage } from "./media";
+import { ArtRenderer } from "./social-art";
 import { CroppedImageSource } from "./social-image";
 
 /**
@@ -136,6 +137,15 @@ export const socialDeps = {
 	clock: new SystemClock(),
 	ids: new UuidGenerator(),
 };
+
+/**
+ * O desenhista dos padrões (spec 09, F3): a prévia do editor e a arte que vai
+ * ao ar saem dele, do mesmo código.
+ */
+export const artRenderer = new ArtRenderer({
+	media: mediaDeps.repo,
+	storage: mediaStorage,
+});
 
 /** Os padrões de arte (spec 09). */
 export const templateDeps = {

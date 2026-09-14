@@ -1,6 +1,7 @@
 import {
 	croppedImageKey,
 	focalCrop,
+	focalCropTo,
 	OUTPUT_SIZE,
 	storyLayout,
 } from "@portal-app/social";
@@ -148,6 +149,35 @@ describe("focalCrop — entradas estranhas", () => {
 
 	it("nunca devolve dimensão zero, que o sharp recusa", () => {
 		const box = focalCrop({ width: 1, height: 1 }, CENTRO, "4:5");
+		expect(box.width).toBeGreaterThanOrEqual(1);
+		expect(box.height).toBeGreaterThanOrEqual(1);
+	});
+});
+
+describe("focalCropTo — proporção qualquer (spec 09)", () => {
+	it("corta a caixa larga de um padrão, seguindo o ponto focal", () => {
+		// Caixa 920×520 (a do cartão) numa foto 2000×2000: faixa deitada.
+		expect(
+			focalCropTo(
+				{ width: 2000, height: 2000 },
+				{ x: 0.5, y: 0.2 },
+				{ width: 920, height: 520 },
+			),
+		).toEqual({ left: 0, top: 0, width: 2000, height: 1130 });
+	});
+
+	it("é o mesmo corte do focalCrop para as proporções conhecidas", () => {
+		const imagem = { width: 1600, height: 900 };
+		expect(focalCropTo(imagem, CENTRO, { width: 1080, height: 1350 })).toEqual(
+			focalCrop(imagem, CENTRO, "4:5"),
+		);
+	});
+
+	it("alvo com dimensão zero não gera divisão por zero", () => {
+		const box = focalCropTo({ width: 100, height: 100 }, CENTRO, {
+			width: 0,
+			height: 0,
+		});
 		expect(box.width).toBeGreaterThanOrEqual(1);
 		expect(box.height).toBeGreaterThanOrEqual(1);
 	});

@@ -1,13 +1,14 @@
 import type { Result } from "@portal-app/shared-kernel";
 import {
 	ART_FORMATS,
-	type ArtTemplate,
+	ArtTemplate,
 	archiveTemplate,
 	createTemplate,
 	duplicateTemplate,
 	getTemplate,
 	listTemplates,
 	MAX_LAYERS,
+	overflowWarnings,
 	SOCIAL_DESTINATIONS,
 	setTemplateDefaults,
 	TEMPLATE_TEXT_MAX,
@@ -19,7 +20,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { requirePermission, router } from "../index";
-import { templateDeps } from "../social";
+import { artRenderer, templateDeps } from "../social";
 
 /**
  * Os padrões de arte no painel (spec 09, F2).
@@ -132,6 +133,63 @@ const asLayers = (layers: z.infer<typeof templateLayers> | undefined) =>
 	layers as readonly TemplateLayer[] | undefined;
 
 export const socialTemplatesRouter = router({
+	/**
+	 * A prévia REAL de um padrão — desenhada pelo mesmo código que gera a arte
+	 * publicada (spec 09, D5). Aceita o padrão ainda NÃO salvo: é o que o editor
+	 * manda a cada mudança. Padrão inválido não desenha; devolve os problemas.
+	 *
+	 * Mutation, e não query, só pelo tamanho: as camadas não cabem numa URL.
+	 */
+	preview: choose
+		.input(
+			z.object({
+				name: z.string().optional(),
+				format,
+				layers: templateLayers,
+				content: z.object({
+					headline: z.string().max(TEMPLATE_TEXT_MAX),
+					kicker: z.string().max(TEMPLATE_TEXT_MAX).nullable(),
+					sectionName: z.string().max(TEMPLATE_TEXT_MAX).nullable(),
+				}),
+				photoMediaId: z.string().nullish(),
+				overrides: z
+					.record(z.string(), z.string().max(TEMPLATE_TEXT_MAX))
+					.optional(),
+				width: z.number().int().min(120).max(1080).optional(),
+			}),
+		)
+		.mutation(async ({ input }) => {
+			const created = ArtTemplate.create({
+				id: "previa",
+				name: input.name?.trim() || "Prévia",
+				format: input.format,
+				layers: asLayers(input.layers),
+				createdAt: templateDeps.clock.now(),
+			});
+			if (created.isErr()) {
+				return {
+					image: null,
+					problems: [...created.error.problems],
+					warnings: [],
+				};
+			}
+			const template = created.value;
+			const png = await artRenderer.preview(
+				{
+					template,
+					photoMediaId: input.photoMediaId ?? null,
+					content: input.content,
+					overrides: input.overrides,
+				},
+				input.width ?? 540,
+			);
+			return {
+				image: `data:image/png;base64,${png.toString("base64")}`,
+				problems: [] as string[],
+				warnings: overflowWarnings(template, input.content, input.overrides),
+			};
+		}),
+
 	list: choose
 		.input(
 			z
