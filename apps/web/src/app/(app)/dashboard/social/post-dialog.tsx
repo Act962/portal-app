@@ -34,7 +34,7 @@ import { toast } from "sonner";
 import { AssetImage } from "@/components/media/asset-image";
 import { MediaPickerDialog } from "@/components/media/media-picker-dialog";
 import { trpc } from "@/utils/trpc";
-
+import { PostArtSection } from "./post-art-section";
 import { captionCounters, storyNotice } from "./social-labels";
 
 type Form = {
@@ -363,6 +363,31 @@ export function PostDialog({
 							clicável, então ele não entra lá.
 						</p>
 					</div>
+
+					{/*
+					  A arte de cada destino (spec 09, F5). Grava a cada escolha — é a
+					  gravação que tira a cópia do padrão —, então só aparece num post
+					  que já existe. `refetch` traz a arte e os avisos novos sem
+					  recarregar o formulário: ele só se refaz quando muda o id.
+					*/}
+					<PostArtSection
+						postId={postId}
+						editable={editable}
+						destinations={form.platforms}
+						photoMediaId={form.mediaIds[0] ?? null}
+						art={post.data?.art ?? {}}
+						content={
+							post.data?.artContentForDrawing ?? {
+								headline: form.captionText.split("\n")[0] ?? "",
+								kicker: null,
+								sectionName: null,
+							}
+						}
+						warnings={post.data?.artWarnings ?? {}}
+						onChanged={async () => {
+							await post.refetch();
+						}}
+					/>
 
 					{localBlockers.length > 0 && editable ? (
 						<div className="flex gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900 text-sm dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">

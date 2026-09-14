@@ -1,8 +1,8 @@
 # Spec — Fase 9: Padrões de arte para as redes sociais
 
 > **Status:** 🚧 Em execução — F1 (domínio), F2 (persistência e API), F3
-> (desenhista e prévia) e F4 (editor visual) entregues em 14/09/2026. F5 (padrão
-> aplicado ao post) em andamento.
+> (desenhista e prévia), F4 (editor visual) e F5 (padrão aplicado ao post)
+> entregues em 14/09/2026. F6 (publicação a partir da matéria) em andamento.
 > **Decisões do cliente:** tomadas em 14/09/2026 (D1–D4 abaixo).
 > **Referências:** `08-redes-sociais.md` (a fila, as entregas e os Stories — §17) ·
 > `06-biblioteca-de-midia.md` (de onde vêm foto e moldura) ·
@@ -50,7 +50,7 @@ Ou seja: **camadas**. Foto embaixo, moldura por cima, textos por cima da moldura
 | F2 | Persistência, casos de uso e API dos padrões | ✅ 14/09 |
 | F3 | Renderizador no servidor (Satori + resvg + fontes embarcadas → JPEG) e prévia | ✅ 14/09 |
 | F4 | Editor visual de padrões (aba **Padrões** em Redes sociais) | ✅ 14/09 |
-| F5 | Padrão aplicado ao post: por destino, textos editáveis, rascunho automático já com arte | — |
+| F5 | Padrão aplicado ao post: por destino, textos editáveis, rascunho automático já com arte | ✅ 14/09 |
 | F6 | Na matéria: criar a publicação (feed e/ou story, rascunho ou aprovada) a partir do editor da matéria | — |
 
 ### Não entra (e por quê)
@@ -191,6 +191,35 @@ esconderia todas as outras. Escolhe-se pela lista de camadas. Cada caixa é um
 
 Verificado no servidor de desenvolvimento em 14/09: criar padrão → adicionar
 foto, forma e texto → arrastar a forma (a prévia redesenha) → salvar (versão 2).
+
+**D18 — O post guarda a CÓPIA do padrão, não o id.** *(F5)* Os padrões não
+guardam histórico de versões: o repositório tem o padrão como ele está agora.
+Com o post apontando só para o id, editar o padrão amanhã mudaria a arte de um
+post aprovado hoje — o que o D9 proíbe. `ArtSelection` leva camadas, formato,
+versão, nome e os textos trocados, por destino. Escolher o padrão de novo é o
+jeito de trazer a versão nova para um rascunho.
+
+**D19 — Com padrão, o destino publica UMA imagem: a arte.** *(F5)* Desenhada com a
+PRIMEIRA foto do post — o desenho tem uma caixa de foto, então um carrossel com
+padrão sai como uma arte só. Destino sem padrão continua com as fotos cortadas,
+como antes dos padrões.
+
+**D20 — O conteúdo das caixas é copiado da matéria no rascunho.** *(F5)* Título,
+chapéu e editoria vão para o post quando ele nasce; corrigir a matéria depois
+não muda a arte sozinho (D9) — quem aprova vê e decide. Num post avulso, sem
+matéria, o título da arte é a primeira linha da legenda.
+
+**D21 — A arte é gravada a cada escolha.** *(F5)* Escolher o padrão de um destino
+grava na hora, e não no "Salvar rascunho": é a gravação que tira a cópia do
+padrão. Por isso a seção só aparece num post que já existe. Um texto trocado que
+volta a ser igual ao da matéria é apagado, para o post voltar a acompanhar a
+matéria.
+
+> **Nota operacional (14/09):** depois de `pnpm db:migrate`, o servidor de
+> desenvolvimento precisa ser reiniciado. Ele mantém em memória o cliente Prisma
+> de antes da migration, e toda gravação nas tabelas alteradas falha com
+> "Unknown argument" — o typecheck e os testes, que sobem processo novo, passam
+> e escondem o problema.
 
 ---
 
