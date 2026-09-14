@@ -188,7 +188,7 @@ export function SocialQueue() {
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2">
 										<PostStatusBadge status={post.status} />
-										{post.origin === "AUTOMATICA" ? (
+										{post.origin !== "MANUAL" ? (
 											<Badge variant="outline" className="gap-1">
 												<Sparkles className="size-3" />
 												Da matéria

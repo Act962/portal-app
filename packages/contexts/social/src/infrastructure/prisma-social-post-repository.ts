@@ -16,6 +16,9 @@ import {
 } from "../domain/social-post";
 import type { ArtContent } from "../domain/template/fit-text";
 
+/** As origens que fazem de um post "o post da matéria". */
+const ARTICLE_ORIGINS: PostOrigin[] = ["AUTOMATICA", "MATERIA"];
+
 /** Adapter Prisma dos posts. Única camada que conhece Prisma. */
 export class PrismaSocialPostRepository implements SocialPostRepository {
 	constructor(private readonly prisma: PrismaClient) {}
@@ -113,12 +116,22 @@ export class PrismaSocialPostRepository implements SocialPostRepository {
 		const count = await this.prisma.socialPost.count({
 			where: {
 				articleId,
-				// Só o automático conta. Um post MANUAL sobre a mesma matéria é
-				// intenção ("republica aquela de ontem"), não duplicata.
-				origin: "AUTOMATICA",
+				// O automático e o preparado no editor da matéria contam. Um post
+				// MANUAL sobre a mesma matéria é intenção ("republica aquela de
+				// ontem"), não duplicata.
+				origin: { in: ARTICLE_ORIGINS },
 			},
 		});
 		return count > 0;
+	}
+
+	async findForArticle(articleId: string): Promise<SocialPost | null> {
+		const row = await this.prisma.socialPost.findFirst({
+			where: { articleId, origin: { in: ARTICLE_ORIGINS } },
+			include: { deliveries: true },
+			orderBy: { createdAt: "desc" },
+		});
+		return row ? toDomain(row) : null;
 	}
 
 	countPending(): Promise<number> {
@@ -176,7 +189,9 @@ function toPersistence(post: SocialPost) {
 		// A trava de duplicata do gatilho, no banco. Nulo no post manual — e em
 		// Postgres o índice único ignora nulos, então posts manuais continuam
 		// ilimitados por matéria.
-		autoKey: post.origin === "AUTOMATICA" ? post.articleId : null,
+		// O preparado no editor da matéria também trava (spec 09, F6): um só post
+		// da matéria, venha do gatilho ou de uma pessoa.
+		autoKey: post.origin !== "MANUAL" ? post.articleId : null,
 		caption: post.caption.value,
 		mediaIds: [...post.mediaIds],
 		linkUrl: post.linkUrl,

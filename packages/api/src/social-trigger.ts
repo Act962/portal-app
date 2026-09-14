@@ -1,27 +1,34 @@
 import { createPrismaClient } from "@portal-app/db";
+import { PUBLISHED_STATUSES } from "@portal-app/editorial";
 import { getSiteSettings } from "@portal-app/settings";
-import { draftPostForArticle } from "@portal-app/social";
+import { draftPostForArticle, type PublishedArticle } from "@portal-app/social";
 
 import { settingsDeps } from "./settings";
 import { AUTO_POST_PLATFORMS, socialDeps, templateDeps } from "./social";
 
 const prisma = createPrismaClient();
 
+export type ArticleForSocial = {
+	article: PublishedArticle;
+	/** A matéria está no ar? Só assim o link dela existe (spec 09, F6). */
+	published: boolean;
+};
+
 /**
- * Matéria publicada vira rascunho de post (spec 08, D1).
+ * A matéria como o contexto de redes sociais a enxerga — um objeto plano.
  *
- * **É o módulo inteiro de integração com o editorial.** Ele assina um evento
- * que já era emitido antes desta fase existir — nenhuma linha do contexto
- * editorial foi tocada, e `contextos-isolados` continua verde porque a cola
- * mora aqui, na raiz de composição, e não dentro de um contexto.
+ * **É o módulo inteiro de integração com o editorial.** Reunir matéria,
+ * editoria, tags e configuração do site é conhecimento de composição; o
+ * contexto de redes sociais recebe o objeto e não sabe de onde veio, e
+ * `contextos-isolados` continua verde porque a cola mora aqui.
  *
- * A montagem dos dados da matéria acontece AQUI pelo mesmo motivo: reunir
- * matéria, editoria, tags e configuração do site é conhecimento de composição.
- * O contexto de redes sociais recebe um objeto plano e não sabe de onde veio.
+ * Usado pelo gatilho da matéria publicada e pelo editor da matéria (F6), que
+ * precisa da MESMA montagem — o link, a legenda e a arte não podem sair
+ * diferentes conforme o caminho.
  */
-export async function draftSocialPostForArticle(
+export async function loadArticleForSocial(
 	articleId: string,
-): Promise<void> {
+): Promise<ArticleForSocial | null> {
 	const article = await prisma.article.findUnique({
 		where: { id: articleId },
 		select: {
@@ -34,10 +41,11 @@ export async function draftSocialPostForArticle(
 			sectionId: true,
 			tagIds: true,
 			coverMediaId: true,
+			status: true,
 		},
 	});
 	if (!article) {
-		return;
+		return null;
 	}
 
 	const [section, tags, settings] = await Promise.all([
@@ -56,8 +64,8 @@ export async function draftSocialPostForArticle(
 		getSiteSettings(settingsDeps),
 	]);
 
-	await draftPostForArticle(
-		{
+	return {
+		article: {
 			id: article.id,
 			headline: article.headline,
 			kicker: article.kicker || null,
@@ -74,13 +82,31 @@ export async function draftSocialPostForArticle(
 			siteName: settings.data.name,
 			coverMediaId: article.coverMediaId,
 		},
-		{
-			repo: socialDeps.repo,
-			clock: socialDeps.clock,
-			ids: socialDeps.ids,
-			platforms: AUTO_POST_PLATFORMS,
-			// O rascunho nasce com a arte do padrão de cada destino (spec 09, D2).
-			templates: templateDeps.templates,
-		},
-	);
+		// A lista de "no ar" é do editorial (PUBLICADA e ATUALIZADA) — repetida
+		// aqui, divergiria no dia em que o fluxo ganhasse um estado.
+		published: (PUBLISHED_STATUSES as readonly string[]).includes(
+			article.status,
+		),
+	};
+}
+
+/**
+ * Matéria publicada vira rascunho de post (spec 08, D1), já com a arte do
+ * padrão de cada destino (spec 09, D2). Assina um evento que já era emitido
+ * antes desta fase existir — nenhuma linha do contexto editorial foi tocada.
+ */
+export async function draftSocialPostForArticle(
+	articleId: string,
+): Promise<void> {
+	const loaded = await loadArticleForSocial(articleId);
+	if (!loaded) {
+		return;
+	}
+	await draftPostForArticle(loaded.article, {
+		repo: socialDeps.repo,
+		clock: socialDeps.clock,
+		ids: socialDeps.ids,
+		platforms: AUTO_POST_PLATFORMS,
+		templates: templateDeps.templates,
+	});
 }

@@ -114,6 +114,39 @@ describe("PrismaSocialPostRepository", () => {
 		expect(await posts.existsForArticle("art-1")).toBe(true);
 	});
 
+	it("o post preparado no editor da matéria também trava, e findForArticle o acha (spec 09, F6)", async () => {
+		const daMateria = SocialPost.draft({
+			id: "post-materia",
+			articleId: "art-7",
+			origin: "MATERIA",
+			captionText: "Preparado na matéria",
+			mediaIds: ["media-1"],
+			platforms: ["INSTAGRAM"],
+			createdAt: AGORA,
+		}).unwrap();
+		await posts.save(daMateria);
+
+		// Um manual da mesma matéria não é "o post da matéria".
+		await posts.save(
+			SocialPost.draft({
+				id: "post-manual",
+				articleId: "art-7",
+				origin: "MANUAL",
+				captionText: "Avulso",
+				mediaIds: ["media-1"],
+				platforms: ["FACEBOOK"],
+				createdAt: new Date(AGORA.getTime() + 1000),
+			}).unwrap(),
+		);
+
+		expect(await posts.existsForArticle("art-7")).toBe(true);
+		expect((await posts.findForArticle("art-7"))?.id).toBe("post-materia");
+		expect(await posts.findForArticle("art-sem-post")).toBeNull();
+
+		// E o banco recusa um automático para a mesma matéria.
+		await expect(posts.save(rascunho("post-auto", "art-7"))).rejects.toThrow();
+	});
+
 	it("mas aceita quantos posts MANUAIS quiserem da mesma matéria", async () => {
 		// O índice único ignora nulos em Postgres, e `autoKey` é nulo no manual.
 		for (const id of ["m-1", "m-2", "m-3"]) {

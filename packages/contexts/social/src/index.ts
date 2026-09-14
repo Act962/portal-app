@@ -7,6 +7,7 @@ export * from "./application/forget-credentials";
 export * from "./application/manage-accounts";
 export * from "./application/manage-posts";
 export * from "./application/manage-templates";
+export * from "./application/prepare-article-post";
 export * from "./application/publish-pending";
 export * from "./domain/caption";
 export * from "./domain/caption-template";

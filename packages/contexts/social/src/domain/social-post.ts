@@ -36,7 +36,16 @@ export type ArtSelections = Partial<Record<SocialDestination, ArtSelection>>;
  * diferença importa para a tela: um post AUTOMÁTICO chegou sozinho na fila e
  * ninguém ainda o leu; um MANUAL alguém digitou.
  */
-export type PostOrigin = "AUTOMATICA" | "MANUAL";
+export type PostOrigin =
+	| "AUTOMATICA"
+	| "MANUAL"
+	/**
+	 * Preparado por uma pessoa no editor da MATÉRIA (spec 09, F6). Conta como
+	 * "o post da matéria", igual ao automático: o gatilho não cria um segundo
+	 * rascunho para ela. É diferente do MANUAL da fila, que é intenção avulsa
+	 * ("republica aquela de ontem") e não trava nada.
+	 */
+	| "MATERIA";
 
 /**
  * O estado do post inteiro.

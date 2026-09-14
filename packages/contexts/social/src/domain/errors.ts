@@ -90,6 +90,20 @@ export class InvalidArtChoice extends Error {
 	override readonly name = "InvalidArtChoice";
 }
 
+/**
+ * Aprovar a publicação de uma matéria que ainda não está no ar (spec 09, F6).
+ * O link da matéria não existe antes da publicação — o post iria para as redes
+ * apontando para nada. Preparar como rascunho continua valendo.
+ */
+export class ArticleNotPublished extends Error {
+	override readonly name = "ArticleNotPublished";
+	constructor() {
+		super(
+			"Publique a matéria antes de aprovar a publicação nas redes — até lá, o link dela ainda não existe. Dá para salvar como rascunho.",
+		);
+	}
+}
+
 export class ArtTemplateNotFound extends Error {
 	override readonly name = "ArtTemplateNotFound";
 	constructor(id: string) {

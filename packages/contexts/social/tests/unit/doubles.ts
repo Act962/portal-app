@@ -62,8 +62,16 @@ export class InMemorySocialPostRepository implements SocialPostRepository {
 	existsForArticle(articleId: string): Promise<boolean> {
 		return Promise.resolve(
 			[...this.posts.values()].some(
-				(post) => post.articleId === articleId && post.origin === "AUTOMATICA",
+				(post) => post.articleId === articleId && post.origin !== "MANUAL",
 			),
+		);
+	}
+
+	findForArticle(articleId: string): Promise<SocialPost | null> {
+		return Promise.resolve(
+			[...this.posts.values()].find(
+				(post) => post.articleId === articleId && post.origin !== "MANUAL",
+			) ?? null,
 		);
 	}
 

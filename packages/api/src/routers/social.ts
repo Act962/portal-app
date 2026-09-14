@@ -7,12 +7,14 @@ import {
 	countPendingPosts,
 	createDraft,
 	DESTINATION_PLATFORM,
+	defaultTemplateFor,
 	diagnoseAccounts,
 	disconnectAccount,
 	getPost,
 	listAccounts,
 	listQueue,
 	overflowWarnings,
+	prepareArticlePost,
 	retryPost,
 	SOCIAL_DESTINATIONS,
 	SOCIAL_PLATFORMS,
@@ -39,6 +41,7 @@ import {
 	templateDeps,
 	unsealPendingToken,
 } from "../social";
+import { loadArticleForSocial } from "../social-trigger";
 import { socialTemplatesRouter } from "./social-templates";
 
 /**
@@ -157,6 +160,10 @@ function codeFor(error: Error): TRPCError["code"] {
 		// segunda aba com o botão ainda na tela, e o 409 é o que diz isso.
 		case "InvalidPostTransition":
 			return "CONFLICT";
+		// Aprovar a publicação de matéria que não está no ar: falta uma condição
+		// que não depende da requisição — publicar a matéria.
+		case "ArticleNotPublished":
+			return "PRECONDITION_FAILED";
 		default:
 			return "BAD_REQUEST";
 	}
@@ -310,6 +317,105 @@ export const socialRouter = router({
 		.mutation(async ({ ctx, input }) =>
 			postDto(ensure(await setPostArtContent(ctx.staff, input, socialDeps))),
 		),
+
+	/**
+	 * O post da matéria (spec 09, F6) — o que o editor da matéria mostra: se a
+	 * matéria está no ar, se já tem post e em que estado, e o padrão de cada
+	 * destino para a escolha já vir marcada.
+	 */
+	articlePost: publish
+		.input(z.object({ articleId: z.string() }))
+		.query(async ({ input }) => {
+			const loaded = await loadArticleForSocial(input.articleId);
+			if (!loaded) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Matéria não encontrada.",
+				});
+			}
+			const [post, defaults] = await Promise.all([
+				socialDeps.repo.findForArticle(input.articleId),
+				Promise.all(
+					SOCIAL_DESTINATIONS.map(
+						async (item) =>
+							[item, await defaultTemplateFor(item, templateDeps)] as const,
+					),
+				),
+			]);
+			return {
+				published: loaded.published,
+				coverMediaId: loaded.article.coverMediaId,
+				content: {
+					headline: loaded.article.headline,
+					kicker: loaded.article.kicker ?? null,
+					sectionName: loaded.article.sectionName,
+				},
+				post: post ? postDto(post) : null,
+				defaults: Object.fromEntries(
+					defaults.map(([item, template]) => [
+						item,
+						template ? { id: template.id, name: template.name } : null,
+					]),
+				) as Record<
+					(typeof SOCIAL_DESTINATIONS)[number],
+					{ id: string; name: string } | null
+				>,
+			};
+		}),
+
+	/**
+	 * Prepara a publicação da matéria nas redes — rascunho ou aprovada —, com
+	 * destinos e o padrão de cada um (spec 09, F6). Reaproveita o post da matéria
+	 * se já houver. Aprovar só vale com a matéria no ar; aprovado, acorda o envio
+	 * na hora, como a aprovação da fila (spec 08, D33).
+	 */
+	prepareFromArticle: publish
+		.input(
+			z.object({
+				articleId: z.string(),
+				destinations: z.array(destination).min(1),
+				templates: z
+					.object({
+						INSTAGRAM: z.string().nullable(),
+						INSTAGRAM_STORIES: z.string().nullable(),
+						FACEBOOK: z.string().nullable(),
+					})
+					.partial()
+					.optional(),
+				approve: z.boolean(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const loaded = await loadArticleForSocial(input.articleId);
+			if (!loaded) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Matéria não encontrada.",
+				});
+			}
+			const post = ensure(
+				await prepareArticlePost(
+					ctx.staff,
+					{
+						article: loaded.article,
+						articlePublished: loaded.published,
+						destinations: input.destinations,
+						templates: input.templates,
+						approve: input.approve,
+					},
+					{
+						repo: socialDeps.repo,
+						templates: templateDeps.templates,
+						clock: socialDeps.clock,
+						ids: socialDeps.ids,
+					},
+				),
+			);
+			if (input.approve) {
+				await wakeTask("publish-social", { postId: post.id });
+			}
+			return postDto(post);
+		}),
 
 	cancel: publish
 		.input(z.object({ id: z.string() }))

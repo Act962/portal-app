@@ -26,6 +26,16 @@ export interface SocialPostRepository {
 	 */
 	existsForArticle(articleId: string): Promise<boolean>;
 
+	/**
+	 * O post DA matéria — o automático ou o preparado no editor da matéria
+	 * (origem `MATERIA`, spec 09, F6). `null` quando não há. Posts MANUAIS da
+	 * fila não contam: são avulsos.
+	 *
+	 * É o que deixa o editor da matéria reaproveitar o rascunho automático em
+	 * vez de criar um segundo post para a mesma notícia.
+	 */
+	findForArticle(articleId: string): Promise<SocialPost | null>;
+
 	/** Quantos posts esperam aprovação — é o número do badge na navegação. */
 	countPending(): Promise<number>;
 
