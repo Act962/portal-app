@@ -48,6 +48,11 @@ describe("can — matriz de permissões independente de recurso (I01)", () => {
 		// Analytics editorial (A38) é insumo de PAUTA, então o editor vê —
 		// diferente da auditoria acima, que é governança e fica só com o admin.
 		{ action: "analytics:view", redator: false, editor: true, admin: true },
+		// Redes sociais: aprovar o post é decisão editorial (o editor entra),
+		// conectar a conta é credencial (só o admin). É a mesma divisão que já
+		// existe entre `analytics:view` e `audit:view`.
+		{ action: "social:publish", redator: false, editor: true, admin: true },
+		{ action: "social:manage", redator: false, editor: false, admin: true },
 	];
 
 	it.each(cases)("$action", ({ action, redator: r, editor: e, admin: a }) => {

@@ -8,6 +8,7 @@ import { identityRouter } from "./identity";
 import { mediaRouter } from "./media";
 import { pollsRouter } from "./polls";
 import { settingsRouter } from "./settings";
+import { socialRouter } from "./social";
 import { taxonomyRouter } from "./taxonomy";
 
 export const appRouter = router({
@@ -30,5 +31,6 @@ export const appRouter = router({
 	analytics: analyticsRouter,
 	polls: pollsRouter,
 	advertising: advertisingRouter,
+	social: socialRouter,
 });
 export type AppRouter = typeof appRouter;

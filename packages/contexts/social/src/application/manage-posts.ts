@@ -1,0 +1,194 @@
+import { can, Forbidden, type StaffMember } from "@portal-app/identity";
+import {
+	type Clock,
+	err,
+	type IdGenerator,
+	ok,
+	type Page,
+	type PageRequest,
+	type Result,
+} from "@portal-app/shared-kernel";
+
+import type { CaptionRequired } from "../domain/errors";
+import {
+	type InvalidMediaSelection,
+	type InvalidPostTransition,
+	type PostNotReady,
+	SocialPostNotFound,
+} from "../domain/errors";
+import type { SocialPlatform } from "../domain/platform";
+import type {
+	SocialPostFilter,
+	SocialPostRepository,
+} from "../domain/ports/social-post-repository";
+import { SocialPost } from "../domain/social-post";
+
+/**
+ * Casos de uso da fila de publicação. Orquestram sem regra: a regra vive no
+ * agregado `SocialPost`.
+ *
+ * A autorização é `social:publish`, que o EDITOR tem (spec 08, D11) — aprovar o
+ * post é a mesma decisão editorial de publicar a matéria, tomada de novo em
+ * outra vitrine. Conectar conta é outra ação, com outro dono.
+ */
+export type PostDeps = {
+	repo: SocialPostRepository;
+	clock: Clock;
+	ids: IdGenerator;
+};
+
+export type DraftInput = {
+	captionText: string;
+	mediaIds: readonly string[];
+	platforms: readonly SocialPlatform[];
+	linkUrl?: string | null;
+	articleId?: string | null;
+};
+
+type DraftError = Forbidden | CaptionRequired | InvalidMediaSelection;
+
+export async function createDraft(
+	actor: StaffMember,
+	input: DraftInput,
+	deps: PostDeps,
+): Promise<Result<SocialPost, DraftError>> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = SocialPost.draft({
+		...input,
+		id: deps.ids.generate(),
+		// MANUAL: quem cria por esta porta é uma pessoa na tela. O automático
+		// entra por `draftPostForArticle`, e a diferença ordena a fila.
+		origin: "MANUAL",
+		createdAt: deps.clock.now(),
+	});
+	if (post.isErr()) {
+		return err(post.error);
+	}
+	await deps.repo.save(post.value);
+	return ok(post.value);
+}
+
+export async function updatePost(
+	actor: StaffMember,
+	input: Partial<DraftInput> & { id: string },
+	deps: Pick<PostDeps, "repo">,
+): Promise<
+	Result<SocialPost, DraftError | SocialPostNotFound | InvalidPostTransition>
+> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await deps.repo.findById(input.id);
+	if (!post) {
+		return err(new SocialPostNotFound(input.id));
+	}
+	const edited = post.edit(input);
+	if (edited.isErr()) {
+		return err(edited.error);
+	}
+	await deps.repo.save(post);
+	return ok(post);
+}
+
+/**
+ * Aprova e entrega o post à fila de envio.
+ *
+ * **Não chama a Meta.** Tranca o post e devolve; quem fala com a rede é a
+ * tarefa `publishPendingPosts`, dirigida pelo agendador. Chamada de rede dentro
+ * da requisição HTTP do painel é o caminho curto para um timeout com o post em
+ * estado indefinido — e, no Instagram, um post publicado que o sistema acha que
+ * falhou.
+ */
+export async function approvePost(
+	actor: StaffMember,
+	input: { id: string },
+	deps: Pick<PostDeps, "repo" | "clock">,
+): Promise<
+	Result<
+		SocialPost,
+		Forbidden | SocialPostNotFound | PostNotReady | InvalidPostTransition
+	>
+> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await deps.repo.findById(input.id);
+	if (!post) {
+		return err(new SocialPostNotFound(input.id));
+	}
+	const approved = post.approve(actor.id, deps.clock.now());
+	if (approved.isErr()) {
+		return err(approved.error);
+	}
+	await deps.repo.save(post);
+	return ok(post);
+}
+
+/** Recoloca na fila só as entregas que falharam. */
+export async function retryPost(
+	actor: StaffMember,
+	input: { id: string },
+	deps: Pick<PostDeps, "repo">,
+): Promise<
+	Result<SocialPost, Forbidden | SocialPostNotFound | InvalidPostTransition>
+> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await deps.repo.findById(input.id);
+	if (!post) {
+		return err(new SocialPostNotFound(input.id));
+	}
+	const retried = post.retryFailed();
+	if (retried.isErr()) {
+		return err(retried.error);
+	}
+	await deps.repo.save(post);
+	return ok(post);
+}
+
+export async function cancelPost(
+	actor: StaffMember,
+	input: { id: string },
+	deps: Pick<PostDeps, "repo">,
+): Promise<
+	Result<SocialPost, Forbidden | SocialPostNotFound | InvalidPostTransition>
+> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await deps.repo.findById(input.id);
+	if (!post) {
+		return err(new SocialPostNotFound(input.id));
+	}
+	const cancelled = post.cancel();
+	if (cancelled.isErr()) {
+		return err(cancelled.error);
+	}
+	await deps.repo.save(post);
+	return ok(post);
+}
+
+export function listQueue(
+	filter: SocialPostFilter,
+	page: PageRequest,
+	deps: Pick<PostDeps, "repo">,
+): Promise<Page<SocialPost>> {
+	return deps.repo.list(filter, page);
+}
+
+export function getPost(
+	id: string,
+	deps: Pick<PostDeps, "repo">,
+): Promise<SocialPost | null> {
+	return deps.repo.findById(id);
+}
+
+/** O número do badge na navegação. */
+export function countPendingPosts(
+	deps: Pick<PostDeps, "repo">,
+): Promise<number> {
+	return deps.repo.countPending();
+}

@@ -40,7 +40,7 @@ depois".
 | **5** | Painel da redação: shell, rich-text, mídia, equipe, banners | `specs/05-admin-redacao.md` |
 | **6** | Busca & Distribuição | `specs/06-busca-distribuicao.md` |
 | **7** | Engajamento & Analytics | `specs/07-engajamento-analytics.md` |
-| **8+** | Evolução contínua | por demanda |
+| **8+** | Evolução contínua — em execução: redes sociais | `specs/08-redes-sociais.md` |
 
 **Fim do MVP = fim da Fase 4.** A partir dali existe um portal operável por uma redação real.
 A Fase 5 torna essa operação **confortável e vendável** — o backend amadureceu nas fases 0–4,
@@ -299,6 +299,12 @@ rich-text de verdade.
 ---
 
 ## Fase 8+ — Evolução
+
+> **Em execução:** [`specs/08-redes-sociais.md`](./specs/08-redes-sociais.md) — Instagram e
+> Facebook. Entrou por demanda do cliente (11/09/2026): a redação publicava a mesma notícia
+> duas vezes, uma no painel e outra no celular. O módulo é barato porque o gatilho já existe —
+> ele escuta o `ArticlePublished` que o outbox da Fase 3 já emite, e o editorial não fica
+> sabendo que redes sociais existem. Fatia 1 (domínio) entregue.
 
 Sem data definida; entram por prioridade de negócio: cobertura ao vivo, especiais e séries,
 editoria de vídeo, PWA, enquetes, relatórios de produção. Cada um com sua spec.
