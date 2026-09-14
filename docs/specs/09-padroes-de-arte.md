@@ -1,7 +1,8 @@
 # Spec — Fase 9: Padrões de arte para as redes sociais
 
-> **Status:** 🚧 Em execução — F1 (domínio), F2 (persistência e API) e F3
-> (desenhista e prévia) entregues em 14/09/2026. F4 (editor visual) em andamento.
+> **Status:** 🚧 Em execução — F1 (domínio), F2 (persistência e API), F3
+> (desenhista e prévia) e F4 (editor visual) entregues em 14/09/2026. F5 (padrão
+> aplicado ao post) em andamento.
 > **Decisões do cliente:** tomadas em 14/09/2026 (D1–D4 abaixo).
 > **Referências:** `08-redes-sociais.md` (a fila, as entregas e os Stories — §17) ·
 > `06-biblioteca-de-midia.md` (de onde vêm foto e moldura) ·
@@ -48,7 +49,7 @@ Ou seja: **camadas**. Foto embaixo, moldura por cima, textos por cima da moldura
 | F1 | Domínio: `ArtTemplate` (camadas, formato, validação), ajuste do texto ao espaço, chave da arte gerada | ✅ 14/09 |
 | F2 | Persistência, casos de uso e API dos padrões | ✅ 14/09 |
 | F3 | Renderizador no servidor (Satori + resvg + fontes embarcadas → JPEG) e prévia | ✅ 14/09 |
-| F4 | Editor visual de padrões (aba **Padrões** em Redes sociais) | — |
+| F4 | Editor visual de padrões (aba **Padrões** em Redes sociais) | ✅ 14/09 |
 | F5 | Padrão aplicado ao post: por destino, textos editáveis, rascunho automático já com arte | — |
 | F6 | Na matéria: criar a publicação (feed e/ou story, rascunho ou aprovada) a partir do editor da matéria | — |
 
@@ -173,6 +174,23 @@ consequências, todas no código:
 `ArtRenderer` da arte publicada e devolve um PNG de 540 px em data URL, junto
 com os problemas do padrão e os avisos de texto cortado. Mutation só pelo
 tamanho do corpo: as camadas não cabem numa URL.
+
+**D16 — O quadro do editor é a prévia real; as caixas são HTML por cima.** *(F4)*
+O fundo do quadro é o PNG que o servidor desenha (D5). Por cima, cada camada é
+uma caixa que se arrasta e redimensiona — a caixa mexe na hora, e a prévia de
+verdade chega meio segundo depois de a mão parar. A aritmética toda (mover,
+redimensionar pela alça oeste ou norte com a borda oposta parada, encaixar nas
+bordas e no centro, converter a escala da tela para o quadro, empilhar) mora em
+`template-editor-model.ts`, puro e testado; o componente só liga eventos.
+
+**D17 — A moldura não rouba o clique, e o teclado funciona.** *(F4)* Uma camada
+que cobre 90% ou mais do quadro (a moldura em PNG do tamanho da arte) fica
+vazada ao clique enquanto não está selecionada — por cima de tudo, ela
+esconderia todas as outras. Escolhe-se pela lista de camadas. Cada caixa é um
+`<button>`: setas movem 1 px (10 com Shift), Delete remove.
+
+Verificado no servidor de desenvolvimento em 14/09: criar padrão → adicionar
+foto, forma e texto → arrastar a forma (a prévia redesenha) → salvar (versão 2).
 
 ---
 

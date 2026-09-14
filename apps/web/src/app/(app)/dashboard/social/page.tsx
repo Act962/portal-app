@@ -18,7 +18,12 @@ export default async function SocialPage({
 	// A volta do login da Meta chega com `?aba=contas&meta=<resultado>`. Lido
 	// aqui, no servidor, e passado como prop — em vez de `useSearchParams` no
 	// cliente, que exigiria um Suspense só para isso.
-	const tab = params.aba === "contas" ? "contas" : "fila";
+	const tab =
+		params.aba === "contas"
+			? "contas"
+			: params.aba === "padroes"
+				? "padroes"
+				: "fila";
 	const metaFlag = typeof params.meta === "string" ? params.meta : null;
 
 	// Desconectar e conectar conta é credencial (`social:manage`, só ADMIN).

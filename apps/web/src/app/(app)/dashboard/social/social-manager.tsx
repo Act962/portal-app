@@ -7,7 +7,7 @@ import {
 	TabsTrigger,
 } from "@portal-app/ui/components/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { Inbox, Link2 } from "lucide-react";
+import { Inbox, Link2, Palette } from "lucide-react";
 import { useState } from "react";
 
 import { PageHeader } from "@/components/admin/page-header";
@@ -15,6 +15,7 @@ import { trpc } from "@/utils/trpc";
 
 import { AccountsPanel } from "./accounts-panel";
 import { SocialQueue } from "./social-queue";
+import { TemplatesPanel } from "./templates-panel";
 
 /**
  * A tela de redes sociais, em duas abas.
@@ -29,7 +30,7 @@ export function SocialManager({
 	metaFlag,
 }: {
 	canManage: boolean;
-	initialTab: "fila" | "contas";
+	initialTab: "fila" | "padroes" | "contas";
 	/** O resultado da volta do login da Meta, quando a tela abre por ela. */
 	metaFlag: string | null;
 }) {
@@ -54,6 +55,10 @@ export function SocialManager({
 							</span>
 						) : null}
 					</TabsTrigger>
+					<TabsTrigger value="padroes">
+						<Palette className="size-4" />
+						Padrões
+					</TabsTrigger>
 					<TabsTrigger value="contas">
 						<Link2 className="size-4" />
 						Contas
@@ -62,6 +67,10 @@ export function SocialManager({
 
 				<TabsContent value="fila" className="mt-4">
 					<SocialQueue />
+				</TabsContent>
+
+				<TabsContent value="padroes" className="mt-4">
+					<TemplatesPanel canDesign={canManage} />
 				</TabsContent>
 
 				<TabsContent value="contas" className="mt-4">
