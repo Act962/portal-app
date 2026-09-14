@@ -20,6 +20,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { requirePermission, router } from "../index";
+import { wakeTask } from "../inngest";
 import {
 	diagnoseDeps,
 	isAccountFromEnvironment,
@@ -200,18 +201,27 @@ export const socialRouter = router({
 	 * Aprova e enfileira. **Não espera a Meta**: devolve assim que o post está
 	 * trancado, e a entrega roda na tarefa `publish-social`. A tela mostra
 	 * "enviando" e atualiza quando o worker terminar.
+	 *
+	 * Acorda a tarefa na hora (D33), em vez de esperar a próxima rodada do
+	 * cron. O aviso sai DEPOIS de gravar, e `wakeTask` nunca lança: se ele
+	 * falhar, o post já está na fila e sai na rodada seguinte.
 	 */
 	approve: publish
 		.input(z.object({ id: z.string() }))
-		.mutation(async ({ ctx, input }) =>
-			postDto(ensure(await approvePost(ctx.staff, input, socialDeps))),
-		),
+		.mutation(async ({ ctx, input }) => {
+			const post = ensure(await approvePost(ctx.staff, input, socialDeps));
+			await wakeTask("publish-social", { postId: post.id });
+			return postDto(post);
+		}),
 
+	/** Reenfileira o que falhou e acorda a entrega, como na aprovação. */
 	retry: publish
 		.input(z.object({ id: z.string() }))
-		.mutation(async ({ ctx, input }) =>
-			postDto(ensure(await retryPost(ctx.staff, input, socialDeps))),
-		),
+		.mutation(async ({ ctx, input }) => {
+			const post = ensure(await retryPost(ctx.staff, input, socialDeps));
+			await wakeTask("publish-social", { postId: post.id });
+			return postDto(post);
+		}),
 
 	cancel: publish
 		.input(z.object({ id: z.string() }))

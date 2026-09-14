@@ -685,3 +685,33 @@ lado da conta.
 - **O modo depende do App em desenvolvimento com a conta como testadora.** Para
   contas fora do App, continua valendo o roteiro de §14.3.
 
+## 16. Publicação disparada na aprovação *(14/09/2026)*
+
+**Problema:** aprovar só trancava o post; quem publicava era a tarefa
+`publish-social`, a cada 5 minutos. Dependendo do minuto do clique, a espera ia
+de segundos a 5 minutos — confuso para quem acabou de aprovar.
+
+- **D33 — A aprovação ACORDA a entrega; o cron fica como rede de segurança.**
+  `social.approve` e `social.retry` gravam o post e chamam
+  `wakeTask("publish-social")`, que manda o evento `social/post.approved`. A
+  função do Inngest tem dois gatilhos (cron e evento) e roda **fora** da
+  requisição do painel — o D15 continua valendo, só a espera sumiu.
+  - **Por que não publicar dentro do clique:** o mesmo motivo do D15 (timeout
+    com o post já no ar e o banco achando que falhou).
+  - **Por que manter o cron:** evento perdido (Inngest fora, chave ausente) não
+    pode deixar o post parado; e as tentativas automáticas do D23 continuam
+    andando no ritmo do cron.
+  - **`wakeTask` nunca lança.** O post já foi gravado; falhar em avisar só
+    atrasa a entrega até a próxima rodada, e vira aviso no log, não erro na
+    tela.
+- **D34 — Tarefa acordável é EXCLUSIVA, por regra do registro.** Com dois
+  gatilhos, uma aprovação perto da virada do cron dispara duas execuções, e as
+  duas pegariam o mesmo post: **duplicata no Instagram**. `exclusive: true` vira
+  `concurrency: { limit: 1 }` na função — o limite vale para as execuções dos
+  dois gatilhos juntos, e as excedentes esperam na fila. O `TaskRegistry`
+  **recusa** registrar `wakeOn` sem `exclusive`: a trava mora no código, não na
+  memória de quem registra.
+
+**Produção:** o envio de evento usa a `INNGEST_EVENT_KEY` (já prevista). Sem
+ela, a aprovação funciona e o post sai no cron, com aviso no log.
+

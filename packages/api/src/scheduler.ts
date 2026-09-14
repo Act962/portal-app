@@ -1,6 +1,6 @@
 import { publishDueScheduled } from "@portal-app/editorial";
-import { publishPendingPosts } from "@portal-app/social";
 import { TaskRegistry } from "@portal-app/shared-kernel";
+import { publishPendingPosts } from "@portal-app/social";
 
 import { articleDeps, dispatchEditorialEvents } from "./editorial";
 import { socialDeps } from "./social";
@@ -52,6 +52,10 @@ scheduler.register({
 scheduler.register({
 	name: "publish-social",
 	cron: "*/5 * * * *",
+	// Acordada na aprovação (spec 08, D33): o post sai em segundos, e o cron fica
+	// como rede de segurança e como relógio das tentativas automáticas.
+	wakeOn: "social/post.approved",
+	exclusive: true,
 	description:
 		"Entrega às redes sociais os posts já aprovados na fila (spec 08).",
 	/**
@@ -61,8 +65,10 @@ scheduler.register({
 	 * isso vira timeout — com o post possivelmente já publicado do lado de lá e
 	 * o nosso banco achando que falhou.
 	 *
-	 * O `approve` tranca o post em PUBLICANDO e devolve na hora; esta tarefa
-	 * pega a fila, e o Inngest traz o retry com backoff de graça.
+	 * O `approve` tranca o post em PUBLICANDO, acorda esta tarefa e devolve na
+	 * hora; ela pega a fila fora da requisição, e o Inngest traz o retry com
+	 * backoff de graça. `exclusive` impede que a execução acordada e a do cron
+	 * rodem juntas e publiquem o mesmo post duas vezes.
 	 */
 	run: () => publishPendingPosts(socialDeps),
 });
