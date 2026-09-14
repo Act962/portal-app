@@ -95,3 +95,75 @@ export async function listAccounts(
 	}
 	return ok(await deps.accounts.listAll());
 }
+
+/** Uma Página escolhida no fim do login da Meta — o recorte que este caso de
+ * uso precisa, sem o formato da resposta da Graph API. */
+export type MetaPageChoice = {
+	pageId: string;
+	pageName: string;
+	pageAccessToken: string;
+	pagePictureUrl: string | null;
+	instagram: {
+		id: string;
+		username: string;
+		pictureUrl: string | null;
+	} | null;
+};
+
+/**
+ * Conecta a Página escolhida — e o Instagram vinculado a ela, se houver.
+ *
+ * **Um login, duas contas.** É o que justificou o login do Facebook em vez do
+ * login do Instagram (spec 08, §6.4): a Página devolve o próprio token e o id do
+ * Instagram Business vinculado, e o MESMO token de Página publica nos dois.
+ *
+ * `tokenExpiresAt: null` nos dois porque o token de Página derivado de um token
+ * de usuário longo não expira. Ele pode ser REVOGADO (senha trocada, App
+ * removido), e isso chega como erro 190 na hora de publicar.
+ *
+ * Página sem Instagram vinculado conecta só o Facebook, e o resultado diz isso:
+ * a tela precisa avisar que o Instagram continua desconectado, e por quê.
+ */
+export async function connectMetaPage(
+	actor: StaffMember,
+	choice: MetaPageChoice,
+	deps: AccountDeps,
+): Promise<Result<readonly SocialAccount[], Forbidden>> {
+	if (!can(actor, "social:manage")) {
+		return err(new Forbidden());
+	}
+
+	const connected: SocialAccount[] = [];
+
+	const facebook = await connectAccount(
+		actor,
+		{
+			platform: "FACEBOOK",
+			remoteId: choice.pageId,
+			displayName: choice.pageName,
+			avatarUrl: choice.pagePictureUrl,
+			accessToken: choice.pageAccessToken,
+			tokenExpiresAt: null,
+		},
+		deps,
+	);
+	connected.push(facebook.unwrap());
+
+	if (choice.instagram) {
+		const instagram = await connectAccount(
+			actor,
+			{
+				platform: "INSTAGRAM",
+				remoteId: choice.instagram.id,
+				displayName: `@${choice.instagram.username}`,
+				avatarUrl: choice.instagram.pictureUrl,
+				accessToken: choice.pageAccessToken,
+				tokenExpiresAt: null,
+			},
+			deps,
+		);
+		connected.push(instagram.unwrap());
+	}
+
+	return ok(connected);
+}

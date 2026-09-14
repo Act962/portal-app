@@ -23,8 +23,17 @@ import { SocialQueue } from "./social-queue";
  * vez e só voltam a ser olhadas quando algo falha. O número de pendentes fica
  * na própria aba, para quem abre a tela saber na hora se há o que aprovar.
  */
-export function SocialManager({ canManage }: { canManage: boolean }) {
-	const [tab, setTab] = useState("fila");
+export function SocialManager({
+	canManage,
+	initialTab,
+	metaFlag,
+}: {
+	canManage: boolean;
+	initialTab: "fila" | "contas";
+	/** O resultado da volta do login da Meta, quando a tela abre por ela. */
+	metaFlag: string | null;
+}) {
+	const [tab, setTab] = useState<string>(initialTab);
 	const pending = useQuery(trpc.social.pendingCount.queryOptions());
 
 	return (
@@ -56,7 +65,7 @@ export function SocialManager({ canManage }: { canManage: boolean }) {
 				</TabsContent>
 
 				<TabsContent value="contas" className="mt-4">
-					<AccountsPanel canManage={canManage} />
+					<AccountsPanel canManage={canManage} metaFlag={metaFlag} />
 				</TabsContent>
 			</Tabs>
 		</>

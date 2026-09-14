@@ -2,6 +2,7 @@ import { type Result, toPageRequest } from "@portal-app/shared-kernel";
 import {
 	approvePost,
 	cancelPost,
+	connectMetaPage,
 	countPendingPosts,
 	createDraft,
 	disconnectAccount,
@@ -18,7 +19,13 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { requirePermission, router } from "../index";
-import { socialDeps } from "../social";
+import {
+	META_PENDING_COOKIE,
+	metaOAuth,
+	readCookie,
+	socialDeps,
+	unsealPendingToken,
+} from "../social";
 
 /**
  * A fila de publicação no painel.
@@ -214,6 +221,65 @@ export const socialRouter = router({
 		return accounts.map((account) => accountDto(account, now));
 	}),
 
+	/** O App da Meta está configurado neste ambiente? A tela só oferece o login
+	 * quando está — sem ele, o botão levaria a um erro. */
+	metaStatus: publish.query(() => ({ configured: metaOAuth !== null })),
+
+	/**
+	 * As Páginas que a pessoa administra, depois do login da Meta.
+	 *
+	 * Lê o token de usuário do cookie cifrado que a volta do login deixou. **Não
+	 * devolve token nenhum** — só o que a tela precisa para a escolha.
+	 */
+	metaPages: manage.query(async ({ ctx }) => {
+		const pages = await pendingPages(ctx.headers);
+		return pages.map((page) => ({
+			id: page.id,
+			name: page.name,
+			pictureUrl: page.pictureUrl,
+			instagram: page.instagram
+				? {
+						username: page.instagram.username,
+						pictureUrl: page.instagram.pictureUrl,
+					}
+				: null,
+		}));
+	}),
+
+	/** Conecta a Página escolhida e o Instagram vinculado a ela. */
+	connectMetaPage: manage
+		.input(z.object({ pageId: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			const pages = await pendingPages(ctx.headers);
+			const page = pages.find((item) => item.id === input.pageId);
+			if (!page) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Esta Página não está entre as que você administra.",
+				});
+			}
+			const accounts = ensure(
+				await connectMetaPage(
+					ctx.staff,
+					{
+						pageId: page.id,
+						pageName: page.name,
+						pageAccessToken: page.accessToken,
+						pagePictureUrl: page.pictureUrl,
+						instagram: page.instagram,
+					},
+					socialDeps,
+				),
+			);
+			const now = socialDeps.clock.now();
+			return {
+				accounts: accounts.map((account) => accountDto(account, now)),
+				// A tela avisa quando a Página não tem Instagram vinculado: sem este
+				// sinal, a pessoa acharia que o Instagram também foi conectado.
+				instagramLinked: page.instagram !== null,
+			};
+		}),
+
 	disconnect: manage
 		.input(z.object({ platform }))
 		.mutation(async ({ ctx, input }) => {
@@ -223,3 +289,36 @@ export const socialRouter = router({
 			return accountDto(account, socialDeps.clock.now());
 		}),
 });
+
+/**
+ * As Páginas do login pendente. Falha com mensagem clara quando o login venceu
+ * (dez minutos) ou nunca aconteceu, em vez de uma lista vazia que pareceria
+ * "você não administra Página nenhuma".
+ */
+async function pendingPages(headers: Headers) {
+	if (!metaOAuth) {
+		throw new TRPCError({
+			code: "PRECONDITION_FAILED",
+			message: "A integração com a Meta não está configurada neste ambiente.",
+		});
+	}
+	const token = unsealPendingToken(
+		readCookie(headers, META_PENDING_COOKIE),
+		socialDeps.clock.now(),
+	);
+	if (!token) {
+		throw new TRPCError({
+			code: "PRECONDITION_FAILED",
+			message:
+				"O login da Meta expirou. Clique em Conectar com a Meta de novo.",
+		});
+	}
+	const pages = await metaOAuth.listPages(token);
+	if (pages.isErr()) {
+		throw new TRPCError({
+			code: "BAD_GATEWAY",
+			message: `A Meta não devolveu as Páginas: ${pages.unwrapErr().message}`,
+		});
+	}
+	return pages.unwrap();
+}

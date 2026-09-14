@@ -4,6 +4,7 @@ import {
 	accountTone,
 	availableActions,
 	captionCounters,
+	metaFlagMessage,
 	POST_STATUS_LABELS,
 	previewCaption,
 	summarizeDeliveries,
@@ -117,5 +118,28 @@ describe("rótulos e tons", () => {
 		expect(accountTone("EXPIRANDO")).toBe("atencao");
 		expect(accountTone("EXPIRADA")).toBe("erro");
 		expect(accountTone("DESCONECTADA")).toBe("erro");
+	});
+});
+
+describe("metaFlagMessage — a volta do login da Meta", () => {
+	it("cancelamento é informativo, não erro", () => {
+		expect(metaFlagMessage("cancelado")?.tone).toBe("info");
+	});
+
+	it("falha e falta de configuração são erro, com o que conferir", () => {
+		expect(metaFlagMessage("erro")).toMatchObject({ tone: "erro" });
+		expect(metaFlagMessage("erro")?.message).toContain("endereço de retorno");
+		expect(metaFlagMessage("nao-configurado")?.message).toContain(
+			"META_APP_ID",
+		);
+	});
+
+	it("o caminho feliz não gera aviso — a escolha de Página já aparece", () => {
+		expect(metaFlagMessage("escolher")).toBeNull();
+	});
+
+	it("parâmetro inventado na URL não vira aviso vermelho", () => {
+		expect(metaFlagMessage("qualquer-coisa")).toBeNull();
+		expect(metaFlagMessage(null)).toBeNull();
 	});
 });

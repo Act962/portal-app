@@ -10,6 +10,7 @@ export * from "./domain/caption-template";
 export * from "./domain/delivery";
 export * from "./domain/errors";
 export * from "./domain/events";
+export * from "./domain/focal-crop";
 export * from "./domain/platform";
 export * from "./domain/ports/social-account-repository";
 export * from "./domain/ports/social-post-repository";

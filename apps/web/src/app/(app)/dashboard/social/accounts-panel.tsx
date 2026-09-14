@@ -20,13 +20,19 @@ import { Button } from "@portal-app/ui/components/button";
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import { cn } from "@portal-app/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Info, Unplug } from "lucide-react";
+import { AlertTriangle, Info, LogIn, Unplug } from "lucide-react";
+import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { trpc } from "@/utils/trpc";
 
-import { ACCOUNT_STATE_LABELS, accountTone } from "./social-labels";
+import {
+	ACCOUNT_STATE_LABELS,
+	accountTone,
+	metaFlagMessage,
+} from "./social-labels";
 
 const TONE_CLASSES = {
 	ok: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
@@ -34,25 +40,34 @@ const TONE_CLASSES = {
 	erro: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
 } as const;
 
+/** A rota que começa o login da Meta. É rota de API, não página, então vai num
+ * `<a>` comum — navegação de verdade, que o redirecionamento exige. */
+const CONNECT_HREF = "/api/social/meta/connect";
+
 /**
- * As contas conectadas, uma por rede (spec 08, D5).
+ * As contas conectadas, uma por rede (spec 08, D5), e o login da Meta.
  *
- * **Não há botão "Conectar" funcionando, e a tela diz isso.** O login da Meta
- * chega na F4, junto com o App aprovado; até lá, um botão que abrisse um fluxo
- * inexistente seria pior do que um aviso honesto — é a mesma regra que fez o
- * publisher provisório recusar em vez de fingir (D17).
+ * O login só aparece quando o ambiente tem o App configurado. Sem ele, a tela
+ * diz o que falta em vez de oferecer um botão que terminaria em erro (D17).
  *
  * Quem aprova post também enxerga esta aba (`social:publish`): entender por que
- * um envio falhou passa por saber se a conta está no ar. Desconectar, porém, é
- * credencial, e só aparece para quem tem `social:manage`.
+ * um envio falhou passa por saber se a conta está no ar. Conectar e
+ * desconectar, porém, são credencial, e só aparecem com `social:manage`.
  */
-export function AccountsPanel({ canManage }: { canManage: boolean }) {
+export function AccountsPanel({
+	canManage,
+	metaFlag,
+}: {
+	canManage: boolean;
+	metaFlag: string | null;
+}) {
 	const queryClient = useQueryClient();
 	const [disconnecting, setDisconnecting] = useState<SocialPlatform | null>(
 		null,
 	);
 
 	const accounts = useQuery(trpc.social.accounts.queryOptions());
+	const meta = useQuery(trpc.social.metaStatus.queryOptions());
 
 	const disconnect = useMutation(
 		trpc.social.disconnect.mutationOptions({
@@ -81,17 +96,46 @@ export function AccountsPanel({ canManage }: { canManage: boolean }) {
 	const byPlatform = new Map(
 		(accounts.data ?? []).map((account) => [account.platform, account]),
 	);
+	const configured = meta.data?.configured ?? false;
+	const flag = metaFlagMessage(metaFlag);
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex gap-3 rounded-md border bg-muted/40 p-3 text-sm">
-				<Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-				<p className="text-muted-foreground">
-					A conexão com a Meta é feita por um login do Facebook de quem
-					administra a Página. Ela fica disponível quando o aplicativo do portal
-					for aprovado pela Meta — o passo a passo está na documentação do
-					módulo.
-				</p>
+			{flag ? (
+				<div
+					className={cn(
+						"flex gap-3 rounded-md border p-3 text-sm",
+						flag.tone === "erro"
+							? "border-destructive/40 bg-destructive/5 text-destructive"
+							: "bg-muted/40 text-muted-foreground",
+					)}
+				>
+					<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+					<p>{flag.message}</p>
+				</div>
+			) : null}
+
+			{canManage && configured && metaFlag === "escolher" ? (
+				<PageChooser />
+			) : null}
+
+			<div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/40 p-3 text-sm">
+				<div className="flex min-w-0 flex-1 gap-3">
+					<Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+					<p className="text-muted-foreground">
+						{configured
+							? "A conexão é feita com o login do Facebook de quem administra a Página. Um login conecta a Página e o Instagram vinculado a ela."
+							: "O login da Meta não está configurado neste ambiente. Cadastre META_APP_ID e META_APP_SECRET — o passo a passo está na documentação do módulo."}
+					</p>
+				</div>
+				{canManage && configured ? (
+					<Button render={<a href={CONNECT_HREF} />}>
+						<LogIn className="size-4" />
+						{byPlatform.size > 0
+							? "Reconectar com a Meta"
+							: "Conectar com a Meta"}
+					</Button>
+				) : null}
 			</div>
 
 			<div className="grid gap-4 md:grid-cols-2">
@@ -208,5 +252,98 @@ export function AccountsPanel({ canManage }: { canManage: boolean }) {
 				</AlertDialogContent>
 			</AlertDialog>
 		</div>
+	);
+}
+
+/**
+ * A escolha da Página, depois do login.
+ *
+ * Existe porque quem conecta costuma administrar mais de uma Página — agência,
+ * rede de lojas, a página pessoal. Conectar a primeira da lista sem perguntar
+ * publicaria as notícias do portal na Página errada.
+ */
+function PageChooser() {
+	const queryClient = useQueryClient();
+	const router = useRouter();
+	const pages = useQuery({
+		...trpc.social.metaPages.queryOptions(),
+		// Login vencido não melhora tentando de novo; a mensagem já diz o que fazer.
+		retry: false,
+	});
+
+	const connect = useMutation(
+		trpc.social.connectMetaPage.mutationOptions({
+			onSuccess: async (result) => {
+				if (result.instagramLinked) {
+					toast.success("Página e Instagram conectados.");
+				} else {
+					toast.warning(
+						"Página conectada. Ela não tem Instagram profissional vinculado — o Instagram continua desconectado.",
+					);
+				}
+				await queryClient.invalidateQueries({
+					queryKey: trpc.social.accounts.queryKey(),
+				});
+				// Tira o `?meta=escolher` da URL: recarregar a tela não pode reabrir
+				// a escolha de um login que já foi usado.
+				router.replace("/dashboard/social?aba=contas" as Route);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	return (
+		<section className="flex flex-col gap-3 rounded-lg border border-primary/40 bg-card p-4">
+			<div>
+				<h2 className="font-semibold">Escolha a Página do portal</h2>
+				<p className="text-muted-foreground text-sm">
+					As notícias vão para a Página escolhida e para o Instagram vinculado a
+					ela.
+				</p>
+			</div>
+
+			{pages.isPending ? (
+				<Skeleton className="h-24" />
+			) : pages.isError ? (
+				<p className="text-destructive text-sm">{pages.error.message}</p>
+			) : pages.data.length === 0 ? (
+				<p className="text-muted-foreground text-sm">
+					Nenhuma Página foi encontrada. Confira se a conta usada no login
+					administra a Página do veículo e se todas as permissões foram aceitas.
+				</p>
+			) : (
+				<ul className="flex flex-col gap-2">
+					{pages.data.map((page) => (
+						<li
+							key={page.id}
+							className="flex flex-wrap items-center gap-3 rounded-md border p-3"
+						>
+							{page.pictureUrl ? (
+								<img
+									src={page.pictureUrl}
+									alt=""
+									className="size-10 rounded-full"
+								/>
+							) : null}
+							<div className="min-w-0 flex-1">
+								<p className="truncate font-medium text-sm">{page.name}</p>
+								<p className="text-muted-foreground text-xs">
+									{page.instagram
+										? `Instagram: @${page.instagram.username}`
+										: "Sem Instagram profissional vinculado"}
+								</p>
+							</div>
+							<Button
+								size="sm"
+								disabled={connect.isPending}
+								onClick={() => connect.mutate({ pageId: page.id })}
+							>
+								Usar esta Página
+							</Button>
+						</li>
+					))}
+				</ul>
+			)}
+		</section>
 	);
 }

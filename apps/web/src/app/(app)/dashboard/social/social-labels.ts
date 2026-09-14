@@ -159,3 +159,38 @@ export function accountTone(state: string): "ok" | "atencao" | "erro" {
 			return "erro";
 	}
 }
+
+/**
+ * O que dizer quando a tela abre pela volta do login da Meta
+ * (`?meta=<resultado>`).
+ *
+ * `escolher` não tem mensagem: é o caminho feliz, e a própria escolha de Página
+ * aparece na tela. Valor desconhecido também não — um parâmetro inventado na
+ * URL não deve virar aviso vermelho.
+ */
+export function metaFlagMessage(
+	flag: string | null,
+): { tone: "info" | "erro"; message: string } | null {
+	switch (flag) {
+		case "cancelado":
+			return {
+				tone: "info",
+				message:
+					"O login da Meta foi cancelado. Nenhuma conta foi conectada ou alterada.",
+			};
+		case "erro":
+			return {
+				tone: "erro",
+				message:
+					"Não foi possível concluir o login da Meta. Tente de novo — se continuar, confira se o endereço de retorno está cadastrado no App.",
+			};
+		case "nao-configurado":
+			return {
+				tone: "erro",
+				message:
+					"O login da Meta não está configurado neste ambiente (META_APP_ID e META_APP_SECRET).",
+			};
+		default:
+			return null;
+	}
+}

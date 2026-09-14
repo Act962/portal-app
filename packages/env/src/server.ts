@@ -70,6 +70,22 @@ export const env = createEnv({
 		// ela nenhuma tag é emitida. É um segredo POR AMBIENTE — cravá-lo no
 		// código faria o deploy de preview reivindicar o domínio de produção.
 		GOOGLE_SITE_VERIFICATION: z.string().min(1).optional(),
+		// App da Meta — publicação no Instagram e no Facebook (spec 08, F4).
+		// Opcionais, e a ausência é um estado válido: sem as duas chaves o portal
+		// não oferece o login da Meta e o publisher recusa com "integração ainda
+		// não ligada", em vez de tentar e falhar com erro de credencial. É o que
+		// mantém dev, build e CI rodando sem conta em serviço nenhum (N10).
+		//
+		// O SECRET só existe no servidor: é com ele que o código do login vira
+		// token. Vazá-lo permite a qualquer um trocar códigos em nome do App.
+		META_APP_ID: z.string().min(1).optional(),
+		META_APP_SECRET: z.string().min(1).optional(),
+		// Versão fixada da Graph API. A Meta desativa versões em calendário;
+		// trocar tem de ser decisão registrada, não efeito colateral.
+		META_GRAPH_VERSION: z
+			.string()
+			.regex(/^v\d+\.\d+$/)
+			.default("v25.0"),
 		INNGEST_DEV: z.string().optional(),
 		INNGEST_SIGNING_KEY: z.string().min(1).optional(),
 		INNGEST_EVENT_KEY: z.string().min(1).optional(),

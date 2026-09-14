@@ -1,48 +1,26 @@
 import { createPrismaClient } from "@portal-app/db";
 import { env } from "@portal-app/env/server";
 import { SystemClock, UuidGenerator } from "@portal-app/shared-kernel";
-import type { PublishableImage, SocialImageSource } from "@portal-app/social";
+import { MetaGraphClient } from "@portal-app/social/infrastructure/meta/graph-client";
+import {
+	buildAuthorizeUrl,
+	MetaOAuth,
+	type MetaOAuthConfig,
+} from "@portal-app/social/infrastructure/meta/meta-oauth";
+import { MetaSocialPublisher } from "@portal-app/social/infrastructure/meta/meta-social-publisher";
 import { PrismaSocialAccountRepository } from "@portal-app/social/infrastructure/prisma-social-account-repository";
 import { PrismaSocialPostRepository } from "@portal-app/social/infrastructure/prisma-social-post-repository";
 import { TokenCipher } from "@portal-app/social/infrastructure/token-cipher";
 import { UnconfiguredSocialPublisher } from "@portal-app/social/infrastructure/unconfigured-social-publisher";
 
 import { mediaDeps, mediaStorage } from "./media";
+import { CroppedImageSource } from "./social-image";
 
 /**
  * Raiz de composição das redes sociais. Como nos demais contextos, é AQUI que a
  * infraestrutura é instanciada — o resto do app só conhece as portas.
  */
 const prisma = createPrismaClient();
-
-/**
- * Resolve um id da biblioteca na imagem que a Meta vai baixar.
- *
- * Mora na composição, e não no contexto de redes sociais, porque a resposta é
- * da MÍDIA: fazer `social` importar `media` quebraria `contextos-isolados`. É o
- * mesmo arranjo do `ContentUsage` da taxonomia e do `MediaUsage` da mídia.
- *
- * ⚠️ **O corte 1:1 ainda NÃO acontece** (fatia F4). Hoje devolve o arquivo
- * original, o que é suficiente para o Facebook e para imagens já quadradas, mas
- * o Instagram recorta sozinho — ignorando o ponto focal que a Fase 2 guarda, e
- * às vezes cortando a cabeça de quem está na foto. O `aspect` já viaja no
- * contrato para que ligar o corte seja mudar este método, e só ele.
- */
-class MediaLibraryImageSource implements SocialImageSource {
-	async resolve(
-		mediaId: string,
-		_aspect: "1:1" | "4:5" | "original",
-	): Promise<PublishableImage | null> {
-		const asset = await mediaDeps.repo.findById(mediaId);
-		if (!asset) {
-			return null;
-		}
-		return {
-			url: mediaStorage.publicUrl(asset.storageKey),
-			altText: asset.altText?.value ?? "",
-		};
-	}
-}
 
 /**
  * A chave de cifragem dos tokens vem do `BETTER_AUTH_SECRET` (spec 08, D9): um
@@ -57,17 +35,124 @@ export const socialAccountRepo = new PrismaSocialAccountRepository(
 	cipher,
 );
 
+/** O caminho da volta do login. Precisa estar cadastrado, igual, no App. */
+export const META_CALLBACK_PATH = "/api/social/meta/callback";
+
+/**
+ * A configuração do App da Meta, ou `null` quando o ambiente não tem as chaves.
+ *
+ * `null` é estado válido e é o de dev, build e CI (N10): a tela não oferece o
+ * login e o publisher recusa dizendo por quê, em vez de tentar e morrer com
+ * erro de credencial.
+ */
+export const metaConfig: MetaOAuthConfig | null =
+	env.META_APP_ID && env.META_APP_SECRET
+		? {
+				appId: env.META_APP_ID,
+				appSecret: env.META_APP_SECRET,
+				version: env.META_GRAPH_VERSION,
+				redirectUri: `${env.BETTER_AUTH_URL.replace(/\/+$/, "")}${META_CALLBACK_PATH}`,
+			}
+		: null;
+
+const graph = new MetaGraphClient({ version: env.META_GRAPH_VERSION });
+
+export const metaOAuth = metaConfig ? new MetaOAuth(metaConfig, graph) : null;
+
+/**
+ * A URL do diálogo de login, ou `null` sem App configurado. Exposta daqui para a
+ * rota do app não importar a infraestrutura do contexto (`infra-nao-vaza`).
+ */
+export function metaAuthorizeUrl(state: string): string | null {
+	return metaConfig ? buildAuthorizeUrl(metaConfig, state) : null;
+}
+
 export const socialDeps = {
 	repo: new PrismaSocialPostRepository(prisma),
 	accounts: socialAccountRepo,
-	// O adapter real da Meta chega na fatia F4. Até lá, este RECUSA e diz por
-	// quê — em vez de fingir sucesso e encher a fila de posts "publicados" que
-	// não existem em rede nenhuma.
-	publisher: new UnconfiguredSocialPublisher(),
-	images: new MediaLibraryImageSource(),
+	// Com o App configurado, o adapter real. Sem ele, o que RECUSA e diz por quê
+	// — nunca um dublê que finja sucesso (D17).
+	publisher: metaConfig
+		? new MetaSocialPublisher({
+				client: graph,
+				credentialsFor: (platform) =>
+					socialAccountRepo.credentialsFor(platform),
+			})
+		: new UnconfiguredSocialPublisher(),
+	images: new CroppedImageSource({
+		media: mediaDeps.repo,
+		storage: mediaStorage,
+	}),
 	clock: new SystemClock(),
 	ids: new UuidGenerator(),
 };
 
 /** As redes que recebem o post automático de cada matéria publicada. */
 export const AUTO_POST_PLATFORMS = ["INSTAGRAM", "FACEBOOK"] as const;
+
+// ── cookies do login da Meta ──────────────────────────────────────────────────
+
+/** O `state` anti-CSRF, conferido na volta do login. */
+export const META_STATE_COOKIE = "portal_meta_state";
+
+/**
+ * O token de USUÁRIO entre a volta do login e a escolha da Página.
+ *
+ * Existe porque a pessoa pode administrar várias Páginas (agência, rede de
+ * lojas), e a escolha é uma tela, não um parâmetro. O token precisa sobreviver
+ * entre dois pedidos sem ir para o banco — ele dá acesso a TODAS as Páginas da
+ * pessoa, e só uma vai ser conectada.
+ *
+ * Por isso: cifrado com a mesma chave dos tokens guardados, `httpOnly`,
+ * restrito ao caminho do tRPC, e com prazo embutido no próprio conteúdo — dez
+ * minutos, conferidos no servidor, sem confiar só no `maxAge` do navegador.
+ */
+export const META_PENDING_COOKIE = "portal_meta_pending";
+
+export const META_COOKIE_MAX_AGE_SECONDS = 600;
+
+export function sealPendingToken(userToken: string, now: Date): string {
+	return cipher.encrypt(
+		JSON.stringify({
+			t: userToken,
+			exp: now.getTime() + META_COOKIE_MAX_AGE_SECONDS * 1000,
+		}),
+	);
+}
+
+/** Devolve o token ou `null` se o cookie falta, foi adulterado ou venceu. */
+export function unsealPendingToken(
+	sealed: string | undefined,
+	now: Date,
+): string | null {
+	if (!sealed) {
+		return null;
+	}
+	try {
+		const payload = JSON.parse(cipher.decrypt(sealed)) as {
+			t?: string;
+			exp?: number;
+		};
+		if (!payload.t || !payload.exp || payload.exp < now.getTime()) {
+			return null;
+		}
+		return payload.t;
+	} catch {
+		return null;
+	}
+}
+
+/** Lê um cookie do cabeçalho — o contexto do tRPC só tem os headers crus. */
+export function readCookie(headers: Headers, name: string): string | undefined {
+	const header = headers.get("cookie");
+	if (!header) {
+		return undefined;
+	}
+	for (const part of header.split(";")) {
+		const [key, ...rest] = part.trim().split("=");
+		if (key === name) {
+			return decodeURIComponent(rest.join("="));
+		}
+	}
+	return undefined;
+}

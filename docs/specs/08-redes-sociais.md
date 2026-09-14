@@ -1,7 +1,7 @@
 # Spec — Fase 8: Redes Sociais (Instagram e Facebook)
 
 > **Status:** 🚧 Em execução — Fatias 1 e 2 entregues em 11/09/2026 (domínio,
-> persistência, gatilho, casos de uso e API); Fatia 3 (telas do painel) em 14/09/2026.
+> persistência, gatilho, casos de uso e API); Fatia 3 (telas do painel) e Fatia 4 (adapter real da Meta, login e corte da capa) em 14/09/2026. Falta a F5: App Review e go-live.
 > **Decisões do cliente:** tomadas em 11/09/2026 (D1–D4 abaixo).
 > **Referências:** `01-identidade-acesso.md` (as ações novas) ·
 > `../adr/0005-outbox-transacional.md` (o gatilho) ·
@@ -54,7 +54,7 @@ usa. O editorial não fica sabendo que redes sociais existem.
 | F1 | Domínio puro: `SocialPost`, `Delivery`, `SocialAccount`, `Caption`, modelo de legenda, portas | ✅ 11/09 |
 | F2 | Persistência (Prisma), casos de uso, gatilho no `ArticlePublished`, tRPC | ✅ 11/09 |
 | F3 | Telas do painel: fila de aprovação, editor do post, conexão de contas | ✅ 14/09 |
-| F4 | Adapter real da Meta + OAuth + corte 1080×1080 da capa | ⬜ |
+| F4 | Adapter real da Meta + OAuth + corte 1080×1080 da capa | ✅ 14/09 |
 | F5 | App Review da Meta e go-live | ⬜ |
 
 ### Não entra (e por quê)
@@ -270,6 +270,7 @@ programador. **Cada passo depende do anterior.**
   | `pages_manage_posts` | publicar no feed da Página |
   | `instagram_basic` | identificar a conta do Instagram |
   | `instagram_content_publish` | publicar no Instagram |
+  | `business_management` | listar Páginas que pertencem a um Portfólio Empresarial — sem ele, o login termina com a lista vazia *(acrescentado na F4)* |
 
 ### 6.4 O fluxo de tokens (o que o F4 implementa)
 
@@ -413,9 +414,9 @@ A escrever na F4: contrato do `SocialPublisher` (fake ↔ Meta) e E2E da fila.
 - [x] Nada além do adapter conhece o vocabulário da Meta — verificado pelo
       `dependency-cruiser`
 - [x] A fila aparece no painel, em "Redes sociais", para EDITOR e ADMIN (F3)
-- [ ] Aprovar publica de verdade nas duas redes, com o link do post salvo (F4)
+- [~] Aprovar publica de verdade nas duas redes, com o link do post salvo — implementado e testado contra uma Graph API simulada; **não exercitado contra a Meta real** (depende do App, F5)
 - [x] Token vencendo avisa 7 dias antes na aba Contas (F3)
-- [ ] A capa é cortada em 1:1 respeitando o ponto focal (F4)
+- [x] A capa é cortada em 1:1 respeitando o ponto focal, em JPEG 1080×1080 (F4)
 
 ---
 
@@ -464,4 +465,41 @@ servidor de dev, a rota responde (redireciona para o login sem sessão) e o
 `social.*` está montado e protegido. **A tela autenticada não foi exercitada no
 navegador** — exige login, que não é feito pela automação. O E2E da fila está
 registrado como `test.fixme` em `apps/web/tests/e2e/social.spec.ts`.
+
+## 13. O que a F4 entregou
+
+**Adapter real** — `packages/contexts/social/src/infrastructure/meta/`:
+
+| Arquivo | Papel |
+|---|---|
+| `graph-client.ts` | Cliente mínimo da Graph API sobre `fetch`, sem SDK; extrai o erro da Meta (código, subcódigo, frase de usuário, transitório) |
+| `graph-errors.ts` | Traduz o erro para português e decide se vale repetir (190 revogado, 10/200 permissão, 4/17/32/613 limite, 1/2 instabilidade, 9004 download, 36000 tamanho) |
+| `meta-social-publisher.ts` | Instagram (foto e carrossel, com espera do container) e Página (foto e álbum com `attached_media`) |
+| `meta-oauth.ts` | URL do login (fluxo de código), troca por token longo e lista de Páginas com o Instagram vinculado |
+
+**Login da Meta** — `apps/web/src/app/api/social/meta/{connect,callback}/route.ts`:
+
+1. `connect` confere `social:manage`, gera o `state` anti-CSRF num cookie e manda para o diálogo.
+2. `callback` confere o `state`, troca o código por token de usuário longo e o guarda **cifrado, por 10 minutos**, num cookie `httpOnly` restrito a `/api/trpc`. Nada é conectado ainda.
+3. A aba Contas mostra as Páginas que a pessoa administra; ela escolhe uma, e `social.connectMetaPage` conecta a Página e o Instagram vinculado com o token da Página.
+
+**Corte da capa** — `packages/api/src/social-image.ts` + `focalCrop` no domínio:
+a geometria (maior retângulo da proporção, centrado no ponto focal e empurrado para dentro na borda) é função pura testada; o `sharp` só executa. O corte vai para o armazenamento numa chave que inclui o ponto focal, e é reaproveitado no reenvio.
+
+Decisões da F4:
+
+- **D18 — Fluxo de código, não de token.** O token nasce no servidor, na troca feita com o segredo do App, e nunca passa pelo navegador.
+- **D19 — A Página é escolhida, não adivinhada.** Quem conecta costuma administrar várias Páginas; conectar a primeira da lista publicaria no lugar errado. O token de usuário espera a escolha num cookie cifrado de 10 minutos, e não no banco — ele abre TODAS as Páginas da pessoa.
+- **D20 — Espera do container de 1 minuto, não 5.** A Meta recomenda consultar por até 5 minutos, mas a espera roda dentro de uma tarefa agendada com teto de duração. Foto fica pronta em segundos; se não ficar, a entrega falha como repetível e a próxima rodada tenta com container novo.
+- **D21 — Falhar ao buscar o link não falha a publicação.** O post já está no ar; tratar "sem link" como erro faria o worker reenviar e duplicar.
+- **D22 — Armazenamento instável lança; imagem apagada devolve `null`.** O primeiro é passageiro e deixa a entrega pendente para a próxima rodada; o segundo é definitivo e vira erro gravado na entrega.
+
+**Variáveis de ambiente** — `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION` (padrão `v25.0`). Opcionais: sem elas, a tela não oferece o login e o publisher recusa dizendo por quê. Documentadas em `apps/web/.env.example`.
+
+**Limites conhecidos, honestos:**
+
+- **Nada foi testado contra a Meta real.** Os testes simulam a Graph API a partir da documentação (v25.0). Códigos de erro e o formato exato das respostas só se confirmam com o App criado — é o primeiro item da F5.
+- **Em dev a publicação falha no download da imagem.** A Meta baixa por URL pública, e o MinIO local não é alcançável pela internet. Para publicar de verdade, o armazenamento precisa ser o R2 (ou um túnel).
+- **O cookie do login pendente não é apagado depois da escolha**; ele vence sozinho em 10 minutos. O tRPC não tem acesso aos cabeçalhos de resposta, e o conteúdo é cifrado e restrito a `/api/trpc`.
+- **As rotas `connect`/`callback` e o selo do cookie não têm teste automatizado** — exigem sessão e ambiente. Estão cobertos pelo roteiro manual da F5.
 
