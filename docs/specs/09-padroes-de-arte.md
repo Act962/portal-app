@@ -1,8 +1,8 @@
 # Spec — Fase 9: Padrões de arte para as redes sociais
 
-> **Status:** 🚧 Em execução — F1 (domínio), F2 (persistência e API), F3
-> (desenhista e prévia), F4 (editor visual) e F5 (padrão aplicado ao post)
-> entregues em 14/09/2026. F6 (publicação a partir da matéria) em andamento.
+> **Status:** ✅ Entregue — F1 (domínio), F2 (persistência e API), F3
+> (desenhista e prévia), F4 (editor visual), F5 (padrão aplicado ao post) e F6
+> (publicação a partir da matéria) entregues em 14/09/2026.
 > **Decisões do cliente:** tomadas em 14/09/2026 (D1–D4 abaixo).
 > **Referências:** `08-redes-sociais.md` (a fila, as entregas e os Stories — §17) ·
 > `06-biblioteca-de-midia.md` (de onde vêm foto e moldura) ·
@@ -51,7 +51,7 @@ Ou seja: **camadas**. Foto embaixo, moldura por cima, textos por cima da moldura
 | F3 | Renderizador no servidor (Satori + resvg + fontes embarcadas → JPEG) e prévia | ✅ 14/09 |
 | F4 | Editor visual de padrões (aba **Padrões** em Redes sociais) | ✅ 14/09 |
 | F5 | Padrão aplicado ao post: por destino, textos editáveis, rascunho automático já com arte | ✅ 14/09 |
-| F6 | Na matéria: criar a publicação (feed e/ou story, rascunho ou aprovada) a partir do editor da matéria | — |
+| F6 | Na matéria: criar a publicação (feed e/ou story, rascunho ou aprovada) a partir do editor da matéria | ✅ |
 
 ### Não entra (e por quê)
 
@@ -220,6 +220,29 @@ matéria.
 > de antes da migration, e toda gravação nas tabelas alteradas falha com
 > "Unknown argument" — o typecheck e os testes, que sobem processo novo, passam
 > e escondem o problema.
+
+**D22 — Origem `MATERIA`: o post preparado no editor da matéria.** *(F6)* Conta
+como "o post da matéria", igual ao automático: trava o gatilho (na checagem do
+caso de uso e no índice único `autoKey`) e é o que `findForArticle` devolve. O
+`MANUAL` da fila continua avulso e ilimitado por matéria — ele é intenção
+("republica aquela de ontem"), não o post da notícia.
+
+**D23 — Um post por matéria: o editor da matéria ajusta o que existe.** *(F6)* Se
+o gatilho já criou o rascunho, preparar pela matéria mexe NESSE post — destinos e
+arte mudam; a legenda e as fotos que alguém revisou na fila ficam. Criar um
+segundo post furaria a trava que existe justamente para a redação não aprovar a
+mesma notícia duas vezes. Post já aprovado não é mexido: acompanha-se na fila.
+
+**D24 — Aprovar só com a matéria no ar.** *(F6)* Antes da publicação, o link da
+matéria não existe, e o Facebook receberia um endereço morto. O rascunho vale a
+qualquer momento; a aprovação é recusada com `ArticleNotPublished` (412), e o
+cartão já diz isso antes do clique. "No ar" é a lista do editorial
+(`PUBLISHED_STATUSES`: PUBLICADA e ATUALIZADA), não uma cópia.
+
+**D25 — O cartão só aparece para quem publica nas redes.** *(F6)* O editor da
+matéria também é do redator, que não tem `social:publish`. A permissão é resolvida
+na página, no servidor, e desce como booleano: se o cartão consultasse e levasse
+403, o cliente tRPC mostraria um aviso de erro a cada matéria aberta.
 
 ---
 

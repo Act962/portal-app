@@ -1,3 +1,5 @@
+import { can } from "@portal-app/identity";
+
 import { requireStaff } from "@/lib/require-staff";
 
 import { ArticleEditor } from "./article-editor";
@@ -7,7 +9,13 @@ export default async function ArticleEditorPage({
 }: {
 	params: Promise<{ id: string }>;
 }) {
-	await requireStaff();
+	const { staff } = await requireStaff();
 	const { id } = await params;
-	return <ArticleEditor id={id} />;
+	// O cartão "Redes sociais" (spec 09, F6) só aparece para quem pode publicar
+	// nas redes. Resolvido aqui porque `StaffMember` não serializa para o
+	// cliente — desce só o booleano. Sem isto, o redator abriria a matéria e
+	// veria um erro de permissão a cada vez.
+	return (
+		<ArticleEditor id={id} canPublishSocial={can(staff, "social:publish")} />
+	);
 }

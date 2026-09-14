@@ -94,6 +94,8 @@ import {
 } from "@/lib/article-selection";
 import { trpc } from "@/utils/trpc";
 
+import { ArticleSocialCard } from "./article-social-card";
+
 // O TipTap não pode renderizar no servidor (hidratação divergente).
 const ArticleBodyEditor = dynamic(
 	() =>
@@ -118,7 +120,14 @@ function countHint(value: number, min: number, max: number) {
 		: "text-amber-600 dark:text-amber-400";
 }
 
-export function ArticleEditor({ id }: { id: string }) {
+export function ArticleEditor({
+	id,
+	canPublishSocial = false,
+}: {
+	id: string;
+	/** Mostra o cartão "Redes sociais" (spec 09, F6). */
+	canPublishSocial?: boolean;
+}) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const article = useQuery(trpc.editorial.articles.get.queryOptions({ id }));
@@ -843,6 +852,12 @@ export function ArticleEditor({ id }: { id: string }) {
 							) : null}
 						</CardContent>
 					</Card>
+
+					{/*
+					  A publicação desta matéria nas redes (spec 09, F6), logo abaixo da
+					  capa — é com ela que a arte é desenhada.
+					*/}
+					{canPublishSocial ? <ArticleSocialCard articleId={id} /> : null}
 
 					<p className="text-muted-foreground text-xs">
 						Assinada por {article.data.byline.name}

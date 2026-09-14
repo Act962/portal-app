@@ -382,7 +382,7 @@ function ArtTextInput({
 }
 
 /** A arte real, pedida ao servidor sempre que o desenho, o texto ou a foto mudam. */
-function ArtPreview({
+export function ArtPreview({
 	selection,
 	content,
 	photoMediaId,
