@@ -1,10 +1,13 @@
 import { FixedClock } from "@portal-app/shared-kernel";
 import {
+	ArtTemplate,
+	DEFAULT_TEXT_STYLE,
 	MAX_AUTOMATIC_ATTEMPTS,
 	publishPendingPosts,
 	SocialAccount,
 	type SocialPlatform,
 	SocialPost,
+	selectionFrom,
 } from "@portal-app/social";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -274,6 +277,121 @@ describe("publishPendingPosts", () => {
 			expect(post.status).toBe("FALHOU");
 			expect(post.deliveryFor("INSTAGRAM")?.error).toContain("Tentar de novo");
 			expect(publisher.requests).toHaveLength(MAX_AUTOMATIC_ATTEMPTS);
+		});
+	});
+
+	describe("arte do padrão (spec 09, F5)", () => {
+		const padrao = ArtTemplate.create({
+			id: "tpl-feed",
+			name: "Últimas — feed",
+			format: "4:5",
+			layers: [
+				{
+					id: "titulo",
+					kind: "TEXT",
+					box: { x: 130, y: 560, width: 820, height: 240 },
+					source: "HEADLINE",
+					text: "",
+					style: { ...DEFAULT_TEXT_STYLE },
+				},
+			],
+			createdAt: AGORA,
+		}).unwrap();
+
+		async function aprovadoComArte(
+			mediaIds: readonly string[] = ["m-1", "m-2", "m-3"],
+			artContent: {
+				headline: string;
+				kicker: string | null;
+				sectionName: string | null;
+			} | null = {
+				headline: "Chuva alaga o centro",
+				kicker: "Últimas",
+				sectionName: "Cidades",
+			},
+		) {
+			const post = SocialPost.draft({
+				id: "post-arte",
+				origin: "AUTOMATICA",
+				articleId: "art-1",
+				captionText: "Plantão: chuva forte\n\nMais na matéria.",
+				mediaIds,
+				platforms: ["INSTAGRAM", "FACEBOOK"],
+				art: { INSTAGRAM: selectionFrom(padrao, { titulo: "Título trocado" }) },
+				artContent,
+				createdAt: AGORA,
+			}).unwrap();
+			post.approve("editor-1", AGORA);
+			post.pullEvents();
+			await repo.save(post);
+			return post;
+		}
+
+		it("destino com padrão publica UMA imagem: a arte, com a primeira foto", async () => {
+			conectar("INSTAGRAM");
+			conectar("FACEBOOK");
+			await aprovadoComArte();
+
+			await publishPendingPosts(deps);
+
+			const instagram = publisher.requests.find(
+				(request) => request.platform === "INSTAGRAM",
+			);
+			expect(instagram?.images.map((image) => image.url)).toEqual([
+				"https://cdn.test/art-tpl-feed.jpg",
+			]);
+			expect(images.artworkRequests).toHaveLength(1);
+			expect(images.artworkRequests[0]).toMatchObject({
+				photoMediaId: "m-1",
+				content: { headline: "Chuva alaga o centro", kicker: "Últimas" },
+				selection: {
+					templateId: "tpl-feed",
+					overrides: { titulo: "Título trocado" },
+				},
+			});
+		});
+
+		it("destino sem padrão continua com as fotos cortadas, como antes", async () => {
+			conectar("INSTAGRAM");
+			conectar("FACEBOOK");
+			await aprovadoComArte();
+
+			await publishPendingPosts(deps);
+
+			const facebook = publisher.requests.find(
+				(request) => request.platform === "FACEBOOK",
+			);
+			expect(facebook?.images).toHaveLength(3);
+			expect(images.aspects).toEqual(["1:1", "1:1", "1:1"]);
+		});
+
+		it("post avulso desenha a arte com a primeira linha da legenda como título", async () => {
+			conectar("INSTAGRAM");
+			conectar("FACEBOOK");
+			await aprovadoComArte(["m-1"], null);
+
+			await publishPendingPosts(deps);
+
+			expect(images.artworkRequests[0]?.content).toEqual({
+				headline: "Plantão: chuva forte",
+				kicker: null,
+				sectionName: null,
+			});
+		});
+
+		it("foto da arte que sumiu falha a entrega dizendo isso, sem chamar a Meta", async () => {
+			conectar("INSTAGRAM");
+			images.missing.add("m-1");
+			const post = await aprovadoComArte(["m-1"]);
+
+			await publishPendingPosts(deps);
+
+			expect(post.deliveryFor("INSTAGRAM")?.error).toContain(
+				"não está mais na biblioteca",
+			);
+			expect(
+				publisher.requests.some((request) => request.platform === "INSTAGRAM"),
+			).toBe(false);
 		});
 	});
 

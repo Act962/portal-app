@@ -24,6 +24,7 @@ export * from "./domain/public-media-url";
 export * from "./domain/social-account";
 export * from "./domain/social-post";
 export * from "./domain/template/art-key";
+export * from "./domain/template/art-selection";
 export * from "./domain/template/art-template";
 export * from "./domain/template/fit-text";
 export * from "./domain/template/fonts";

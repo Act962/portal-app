@@ -1,5 +1,7 @@
 import {
+	ArtTemplate,
 	Caption,
+	DEFAULT_TEXT_STYLE,
 	Delivery,
 	MAX_AUTOMATIC_ATTEMPTS,
 	type SocialPlatform,
@@ -8,6 +10,7 @@ import {
 	SocialPostDrafted,
 	SocialPostFailed,
 	SocialPostPublished,
+	selectionFrom,
 } from "@portal-app/social";
 import { describe, expect, it } from "vitest";
 
@@ -563,6 +566,156 @@ describe("Stories do Instagram (§17)", () => {
 			"INSTAGRAM_STORIES",
 		]);
 		expect(post.deliveryFor("INSTAGRAM")?.remoteId).toBe("ig-feed");
+	});
+});
+
+describe("arte por destino (spec 09, F5)", () => {
+	const titulo = {
+		id: "titulo",
+		kind: "TEXT" as const,
+		box: { x: 130, y: 560, width: 820, height: 240 },
+		source: "HEADLINE" as const,
+		text: "",
+		style: { ...DEFAULT_TEXT_STYLE },
+	};
+	const padrao = (format: "4:5" | "9:16", name = "Últimas") =>
+		ArtTemplate.create({
+			id: `tpl-${format}`,
+			name,
+			format,
+			layers: [titulo],
+			createdAt: CRIADO,
+		}).unwrap();
+	const feed = selectionFrom(padrao("4:5"));
+	const stories = selectionFrom(padrao("9:16", "Stories"));
+	const conteudo = {
+		headline: "Chuva alaga o centro",
+		kicker: "Últimas",
+		sectionName: "Cidades",
+	};
+
+	function comArte() {
+		return SocialPost.draft({
+			id: "post-arte",
+			origin: "AUTOMATICA",
+			articleId: "art-9",
+			captionText: "Chuva",
+			mediaIds: ["m-1"],
+			platforms: ["INSTAGRAM", "INSTAGRAM_STORIES"],
+			art: { INSTAGRAM: feed, INSTAGRAM_STORIES: stories },
+			artContent: conteudo,
+			createdAt: CRIADO,
+		}).unwrap();
+	}
+
+	it("o rascunho guarda a arte de cada destino e o conteúdo das caixas", () => {
+		const post = comArte();
+		expect(post.artFor("INSTAGRAM")?.templateId).toBe("tpl-4:5");
+		expect(post.artFor("INSTAGRAM_STORIES")?.format).toBe("9:16");
+		expect(post.artFor("FACEBOOK")).toBeNull();
+		expect(post.artContent).toEqual(conteudo);
+	});
+
+	it("o rascunho descarta arte de destino que o post não tem ou que não serve", () => {
+		const post = SocialPost.draft({
+			id: "p",
+			origin: "AUTOMATICA",
+			captionText: "Chuva",
+			mediaIds: ["m-1"],
+			platforms: ["INSTAGRAM"],
+			// Stories não é destino deste post; 9:16 não serve ao feed.
+			art: { INSTAGRAM: stories, INSTAGRAM_STORIES: stories, FACEBOOK: feed },
+			createdAt: CRIADO,
+		}).unwrap();
+		expect(post.artSelections).toEqual({});
+		expect(post.artContent).toBeNull();
+	});
+
+	it("chooseArt troca e tira a arte no rascunho, limpando textos de caixa inexistente", () => {
+		const post = rascunho({ platforms: ["INSTAGRAM", "FACEBOOK"] });
+		expect(
+			post
+				.chooseArt("FACEBOOK", {
+					...feed,
+					overrides: { titulo: "Outro", sumiu: "x" },
+				})
+				.isOk(),
+		).toBe(true);
+		expect(post.artFor("FACEBOOK")?.overrides).toEqual({ titulo: "Outro" });
+
+		expect(post.chooseArt("FACEBOOK", null).isOk()).toBe(true);
+		expect(post.artFor("FACEBOOK")).toBeNull();
+	});
+
+	it("chooseArt recusa destino que o post não tem, e formato que não serve", () => {
+		const post = rascunho({ platforms: ["INSTAGRAM", "INSTAGRAM_STORIES"] });
+
+		const fora = post.chooseArt("FACEBOOK", feed).unwrapErr();
+		expect(fora.name).toBe("InvalidArtChoice");
+		expect(fora.message).toContain("Facebook");
+
+		const formato = post.chooseArt("INSTAGRAM_STORIES", feed).unwrapErr();
+		expect(formato.message).toBe(
+			'O padrão "Últimas" é 4:5, e Stories do Instagram pede 9:16.',
+		);
+		expect(post.chooseArt("INSTAGRAM", stories).unwrapErr().message).toContain(
+			"1:1 ou 4:5",
+		);
+	});
+
+	it("depois de aprovado, a arte congela como o texto (D8)", () => {
+		const post = comArte();
+		post.approve("staff-1", AGORA);
+		expect(post.chooseArt("INSTAGRAM", null).unwrapErr().name).toBe(
+			"InvalidPostTransition",
+		);
+		expect(post.setArtContent(conteudo).unwrapErr().name).toBe(
+			"InvalidPostTransition",
+		);
+		expect(post.artFor("INSTAGRAM")).not.toBeNull();
+	});
+
+	it("tirar o destino leva a arte junto", () => {
+		const post = comArte();
+		post.edit({ platforms: ["INSTAGRAM"] });
+		expect(post.artFor("INSTAGRAM_STORIES")).toBeNull();
+		expect(post.artFor("INSTAGRAM")).not.toBeNull();
+	});
+
+	it("desenha com o conteúdo guardado; sem ele, com a primeira linha da legenda", () => {
+		expect(comArte().artContentForDrawing()).toEqual(conteudo);
+		const avulso = rascunho({
+			captionText: "\n  Bom dia, Piracuruca  \nLegenda",
+		});
+		expect(avulso.artContentForDrawing()).toEqual({
+			headline: "Bom dia, Piracuruca",
+			kicker: null,
+			sectionName: null,
+		});
+	});
+
+	it("setArtContent troca o conteúdo das caixas no rascunho", () => {
+		const post = comArte();
+		post.setArtContent({ ...conteudo, headline: "Título corrigido" });
+		expect(post.artContent?.headline).toBe("Título corrigido");
+	});
+
+	it("post gravado antes dos padrões restaura sem arte", () => {
+		const post = SocialPost.restore({
+			id: "antigo",
+			articleId: null,
+			origin: "MANUAL",
+			caption: Caption.restore("Oi"),
+			mediaIds: ["m-1"],
+			linkUrl: null,
+			deliveries: [Delivery.pending("INSTAGRAM")],
+			status: "RASCUNHO",
+			createdAt: CRIADO,
+			approvedAt: null,
+			approvedByStaffId: null,
+		});
+		expect(post.artFor("INSTAGRAM")).toBeNull();
+		expect(post.artContent).toBeNull();
 	});
 });
 

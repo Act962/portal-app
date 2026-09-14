@@ -82,6 +82,14 @@ export class AccountNotUsable extends Error {
 	}
 }
 
+/**
+ * A arte escolhida não serve ao post — destino que o post não tem, ou padrão
+ * num formato que o destino não aceita (4:5 nos Stories).
+ */
+export class InvalidArtChoice extends Error {
+	override readonly name = "InvalidArtChoice";
+}
+
 export class ArtTemplateNotFound extends Error {
 	override readonly name = "ArtTemplateNotFound";
 	constructor(id: string) {
@@ -91,6 +99,7 @@ export class ArtTemplateNotFound extends Error {
 
 export type SocialError =
 	| ArtTemplateNotFound
+	| InvalidArtChoice
 	| SocialPostNotFound
 	| SocialAccountNotFound
 	| CaptionRequired

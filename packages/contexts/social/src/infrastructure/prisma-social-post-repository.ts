@@ -9,10 +9,12 @@ import type {
 	SocialPostRepository,
 } from "../domain/ports/social-post-repository";
 import {
+	type ArtSelections,
 	type PostOrigin,
 	type PostStatus,
 	SocialPost,
 } from "../domain/social-post";
+import type { ArtContent } from "../domain/template/fit-text";
 
 /** Adapter Prisma dos posts. Única camada que conhece Prisma. */
 export class PrismaSocialPostRepository implements SocialPostRepository {
@@ -161,6 +163,8 @@ type PostRow = {
 	createdAt: Date;
 	approvedAt: Date | null;
 	approvedByStaffId: string | null;
+	art: unknown;
+	artContent: unknown;
 	deliveries: DeliveryRow[];
 };
 
@@ -180,6 +184,11 @@ function toPersistence(post: SocialPost) {
 		createdAt: post.createdAt,
 		approvedAt: post.approvedAt,
 		approvedByStaffId: post.approvedByStaffId,
+		// Serialização plana, como os eventos: o que entra no Json é exatamente a
+		// cópia do padrão que o agregado guarda.
+		art: JSON.parse(JSON.stringify(post.artSelections)),
+		// `{}` é "sem conteúdo" — a coluna não é nula, e ler de volta devolve null.
+		artContent: post.artContent ? { ...post.artContent } : {},
 	};
 }
 
@@ -195,6 +204,10 @@ function toDomain(row: PostRow): SocialPost {
 		createdAt: row.createdAt,
 		approvedAt: row.approvedAt,
 		approvedByStaffId: row.approvedByStaffId,
+		// Só este repositório escreve as duas colunas, sempre a partir do agregado
+		// — a leitura confia na forma, como `restore` confia.
+		art: (isObject(row.art) ? row.art : {}) as ArtSelections,
+		artContent: artContentFrom(row.artContent),
 		deliveries: row.deliveries
 			// Ordem ESTÁVEL: a tela lista as redes sempre na mesma sequência, e um
 			// `findMany` sem ordenação não a garante entre consultas.
@@ -211,6 +224,23 @@ function toDomain(row: PostRow): SocialPost {
 				}),
 			),
 	});
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** `{}` (ou qualquer coisa sem título) é "sem conteúdo". */
+function artContentFrom(value: unknown): ArtContent | null {
+	if (!isObject(value) || typeof value.headline !== "string") {
+		return null;
+	}
+	return {
+		headline: value.headline,
+		kicker: typeof value.kicker === "string" ? value.kicker : null,
+		sectionName:
+			typeof value.sectionName === "string" ? value.sectionName : null,
+	};
 }
 
 function whereFrom(filter: SocialPostFilter) {

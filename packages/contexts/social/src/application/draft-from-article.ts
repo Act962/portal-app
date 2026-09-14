@@ -6,9 +6,11 @@ import {
 	renderCaption,
 } from "../domain/caption-template";
 import type { SocialDestination } from "../domain/platform";
+import type { ArtTemplateRepository } from "../domain/ports/art-template-repository";
 import type { SocialPostRepository } from "../domain/ports/social-post-repository";
-import type { SocialPost } from "../domain/social-post";
+import type { ArtSelections, SocialPost } from "../domain/social-post";
 import { SocialPost as Post } from "../domain/social-post";
+import { selectionFrom } from "../domain/template/art-selection";
 
 /**
  * Tudo o que este contexto precisa saber sobre uma matéria publicada.
@@ -20,6 +22,8 @@ import { SocialPost as Post } from "../domain/social-post";
  */
 export type PublishedArticle = CaptionContext & {
 	id: string;
+	/** O chapéu ("ÚLTIMAS") — vai para a caixa de chapéu da arte (spec 09). */
+	kicker?: string | null;
 	/** A capa. Nulo é possível, e o rascunho nasce assim mesmo (ver abaixo). */
 	coverMediaId: string | null;
 };
@@ -30,6 +34,11 @@ export type DraftFromArticleDeps = {
 	ids: IdGenerator;
 	/** Os destinos que recebem o post automático (feed, Stories). */
 	platforms: readonly SocialDestination[];
+	/**
+	 * De onde vem o padrão de cada destino (spec 09, D2). Sem ele, o rascunho
+	 * nasce sem arte, como antes dos padrões.
+	 */
+	templates?: Pick<ArtTemplateRepository, "findDefaultFor">;
 	/** O modelo da legenda. Injetado para a tela de configuração poder trocá-lo
 	 * sem que este módulo saiba onde ele é guardado. */
 	template?: string;
@@ -69,8 +78,28 @@ export async function draftPostForArticle(
 		article,
 	);
 
+	// O padrão de cada destino, copiado para o post (D9). Destino sem padrão
+	// fica sem arte e sai com a foto cortada.
+	const art: ArtSelections = {};
+	if (deps.templates) {
+		for (const destination of deps.platforms) {
+			const template = await deps.templates.findDefaultFor(destination);
+			if (template) {
+				art[destination] = selectionFrom(template);
+			}
+		}
+	}
+
 	const post = Post.draft({
 		id: deps.ids.generate(),
+		art,
+		// Copiado da matéria agora: se ela for corrigida depois, a arte do post
+		// não muda sozinha — quem aprova vê e decide (D9).
+		artContent: {
+			headline: article.headline,
+			kicker: article.kicker?.trim() ? article.kicker.trim() : null,
+			sectionName: article.sectionName,
+		},
 		articleId: article.id,
 		origin: "AUTOMATICA",
 		captionText,

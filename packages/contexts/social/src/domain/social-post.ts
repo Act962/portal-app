@@ -4,6 +4,7 @@ import { Caption } from "./caption";
 import { Delivery } from "./delivery";
 import {
 	type CaptionRequired,
+	InvalidArtChoice,
 	InvalidMediaSelection,
 	InvalidPostTransition,
 	PostNotReady,
@@ -15,10 +16,20 @@ import {
 	SocialPostPublished,
 } from "./events";
 import {
+	DESTINATION_FORMAT,
 	DESTINATION_LABEL,
 	PLATFORM_LIMITS,
 	type SocialDestination,
 } from "./platform";
+import {
+	type ArtSelection,
+	selectionServes,
+	withOverrides,
+} from "./template/art-selection";
+import type { ArtContent } from "./template/fit-text";
+
+/** A arte escolhida para cada destino que tem arte. */
+export type ArtSelections = Partial<Record<SocialDestination, ArtSelection>>;
 
 /**
  * De onde veio o post. Guardado, e não inferido de `articleId`, porque a
@@ -58,6 +69,17 @@ type PostProps = {
 	 * modelo de legenda padrão não o inclui (ver `PlatformLimits`). */
 	linkUrl: string | null;
 	deliveries: Delivery[];
+	/**
+	 * A arte de cada destino (spec 09, F5). Destino sem arte publica a foto
+	 * cortada, como antes dos padrões. Opcional para os posts gravados antes.
+	 */
+	art?: ArtSelections;
+	/**
+	 * O que preenche as caixas de texto da arte — título, chapéu, editoria.
+	 * Guardado no post, e não lido da matéria na hora de desenhar: a matéria
+	 * pode ser corrigida depois, e a arte aprovada não pode mudar sozinha (D9).
+	 */
+	artContent?: ArtContent | null;
 	status: PostStatus;
 	createdAt: Date;
 	approvedAt: Date | null;
@@ -105,6 +127,11 @@ export class SocialPost extends AggregateRoot<string> {
 		/** Os DESTINOS escolhidos. Chama-se `platforms` porque nasceu antes dos
 		 * Stories, e o feed de cada rede tem o nome dela. */
 		platforms: readonly SocialDestination[];
+		/** A arte de cada destino. Destino que o post não tem, ou formato que não
+		 * serve, é descartado — quem manda aqui é o gatilho automático, com os
+		 * padrões de destino, que já são compatíveis. */
+		art?: ArtSelections;
+		artContent?: ArtContent | null;
 		createdAt: Date;
 	}): Result<SocialPost, CaptionRequired | InvalidMediaSelection> {
 		const caption = Caption.create(input.captionText);
@@ -133,6 +160,8 @@ export class SocialPost extends AggregateRoot<string> {
 			createdAt: input.createdAt,
 			approvedAt: null,
 			approvedByStaffId: null,
+			art: keepServing(input.art ?? {}, uniqueDestinations(input.platforms)),
+			artContent: input.artContent ?? null,
 		});
 		post.record(
 			new SocialPostDrafted(
@@ -150,6 +179,8 @@ export class SocialPost extends AggregateRoot<string> {
 			...props,
 			mediaIds: [...props.mediaIds],
 			deliveries: [...props.deliveries],
+			art: { ...(props.art ?? {}) },
+			artContent: props.artContent ?? null,
 		});
 	}
 
@@ -228,6 +259,97 @@ export class SocialPost extends AggregateRoot<string> {
 		return PLATFORM_LIMITS[destination].images === "FIRST"
 			? this.state.mediaIds.slice(0, 1)
 			: this.state.mediaIds;
+	}
+
+	/** O que preenche as caixas de texto da arte, ou `null`. */
+	get artContent(): ArtContent | null {
+		return this.state.artContent ?? null;
+	}
+
+	/**
+	 * O conteúdo com que a arte é DESENHADA: o guardado no post, ou — num post
+	 * avulso, que não veio de matéria — a primeira linha da legenda como título.
+	 * Sem isto, o padrão sairia com a caixa do título vazia.
+	 */
+	artContentForDrawing(): ArtContent {
+		if (this.state.artContent) {
+			return this.state.artContent;
+		}
+		const firstLine =
+			this.state.caption.value
+				.split("\n")
+				.map((line) => line.trim())
+				.find((line) => line !== "") ?? "";
+		return { headline: firstLine, kicker: null, sectionName: null };
+	}
+
+	/** A arte de cada destino que tem arte. */
+	get artSelections(): Readonly<ArtSelections> {
+		return this.state.art ?? {};
+	}
+
+	/**
+	 * A arte deste destino, ou `null` — destino sem arte publica a foto cortada.
+	 * Com arte, o destino publica UMA imagem (a arte), desenhada com a primeira
+	 * foto do post.
+	 */
+	artFor(destination: SocialDestination): ArtSelection | null {
+		return this.state.art?.[destination] ?? null;
+	}
+
+	/**
+	 * Escolhe a arte de um destino — ou tira, com `null`.
+	 *
+	 * Só no rascunho, pelo mesmo motivo do texto (D8): a arte aprovada é a que
+	 * vai ao ar. E só se o formato serve ao destino: um padrão 4:5 nos Stories
+	 * sairia com faixas ou cortado pela Meta.
+	 */
+	chooseArt(
+		destination: SocialDestination,
+		selection: ArtSelection | null,
+	): Result<void, InvalidPostTransition | InvalidArtChoice> {
+		if (this.state.status !== "RASCUNHO") {
+			return err(
+				new InvalidPostTransition("escolher a arte", this.state.status),
+			);
+		}
+		if (selection === null) {
+			this.state.art = Object.fromEntries(
+				Object.entries(this.state.art ?? {}).filter(
+					([key]) => key !== destination,
+				),
+			) as ArtSelections;
+			return ok(undefined);
+		}
+		const label = DESTINATION_LABEL[destination];
+		if (!this.targets.includes(destination)) {
+			return err(
+				new InvalidArtChoice(`${label} não está entre os destinos deste post.`),
+			);
+		}
+		if (!selectionServes(selection, destination)) {
+			const expected =
+				DESTINATION_FORMAT[destination] === "STORY" ? "9:16" : "1:1 ou 4:5";
+			return err(
+				new InvalidArtChoice(
+					`O padrão "${selection.templateName}" é ${selection.format}, e ${label} pede ${expected}.`,
+				),
+			);
+		}
+		this.state.art = {
+			...(this.state.art ?? {}),
+			[destination]: withOverrides(selection, selection.overrides),
+		};
+		return ok(undefined);
+	}
+
+	/** Troca o que preenche as caixas da arte. Só no rascunho (D8). */
+	setArtContent(content: ArtContent): Result<void, InvalidPostTransition> {
+		if (this.state.status !== "RASCUNHO") {
+			return err(new InvalidPostTransition("editar a arte", this.state.status));
+		}
+		this.state.artContent = { ...content };
+		return ok(undefined);
 	}
 
 	/** Uma imagem é foto; duas ou mais, carrossel. */
@@ -342,6 +464,9 @@ export class SocialPost extends AggregateRoot<string> {
 			this.state.deliveries = uniqueDestinations(input.platforms).map(
 				(destination) => Delivery.pending(destination),
 			);
+			// Destino que saiu leva a arte junto — senão ela voltaria sozinha no
+			// dia em que o destino fosse marcado de novo, sem ninguém ter escolhido.
+			this.state.art = keepServing(this.state.art ?? {}, this.targets);
 		}
 		return ok(undefined);
 	}
@@ -526,6 +651,27 @@ function normalizeMedia(
 		return err(new InvalidMediaSelection("a mesma imagem aparece duas vezes"));
 	}
 	return ok(cleaned);
+}
+
+/**
+ * Só a arte dos destinos que o post tem e cujo formato serve — o resto é
+ * descartado em silêncio. Silêncio aqui, e não erro, porque quem chega por este
+ * caminho é o rascunho (padrões de destino, já compatíveis) e a troca de
+ * destinos; a escolha feita por uma pessoa passa por `chooseArt`, que recusa
+ * dizendo por quê.
+ */
+function keepServing(
+	art: ArtSelections,
+	destinations: readonly SocialDestination[],
+): ArtSelections {
+	return Object.fromEntries(
+		Object.entries(art).filter(
+			([destination, selection]) =>
+				selection !== undefined &&
+				destinations.includes(destination as SocialDestination) &&
+				selectionServes(selection, destination as SocialDestination),
+		),
+	) as ArtSelections;
 }
 
 /** Escolher "Instagram" duas vezes na tela não pode virar dois envios. */

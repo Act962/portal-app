@@ -17,6 +17,7 @@ import type {
 } from "../domain/ports/social-publisher";
 import { mediaUrlProblem } from "../domain/public-media-url";
 import type { SocialPost } from "../domain/social-post";
+import type { ArtSelection } from "../domain/template/art-selection";
 
 export type PublishPendingDeps = {
 	repo: SocialPostRepository;
@@ -110,11 +111,16 @@ async function deliver(
 		return "failed";
 	}
 
-	const images = await resolveImages(
-		post.imagesFor(destination),
-		PLATFORM_LIMITS[destination].imageAspect,
-		deps,
-	);
+	// Com padrão escolhido, o destino publica UMA imagem: a arte. Sem padrão, a
+	// foto cortada, como antes dos padrões (spec 09, F5).
+	const selection = post.artFor(destination);
+	const images = selection
+		? await artworkImages(post, selection, deps)
+		: await resolveImages(
+				post.imagesFor(destination),
+				PLATFORM_LIMITS[destination].imageAspect,
+				deps,
+			);
 	if (images === null) {
 		post.recordFailure(
 			destination,
@@ -161,6 +167,24 @@ async function deliver(
 	const success = result.unwrap();
 	post.recordSuccess(destination, success.remoteId, success.permalink, now);
 	return "published";
+}
+
+/**
+ * A arte do padrão, desenhada com a PRIMEIRA foto do post — a capa. Um
+ * carrossel com padrão sai como uma arte só: o desenho tem uma caixa de foto.
+ * `null` quando a foto sumiu, e a entrega falha dizendo isso.
+ */
+async function artworkImages(
+	post: SocialPost,
+	selection: ArtSelection,
+	deps: PublishPendingDeps,
+): Promise<readonly PublishableImage[] | null> {
+	const image = await deps.images.artwork({
+		selection,
+		photoMediaId: post.mediaIds[0] ?? null,
+		content: post.artContentForDrawing(),
+	});
+	return image ? [image] : null;
 }
 
 /**

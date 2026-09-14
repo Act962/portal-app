@@ -29,7 +29,9 @@ import sharp from "sharp";
  * entrega. Um armazenamento fora do ar é transitório: lançar interrompe a
  * rodada com a entrega ainda pendente, e a próxima tenta de novo.
  */
-export class CroppedImageSource implements SocialImageSource {
+// Só a metade do CORTE da porta. A metade da arte (`artwork`) é do
+// `ArtRenderer`; as duas se juntam em `social.ts` (spec 09, F5).
+export class CroppedImageSource implements Pick<SocialImageSource, "resolve"> {
 	private readonly fetchImpl: typeof fetch;
 
 	constructor(

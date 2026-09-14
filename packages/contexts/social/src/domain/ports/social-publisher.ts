@@ -2,6 +2,18 @@ import type { Result } from "@portal-app/shared-kernel";
 
 import type { CropAspect } from "../focal-crop";
 import type { PublicationFormat, SocialPlatform } from "../platform";
+import type { ArtSelection } from "../template/art-selection";
+import type { ArtContent } from "../template/fit-text";
+
+/** O que o desenhista precisa para a arte de um destino (spec 09, F5). */
+export type ArtworkRequest = {
+	/** A cópia do padrão guardada no post, com os textos trocados. */
+	selection: ArtSelection;
+	/** A primeira foto do post; `null` num post sem foto. */
+	photoMediaId: string | null;
+	/** O que preenche as caixas de texto. */
+	content: ArtContent;
+};
 
 /**
  * Uma imagem pronta para a Meta.
@@ -97,4 +109,13 @@ export interface SocialImageSource {
 		mediaId: string,
 		aspect: CropAspect | "original",
 	): Promise<PublishableImage | null>;
+
+	/**
+	 * A arte de um padrão, desenhada com a foto do post (spec 09, F5).
+	 *
+	 * Mesmo contrato de `resolve`: `null` quando a foto não existe mais — erro
+	 * definitivo para a entrega —, e falha de rede LANÇA, para a entrega ficar
+	 * pendente e a próxima rodada tentar de novo.
+	 */
+	artwork(request: ArtworkRequest): Promise<PublishableImage | null>;
 }

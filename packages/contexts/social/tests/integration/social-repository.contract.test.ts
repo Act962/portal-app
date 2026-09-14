@@ -1,9 +1,12 @@
 import { newPrismaClient } from "@portal-app/db/client";
 import {
+	ArtTemplate,
 	Caption,
+	DEFAULT_TEXT_STYLE,
 	Delivery,
 	SocialAccount,
 	SocialPost,
+	selectionFrom,
 } from "@portal-app/social";
 import { PrismaSocialAccountRepository } from "@portal-app/social/infrastructure/prisma-social-account-repository";
 import { PrismaSocialPostRepository } from "@portal-app/social/infrastructure/prisma-social-post-repository";
@@ -176,6 +179,61 @@ describe("PrismaSocialPostRepository", () => {
 			{ limit: 10, offset: 0 },
 		);
 		expect(soStories.items.map((item) => item.id)).toEqual(["post-s"]);
+	});
+
+	it("guarda a arte de cada destino e o conteúdo das caixas (spec 09, F5)", async () => {
+		const template = ArtTemplate.create({
+			id: "tpl-1",
+			name: "Últimas — feed",
+			format: "4:5",
+			layers: [
+				{
+					id: "titulo",
+					kind: "TEXT",
+					box: { x: 130, y: 560, width: 820, height: 240 },
+					source: "HEADLINE",
+					text: "",
+					style: { ...DEFAULT_TEXT_STYLE },
+				},
+			],
+			createdAt: AGORA,
+		}).unwrap();
+		const post = SocialPost.draft({
+			id: "post-arte",
+			origin: "MANUAL",
+			captionText: "Plantão",
+			mediaIds: ["media-1"],
+			platforms: ["INSTAGRAM", "FACEBOOK"],
+			art: { INSTAGRAM: selectionFrom(template, { titulo: "Título trocado" }) },
+			artContent: {
+				headline: "Chuva alaga o centro",
+				kicker: "Últimas",
+				sectionName: null,
+			},
+			createdAt: AGORA,
+		}).unwrap();
+		await posts.save(post);
+
+		const lido = await posts.findById("post-arte");
+
+		// A cópia do padrão volta inteira — camadas, versão e o texto trocado.
+		expect(lido?.artFor("INSTAGRAM")).toEqual(post.artFor("INSTAGRAM"));
+		expect(lido?.artFor("INSTAGRAM")?.overrides).toEqual({
+			titulo: "Título trocado",
+		});
+		expect(lido?.artFor("FACEBOOK")).toBeNull();
+		expect(lido?.artContent).toEqual({
+			headline: "Chuva alaga o centro",
+			kicker: "Últimas",
+			sectionName: null,
+		});
+	});
+
+	it("post sem arte volta sem arte e sem conteúdo", async () => {
+		await posts.save(rascunho());
+		const lido = await posts.findById("post-1");
+		expect(lido?.artSelections).toEqual({});
+		expect(lido?.artContent).toBeNull();
 	});
 
 	it("filtra por rede", async () => {

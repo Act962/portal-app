@@ -3,7 +3,7 @@ import { getSiteSettings } from "@portal-app/settings";
 import { draftPostForArticle } from "@portal-app/social";
 
 import { settingsDeps } from "./settings";
-import { AUTO_POST_PLATFORMS, socialDeps } from "./social";
+import { AUTO_POST_PLATFORMS, socialDeps, templateDeps } from "./social";
 
 const prisma = createPrismaClient();
 
@@ -27,6 +27,7 @@ export async function draftSocialPostForArticle(
 		select: {
 			id: true,
 			headline: true,
+			kicker: true,
 			standfirst: true,
 			slug: true,
 			authorName: true,
@@ -59,6 +60,7 @@ export async function draftSocialPostForArticle(
 		{
 			id: article.id,
 			headline: article.headline,
+			kicker: article.kicker || null,
 			standfirst: article.standfirst || null,
 			sectionName: section?.name ?? null,
 			authorName: article.authorName,
@@ -77,6 +79,8 @@ export async function draftSocialPostForArticle(
 			clock: socialDeps.clock,
 			ids: socialDeps.ids,
 			platforms: AUTO_POST_PLATFORMS,
+			// O rascunho nasce com a arte do padrão de cada destino (spec 09, D2).
+			templates: templateDeps.templates,
 		},
 	);
 }

@@ -5,7 +5,9 @@ import {
 	type ConnectionProbe,
 	type DiagnoseDeps,
 	forgetAllCredentials,
+	type SocialImageSource,
 	type SocialPlatform,
+	selectionAsTemplate,
 } from "@portal-app/social";
 import {
 	EnvironmentInstagramAccountRepository,
@@ -114,6 +116,36 @@ export function metaAuthorizeUrl(state: string): string | null {
 	return metaConfig ? buildAuthorizeUrl(metaConfig, state) : null;
 }
 
+/**
+ * O desenhista dos padrões (spec 09, F3): a prévia do editor e a arte que vai
+ * ao ar saem dele, do mesmo código.
+ */
+export const artRenderer = new ArtRenderer({
+	media: mediaDeps.repo,
+	storage: mediaStorage,
+});
+
+const croppedImages = new CroppedImageSource({
+	media: mediaDeps.repo,
+	storage: mediaStorage,
+});
+
+/**
+ * As imagens que a Meta baixa: a foto cortada, para destino sem padrão; a arte
+ * do padrão, desenhada a partir da CÓPIA guardada no post (spec 09, D9) — nunca
+ * do padrão como está hoje no banco.
+ */
+const socialImages: SocialImageSource = {
+	resolve: (mediaId, aspect) => croppedImages.resolve(mediaId, aspect),
+	artwork: ({ selection, photoMediaId, content }) =>
+		artRenderer.publishable({
+			template: selectionAsTemplate(selection),
+			photoMediaId,
+			content,
+			overrides: selection.overrides,
+		}),
+};
+
 export const socialDeps = {
 	repo: new PrismaSocialPostRepository(prisma),
 	accounts: socialAccountRepo,
@@ -130,22 +162,10 @@ export const socialDeps = {
 						socialAccountRepo.credentialsFor(platform),
 				})
 			: new UnconfiguredSocialPublisher(),
-	images: new CroppedImageSource({
-		media: mediaDeps.repo,
-		storage: mediaStorage,
-	}),
+	images: socialImages,
 	clock: new SystemClock(),
 	ids: new UuidGenerator(),
 };
-
-/**
- * O desenhista dos padrões (spec 09, F3): a prévia do editor e a arte que vai
- * ao ar saem dele, do mesmo código.
- */
-export const artRenderer = new ArtRenderer({
-	media: mediaDeps.repo,
-	storage: mediaStorage,
-});
 
 /** Os padrões de arte (spec 09). */
 export const templateDeps = {

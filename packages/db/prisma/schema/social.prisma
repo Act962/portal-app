@@ -36,6 +36,16 @@ model SocialPost {
   /// clicável.
   linkUrl String?
 
+  /// A arte de cada destino (spec 09, F5): uma CÓPIA do padrão escolhido — as
+  /// camadas, a versão e os textos trocados no post —, por destino. Cópia, e não
+  /// id, porque os padrões não guardam histórico: editar o padrão depois não
+  /// pode mudar a arte de um post aprovado (D9). `{}` é post sem arte.
+  art Json @default("{}")
+
+  /// O que preenche as caixas de texto da arte (título, chapéu, editoria),
+  /// copiado da matéria no rascunho. `{}` é "sem conteúdo".
+  artContent Json @default("{}")
+
   /// "RASCUNHO" | "PUBLICANDO" | "PUBLICADO" | "PARCIAL" | "FALHOU" |
   /// "CANCELADA". A máquina de estados vive no domínio; aqui é só o valor.
   status String @default("RASCUNHO")

@@ -6,6 +6,7 @@ import {
 	type ArtTemplate,
 	type ArtTemplateFilter,
 	type ArtTemplateRepository,
+	type ArtworkRequest,
 	type ConnectionInspection,
 	type ConnectionProbe,
 	destinationOf,
@@ -194,6 +195,19 @@ export class SpySocialPublisher implements SocialPublisher {
 /** Fonte de imagem que resolve tudo, menos os ids que mandarem sumir. */
 export class FakeImageSource implements SocialImageSource {
 	readonly missing = new Set<string>();
+	/** Os pedidos de arte, na ordem — o teste confere foto, padrão e conteúdo. */
+	readonly artworkRequests: ArtworkRequest[] = [];
+
+	artwork(request: ArtworkRequest): Promise<PublishableImage | null> {
+		this.artworkRequests.push(request);
+		if (request.photoMediaId && this.missing.has(request.photoMediaId)) {
+			return Promise.resolve(null);
+		}
+		return Promise.resolve({
+			url: `${this.baseUrl}/art-${request.selection.templateId}.jpg`,
+			altText: "",
+		});
+	}
 	/** As proporções pedidas, na ordem — o story pede 9:16, o feed 1:1. */
 	readonly aspects: string[] = [];
 	/** Troque para simular o armazenamento de dev (`http://localhost:9000/...`). */
