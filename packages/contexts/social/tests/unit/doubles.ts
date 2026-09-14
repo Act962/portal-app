@@ -77,8 +77,10 @@ export class InMemorySocialPostRepository implements SocialPostRepository {
 
 	countPending(): Promise<number> {
 		return Promise.resolve(
-			[...this.posts.values()].filter((post) => post.status === "RASCUNHO")
-				.length,
+			[...this.posts.values()].filter(
+				(post) =>
+					post.status === "RASCUNHO" || post.status === "AGUARDANDO_PESSOA",
+			).length,
 		);
 	}
 

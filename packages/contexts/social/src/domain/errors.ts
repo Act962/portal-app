@@ -69,6 +69,20 @@ export class InvalidPostTransition extends Error {
 }
 
 /**
+ * A operação não cabe no estado de UMA entrega — confirmar a publicação manual
+ * de um story que ainda não tem arte, dispensar o que já está no ar (spec 11).
+ * Mesma causa provável do `InvalidPostTransition`: outra aba já agiu.
+ */
+export class InvalidDeliveryTransition extends Error {
+	override readonly name = "InvalidDeliveryTransition";
+	constructor(operation: string, destinationLabel: string, status: string) {
+		super(
+			`Não é possível ${operation} em ${destinationLabel}: a entrega está com status ${status}.`,
+		);
+	}
+}
+
+/**
  * A conta conectada não serve para publicar agora — token expirado, acesso
  * revogado pelo dono da Página, ou conta desligada no painel.
  */
@@ -121,4 +135,5 @@ export type SocialError =
 	| UnknownPlatform
 	| PostNotReady
 	| InvalidPostTransition
+	| InvalidDeliveryTransition
 	| AccountNotUsable;

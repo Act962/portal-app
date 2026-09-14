@@ -2,10 +2,13 @@ import { FixedClock, SequentialIdGenerator } from "@portal-app/shared-kernel";
 import {
 	approvePost,
 	cancelPost,
+	confirmManualPublish,
 	countPendingPosts,
 	createDraft,
+	dismissDelivery,
 	getPost,
 	listQueue,
+	publishDeliveryManually,
 	retryPost,
 	updatePost,
 } from "@portal-app/social";
@@ -206,5 +209,93 @@ describe("leituras", () => {
 
 	it("getPost devolve null quando não existe, em vez de lançar", async () => {
 		expect(await getPost("nada", deps)).toBeNull();
+	});
+});
+
+describe("publicação manual (spec 11)", () => {
+	async function storyEsperando() {
+		const post = (
+			await createDraft(
+				staff("EDITOR"),
+				{ ...entrada, platforms: ["INSTAGRAM_STORIES"] },
+				deps,
+			)
+		).unwrap();
+		post.approve("editor-1", AGORA);
+		post.recordPrepared("INSTAGRAM_STORIES", "https://cdn.test/a.jpg", AGORA);
+		await repo.save(post);
+		return post;
+	}
+
+	it("o post nasce com os modos pedidos", async () => {
+		const post = (
+			await createDraft(
+				staff("EDITOR"),
+				{
+					...entrada,
+					platforms: ["INSTAGRAM_STORIES"],
+					modes: { INSTAGRAM_STORIES: "AUTOMATICO" },
+				},
+				deps,
+			)
+		).unwrap();
+		expect(post.deliveryFor("INSTAGRAM_STORIES")?.mode).toBe("AUTOMATICO");
+	});
+
+	it("'Já publiquei' grava quem publicou e o link aparado; vazio vira nulo", async () => {
+		const post = await storyEsperando();
+
+		const feito = await confirmManualPublish(
+			staff("EDITOR", "editor-7"),
+			{ id: post.id, destination: "INSTAGRAM_STORIES", permalink: "  " },
+			deps,
+		);
+
+		const story = feito.unwrap().deliveryFor("INSTAGRAM_STORIES");
+		expect(story?.publishedByStaffId).toBe("editor-7");
+		expect(story?.permalink).toBeNull();
+	});
+
+	it("dispensar e publicar à mão também gravam; o que está no estado errado é recusado", async () => {
+		const post = await storyEsperando();
+		expect(
+			(
+				await publishDeliveryManually(
+					staff("EDITOR"),
+					{ id: post.id, destination: "INSTAGRAM_STORIES" },
+					deps,
+				)
+			).isErr(),
+		).toBe(true);
+
+		const dispensado = await dismissDelivery(
+			staff("EDITOR"),
+			{ id: post.id, destination: "INSTAGRAM_STORIES" },
+			deps,
+		);
+		expect(dispensado.unwrap().status).toBe("CANCELADA");
+	});
+
+	it("sem social:publish é Forbidden; post inexistente, NotFound", async () => {
+		const post = await storyEsperando();
+		const semPermissao = await confirmManualPublish(
+			staff("REDATOR"),
+			{ id: post.id, destination: "INSTAGRAM_STORIES" },
+			deps,
+		);
+		expect(semPermissao.unwrapErr().name).toBe("Forbidden");
+
+		const inexistente = await dismissDelivery(
+			staff("EDITOR"),
+			{ id: "nada", destination: "INSTAGRAM_STORIES" },
+			deps,
+		);
+		expect(inexistente.unwrapErr().name).toBe("SocialPostNotFound");
+	});
+
+	it("o badge conta o que espera aprovação E o que espera alguém publicar", async () => {
+		await storyEsperando();
+		await createDraft(staff("EDITOR"), entrada, deps);
+		expect(await countPendingPosts(deps)).toBe(2);
 	});
 });

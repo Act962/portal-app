@@ -3,7 +3,10 @@ import {
 	Caption,
 	contentWithHeadline,
 	Delivery,
+	type DeliveryModes,
+	InvalidDeliveryTransition,
 	MAX_AUTOMATIC_ATTEMPTS,
+	SocialDeliveryDismissed,
 	type SocialPlatform,
 	SocialPost,
 	SocialPostApproved,
@@ -728,5 +731,155 @@ describe("restore", () => {
 		expect(restaurado.status).toBe("PARCIAL");
 		expect(restaurado.approvedByStaffId).toBe("staff-9");
 		expect(restaurado.pullEvents()).toHaveLength(0);
+	});
+});
+
+describe("publicação manual dos Stories (spec 11)", () => {
+	function comStory(modes: DeliveryModes = {}) {
+		const post = SocialPost.draft({
+			id: "post-s",
+			articleId: "art-1",
+			origin: "MATERIA",
+			captionText: "Plantão",
+			mediaIds: ["media-1"],
+			linkUrl: "https://fm7cidades.com/x",
+			platforms: ["INSTAGRAM", "INSTAGRAM_STORIES"],
+			modes,
+			createdAt: CRIADO,
+		}).unwrap();
+		post.approve("editor-1", AGORA);
+		post.pullEvents();
+		return post;
+	}
+
+	it("o modo vem do pedido ou do padrão, e a edição mantém o que não veio", () => {
+		const post = SocialPost.draft({
+			id: "p",
+			origin: "MANUAL",
+			captionText: "oi",
+			mediaIds: ["m"],
+			platforms: ["INSTAGRAM", "INSTAGRAM_STORIES"],
+			modes: { INSTAGRAM_STORIES: "AUTOMATICO" },
+			createdAt: CRIADO,
+		}).unwrap();
+		expect(post.deliveryFor("INSTAGRAM_STORIES")?.mode).toBe("AUTOMATICO");
+
+		post.edit({ captionText: "outra", platforms: ["INSTAGRAM_STORIES"] });
+		expect(post.deliveryFor("INSTAGRAM_STORIES")?.mode).toBe("AUTOMATICO");
+
+		post.edit({ modes: { INSTAGRAM_STORIES: "MANUAL" } });
+		expect(post.targets).toEqual(["INSTAGRAM_STORIES"]);
+		expect(post.deliveryFor("INSTAGRAM_STORIES")?.mode).toBe("MANUAL");
+	});
+
+	it("feed no ar e story preparado: o post espera uma pessoa (D4)", () => {
+		const post = comStory();
+		post.recordSuccess("INSTAGRAM", "ig-1", null, AGORA);
+		expect(post.status).toBe("PUBLICANDO");
+
+		post.recordPrepared("INSTAGRAM_STORIES", "https://cdn.test/a.jpg", AGORA);
+		expect(post.status).toBe("AGUARDANDO_PESSOA");
+		expect(post.pendingDeliveries()).toHaveLength(0);
+	});
+
+	it("'Já publiquei' põe no ar, com quem publicou no evento", () => {
+		const post = comStory();
+		post.recordSuccess("INSTAGRAM", "ig-1", null, AGORA);
+		post.recordPrepared("INSTAGRAM_STORIES", "u", AGORA);
+		post.pullEvents();
+
+		const feito = post.confirmManualPublish(
+			"INSTAGRAM_STORIES",
+			"editor-2",
+			"https://instagr.am/s/1",
+			AGORA,
+		);
+
+		expect(feito.isOk()).toBe(true);
+		expect(post.status).toBe("PUBLICADO");
+		const [evento] = post.pullEvents();
+		expect(evento).toBeInstanceOf(SocialPostPublished);
+		expect(evento).toMatchObject({
+			remoteId: null,
+			publishedByStaffId: "editor-2",
+			permalink: "https://instagr.am/s/1",
+		});
+	});
+
+	it("confirmar o que ainda não tem arte é recusado, dizendo o estado", () => {
+		const post = comStory();
+		const recusado = post.confirmManualPublish(
+			"INSTAGRAM_STORIES",
+			"editor-2",
+			null,
+			AGORA,
+		);
+		expect(recusado.isErr()).toBe(true);
+		expect(recusado.unwrapErr()).toBeInstanceOf(InvalidDeliveryTransition);
+		expect(recusado.unwrapErr().message).toContain("PENDENTE");
+
+		expect(
+			post.confirmManualPublish("FACEBOOK", "editor-2", null, AGORA).isErr(),
+		).toBe(true);
+	});
+
+	it("dispensar: feed no ar + story dispensado é PUBLICADO; tudo dispensado é CANCELADA", () => {
+		const post = comStory();
+		post.recordSuccess("INSTAGRAM", "ig-1", null, AGORA);
+		post.recordPrepared("INSTAGRAM_STORIES", "u", AGORA);
+		post.pullEvents();
+
+		expect(
+			post.dismissDelivery("INSTAGRAM_STORIES", "editor-2", AGORA).isOk(),
+		).toBe(true);
+		expect(post.status).toBe("PUBLICADO");
+		expect(post.pullEvents()[0]).toBeInstanceOf(SocialDeliveryDismissed);
+		expect(
+			post.dismissDelivery("INSTAGRAM_STORIES", "editor-2", AGORA).isErr(),
+		).toBe(true);
+
+		const soStory = SocialPost.draft({
+			id: "p2",
+			origin: "MANUAL",
+			captionText: "oi",
+			mediaIds: ["m"],
+			platforms: ["INSTAGRAM_STORIES"],
+			createdAt: CRIADO,
+		}).unwrap();
+		soStory.approve("editor-1", AGORA);
+		soStory.recordPrepared("INSTAGRAM_STORIES", "u", AGORA);
+		soStory.dismissDelivery("INSTAGRAM_STORIES", "editor-1", AGORA);
+		expect(soStory.status).toBe("CANCELADA");
+	});
+
+	it("feed recusado com story esperando: o 'tentar de novo' reenvia só o feed", () => {
+		const post = comStory();
+		post.recordFailure("INSTAGRAM", "recusou", AGORA);
+		post.recordPrepared("INSTAGRAM_STORIES", "u", AGORA);
+		expect(post.status).toBe("AGUARDANDO_PESSOA");
+
+		expect(post.retryFailed().isOk()).toBe(true);
+		expect(post.status).toBe("PUBLICANDO");
+		expect(post.deliveryFor("INSTAGRAM")?.isPending()).toBe(true);
+		expect(post.deliveryFor("INSTAGRAM_STORIES")?.isAwaitingPerson()).toBe(
+			true,
+		);
+	});
+
+	it("sem nada que falhou, 'tentar de novo' é recusado", () => {
+		const post = comStory();
+		expect(post.retryFailed().isErr()).toBe(true);
+	});
+
+	it("story automático que falhou vai à mão e volta para ser preparado (D8)", () => {
+		const post = comStory({ INSTAGRAM_STORIES: "AUTOMATICO" });
+		post.recordSuccess("INSTAGRAM", "ig-1", null, AGORA);
+		post.recordFailure("INSTAGRAM_STORIES", "recusou", AGORA);
+		expect(post.status).toBe("PARCIAL");
+
+		expect(post.publishManually("INSTAGRAM_STORIES").isOk()).toBe(true);
+		expect(post.status).toBe("PUBLICANDO");
+		expect(post.deliveryFor("INSTAGRAM_STORIES")?.mode).toBe("MANUAL");
+		expect(post.publishManually("INSTAGRAM").isErr()).toBe(true);
 	});
 });

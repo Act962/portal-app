@@ -1,6 +1,8 @@
 import {
 	Caption,
+	DEFAULT_DELIVERY_MODE,
 	DESTINATION_LABEL,
+	type DeliveryMode,
 	type DeliveryStatus,
 	type DiagnosisVerdict,
 	PLATFORM_LIMITS,
@@ -20,6 +22,7 @@ import {
 export const POST_STATUS_LABELS: Record<PostStatus, string> = {
 	RASCUNHO: "Aguardando aprovação",
 	PUBLICANDO: "Enviando",
+	AGUARDANDO_PESSOA: "Falta publicar à mão",
 	PUBLICADO: "Publicado",
 	PARCIAL: "Publicado em parte",
 	FALHOU: "Falhou",
@@ -31,6 +34,8 @@ export const POST_STATUS_LABELS: Record<PostStatus, string> = {
 export const POST_STATUS_CLASSES: Record<PostStatus, string> = {
 	RASCUNHO: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
 	PUBLICANDO: "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200",
+	AGUARDANDO_PESSOA:
+		"bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200",
 	PUBLICADO:
 		"bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
 	PARCIAL:
@@ -41,8 +46,10 @@ export const POST_STATUS_CLASSES: Record<PostStatus, string> = {
 
 export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
 	PENDENTE: "na fila",
+	AGUARDANDO_PESSOA: "esperando você",
 	PUBLICADO: "no ar",
 	FALHOU: "falhou",
+	DISPENSADA: "dispensado",
 };
 
 /**
@@ -69,6 +76,68 @@ export function availableActions(status: PostStatus): readonly PostAction[] {
 		default:
 			return [];
 	}
+}
+
+type DeliveryView = {
+	destination: SocialDestination;
+	status: DeliveryStatus;
+	mode: DeliveryMode;
+	manualAllowed: boolean;
+};
+
+/**
+ * "Tentar de novo" pelo que FALHOU, e não só pelo estado do post: com um story
+ * esperando alguém, o post fica "Falta publicar à mão" mesmo com o feed
+ * recusado — e o feed ainda precisa do botão (spec 11).
+ */
+export function canRetry(
+	status: PostStatus,
+	deliveries: readonly Pick<DeliveryView, "status">[],
+): boolean {
+	return (
+		availableActions(status).includes("tentar-de-novo") ||
+		(status === "AGUARDANDO_PESSOA" &&
+			deliveries.some((delivery) => delivery.status === "FALHOU"))
+	);
+}
+
+/**
+ * O que a tela oferece para UMA entrega (spec 11):
+ * - `kit`: a arte está pronta e espera alguém publicar pelo app;
+ * - `publicar-a-mao`: a automática falhou num destino que aceita manual.
+ */
+export type DeliveryAction = "kit" | "publicar-a-mao";
+
+export function deliveryActions(
+	delivery: DeliveryView,
+): readonly DeliveryAction[] {
+	if (delivery.status === "AGUARDANDO_PESSOA") {
+		return ["kit"];
+	}
+	if (
+		delivery.status === "FALHOU" &&
+		delivery.mode === "AUTOMATICO" &&
+		delivery.manualAllowed
+	) {
+		return ["publicar-a-mao"];
+	}
+	return [];
+}
+
+/** O passo a passo do kit, curto o bastante para ler com o celular na mão. */
+export const MANUAL_STORY_STEPS: readonly string[] = [
+	"Toque em “Publicar no Instagram” (ou baixe a arte) e abra como story.",
+	"Toque em “Copiar link”.",
+	"No Instagram, toque no ícone de figurinhas → Link e cole.",
+	"Publique e volte aqui para tocar em “Já publiquei”.",
+];
+
+/** Onde a arte pronta de uma entrega é baixada — a rota autenticada. */
+export function storyArtUrl(
+	postId: string,
+	destination: SocialDestination,
+): string {
+	return `/api/social/story-art?post=${encodeURIComponent(postId)}&destination=${destination}`;
 }
 
 /** O contador de uma rede, como a tela o mostra. */
@@ -158,12 +227,15 @@ export function permalinkLabel(destination: SocialDestination): string {
 export function storyNotice(
 	destinations: readonly SocialDestination[],
 	mediaCount: number,
+	mode: DeliveryMode = DEFAULT_DELIVERY_MODE.INSTAGRAM_STORIES,
 ): string | null {
 	if (!destinations.includes("INSTAGRAM_STORIES")) {
 		return null;
 	}
 	const base =
-		"Nos Stories sai só a imagem, em tela cheia (1080×1920) sobre um fundo desfocado, sem legenda — e some depois de 24 h.";
+		mode === "MANUAL"
+			? "Nos Stories, o portal prepara a arte (1080×1920) e alguém publica pelo app do Instagram, com a figurinha de link. Sai sem legenda e some depois de 24 h."
+			: "Nos Stories sai só a imagem, em tela cheia (1080×1920) sobre um fundo desfocado, sem legenda e sem link — e some depois de 24 h.";
 	return mediaCount > 1
 		? `${base} Das ${mediaCount} imagens, vai só a primeira.`
 		: base;

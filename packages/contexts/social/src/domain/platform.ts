@@ -94,6 +94,47 @@ export function destinationOf(
 }
 
 /**
+ * Quem põe a entrega no ar (spec 11, D1): o worker, pela API, ou uma pessoa,
+ * pelo app da rede.
+ *
+ * Existe porque a API da Meta não publica figurinha nos Stories — nem a de
+ * link. Story com link clicável só sai do app, e o portal prepara tudo o que não
+ * é o toque na figurinha.
+ */
+export type DeliveryMode = "AUTOMATICO" | "MANUAL";
+
+/**
+ * O modo com que cada destino nasce (spec 11, D2). Os Stories nascem manuais: o
+ * link é o que o cliente quer lá, e só o app o põe.
+ */
+export const DEFAULT_DELIVERY_MODE: Record<SocialDestination, DeliveryMode> = {
+	INSTAGRAM: "AUTOMATICO",
+	INSTAGRAM_STORIES: "MANUAL",
+	FACEBOOK: "AUTOMATICO",
+};
+
+/**
+ * Onde publicar à mão ganha alguma coisa. No feed, a API faz tudo o que o app
+ * faz; oferecer o manual ali só abriria um jeito de esquecer um post na fila.
+ */
+export const ACCEPTS_MANUAL: Record<SocialDestination, boolean> = {
+	INSTAGRAM: false,
+	INSTAGRAM_STORIES: true,
+	FACEBOOK: false,
+};
+
+/** O modo que vale para o destino: o pedido, se o destino aceita, senão o padrão. */
+export function deliveryModeFor(
+	destination: SocialDestination,
+	requested?: DeliveryMode,
+): DeliveryMode {
+	if (requested === "MANUAL") {
+		return ACCEPTS_MANUAL[destination] ? "MANUAL" : "AUTOMATICO";
+	}
+	return requested ?? DEFAULT_DELIVERY_MODE[destination];
+}
+
+/**
  * Os limites que a Meta impõe, declarados como DADO e não espalhados em `if`s.
  *
  * Eles moram no domínio porque são a régua que decide se um post pode ir ao ar —

@@ -30,13 +30,19 @@ export type PublishPendingDeps = {
 export type PublishPendingResult = {
 	posts: number;
 	published: number;
+	/** Entregas manuais com a arte pronta, esperando uma pessoa (spec 11). */
+	prepared: number;
 	/** Falhas definitivas: a entrega saiu da fila e espera uma pessoa. */
 	failed: number;
 	/** Falhas passageiras: a entrega continua na fila para a próxima rodada. */
 	retrying: number;
 };
 
-type Outcome = "published" | "failed" | "retrying";
+type Outcome = "published" | "prepared" | "failed" | "retrying";
+
+/** A mensagem de quando a foto (ou outra imagem) não pode mais ser lida. */
+export const MISSING_IMAGE_REASON =
+	"Uma das imagens não está mais na biblioteca de mídia ou no armazenamento.";
 
 /**
  * Quantos posts uma rodada tenta.
@@ -68,6 +74,7 @@ export async function publishPendingPosts(
 	const posts = await deps.repo.listAwaitingDelivery(batchSize);
 	const totals: Record<Outcome, number> = {
 		published: 0,
+		prepared: 0,
 		failed: 0,
 		retrying: 0,
 	};
@@ -93,6 +100,10 @@ async function deliver(
 	const platform = DESTINATION_PLATFORM[destination];
 	const label = PLATFORM_LABEL[platform];
 
+	if (post.deliveryFor(destination)?.isManual()) {
+		return prepare(post, destination, deps);
+	}
+
 	const account = await deps.accounts.findByPlatform(platform);
 	if (!account) {
 		post.recordFailure(
@@ -111,22 +122,9 @@ async function deliver(
 		return "failed";
 	}
 
-	// Com padrão escolhido, o destino publica UMA imagem: a arte. Sem padrão, a
-	// foto cortada, como antes dos padrões (spec 09, F5).
-	const selection = post.artFor(destination);
-	const images = selection
-		? await artworkImages(post, selection, deps)
-		: await resolveImages(
-				post.imagesFor(destination),
-				PLATFORM_LIMITS[destination].imageAspect,
-				deps,
-			);
+	const images = await imagesFor(post, destination, deps);
 	if (images === null) {
-		post.recordFailure(
-			destination,
-			"Uma das imagens não está mais na biblioteca de mídia.",
-			now,
-		);
+		post.recordFailure(destination, MISSING_IMAGE_REASON, now);
 		return "failed";
 	}
 
@@ -167,6 +165,50 @@ async function deliver(
 	const success = result.unwrap();
 	post.recordSuccess(destination, success.remoteId, success.permalink, now);
 	return "published";
+}
+
+/**
+ * Prepara a entrega MANUAL (spec 11, D5): desenha a mesma imagem que sairia
+ * pela API e a deixa esperando uma pessoa.
+ *
+ * Não pede conta conectada nem confere se a Meta alcança a URL: quem baixa a
+ * imagem é o celular de quem publica, e a API nem entra na história. A foto que
+ * sumiu falha AQUI, com a mesma mensagem do automático — melhor do que a pessoa
+ * descobrir no celular.
+ */
+async function prepare(
+	post: SocialPost,
+	destination: SocialDestination,
+	deps: PublishPendingDeps,
+): Promise<Outcome> {
+	const now = deps.clock.now();
+	const images = await imagesFor(post, destination, deps);
+	const image = images?.[0];
+	if (!image) {
+		post.recordFailure(destination, MISSING_IMAGE_REASON, now);
+		return "failed";
+	}
+	post.recordPrepared(destination, image.url, now);
+	return "prepared";
+}
+
+/**
+ * As imagens do destino. Com padrão escolhido, UMA: a arte. Sem padrão, a foto
+ * cortada, como antes dos padrões (spec 09, F5). `null` quando alguma sumiu.
+ */
+function imagesFor(
+	post: SocialPost,
+	destination: SocialDestination,
+	deps: PublishPendingDeps,
+): Promise<readonly PublishableImage[] | null> {
+	const selection = post.artFor(destination);
+	return selection
+		? artworkImages(post, selection, deps)
+		: resolveImages(
+				post.imagesFor(destination),
+				PLATFORM_LIMITS[destination].imageAspect,
+				deps,
+			);
 }
 
 /**

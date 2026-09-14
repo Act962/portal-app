@@ -304,11 +304,18 @@ describe("ArtRenderer (Konva + skia-canvas)", () => {
 		).rejects.toThrow("HTTP 500");
 	}, 30_000);
 
-	it("arquivo da foto apagado (404) desenha o lugar em cinza", async () => {
+	it("arquivo da foto apagado (404): a prévia desenha o lugar em cinza", async () => {
 		const { renderer } = setup({ photoStatus: 404 });
 		const png = await renderer.preview(pedido(), 540);
 		expect(await pixel(png, 10, 10)).toEqual([156, 163, 175]);
 	});
+
+	it("arquivo da foto apagado (404): a arte publicada é null, sem gravar (spec 11, D10)", async () => {
+		// Foi assim que um post saiu no Instagram com o cinza no lugar da foto.
+		const { renderer, requests } = setup({ photoStatus: 404 });
+		expect(await renderer.publishable(pedido())).toBeNull();
+		expect(requests.some((r) => r.method === "PUT")).toBe(false);
+	}, 30_000);
 
 	it("a prévia é o mesmo desenho reduzido, e não grava nada", async () => {
 		const { renderer, requests } = setup({});

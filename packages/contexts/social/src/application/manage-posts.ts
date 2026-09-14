@@ -13,6 +13,7 @@ import type { CaptionRequired } from "../domain/errors";
 import {
 	ArtTemplateNotFound,
 	InvalidArtChoice,
+	type InvalidDeliveryTransition,
 	type InvalidMediaSelection,
 	type InvalidPostTransition,
 	type PostNotReady,
@@ -24,7 +25,7 @@ import type {
 	SocialPostFilter,
 	SocialPostRepository,
 } from "../domain/ports/social-post-repository";
-import { SocialPost } from "../domain/social-post";
+import { type DeliveryModes, SocialPost } from "../domain/social-post";
 import {
 	type ArtSelection,
 	selectionFrom,
@@ -50,6 +51,8 @@ export type DraftInput = {
 	mediaIds: readonly string[];
 	/** Os destinos: o feed de cada rede e/ou os Stories do Instagram. */
 	platforms: readonly SocialDestination[];
+	/** Quem publica cada destino; o que falta usa o padrão (spec 11, D2). */
+	modes?: DeliveryModes;
 	linkUrl?: string | null;
 	articleId?: string | null;
 };
@@ -195,7 +198,82 @@ export function getPost(
 	return deps.repo.findById(id);
 }
 
-/** O número do badge na navegação. */
+// ── publicação manual (spec 11) ─────────────────────────────────────────────
+
+type DeliveryInput = { id: string; destination: SocialDestination };
+
+type DeliveryResult = Promise<
+	Result<SocialPost, Forbidden | SocialPostNotFound | InvalidDeliveryTransition>
+>;
+
+/**
+ * Carrega o post, aplica a mudança numa entrega e grava. As três operações da
+ * publicação manual têm a mesma forma e a mesma permissão (D12): publicar à mão
+ * é publicar, só que por outro caminho.
+ */
+async function changeDelivery(
+	actor: StaffMember,
+	id: string,
+	repo: SocialPostRepository,
+	change: (post: SocialPost) => Result<void, InvalidDeliveryTransition>,
+): DeliveryResult {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await repo.findById(id);
+	if (!post) {
+		return err(new SocialPostNotFound(id));
+	}
+	const changed = change(post);
+	if (changed.isErr()) {
+		return err(changed.error);
+	}
+	await repo.save(post);
+	return ok(post);
+}
+
+/** "Já publiquei" — a pessoa publicou o story pelo app (D7). */
+export function confirmManualPublish(
+	actor: StaffMember,
+	input: DeliveryInput & { permalink?: string | null },
+	deps: Pick<PostDeps, "repo" | "clock">,
+): DeliveryResult {
+	return changeDelivery(actor, input.id, deps.repo, (post) =>
+		post.confirmManualPublish(
+			input.destination,
+			actor.id,
+			input.permalink?.trim() || null,
+			deps.clock.now(),
+		),
+	);
+}
+
+/** "Não vou publicar" (D3). */
+export function dismissDelivery(
+	actor: StaffMember,
+	input: DeliveryInput,
+	deps: Pick<PostDeps, "repo" | "clock">,
+): DeliveryResult {
+	return changeDelivery(actor, input.id, deps.repo, (post) =>
+		post.dismissDelivery(input.destination, actor.id, deps.clock.now()),
+	);
+}
+
+/** A entrega automática falhou; vai à mão (D8). O worker prepara a arte. */
+export function publishDeliveryManually(
+	actor: StaffMember,
+	input: DeliveryInput,
+	deps: Pick<PostDeps, "repo">,
+): DeliveryResult {
+	return changeDelivery(actor, input.id, deps.repo, (post) =>
+		post.publishManually(input.destination),
+	);
+}
+
+/**
+ * O número do badge na navegação: o que espera aprovação e o que espera alguém
+ * publicar à mão (spec 11, D9) — os dois são trabalho parado numa pessoa.
+ */
 export function countPendingPosts(
 	deps: Pick<PostDeps, "repo">,
 ): Promise<number> {

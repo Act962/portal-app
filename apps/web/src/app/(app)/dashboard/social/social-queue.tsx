@@ -26,6 +26,7 @@ import {
 	AlertTriangle,
 	Check,
 	ExternalLink,
+	Hand,
 	Images,
 	Plus,
 	RotateCw,
@@ -39,10 +40,13 @@ import { AssetImage } from "@/components/media/asset-image";
 import { formatLongDate } from "@/lib/format";
 import { trpc } from "@/utils/trpc";
 
+import { ManualStoryKit } from "./manual-story-kit";
 import { PostDialog } from "./post-dialog";
 import { PostStatusBadge } from "./post-status-badge";
 import {
 	availableActions,
+	canRetry,
+	deliveryActions,
 	permalinkLabel,
 	previewCaption,
 	summarizeDeliveries,
@@ -53,6 +57,7 @@ const ALL = "__all__";
 const STATUS_OPTIONS: { value: string; label: string }[] = [
 	{ value: ALL, label: "Todos os estados" },
 	{ value: "RASCUNHO", label: "Aguardando aprovação" },
+	{ value: "AGUARDANDO_PESSOA", label: "Para publicar à mão" },
 	{ value: "PUBLICANDO", label: "Enviando" },
 	{ value: "PUBLICADO", label: "Publicados" },
 	{ value: "PARCIAL", label: "Publicados em parte" },
@@ -87,6 +92,16 @@ export function SocialQueue() {
 		}),
 	);
 
+	// Quantos stories esperam alguém publicar à mão (spec 11, D9). O filtro abre
+	// em "Aguardando aprovação", e sem este aviso quem publica não os veria.
+	const awaitingPerson = useQuery(
+		trpc.social.queue.queryOptions({
+			status: "AGUARDANDO_PESSOA",
+			perPage: 1,
+		}),
+	);
+	const awaitingCount = awaitingPerson.data?.total ?? 0;
+
 	const refresh = async () => {
 		await Promise.all([
 			queryClient.invalidateQueries({
@@ -115,6 +130,16 @@ export function SocialQueue() {
 		trpc.social.retry.mutationOptions({
 			onSuccess: async () => {
 				toast.success("Reenviando só o que falhou.");
+				await refresh();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const publishManually = useMutation(
+		trpc.social.publishManually.mutationOptions({
+			onSuccess: async () => {
+				toast.success("Preparando a arte para publicar à mão.");
 				await refresh();
 			},
 			onError: (error) => toast.error(error.message),
@@ -164,6 +189,23 @@ export function SocialQueue() {
 					</Button>
 				</div>
 			</div>
+
+			{awaitingCount > 0 && status !== "AGUARDANDO_PESSOA" ? (
+				<button
+					type="button"
+					onClick={() => {
+						setStatus("AGUARDANDO_PESSOA");
+						setPage(1);
+					}}
+					className="flex items-center gap-2 rounded-md border border-violet-300 bg-violet-50 p-3 text-left text-sm text-violet-900 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200"
+				>
+					<Hand className="size-4 shrink-0" />
+					{awaitingCount === 1
+						? "1 story espera alguém publicar à mão."
+						: `${awaitingCount} stories esperam alguém publicar à mão.`}
+					<span className="ml-auto font-medium underline">Ver</span>
+				</button>
+			) : null}
 
 			{queue.isPending ? (
 				<div className="grid gap-4 md:grid-cols-2">
@@ -218,6 +260,19 @@ export function SocialQueue() {
 									</p>
 								))}
 
+							{post.deliveries
+								.filter((delivery) => deliveryActions(delivery).includes("kit"))
+								.map((delivery) => (
+									<ManualStoryKit
+										key={delivery.destination}
+										postId={post.id}
+										destination={delivery.destination}
+										linkUrl={post.linkUrl}
+										approvedAt={post.approvedAt}
+										onChanged={refresh}
+									/>
+								))}
+
 							{post.status === "RASCUNHO" && post.blockers.length > 0 ? (
 								<ul className="flex flex-col gap-1 rounded border border-amber-300 bg-amber-50 p-2 text-amber-900 text-xs dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
 									{post.blockers.map((blocker) => (
@@ -258,7 +313,7 @@ export function SocialQueue() {
 									</Button>
 								) : null}
 
-								{availableActions(post.status).includes("tentar-de-novo") ? (
+								{canRetry(post.status, post.deliveries) ? (
 									<Button
 										variant="outline"
 										size="sm"
@@ -269,6 +324,28 @@ export function SocialQueue() {
 										Tentar de novo
 									</Button>
 								) : null}
+
+								{post.deliveries
+									.filter((delivery) =>
+										deliveryActions(delivery).includes("publicar-a-mao"),
+									)
+									.map((delivery) => (
+										<Button
+											key={delivery.destination}
+											variant="outline"
+											size="sm"
+											disabled={publishManually.isPending}
+											onClick={() =>
+												publishManually.mutate({
+													id: post.id,
+													destination: delivery.destination,
+												})
+											}
+										>
+											<Hand className="size-4" />
+											Publicar à mão
+										</Button>
+									))}
 
 								{availableActions(post.status).includes("descartar") ? (
 									<Button
@@ -352,7 +429,9 @@ function EmptyState({ status }: { status: string }) {
 			<p className="font-medium">
 				{status === "RASCUNHO"
 					? "Nada esperando aprovação."
-					: "Nenhuma publicação neste estado."}
+					: status === "AGUARDANDO_PESSOA"
+						? "Nenhum story esperando publicação à mão."
+						: "Nenhuma publicação neste estado."}
 			</p>
 			<p className="mt-1 text-muted-foreground text-sm">
 				{status === "RASCUNHO"

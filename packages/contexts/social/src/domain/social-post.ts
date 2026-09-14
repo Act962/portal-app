@@ -5,11 +5,13 @@ import { Delivery } from "./delivery";
 import {
 	type CaptionRequired,
 	InvalidArtChoice,
+	InvalidDeliveryTransition,
 	InvalidMediaSelection,
 	InvalidPostTransition,
 	PostNotReady,
 } from "./errors";
 import {
+	SocialDeliveryDismissed,
 	SocialPostApproved,
 	SocialPostDrafted,
 	SocialPostFailed,
@@ -18,6 +20,7 @@ import {
 import {
 	DESTINATION_FORMAT,
 	DESTINATION_LABEL,
+	type DeliveryMode,
 	PLATFORM_LIMITS,
 	type SocialDestination,
 } from "./platform";
@@ -30,6 +33,9 @@ import { type ArtContent, contentWithHeadline } from "./template/variables";
 
 /** A arte escolhida para cada destino que tem arte. */
 export type ArtSelections = Partial<Record<SocialDestination, ArtSelection>>;
+
+/** O modo pedido para cada destino; o que falta usa o padrão (spec 11, D2). */
+export type DeliveryModes = Partial<Record<SocialDestination, DeliveryMode>>;
 
 /**
  * De onde veio o post. Guardado, e não inferido de `articleId`, porque a
@@ -58,6 +64,9 @@ export type PostOrigin =
 export type PostStatus =
 	| "RASCUNHO"
 	| "PUBLICANDO"
+	/** Nada mais a caminho pela API, mas uma entrega espera alguém publicar
+	 * pelo app (spec 11, D4). */
+	| "AGUARDANDO_PESSOA"
 	| "PUBLICADO"
 	| "PARCIAL"
 	| "FALHOU"
@@ -136,6 +145,8 @@ export class SocialPost extends AggregateRoot<string> {
 		/** Os DESTINOS escolhidos. Chama-se `platforms` porque nasceu antes dos
 		 * Stories, e o feed de cada rede tem o nome dela. */
 		platforms: readonly SocialDestination[];
+		/** Quem publica cada destino. O que falta usa o padrão (spec 11, D2). */
+		modes?: DeliveryModes;
 		/** A arte de cada destino. Destino que o post não tem, ou formato que não
 		 * serve, é descartado — quem manda aqui é o gatilho automático, com os
 		 * padrões de destino, que já são compatíveis. */
@@ -160,7 +171,7 @@ export class SocialPost extends AggregateRoot<string> {
 			mediaIds: media.value,
 			linkUrl: input.linkUrl ?? null,
 			deliveries: uniqueDestinations(input.platforms).map((destination) =>
-				Delivery.pending(destination),
+				Delivery.pending(destination, input.modes?.[destination]),
 			),
 			// Nasce RASCUNHO mesmo vindo de matéria já publicada: a decisão do
 			// cliente (D1) é que ninguém seja surpreendido por um post que não leu.
@@ -443,6 +454,7 @@ export class SocialPost extends AggregateRoot<string> {
 		mediaIds?: readonly string[];
 		linkUrl?: string | null;
 		platforms?: readonly SocialDestination[];
+		modes?: DeliveryModes;
 	}): Result<
 		void,
 		CaptionRequired | InvalidMediaSelection | InvalidPostTransition
@@ -467,12 +479,23 @@ export class SocialPost extends AggregateRoot<string> {
 		if (input.linkUrl !== undefined) {
 			this.state.linkUrl = input.linkUrl;
 		}
-		if (input.platforms !== undefined) {
+		if (input.platforms !== undefined || input.modes !== undefined) {
+			// O modo que não veio fica como estava — trocar só a legenda não pode
+			// devolver ao padrão um story que alguém pôs para sair sozinho.
+			const modes: DeliveryModes = {
+				...Object.fromEntries(
+					this.state.deliveries.map((delivery) => [
+						delivery.destination,
+						delivery.mode,
+					]),
+				),
+				...input.modes,
+			};
 			// As entregas são recriadas do zero: nada foi ao ar (o post está em
 			// RASCUNHO, garantido acima), então não há histórico a preservar.
-			this.state.deliveries = uniqueDestinations(input.platforms).map(
-				(destination) => Delivery.pending(destination),
-			);
+			this.state.deliveries = uniqueDestinations(
+				input.platforms ?? this.targets,
+			).map((destination) => Delivery.pending(destination, modes[destination]));
 			// Destino que saiu leva a arte junto — senão ela voltaria sozinha no
 			// dia em que o destino fosse marcado de novo, sem ninguém ter escolhido.
 			this.state.art = keepServing(this.state.art ?? {}, this.targets);
@@ -574,16 +597,112 @@ export class SocialPost extends AggregateRoot<string> {
 	 * entrega já publicada nem chega a ser olhada.
 	 */
 	retryFailed(): Result<void, InvalidPostTransition> {
-		if (this.state.status !== "FALHOU" && this.state.status !== "PARCIAL") {
+		// Pelo que falhou, e não só pelo estado do post: com um story esperando
+		// alguém, o post fica AGUARDANDO_PESSOA mesmo com o feed recusado — e o
+		// feed ainda precisa do "tentar de novo".
+		const failed = this.state.deliveries.filter((delivery) =>
+			delivery.isFailed(),
+		);
+		if (
+			failed.length === 0 ||
+			this.state.status === "RASCUNHO" ||
+			this.state.status === "CANCELADA"
+		) {
 			return err(
 				new InvalidPostTransition("tentar de novo", this.state.status),
 			);
 		}
-		for (const delivery of this.state.deliveries) {
+		for (const delivery of failed) {
 			delivery.requeue();
 		}
-		this.state.status = "PUBLICANDO";
+		this.refreshStatus();
 		return ok(undefined);
+	}
+
+	// ── publicação manual (spec 11) ─────────────────────────────────────────────
+
+	/**
+	 * A arte da entrega manual está pronta: agora espera uma pessoa (D5). Quem
+	 * chama é o worker, que desenha a arte no lugar de publicar.
+	 */
+	recordPrepared(
+		destination: SocialDestination,
+		imageUrl: string,
+		at: Date,
+	): void {
+		this.deliveryFor(destination)?.markPrepared(imageUrl, at);
+		this.refreshStatus();
+	}
+
+	/**
+	 * "Já publiquei" (D7). A prova é quem clicou; o link do story é opcional e,
+	 * se vier, vira o `permalink`.
+	 */
+	confirmManualPublish(
+		destination: SocialDestination,
+		staffId: string,
+		permalink: string | null,
+		at: Date,
+	): Result<void, InvalidDeliveryTransition> {
+		const delivery = this.deliveryFor(destination);
+		if (!delivery?.markPublishedByPerson(staffId, permalink, at)) {
+			return err(
+				this.deliveryTransition("confirmar a publicação", destination),
+			);
+		}
+		this.record(
+			new SocialPostPublished(
+				this.id,
+				destination,
+				null,
+				permalink,
+				at,
+				staffId,
+			),
+		);
+		this.refreshStatus();
+		return ok(undefined);
+	}
+
+	/** "Não vou publicar" (D3). Não deixa o post "em parte": foi decisão. */
+	dismissDelivery(
+		destination: SocialDestination,
+		staffId: string,
+		at: Date,
+	): Result<void, InvalidDeliveryTransition> {
+		const delivery = this.deliveryFor(destination);
+		if (!delivery?.dismiss()) {
+			return err(this.deliveryTransition("dispensar", destination));
+		}
+		this.record(new SocialDeliveryDismissed(this.id, destination, staffId, at));
+		this.refreshStatus();
+		return ok(undefined);
+	}
+
+	/**
+	 * A entrega automática falhou; uma pessoa vai publicar à mão (D8). Volta à
+	 * fila para o worker preparar a arte.
+	 */
+	publishManually(
+		destination: SocialDestination,
+	): Result<void, InvalidDeliveryTransition> {
+		const delivery = this.deliveryFor(destination);
+		if (!delivery?.switchToManual()) {
+			return err(this.deliveryTransition("publicar à mão", destination));
+		}
+		this.refreshStatus();
+		return ok(undefined);
+	}
+
+	private deliveryTransition(
+		operation: string,
+		destination: SocialDestination,
+	): InvalidDeliveryTransition {
+		return new InvalidDeliveryTransition(
+			operation,
+			DESTINATION_LABEL[destination],
+			this.deliveryFor(destination)?.status ?? "inexistente",
+		);
 	}
 
 	/**
@@ -607,17 +726,31 @@ export class SocialPost extends AggregateRoot<string> {
 	 *
 	 * É o mesmo princípio que levou a publicidade a derivar `ENCERRADA` do
 	 * período: uma verdade, um lugar só. Enquanto sobrar entrega pendente, o post
-	 * continua `PUBLICANDO`.
+	 * continua `PUBLICANDO`; depois, enquanto uma esperar alguém, fica
+	 * `AGUARDANDO_PESSOA` (spec 11, D4).
+	 *
+	 * As entregas DISPENSADAS não contam: o story que alguém decidiu não publicar
+	 * não deixa o post "em parte". Tudo dispensado é post descartado.
 	 */
 	private refreshStatus(): void {
-		if (this.state.deliveries.some((delivery) => delivery.isPending())) {
+		const deliveries = this.state.deliveries;
+		if (deliveries.some((delivery) => delivery.isPending())) {
 			this.state.status = "PUBLICANDO";
 			return;
 		}
-		const published = this.state.deliveries.filter((delivery) =>
+		if (deliveries.some((delivery) => delivery.isAwaitingPerson())) {
+			this.state.status = "AGUARDANDO_PESSOA";
+			return;
+		}
+		const counted = deliveries.filter((delivery) => !delivery.isDismissed());
+		if (counted.length === 0) {
+			this.state.status = "CANCELADA";
+			return;
+		}
+		const published = counted.filter((delivery) =>
 			delivery.isPublished(),
 		).length;
-		if (published === this.state.deliveries.length) {
+		if (published === counted.length) {
 			this.state.status = "PUBLICADO";
 		} else if (published > 0) {
 			this.state.status = "PARCIAL";

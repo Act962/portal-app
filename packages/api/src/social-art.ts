@@ -184,7 +184,9 @@ const CENTER = { x: 0.5, y: 0.5 };
  *
  * Falha de rede LANÇA, como no `CroppedImageSource`: armazenamento instável é
  * passageiro, e a entrega fica pendente para a próxima rodada. Arquivo que não
- * existe mais (404) não lança: a foto vira o lugar cinza e a moldura some.
+ * existe mais (404) não lança: na prévia, a foto vira o lugar cinza e a moldura
+ * some; na arte publicada, a foto que falta torna a arte indisponível (spec 11,
+ * D10), e a moldura que falta continua só sumindo.
  */
 export class ArtRenderer {
 	private readonly fetchImpl: typeof fetch;
@@ -252,7 +254,15 @@ export class ArtRenderer {
 			return { url, altText };
 		}
 
-		const jpeg = await this.draw(request, photo, { format: "jpg" });
+		const jpeg = await this.draw(request, photo, {
+			format: "jpg",
+			requirePhoto: true,
+		});
+		// A foto tem registro, mas o arquivo não está no armazenamento. Publicar
+		// com o lugar cinza foi o que pôs no ar um post sem foto (spec 11, D10).
+		if (!jpeg) {
+			return null;
+		}
 		const uploadUrl = await this.deps.storage.getUploadUrl(key, "image/jpeg");
 		const upload = await this.fetchImpl(uploadUrl, {
 			method: "PUT",
@@ -267,16 +277,33 @@ export class ArtRenderer {
 		return { url, altText };
 	}
 
-	private async draw(
+	private draw(
 		request: ArtRequest,
 		photo: PhotoAsset | null,
 		output: { format: "png" | "jpg"; width?: number },
-	): Promise<Buffer> {
+	): Promise<Buffer>;
+	private draw(
+		request: ArtRequest,
+		photo: PhotoAsset | null,
+		output: { format: "png" | "jpg"; width?: number; requirePhoto: true },
+	): Promise<Buffer | null>;
+	/**
+	 * Com `requirePhoto`, devolve `null` quando a foto tem registro mas o
+	 * arquivo não baixa (404) — em vez de desenhar o lugar cinza.
+	 */
+	private async draw(
+		request: ArtRequest,
+		photo: PhotoAsset | null,
+		output: { format: "png" | "jpg"; width?: number; requirePhoto?: boolean },
+	): Promise<Buffer | null> {
 		const engine = await loadArtEngine();
 		const { Konva } = engine;
 		const { template } = request;
 		const canvas = template.canvas;
 		const assets = await this.assets(engine, template, photo);
+		if (output.requirePhoto && photo && !assets.photo) {
+			return null;
+		}
 
 		const stage = new Konva.Stage({
 			width: canvas.width,

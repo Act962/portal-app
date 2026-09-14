@@ -3,14 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
 	accountTone,
 	availableActions,
+	canRetry,
 	captionCounters,
 	DIAGNOSIS_LABELS,
+	deliveryActions,
 	diagnosisTone,
 	metaFlagMessage,
 	POST_STATUS_LABELS,
 	permalinkLabel,
 	previewCaption,
 	quotaSummary,
+	storyArtUrl,
 	storyNotice,
 	summarizeDeliveries,
 } from "@/app/(app)/dashboard/social/social-labels";
@@ -207,5 +210,63 @@ describe("diagnóstico — Verificar conexão", () => {
 
 	it("cota estourada não mostra número negativo", () => {
 		expect(quotaSummary({ used: 52, total: 50 })).toContain("restam 0");
+	});
+});
+
+describe("publicação manual dos Stories (spec 11)", () => {
+	const story = {
+		destination: "INSTAGRAM_STORIES" as const,
+		manualAllowed: true,
+	};
+
+	it("o story com arte pronta mostra o kit", () => {
+		expect(
+			deliveryActions({
+				...story,
+				status: "AGUARDANDO_PESSOA",
+				mode: "MANUAL",
+			}),
+		).toEqual(["kit"]);
+	});
+
+	it("story automático que falhou oferece publicar à mão; feed que falhou, não", () => {
+		expect(
+			deliveryActions({ ...story, status: "FALHOU", mode: "AUTOMATICO" }),
+		).toEqual(["publicar-a-mao"]);
+		expect(
+			deliveryActions({
+				destination: "INSTAGRAM",
+				manualAllowed: false,
+				status: "FALHOU",
+				mode: "AUTOMATICO",
+			}),
+		).toEqual([]);
+		expect(
+			deliveryActions({ ...story, status: "FALHOU", mode: "MANUAL" }),
+		).toEqual([]);
+	});
+
+	it("com story esperando alguém, o feed recusado ainda oferece tentar de novo", () => {
+		expect(canRetry("AGUARDANDO_PESSOA", [{ status: "FALHOU" }])).toBe(true);
+		expect(
+			canRetry("AGUARDANDO_PESSOA", [{ status: "AGUARDANDO_PESSOA" }]),
+		).toBe(false);
+		expect(canRetry("PARCIAL", [])).toBe(true);
+		expect(POST_STATUS_LABELS.AGUARDANDO_PESSOA).toBe("Falta publicar à mão");
+	});
+
+	it("o aviso do editor muda com o modo, e o padrão é à mão", () => {
+		expect(storyNotice(["INSTAGRAM_STORIES"], 1)).toContain(
+			"figurinha de link",
+		);
+		expect(storyNotice(["INSTAGRAM_STORIES"], 1, "AUTOMATICO")).toContain(
+			"sem link",
+		);
+	});
+
+	it("a arte é baixada pela rota autenticada", () => {
+		expect(storyArtUrl("a b", "INSTAGRAM_STORIES")).toBe(
+			"/api/social/story-art?post=a%20b&destination=INSTAGRAM_STORIES",
+		);
 	});
 });

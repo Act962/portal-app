@@ -52,6 +52,9 @@ export class PrismaSocialPostRepository implements SocialPostRepository {
 					error: delivery.error,
 					attempts: delivery.attempts,
 					lastAttemptAt: delivery.lastAttemptAt,
+					mode: delivery.mode,
+					preparedImageUrl: delivery.preparedImageUrl,
+					publishedByStaffId: delivery.publishedByStaffId,
 				};
 				await tx.socialDelivery.upsert({
 					where: {
@@ -135,7 +138,9 @@ export class PrismaSocialPostRepository implements SocialPostRepository {
 	}
 
 	countPending(): Promise<number> {
-		return this.prisma.socialPost.count({ where: { status: "RASCUNHO" } });
+		return this.prisma.socialPost.count({
+			where: { status: { in: ["RASCUNHO", "AGUARDANDO_PESSOA"] } },
+		});
 	}
 
 	async listAwaitingDelivery(limit: number): Promise<readonly SocialPost[]> {
@@ -163,6 +168,9 @@ type DeliveryRow = {
 	error: string | null;
 	attempts: number;
 	lastAttemptAt: Date | null;
+	mode: string;
+	preparedImageUrl: string | null;
+	publishedByStaffId: string | null;
 };
 
 type PostRow = {
@@ -236,6 +244,9 @@ function toDomain(row: PostRow): SocialPost {
 					error: delivery.error,
 					attempts: delivery.attempts,
 					lastAttemptAt: delivery.lastAttemptAt,
+					mode: delivery.mode === "MANUAL" ? "MANUAL" : "AUTOMATICO",
+					preparedImageUrl: delivery.preparedImageUrl,
+					publishedByStaffId: delivery.publishedByStaffId,
 				}),
 			),
 	});

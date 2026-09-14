@@ -2,9 +2,11 @@ import { FixedClock } from "@portal-app/shared-kernel";
 import {
 	ArtTemplate,
 	contentWithHeadline,
+	type DeliveryModes,
 	MAX_AUTOMATIC_ATTEMPTS,
 	publishPendingPosts,
 	SocialAccount,
+	type SocialDestination,
 	type SocialPlatform,
 	SocialPost,
 	selectionFrom,
@@ -45,8 +47,9 @@ function conectar(
 }
 
 async function postAprovado(
-	platforms: readonly SocialPlatform[] = ["INSTAGRAM", "FACEBOOK"],
+	platforms: readonly SocialDestination[] = ["INSTAGRAM", "FACEBOOK"],
 	mediaIds: readonly string[] = ["media-1"],
+	modes: DeliveryModes = {},
 ) {
 	const post = SocialPost.draft({
 		id: "post-1",
@@ -56,6 +59,7 @@ async function postAprovado(
 		mediaIds,
 		linkUrl: "https://fm7cidades.com/cidades/chuva",
 		platforms,
+		modes,
 		createdAt: AGORA,
 	}).unwrap();
 	post.approve("editor-1", AGORA);
@@ -84,6 +88,7 @@ describe("publishPendingPosts", () => {
 		expect(resultado).toEqual({
 			posts: 1,
 			published: 2,
+			prepared: 0,
 			failed: 0,
 			retrying: 0,
 		});
@@ -138,6 +143,7 @@ describe("publishPendingPosts", () => {
 		expect(resultado).toEqual({
 			posts: 1,
 			published: 1,
+			prepared: 0,
 			failed: 1,
 			retrying: 0,
 		});
@@ -243,6 +249,7 @@ describe("publishPendingPosts", () => {
 			expect(resultado).toEqual({
 				posts: 1,
 				published: 0,
+				prepared: 0,
 				failed: 0,
 				retrying: 1,
 			});
@@ -381,10 +388,12 @@ describe("publishPendingPosts", () => {
 		});
 	});
 
-	describe("Stories do Instagram (§17)", () => {
+	describe("Stories do Instagram (§17), no modo automático", () => {
+		const SOZINHO: DeliveryModes = { INSTAGRAM_STORIES: "AUTOMATICO" };
+
 		it("publica com a conta do Instagram, UMA imagem em 9:16 e sem legenda", async () => {
 			conectar("INSTAGRAM");
-			await postAprovado(["INSTAGRAM_STORIES"], ["m-1", "m-2"]);
+			await postAprovado(["INSTAGRAM_STORIES"], ["m-1", "m-2"], SOZINHO);
 
 			await publishPendingPosts(deps);
 
@@ -406,7 +415,11 @@ describe("publishPendingPosts", () => {
 			publisher
 				.succeedOn("INSTAGRAM", "ig-feed")
 				.succeedOn("INSTAGRAM_STORIES", "ig-story");
-			const post = await postAprovado(["INSTAGRAM", "INSTAGRAM_STORIES"]);
+			const post = await postAprovado(
+				["INSTAGRAM", "INSTAGRAM_STORIES"],
+				["media-1"],
+				SOZINHO,
+			);
 
 			const resultado = await publishPendingPosts(deps);
 
@@ -426,7 +439,11 @@ describe("publishPendingPosts", () => {
 			publisher
 				.succeedOn("INSTAGRAM", "ig-feed")
 				.failOn("INSTAGRAM_STORIES", "O Instagram recusou a publicação.");
-			const post = await postAprovado(["INSTAGRAM", "INSTAGRAM_STORIES"]);
+			const post = await postAprovado(
+				["INSTAGRAM", "INSTAGRAM_STORIES"],
+				["media-1"],
+				SOZINHO,
+			);
 			await publishPendingPosts(deps);
 			expect(post.status).toBe("PARCIAL");
 
@@ -442,7 +459,11 @@ describe("publishPendingPosts", () => {
 		});
 
 		it("sem conta do Instagram, o story diz qual CONTA falta", async () => {
-			const post = await postAprovado(["INSTAGRAM_STORIES"]);
+			const post = await postAprovado(
+				["INSTAGRAM_STORIES"],
+				["media-1"],
+				SOZINHO,
+			);
 
 			await publishPendingPosts(deps);
 
@@ -477,8 +498,87 @@ describe("publishPendingPosts", () => {
 		expect(await publishPendingPosts(deps)).toEqual({
 			posts: 0,
 			published: 0,
+			prepared: 0,
 			failed: 0,
 			retrying: 0,
+		});
+	});
+
+	describe("Stories publicados à mão (spec 11)", () => {
+		it("o story manual é PREPARADO, não publicado: arte pronta, sem chamar a Meta", async () => {
+			conectar("INSTAGRAM");
+			const post = await postAprovado(["INSTAGRAM", "INSTAGRAM_STORIES"]);
+
+			const resultado = await publishPendingPosts(deps);
+
+			expect(resultado).toMatchObject({ published: 1, prepared: 1 });
+			expect(publisher.requests.map((request) => request.format)).toEqual([
+				"FEED",
+			]);
+			const story = post.deliveryFor("INSTAGRAM_STORIES");
+			expect(story?.status).toBe("AGUARDANDO_PESSOA");
+			expect(story?.preparedImageUrl).toBe("https://cdn.test/media-1.jpg");
+			expect(images.aspects).toEqual(["1:1", "9:16"]);
+			expect(post.status).toBe("AGUARDANDO_PESSOA");
+		});
+
+		it("não precisa de conta conectada nem de URL que a Meta alcance", async () => {
+			images.baseUrl = "http://localhost:9000/portal-media";
+			const post = await postAprovado(["INSTAGRAM_STORIES"]);
+
+			await publishPendingPosts(deps);
+
+			expect(post.deliveryFor("INSTAGRAM_STORIES")?.status).toBe(
+				"AGUARDANDO_PESSOA",
+			);
+		});
+
+		it("com padrão, prepara a arte do padrão", async () => {
+			const padrao = ArtTemplate.create({
+				id: "tpl-story",
+				name: "Últimas — story",
+				format: "9:16",
+				design: design([tituloEditavel()]),
+				createdAt: AGORA,
+			}).unwrap();
+			const post = SocialPost.draft({
+				id: "post-story",
+				origin: "MANUAL",
+				captionText: "Plantão",
+				mediaIds: ["m-1"],
+				platforms: ["INSTAGRAM_STORIES"],
+				art: { INSTAGRAM_STORIES: selectionFrom(padrao) },
+				createdAt: AGORA,
+			}).unwrap();
+			post.approve("editor-1", AGORA);
+			await repo.save(post);
+
+			await publishPendingPosts(deps);
+
+			expect(post.deliveryFor("INSTAGRAM_STORIES")?.preparedImageUrl).toBe(
+				"https://cdn.test/art-tpl-story.jpg",
+			);
+		});
+
+		it("foto que sumiu falha na preparação, com a mesma mensagem", async () => {
+			images.missing.add("media-1");
+			const post = await postAprovado(["INSTAGRAM_STORIES"]);
+
+			const resultado = await publishPendingPosts(deps);
+
+			expect(resultado.failed).toBe(1);
+			expect(post.status).toBe("FALHOU");
+			expect(post.deliveryFor("INSTAGRAM_STORIES")?.error).toContain(
+				"no armazenamento",
+			);
+		});
+
+		it("a rodada seguinte não prepara de novo o que espera alguém", async () => {
+			await postAprovado(["INSTAGRAM_STORIES"]);
+			await publishPendingPosts(deps);
+
+			expect((await publishPendingPosts(deps)).posts).toBe(0);
+			expect(images.aspects).toEqual(["9:16"]);
 		});
 	});
 });

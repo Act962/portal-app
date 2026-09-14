@@ -1,7 +1,9 @@
 "use client";
 
 import {
+	DEFAULT_DELIVERY_MODE,
 	DESTINATION_LABEL,
+	type DeliveryMode,
 	MAX_MEDIA_ITEMS,
 	SOCIAL_DESTINATIONS,
 	SOCIAL_PLATFORMS,
@@ -41,6 +43,8 @@ type Form = {
 	captionText: string;
 	mediaIds: string[];
 	platforms: SocialDestination[];
+	/** Quem publica os Stories: uma pessoa pelo app (com link) ou a API. */
+	storyMode: DeliveryMode;
 	linkUrl: string;
 };
 
@@ -50,8 +54,17 @@ const EMPTY: Form = {
 	// O feed das duas redes. Stories é escolha explícita: some em 24 h e não
 	// leva legenda, então não é o padrão de uma notícia.
 	platforms: [...SOCIAL_PLATFORMS],
+	storyMode: DEFAULT_DELIVERY_MODE.INSTAGRAM_STORIES,
 	linkUrl: "",
 };
+
+const STORY_MODE_OPTIONS: {
+	value: DeliveryMode;
+	label: string;
+}[] = [
+	{ value: "MANUAL", label: "À mão, com link" },
+	{ value: "AUTOMATICO", label: "Sozinho, sem link" },
+];
 
 /**
  * O editor do post — a tela onde a aprovação de fato acontece.
@@ -100,6 +113,10 @@ export function PostDialog({
 				captionText: post.data.caption,
 				mediaIds: [...post.data.mediaIds],
 				platforms: post.data.deliveries.map((d) => d.destination),
+				storyMode:
+					post.data.deliveries.find(
+						(d) => d.destination === "INSTAGRAM_STORIES",
+					)?.mode ?? DEFAULT_DELIVERY_MODE.INSTAGRAM_STORIES,
 				linkUrl: post.data.linkUrl ?? "",
 			});
 		} else if (!postId) {
@@ -111,6 +128,7 @@ export function PostDialog({
 		captionText: form.captionText,
 		mediaIds: form.mediaIds,
 		platforms: form.platforms,
+		modes: { INSTAGRAM_STORIES: form.storyMode },
 		linkUrl: form.linkUrl.trim() === "" ? null : form.linkUrl.trim(),
 	});
 
@@ -161,7 +179,11 @@ export function PostDialog({
 		saveBeforeApprove.isPending ||
 		approve.isPending;
 	const counters = captionCounters(form.captionText, form.platforms);
-	const notice = storyNotice(form.platforms, form.mediaIds.length);
+	const notice = storyNotice(
+		form.platforms,
+		form.mediaIds.length,
+		form.storyMode,
+	);
 
 	/**
 	 * Os impedimentos vêm do SERVIDOR (`post.blockers`), que os calcula no
@@ -253,6 +275,31 @@ export function PostDialog({
 								);
 							})}
 						</div>
+						{form.platforms.includes("INSTAGRAM_STORIES") ? (
+							<div className="flex flex-wrap items-center gap-2 text-sm">
+								<span className="text-muted-foreground">Stories:</span>
+								{STORY_MODE_OPTIONS.map((option) => (
+									<button
+										key={option.value}
+										type="button"
+										disabled={!editable || busy}
+										aria-pressed={form.storyMode === option.value}
+										onClick={() =>
+											setForm({ ...form, storyMode: option.value })
+										}
+										className={cn(
+											"rounded-md border px-3 py-1 text-xs transition-colors",
+											form.storyMode === option.value
+												? "border-primary bg-primary/10 font-medium text-foreground"
+												: "border-input text-muted-foreground hover:bg-accent",
+											(!editable || busy) && "cursor-not-allowed opacity-60",
+										)}
+									>
+										{option.label}
+									</button>
+								))}
+							</div>
+						) : null}
 						{notice ? (
 							<p className="text-muted-foreground text-xs">{notice}</p>
 						) : null}

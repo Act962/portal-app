@@ -780,7 +780,8 @@ Mudar o padrão é uma linha em `packages/api/src/social.ts`.
 
 - **Sem link, figurinha ou texto.** A API não publica link sticker, enquete nem
   texto sobre o story. O que se lê no story é o que está desenhado na imagem.
-  Uma arte com o título da matéria desenhado é o próximo passo natural.
+  Para ter link, os Stories passaram a ser publicados à mão, com a arte
+  preparada pelo portal — ver `11-stories-publicacao-manual.md`.
 - **Some em 24 h.** O link devolvido pela Meta deixa de abrir depois disso; a
   entrega continua `PUBLICADO` no histórico, com o `remoteId`.
 - **Mesma cota do feed.** Story publicado por API conta no limite de 24 h da

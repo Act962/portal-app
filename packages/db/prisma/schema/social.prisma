@@ -83,8 +83,18 @@ model SocialDelivery {
   /// nenhuma migration foi preciso.
   platform String
 
-  /// "PENDENTE" | "PUBLICADO" | "FALHOU".
+  /// "PENDENTE" | "AGUARDANDO_PESSOA" | "PUBLICADO" | "FALHOU" | "DISPENSADA".
   status String @default("PENDENTE")
+
+  /// "AUTOMATICO" (o worker publica pela API) | "MANUAL" (uma pessoa publica
+  /// pelo app, com a arte preparada pelo portal — spec 11).
+  mode String @default("AUTOMATICO")
+
+  /// A arte pronta para a pessoa publicar. Só no modo manual.
+  preparedImageUrl String?
+
+  /// Quem confirmou a publicação manual — a prova no lugar do `remoteId`.
+  publishedByStaffId String?
 
   /// O id do post NA REDE (`ig_media_id`, `page_post_id`). É a prova de que
   /// saiu, e o que impede o reenvio de duplicar.

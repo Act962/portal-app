@@ -108,6 +108,101 @@ describe("Delivery", () => {
 	});
 });
 
+describe("Delivery — publicação manual (spec 11)", () => {
+	it("os Stories nascem manuais; o feed, automático; pedir manual no feed não vale", () => {
+		expect(Delivery.pending("INSTAGRAM_STORIES").mode).toBe("MANUAL");
+		expect(Delivery.pending("INSTAGRAM").mode).toBe("AUTOMATICO");
+		expect(Delivery.pending("FACEBOOK", "MANUAL").mode).toBe("AUTOMATICO");
+		expect(Delivery.pending("INSTAGRAM_STORIES", "AUTOMATICO").mode).toBe(
+			"AUTOMATICO",
+		);
+	});
+
+	it("restaurar linha antiga, sem os campos novos, é automática", () => {
+		const antiga = Delivery.restore({
+			destination: "INSTAGRAM_STORIES",
+			status: "PUBLICADO",
+			remoteId: "story-1",
+			permalink: null,
+			error: null,
+			attempts: 1,
+			lastAttemptAt: AGORA,
+		});
+		expect(antiga.mode).toBe("AUTOMATICO");
+		expect(antiga.preparedImageUrl).toBeNull();
+		expect(antiga.publishedByStaffId).toBeNull();
+	});
+
+	it("preparar: só a manual pendente passa a esperar alguém, com a arte", () => {
+		const story = Delivery.pending("INSTAGRAM_STORIES");
+		story.markPrepared("https://cdn.test/arte.jpg", AGORA);
+		expect(story.status).toBe("AGUARDANDO_PESSOA");
+		expect(story.isAwaitingPerson()).toBe(true);
+		expect(story.preparedImageUrl).toBe("https://cdn.test/arte.jpg");
+		expect(story.attempts).toBe(1);
+
+		// Preparar de novo não mexe.
+		story.markPrepared("https://cdn.test/outra.jpg", AGORA);
+		expect(story.preparedImageUrl).toBe("https://cdn.test/arte.jpg");
+
+		const feed = Delivery.pending("INSTAGRAM");
+		feed.markPrepared("https://cdn.test/arte.jpg", AGORA);
+		expect(feed.isPending()).toBe(true);
+	});
+
+	it("'Já publiquei' só vale para o que espera alguém, e uma vez", () => {
+		const story = Delivery.pending("INSTAGRAM_STORIES");
+		expect(story.markPublishedByPerson("editor-1", null, AGORA)).toBe(false);
+
+		story.markPrepared("https://cdn.test/arte.jpg", AGORA);
+		expect(
+			story.markPublishedByPerson("editor-1", "https://instagr.am/s/1", AGORA),
+		).toBe(true);
+		expect(story.status).toBe("PUBLICADO");
+		expect(story.publishedByStaffId).toBe("editor-1");
+		expect(story.permalink).toBe("https://instagr.am/s/1");
+		expect(story.remoteId).toBeNull();
+
+		expect(story.markPublishedByPerson("editor-2", null, AGORA)).toBe(false);
+		expect(story.publishedByStaffId).toBe("editor-1");
+	});
+
+	it("dispensa o que espera alguém ou falhou; não o que está a caminho ou no ar", () => {
+		const esperando = Delivery.pending("INSTAGRAM_STORIES");
+		esperando.markPrepared("u", AGORA);
+		expect(esperando.dismiss()).toBe(true);
+		expect(esperando.isDismissed()).toBe(true);
+
+		const falhou = Delivery.pending("INSTAGRAM");
+		falhou.markFailed("recusou", AGORA);
+		expect(falhou.dismiss()).toBe(true);
+
+		expect(Delivery.pending("INSTAGRAM").dismiss()).toBe(false);
+		const noAr = Delivery.pending("INSTAGRAM");
+		noAr.markPublished("ig", null, AGORA);
+		expect(noAr.dismiss()).toBe(false);
+	});
+
+	it("publicar à mão: só a automática que falhou, num destino que aceita", () => {
+		const story = Delivery.pending("INSTAGRAM_STORIES", "AUTOMATICO");
+		expect(story.switchToManual()).toBe(false);
+
+		story.markFailed("recusou", AGORA);
+		expect(story.switchToManual()).toBe(true);
+		expect(story).toMatchObject({
+			mode: "MANUAL",
+			status: "PENDENTE",
+			error: null,
+			attempts: 0,
+		});
+		expect(story.switchToManual()).toBe(false);
+
+		const feed = Delivery.pending("INSTAGRAM");
+		feed.markFailed("recusou", AGORA);
+		expect(feed.switchToManual()).toBe(false);
+	});
+});
+
 describe("mensagens de erro — elas aparecem na tela, então importam", () => {
 	it("dizem o que aconteceu em português", () => {
 		expect(new SocialPostNotFound("p-1").message).toContain("p-1");

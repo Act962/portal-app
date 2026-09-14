@@ -38,13 +38,32 @@ export class SocialPostApproved extends DomainEvent {
 	}
 }
 
+/**
+ * Uma entrega foi ao ar. Na publicação manual (spec 11, D7), `remoteId` é nulo e
+ * `publishedByStaffId` diz quem publicou pelo app — é a prova que a auditoria
+ * guarda no lugar do id da rede.
+ */
 export class SocialPostPublished extends DomainEvent {
 	readonly eventName = "SocialPostPublished";
 	constructor(
 		readonly postId: string,
 		readonly platform: SocialDestination,
-		readonly remoteId: string,
+		readonly remoteId: string | null,
 		readonly permalink: string | null,
+		occurredAt: Date,
+		readonly publishedByStaffId: string | null = null,
+	) {
+		super(occurredAt);
+	}
+}
+
+/** Alguém decidiu não publicar uma entrega (spec 11, D3). */
+export class SocialDeliveryDismissed extends DomainEvent {
+	readonly eventName = "SocialDeliveryDismissed";
+	constructor(
+		readonly postId: string,
+		readonly platform: SocialDestination,
+		readonly dismissedByStaffId: string,
 		occurredAt: Date,
 	) {
 		super(occurredAt);

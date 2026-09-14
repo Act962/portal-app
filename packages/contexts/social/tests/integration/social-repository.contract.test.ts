@@ -215,6 +215,47 @@ describe("PrismaSocialPostRepository", () => {
 		expect(soStories.items.map((item) => item.id)).toEqual(["post-s"]);
 	});
 
+	it("guarda o modo, a arte pronta e quem publicou à mão (spec 11)", async () => {
+		const post = SocialPost.draft({
+			id: "post-manual",
+			origin: "MANUAL",
+			captionText: "Plantão",
+			mediaIds: ["media-1"],
+			platforms: ["INSTAGRAM", "INSTAGRAM_STORIES"],
+			createdAt: AGORA,
+		}).unwrap();
+		post.approve("editor-1", AGORA);
+		post.recordSuccess("INSTAGRAM", "ig-1", null, AGORA);
+		post.recordPrepared("INSTAGRAM_STORIES", "https://cdn.test/a.jpg", AGORA);
+		await posts.save(post);
+
+		const esperando = await posts.findById("post-manual");
+		expect(esperando?.status).toBe("AGUARDANDO_PESSOA");
+		expect(esperando?.deliveryFor("INSTAGRAM")?.mode).toBe("AUTOMATICO");
+		expect(esperando?.deliveryFor("INSTAGRAM_STORIES")).toMatchObject({
+			mode: "MANUAL",
+			status: "AGUARDANDO_PESSOA",
+			preparedImageUrl: "https://cdn.test/a.jpg",
+		});
+		expect(await posts.countPending()).toBe(1);
+		expect(await posts.listAwaitingDelivery(10)).toEqual([]);
+
+		esperando?.confirmManualPublish(
+			"INSTAGRAM_STORIES",
+			"editor-2",
+			null,
+			AGORA,
+		);
+		if (esperando) {
+			await posts.save(esperando);
+		}
+		const publicado = await posts.findById("post-manual");
+		expect(publicado?.status).toBe("PUBLICADO");
+		expect(
+			publicado?.deliveryFor("INSTAGRAM_STORIES")?.publishedByStaffId,
+		).toBe("editor-2");
+	});
+
 	it("guarda a arte de cada destino e o conteúdo das caixas (spec 09, F5)", async () => {
 		const template = ArtTemplate.create({
 			id: "tpl-1",

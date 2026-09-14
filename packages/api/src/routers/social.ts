@@ -1,9 +1,11 @@
 import { type Result, toPageRequest } from "@portal-app/shared-kernel";
 import {
+	ACCEPTS_MANUAL,
 	approvePost,
 	artContentFromArticle,
 	cancelPost,
 	choosePostArt,
+	confirmManualPublish,
 	connectMetaPage,
 	countPendingPosts,
 	createDraft,
@@ -11,10 +13,12 @@ import {
 	defaultTemplateFor,
 	diagnoseAccounts,
 	disconnectAccount,
+	dismissDelivery,
 	getPost,
 	listAccounts,
 	listQueue,
 	prepareArticlePost,
+	publishDeliveryManually,
 	retryPost,
 	SOCIAL_DESTINATIONS,
 	SOCIAL_PLATFORMS,
@@ -59,9 +63,20 @@ const platform = z.enum(SOCIAL_PLATFORMS);
 /** Para onde o post vai — o feed de cada rede ou os Stories (spec 08, §17). */
 const destination = z.enum(SOCIAL_DESTINATIONS);
 
+/** Quem publica a entrega: o worker ou uma pessoa pelo app (spec 11). */
+const deliveryMode = z.enum(["AUTOMATICO", "MANUAL"]);
+const deliveryModes = z
+	.object({
+		INSTAGRAM: deliveryMode,
+		INSTAGRAM_STORIES: deliveryMode,
+		FACEBOOK: deliveryMode,
+	})
+	.partial();
+
 const postStatus = z.enum([
 	"RASCUNHO",
 	"PUBLICANDO",
+	"AGUARDANDO_PESSOA",
 	"PUBLICADO",
 	"PARCIAL",
 	"FALHOU",
@@ -95,6 +110,14 @@ function postDto(post: SocialPost) {
 			/** A rede da conta que publica este destino. */
 			platform: DESTINATION_PLATFORM[delivery.destination],
 			status: delivery.status,
+			/** Quem publica: o worker ou uma pessoa pelo app (spec 11). */
+			mode: delivery.mode,
+			/** O destino aceita publicação manual — a tela só oferece onde aceita. */
+			manualAllowed: ACCEPTS_MANUAL[delivery.destination],
+			/** Há arte pronta para baixar. A URL em si fica no servidor: a tela
+			 * baixa pela rota autenticada, na mesma origem. */
+			hasPreparedImage: delivery.preparedImageUrl !== null,
+			publishedByStaffId: delivery.publishedByStaffId,
 			remoteId: delivery.remoteId,
 			permalink: delivery.permalink,
 			error: delivery.error,
@@ -149,6 +172,7 @@ function codeFor(error: Error): TRPCError["code"] {
 		// Estado errado é CONFLITO, não "requisição inválida": quase sempre é a
 		// segunda aba com o botão ainda na tela, e o 409 é o que diz isso.
 		case "InvalidPostTransition":
+		case "InvalidDeliveryTransition":
 			return "CONFLICT";
 		// Aprovar a publicação de matéria que não está no ar: falta uma condição
 		// que não depende da requisição — publicar a matéria.
@@ -171,8 +195,12 @@ const draftInput = {
 	captionText: z.string().min(1),
 	mediaIds: z.array(z.string()).max(10),
 	platforms: z.array(destination),
+	modes: deliveryModes.optional(),
 	linkUrl: z.url().nullish(),
 };
+
+/** Uma entrega de um post — o alvo das ações da publicação manual. */
+const deliveryInput = z.object({ id: z.string(), destination });
 
 export const socialRouter = router({
 	/** Os padrões de arte (spec 09). */
@@ -228,6 +256,7 @@ export const socialRouter = router({
 				captionText: draftInput.captionText.optional(),
 				mediaIds: draftInput.mediaIds.optional(),
 				platforms: draftInput.platforms.optional(),
+				modes: draftInput.modes,
 				linkUrl: draftInput.linkUrl,
 			}),
 		)
@@ -257,6 +286,37 @@ export const socialRouter = router({
 		.input(z.object({ id: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			const post = ensure(await retryPost(ctx.staff, input, socialDeps));
+			await wakeTask("publish-social", { postId: post.id });
+			return postDto(post);
+		}),
+
+	/**
+	 * "Já publiquei" — a pessoa publicou pelo app a entrega manual (spec 11, D7).
+	 * O link do story é opcional.
+	 */
+	confirmManual: publish
+		.input(deliveryInput.extend({ permalink: z.url().nullish() }))
+		.mutation(async ({ ctx, input }) =>
+			postDto(ensure(await confirmManualPublish(ctx.staff, input, socialDeps))),
+		),
+
+	/** "Não vou publicar" (spec 11, D3). */
+	dismissDelivery: publish
+		.input(deliveryInput)
+		.mutation(async ({ ctx, input }) =>
+			postDto(ensure(await dismissDelivery(ctx.staff, input, socialDeps))),
+		),
+
+	/**
+	 * A entrega automática falhou e vai à mão (spec 11, D8). Acorda a tarefa
+	 * para a arte ficar pronta em segundos, como na aprovação.
+	 */
+	publishManually: publish
+		.input(deliveryInput)
+		.mutation(async ({ ctx, input }) => {
+			const post = ensure(
+				await publishDeliveryManually(ctx.staff, input, socialDeps),
+			);
 			await wakeTask("publish-social", { postId: post.id });
 			return postDto(post);
 		}),

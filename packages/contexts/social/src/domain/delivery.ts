@@ -1,20 +1,36 @@
-import type { SocialDestination } from "./platform";
+import {
+	ACCEPTS_MANUAL,
+	type DeliveryMode,
+	deliveryModeFor,
+	type SocialDestination,
+} from "./platform";
 
 /**
  * O estado da ENTREGA em uma rede. Não confundir com o estado do post: um post
  * tem uma legenda e duas entregas, e elas falham separado.
+ *
+ * `AGUARDANDO_PESSOA` e `DISPENSADA` são do modo manual (spec 11, D3): a arte
+ * está pronta e espera alguém publicar pelo app — ou alguém decidiu não publicar.
  */
-export type DeliveryStatus = "PENDENTE" | "PUBLICADO" | "FALHOU";
+export type DeliveryStatus =
+	| "PENDENTE"
+	| "AGUARDANDO_PESSOA"
+	| "PUBLICADO"
+	| "FALHOU"
+	| "DISPENSADA";
 
 type DeliveryProps = {
 	/** Para onde vai: o feed de uma rede ou os Stories (§17). A conta que
 	 * publica sai daqui, por `DESTINATION_PLATFORM`. */
 	destination: SocialDestination;
 	status: DeliveryStatus;
+	/** Quem põe no ar: o worker ou uma pessoa (spec 11, D1). */
+	mode: DeliveryMode;
 	/** O id do post NA REDE (`ig_media_id`, `page_post_id`). É a prova de que
-	 * saiu — e a razão de nunca reenviarmos esta entrega. */
+	 * saiu — e a razão de nunca reenviarmos esta entrega. Nulo na publicação
+	 * manual, que não passa pela API. */
 	remoteId: string | null;
-	/** Link público do post, quando a rede devolve um. */
+	/** Link público do post, quando a rede devolve um — ou quando a pessoa cola. */
 	permalink: string | null;
 	/** Por que falhou, em português, para a tela mostrar sem tradução. */
 	error: string | null;
@@ -22,7 +38,20 @@ type DeliveryProps = {
 	 * de novo" indefinidamente sobre um erro que não é transitório. */
 	attempts: number;
 	lastAttemptAt: Date | null;
+	/** A arte pronta para a pessoa publicar (spec 11, D5). Só no manual. */
+	preparedImageUrl: string | null;
+	/** Quem confirmou a publicação manual — a prova dela (spec 11, D7). */
+	publishedByStaffId: string | null;
 };
+
+/** O que `restore` aceita: os campos do modo manual chegaram depois. */
+type RestoreProps = Omit<
+	DeliveryProps,
+	"mode" | "preparedImageUrl" | "publishedByStaffId"
+> &
+	Partial<
+		Pick<DeliveryProps, "mode" | "preparedImageUrl" | "publishedByStaffId">
+	>;
 
 /**
  * Uma tentativa de colocar o mesmo post em UMA rede.
@@ -39,20 +68,32 @@ type DeliveryProps = {
 export class Delivery {
 	private constructor(private readonly state: DeliveryProps) {}
 
-	static pending(destination: SocialDestination): Delivery {
+	static pending(
+		destination: SocialDestination,
+		mode?: DeliveryMode,
+	): Delivery {
 		return new Delivery({
 			destination,
 			status: "PENDENTE",
+			mode: deliveryModeFor(destination, mode),
 			remoteId: null,
 			permalink: null,
 			error: null,
 			attempts: 0,
 			lastAttemptAt: null,
+			preparedImageUrl: null,
+			publishedByStaffId: null,
 		});
 	}
 
-	static restore(props: DeliveryProps): Delivery {
-		return new Delivery({ ...props });
+	static restore(props: RestoreProps): Delivery {
+		return new Delivery({
+			...props,
+			// Linha gravada antes do modo manual existir saiu pela API.
+			mode: props.mode ?? "AUTOMATICO",
+			preparedImageUrl: props.preparedImageUrl ?? null,
+			publishedByStaffId: props.publishedByStaffId ?? null,
+		});
 	}
 
 	get destination(): SocialDestination {
@@ -60,6 +101,9 @@ export class Delivery {
 	}
 	get status(): DeliveryStatus {
 		return this.state.status;
+	}
+	get mode(): DeliveryMode {
+		return this.state.mode;
 	}
 	get remoteId(): string | null {
 		return this.state.remoteId;
@@ -76,15 +120,30 @@ export class Delivery {
 	get lastAttemptAt(): Date | null {
 		return this.state.lastAttemptAt;
 	}
+	get preparedImageUrl(): string | null {
+		return this.state.preparedImageUrl;
+	}
+	get publishedByStaffId(): string | null {
+		return this.state.publishedByStaffId;
+	}
 
+	isManual(): boolean {
+		return this.state.mode === "MANUAL";
+	}
 	isPending(): boolean {
 		return this.state.status === "PENDENTE";
+	}
+	isAwaitingPerson(): boolean {
+		return this.state.status === "AGUARDANDO_PESSOA";
 	}
 	isPublished(): boolean {
 		return this.state.status === "PUBLICADO";
 	}
 	isFailed(): boolean {
 		return this.state.status === "FALHOU";
+	}
+	isDismissed(): boolean {
+		return this.state.status === "DISPENSADA";
 	}
 
 	/**
@@ -135,6 +194,79 @@ export class Delivery {
 		this.state.error = reason;
 		this.state.attempts += 1;
 		this.state.lastAttemptAt = at;
+	}
+
+	/**
+	 * A arte da entrega manual está pronta: agora é com uma pessoa (spec 11, D5).
+	 * Só a entrega manual PENDENTE passa por aqui — a automática nunca espera
+	 * ninguém, e a que já foi preparada não prepara de novo.
+	 */
+	markPrepared(imageUrl: string, at: Date): void {
+		if (this.state.mode !== "MANUAL" || this.state.status !== "PENDENTE") {
+			return;
+		}
+		this.state.status = "AGUARDANDO_PESSOA";
+		this.state.preparedImageUrl = imageUrl;
+		this.state.error = null;
+		this.state.attempts += 1;
+		this.state.lastAttemptAt = at;
+	}
+
+	/**
+	 * Uma pessoa publicou pelo app e confirmou (spec 11, D7). A prova é quem
+	 * clicou; `remoteId` fica nulo porque a API não participou. Devolve `false`
+	 * quando a entrega não estava esperando ninguém — publicada duas vezes, ou
+	 * ainda sem arte.
+	 */
+	markPublishedByPerson(
+		staffId: string,
+		permalink: string | null,
+		at: Date,
+	): boolean {
+		if (this.state.status !== "AGUARDANDO_PESSOA") {
+			return false;
+		}
+		this.state.status = "PUBLICADO";
+		this.state.publishedByStaffId = staffId;
+		this.state.permalink = permalink;
+		this.state.error = null;
+		this.state.lastAttemptAt = at;
+		return true;
+	}
+
+	/**
+	 * Alguém decidiu não publicar (spec 11, D3). Vale para o que espera uma
+	 * pessoa e para o que falhou; o que está no ar ou a caminho não se dispensa.
+	 */
+	dismiss(): boolean {
+		if (
+			this.state.status !== "AGUARDANDO_PESSOA" &&
+			this.state.status !== "FALHOU"
+		) {
+			return false;
+		}
+		this.state.status = "DISPENSADA";
+		return true;
+	}
+
+	/**
+	 * A entrega automática falhou, e uma pessoa vai publicar à mão (spec 11, D8).
+	 * Volta para a fila, agora para ser PREPARADA, com um ciclo novo de
+	 * tentativas — como o `requeue`.
+	 */
+	switchToManual(): boolean {
+		if (
+			this.state.status !== "FALHOU" ||
+			this.state.mode !== "AUTOMATICO" ||
+			!ACCEPTS_MANUAL[this.state.destination]
+		) {
+			return false;
+		}
+		this.state.mode = "MANUAL";
+		this.state.status = "PENDENTE";
+		this.state.error = null;
+		this.state.attempts = 0;
+		return true;
 	}
 
 	/**
