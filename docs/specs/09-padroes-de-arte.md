@@ -134,6 +134,24 @@ Instagram, dos Stories, do Facebook. A regra "um só por destino" é da aplicaç
 (marcar um desmarca o anterior), e o formato precisa servir ao destino — padrão
 4:5 não pode ser o padrão dos Stories.
 
+**D11 — Escolher é editorial; desenhar é gestão.** *(F2)* Ver e escolher padrão
+pede `social:publish` (o editor tem — senão a fila para). Criar, editar,
+duplicar, arquivar e marcar padrão de destino pede `social:manage`, a mesma
+permissão de conectar conta: o padrão decide como TODO post do veículo vai
+parecer. Trocar é uma linha em `manage-templates.ts`.
+
+**D12 — Camadas em JSON, mídias em coluna.** *(F2)* A pilha de camadas é gravada
+inteira numa coluna `Json` — sempre lida e escrita inteira, validada pelo
+agregado. As mídias que o desenho usa são copiadas para `mediaIds String[]`,
+para a biblioteca responder "esta imagem está em uso?" com um `has`: apagar a
+moldura de um padrão (arquivado inclusive) é recusado como apagar a capa de
+uma matéria.
+
+**D13 — Arquivar, nunca apagar.** *(F2)* Post aprovado aponta para a versão do
+padrão (D9); apagar o padrão tiraria o desenho de quem ainda vai ser reenviado.
+Arquivado sai da escolha e deixa de ser padrão de destino. Para usá-lo de novo,
+duplica-se.
+
 ---
 
 ## 5. Modelo de domínio (F1)

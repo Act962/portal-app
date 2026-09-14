@@ -94,6 +94,46 @@ model SocialDelivery {
   @@map("social_delivery")
 }
 
+/// Um padrão de arte (spec 09): o desenho que a notícia veste nas redes.
+///
+/// As camadas vão como JSON, e não como tabela filha: a lista é sempre lida e
+/// gravada inteira, nunca consultada por camada, e quem valida a forma dela é o
+/// agregado `ArtTemplate` — o banco só guarda.
+model SocialArtTemplate {
+  id String @id
+
+  name String
+
+  /// "1:1" | "4:5" | "9:16".
+  format String
+
+  /// A pilha de camadas, na ordem (a primeira fica embaixo).
+  layers Json @default("[]")
+
+  /// Os destinos de que este é o padrão. "Um por destino" é regra da aplicação
+  /// (spec 09, D10), que desmarca o anterior na mesma transação.
+  defaultFor String[] @default([])
+
+  /// As mídias que o desenho usa (molduras, logos), copiadas das camadas. Existe
+  /// para a biblioteca responder "esta imagem está em uso?" com um `has`, sem
+  /// abrir o JSON de todo padrão.
+  mediaIds String[] @default([])
+
+  /// Sobe a cada mudança no desenho. O post guarda a versão que aprovou (D9).
+  version Int @default(1)
+
+  /// Arquivado sai da escolha, mas não some: posts aprovados apontam para ele.
+  archived Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  /// Sem `@updatedAt`: quem diz quando o padrão mudou é o domínio.
+  updatedAt DateTime @default(now())
+
+  /// A lista da tela: os ativos, por nome.
+  @@index([archived, name])
+  @@map("social_art_template")
+}
+
 /// Uma conta da Meta conectada ao portal. Uma por rede (D5).
 model SocialAccount {
   id String @id

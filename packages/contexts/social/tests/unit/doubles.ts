@@ -3,6 +3,9 @@ import type { Page, PageRequest } from "@portal-app/shared-kernel";
 import { err, ok, type Result } from "@portal-app/shared-kernel";
 import {
 	type AccountCredentials,
+	type ArtTemplate,
+	type ArtTemplateFilter,
+	type ArtTemplateRepository,
 	type ConnectionInspection,
 	type ConnectionProbe,
 	destinationOf,
@@ -205,6 +208,58 @@ export class FakeImageSource implements SocialImageSource {
 			url: `${this.baseUrl}/${mediaId}.jpg`,
 			altText: `alt de ${mediaId}`,
 		});
+	}
+}
+
+/** Repositório de padrões em memória, com a mesma ordem e os mesmos filtros. */
+export class InMemoryArtTemplateRepository implements ArtTemplateRepository {
+	readonly templates = new Map<string, ArtTemplate>();
+	/** Quantas gravações em lote houve — o D10 exige uma só ao trocar padrão. */
+	batches = 0;
+
+	save(template: ArtTemplate): Promise<void> {
+		this.templates.set(template.id, template);
+		return Promise.resolve();
+	}
+
+	saveAll(templates: readonly ArtTemplate[]): Promise<void> {
+		this.batches += 1;
+		for (const template of templates) {
+			this.templates.set(template.id, template);
+		}
+		return Promise.resolve();
+	}
+
+	findById(id: string): Promise<ArtTemplate | null> {
+		return Promise.resolve(this.templates.get(id) ?? null);
+	}
+
+	list(filter: ArtTemplateFilter): Promise<readonly ArtTemplate[]> {
+		return Promise.resolve(
+			[...this.templates.values()]
+				.filter(
+					(template) =>
+						(filter.includeArchived || !template.archived) &&
+						(!filter.format || template.format === filter.format),
+				)
+				.sort((a, b) => a.name.localeCompare(b.name)),
+		);
+	}
+
+	findDefaultFor(destination: SocialDestination): Promise<ArtTemplate | null> {
+		return Promise.resolve(
+			[...this.templates.values()].find((template) =>
+				template.isDefaultFor(destination),
+			) ?? null,
+		);
+	}
+
+	usesMedia(mediaId: string): Promise<boolean> {
+		return Promise.resolve(
+			[...this.templates.values()].some((template) =>
+				template.mediaIds.includes(mediaId),
+			),
+		);
 	}
 }
 

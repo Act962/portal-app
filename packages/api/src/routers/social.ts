@@ -32,6 +32,7 @@ import {
 	socialDeps,
 	unsealPendingToken,
 } from "../social";
+import { socialTemplatesRouter } from "./social-templates";
 
 /**
  * A fila de publicação no painel.
@@ -148,6 +149,9 @@ const draftInput = {
 };
 
 export const socialRouter = router({
+	/** Os padrões de arte (spec 09). */
+	templates: socialTemplatesRouter,
+
 	queue: publish
 		.input(
 			z.object({

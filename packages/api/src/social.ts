@@ -24,6 +24,7 @@ import {
 	parseSignedRequest,
 	type SignedRequest,
 } from "@portal-app/social/infrastructure/meta/signed-request";
+import { PrismaArtTemplateRepository } from "@portal-app/social/infrastructure/prisma-art-template-repository";
 import { PrismaSocialAccountRepository } from "@portal-app/social/infrastructure/prisma-social-account-repository";
 import { PrismaSocialPostRepository } from "@portal-app/social/infrastructure/prisma-social-post-repository";
 import { TokenCipher } from "@portal-app/social/infrastructure/token-cipher";
@@ -134,6 +135,13 @@ export const socialDeps = {
 	}),
 	clock: new SystemClock(),
 	ids: new UuidGenerator(),
+};
+
+/** Os padrões de arte (spec 09). */
+export const templateDeps = {
+	templates: new PrismaArtTemplateRepository(prisma),
+	clock: socialDeps.clock,
+	ids: socialDeps.ids,
 };
 
 /** As redes que recebem o post automático de cada matéria publicada. */

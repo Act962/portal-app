@@ -82,7 +82,15 @@ export class AccountNotUsable extends Error {
 	}
 }
 
+export class ArtTemplateNotFound extends Error {
+	override readonly name = "ArtTemplateNotFound";
+	constructor(id: string) {
+		super(`Padrão de arte não encontrado: ${id}`);
+	}
+}
+
 export type SocialError =
+	| ArtTemplateNotFound
 	| SocialPostNotFound
 	| SocialAccountNotFound
 	| CaptionRequired
