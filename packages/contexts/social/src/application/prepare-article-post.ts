@@ -31,6 +31,11 @@ import { type ArtSelections, SocialPost } from "../domain/social-post";
 import { selectionFrom } from "../domain/template/art-selection";
 import { formatServes } from "../domain/template/art-template";
 import {
+	type ArtContent,
+	type ArtInputs,
+	NO_INPUTS,
+} from "../domain/template/variables";
+import {
 	artContentFromArticle,
 	type PublishedArticle,
 } from "./draft-from-article";
@@ -56,6 +61,15 @@ export type PrepareArticlePostInput = {
 	templates?: Partial<Record<SocialDestination, string | null>>;
 	/** Aprovar já, ou deixar como rascunho na fila. */
 	approve: boolean;
+	/** A legenda revisada no editor da matéria. Ausente: a do post, ou a do modelo. */
+	captionText?: string;
+	/** O que preenche as variáveis da matéria na arte, revisado. Ausente: mantém. */
+	artContent?: ArtContent;
+	/**
+	 * Variáveis do padrão e caixas Editáveis, por destino. Ausente: as que o post
+	 * já tem, se o padrão continua o mesmo — trocar de padrão começa do zero.
+	 */
+	inputs?: Partial<Record<SocialDestination, ArtInputs>>;
 };
 
 export type PrepareArticlePostError =
@@ -93,17 +107,29 @@ export async function prepareArticlePost(
 		return err(new ArticleNotPublished());
 	}
 
-	const art = await resolveArt(input, deps);
+	const existing = await deps.repo.findForArticle(input.article.id);
+	const art = await resolveArt(input, deps, existing);
 	if (art.isErr()) {
 		return err(art.error);
 	}
 
-	const existing = await deps.repo.findForArticle(input.article.id);
 	let post: SocialPost;
 	if (existing) {
-		const edited = existing.edit({ platforms: input.destinations });
+		const edited = existing.edit({
+			platforms: input.destinations,
+			mediaIds: withCover(existing.mediaIds, input.article.coverMediaId),
+			...(input.captionText === undefined
+				? {}
+				: { captionText: input.captionText }),
+		});
 		if (edited.isErr()) {
 			return err(edited.error);
+		}
+		if (input.artContent) {
+			const changed = existing.setArtContent(input.artContent);
+			if (changed.isErr()) {
+				return err(changed.error);
+			}
 		}
 		for (const destination of existing.targets) {
 			const chosen = existing.chooseArt(
@@ -120,15 +146,19 @@ export async function prepareArticlePost(
 			id: deps.ids.generate(),
 			articleId: input.article.id,
 			origin: "MATERIA",
-			captionText: renderCaption(
-				deps.captionTemplate ?? DEFAULT_CAPTION_TEMPLATE,
-				input.article,
-			),
+			captionText:
+				input.captionText ??
+				renderCaption(
+					deps.captionTemplate ?? DEFAULT_CAPTION_TEMPLATE,
+					input.article,
+				),
 			mediaIds: input.article.coverMediaId ? [input.article.coverMediaId] : [],
 			linkUrl: input.article.url,
 			platforms: input.destinations,
 			art: art.value,
-			artContent: artContentFromArticle(input.article, deps.clock.now()),
+			artContent:
+				input.artContent ??
+				artContentFromArticle(input.article, deps.clock.now()),
 			createdAt: deps.clock.now(),
 		});
 		if (created.isErr()) {
@@ -157,8 +187,20 @@ export async function prepareArticlePost(
 async function resolveArt(
 	input: PrepareArticlePostInput,
 	deps: Pick<PrepareArticlePostDeps, "templates">,
+	existing: SocialPost | null,
 ): Promise<Result<ArtSelections, ArtTemplateNotFound | InvalidArtChoice>> {
 	const art: ArtSelections = {};
+	// O que a pessoa preencheu agora; senão, o que o post já tinha com o MESMO
+	// padrão. Sem isto, salvar de novo no editor da matéria apagaria o texto do
+	// botão trocado na fila.
+	const inputsFor = (destination: SocialDestination, templateId: string) => {
+		const given = input.inputs?.[destination];
+		if (given) {
+			return given;
+		}
+		const current = existing?.artFor(destination);
+		return current?.templateId === templateId ? current : NO_INPUTS;
+	};
 	for (const destination of new Set(input.destinations)) {
 		const choice = input.templates?.[destination];
 		if (choice === null) {
@@ -167,7 +209,10 @@ async function resolveArt(
 		if (choice === undefined) {
 			const fallback = await deps.templates.findDefaultFor(destination);
 			if (fallback) {
-				art[destination] = selectionFrom(fallback);
+				art[destination] = selectionFrom(
+					fallback,
+					inputsFor(destination, fallback.id),
+				);
 			}
 			continue;
 		}
@@ -192,7 +237,29 @@ async function resolveArt(
 				),
 			);
 		}
-		art[destination] = selectionFrom(template);
+		art[destination] = selectionFrom(
+			template,
+			inputsFor(destination, template.id),
+		);
 	}
 	return ok(art);
+}
+
+/**
+ * As imagens do post com a capa ATUAL da matéria na frente. A arte é desenhada
+ * com a primeira imagem: trocar a capa da matéria e o post seguir com a antiga
+ * foi o que publicou um post com a foto errada. As outras imagens, que alguém
+ * pode ter posto na fila, ficam.
+ */
+export function withCover(
+	mediaIds: readonly string[],
+	coverMediaId: string | null,
+): readonly string[] {
+	if (!coverMediaId) {
+		return mediaIds;
+	}
+	return [
+		coverMediaId,
+		...mediaIds.slice(1).filter((id) => id !== coverMediaId),
+	];
 }

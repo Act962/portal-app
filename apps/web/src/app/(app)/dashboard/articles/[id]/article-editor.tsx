@@ -95,6 +95,7 @@ import {
 import { trpc } from "@/utils/trpc";
 
 import { ArticleSocialCard } from "./article-social-card";
+import { affectsSocialPreview } from "./article-social-model";
 
 // O TipTap não pode renderizar no servidor (hidratação divergente).
 const ArticleBodyEditor = dynamic(
@@ -317,7 +318,15 @@ export function ArticleEditor({
 								minute: "2-digit",
 							}),
 						);
+						// A publicação nas redes desenha com a capa e os textos da
+						// matéria: mudou algum deles, o cartão refaz a consulta.
+						const before = queryClient.getQueryData(articleKey) ?? undefined;
 						applyResult(dto);
+						if (affectsSocialPreview(before, dto)) {
+							void queryClient.invalidateQueries({
+								queryKey: trpc.social.articlePost.queryKey({ articleId: id }),
+							});
+						}
 					},
 					onError: () => setSaveError(true),
 				},

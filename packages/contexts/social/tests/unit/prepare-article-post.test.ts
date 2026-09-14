@@ -4,6 +4,7 @@ import {
 	draftPostForArticle,
 	type PublishedArticle,
 	prepareArticlePost,
+	withCover,
 } from "@portal-app/social";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -218,6 +219,96 @@ describe("prepareArticlePost (spec 09, F6)", () => {
 			'O padrão "Padrão feed" é 4:5, e Stories do Instagram pede 9:16.',
 		);
 		expect(repo.posts.size).toBe(0);
+	});
+
+	it("os textos revisados na prévia entram no post novo", async () => {
+		const post = (
+			await prepareArticlePost(
+				editor,
+				pedido({
+					captionText: "Legenda curta",
+					artContent: {
+						headline: "Título menor",
+						subtitle: null,
+						kicker: "Plantão",
+						sectionName: null,
+						authorName: null,
+						siteName: null,
+						date: null,
+					},
+					inputs: {
+						INSTAGRAM: { values: {}, texts: { titulo: "Na arte" } },
+					},
+				}),
+				deps(),
+			)
+		).unwrap();
+
+		expect(post.caption.value).toBe("Legenda curta");
+		expect(post.artContent).toMatchObject({
+			headline: "Título menor",
+			kicker: "Plantão",
+		});
+		expect(post.artFor("INSTAGRAM")?.texts).toEqual({ titulo: "Na arte" });
+	});
+
+	it("no post que já existe: troca textos, segue a capa nova e mantém os campos do mesmo padrão", async () => {
+		await prepareArticlePost(
+			editor,
+			pedido({
+				inputs: { INSTAGRAM: { values: {}, texts: { titulo: "Guardado" } } },
+			}),
+			deps(),
+		);
+
+		const post = (
+			await prepareArticlePost(
+				editor,
+				pedido({
+					article: { ...MATERIA, coverMediaId: "capa-nova" },
+					captionText: "Legenda revisada",
+					templates: { INSTAGRAM: "feed", INSTAGRAM_STORIES: "outro-feed" },
+				}),
+				deps(),
+			)
+		).unwrapErr();
+		// "outro-feed" é 4:5 — os Stories recusam; nada muda.
+		expect(post.name).toBe("InvalidArtChoice");
+
+		const atualizado = (
+			await prepareArticlePost(
+				editor,
+				pedido({
+					article: { ...MATERIA, coverMediaId: "capa-nova" },
+					captionText: "Legenda revisada",
+				}),
+				deps(),
+			)
+		).unwrap();
+		expect(atualizado.mediaIds).toEqual(["capa-nova"]);
+		expect(atualizado.caption.value).toBe("Legenda revisada");
+		expect(atualizado.artFor("INSTAGRAM")?.texts).toEqual({
+			titulo: "Guardado",
+		});
+
+		// Outro padrão começa do zero.
+		const trocado = (
+			await prepareArticlePost(
+				editor,
+				pedido({ templates: { INSTAGRAM: "outro-feed" } }),
+				deps(),
+			)
+		).unwrap();
+		expect(trocado.artFor("INSTAGRAM")?.texts).toEqual({});
+	});
+
+	it("withCover põe a capa na frente e mantém as outras imagens", () => {
+		expect(withCover(["velha", "m-2", "nova"], "nova")).toEqual([
+			"nova",
+			"m-2",
+		]);
+		expect(withCover([], "capa")).toEqual(["capa"]);
+		expect(withCover(["m-1"], null)).toEqual(["m-1"]);
 	});
 
 	it("o REDATOR não prepara", async () => {

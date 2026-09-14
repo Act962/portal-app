@@ -9,6 +9,7 @@ import {
 	connectMetaPage,
 	countPendingPosts,
 	createDraft,
+	DEFAULT_CAPTION_TEMPLATE,
 	DESTINATION_PLATFORM,
 	defaultTemplateFor,
 	diagnoseAccounts,
@@ -19,6 +20,7 @@ import {
 	listQueue,
 	prepareArticlePost,
 	publishDeliveryManually,
+	renderCaption,
 	retryPost,
 	SOCIAL_DESTINATIONS,
 	SOCIAL_PLATFORMS,
@@ -393,6 +395,11 @@ export const socialRouter = router({
 				// O mesmo conteúdo que o post guarda ao ser criado — a prévia do cartão
 				// mostra o que vai sair.
 				content: artContentFromArticle(loaded.article, socialDeps.clock.now()),
+				/** A legenda do post, ou a que o modelo montaria — o diálogo de
+				 * prévia edita a partir dela. */
+				caption:
+					post?.caption.value ??
+					renderCaption(DEFAULT_CAPTION_TEMPLATE, loaded.article),
 				post: post ? postDto(post) : null,
 				defaults: Object.fromEntries(
 					defaults.map(([item, template]) => [
@@ -426,6 +433,17 @@ export const socialRouter = router({
 					.partial()
 					.optional(),
 				approve: z.boolean(),
+				/** Os textos revisados no diálogo de prévia da matéria. */
+				captionText: z.string().min(1).optional(),
+				artContent: artContentInput.optional(),
+				inputs: z
+					.object({
+						INSTAGRAM: artInputsInput,
+						INSTAGRAM_STORIES: artInputsInput,
+						FACEBOOK: artInputsInput,
+					})
+					.partial()
+					.optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -445,6 +463,9 @@ export const socialRouter = router({
 						destinations: input.destinations,
 						templates: input.templates,
 						approve: input.approve,
+						captionText: input.captionText,
+						artContent: input.artContent,
+						inputs: input.inputs,
 					},
 					{
 						repo: socialDeps.repo,
