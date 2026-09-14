@@ -11,17 +11,25 @@ import {
 
 import type { CaptionRequired } from "../domain/errors";
 import {
+	ArtTemplateNotFound,
+	InvalidArtChoice,
 	type InvalidMediaSelection,
 	type InvalidPostTransition,
 	type PostNotReady,
 	SocialPostNotFound,
 } from "../domain/errors";
 import type { SocialDestination } from "../domain/platform";
+import type { ArtTemplateRepository } from "../domain/ports/art-template-repository";
 import type {
 	SocialPostFilter,
 	SocialPostRepository,
 } from "../domain/ports/social-post-repository";
 import { SocialPost } from "../domain/social-post";
+import {
+	type ArtSelection,
+	selectionFrom,
+} from "../domain/template/art-selection";
+import type { ArtContent, TextOverrides } from "../domain/template/fit-text";
 
 /**
  * Casos de uso da fila de publicação. Orquestram sem regra: a regra vive no
@@ -192,4 +200,137 @@ export function countPendingPosts(
 	deps: Pick<PostDeps, "repo">,
 ): Promise<number> {
 	return deps.repo.countPending();
+}
+
+// ── arte do post (spec 09, F5) ──────────────────────────────────────────────
+
+export type PostArtDeps = {
+	repo: SocialPostRepository;
+	templates: Pick<ArtTemplateRepository, "findById">;
+};
+
+/**
+ * Escolhe o padrão da arte de um destino do post — ou tira, com
+ * `templateId: null`.
+ *
+ * Guarda a CÓPIA do padrão como ele está AGORA (D9): editar o padrão depois não
+ * muda este post. Escolher de novo o mesmo padrão é o jeito de trazer a versão
+ * nova para um rascunho.
+ *
+ * Mesma permissão de aprovar (`social:publish`): escolher a arte do post é
+ * decisão editorial; desenhar o padrão é que é gestão.
+ */
+export async function choosePostArt(
+	actor: StaffMember,
+	input: {
+		id: string;
+		destination: SocialDestination;
+		templateId: string | null;
+		overrides?: TextOverrides;
+	},
+	deps: PostArtDeps,
+): Promise<
+	Result<
+		SocialPost,
+		| Forbidden
+		| SocialPostNotFound
+		| ArtTemplateNotFound
+		| InvalidArtChoice
+		| InvalidPostTransition
+	>
+> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await deps.repo.findById(input.id);
+	if (!post) {
+		return err(new SocialPostNotFound(input.id));
+	}
+	let selection: ArtSelection | null = null;
+	if (input.templateId !== null) {
+		const template = await deps.templates.findById(input.templateId);
+		if (!template) {
+			return err(new ArtTemplateNotFound(input.templateId));
+		}
+		if (template.archived) {
+			return err(
+				new InvalidArtChoice(
+					`O padrão "${template.name}" está arquivado. Escolha outro.`,
+				),
+			);
+		}
+		selection = selectionFrom(template, input.overrides ?? {});
+	}
+	const chosen = post.chooseArt(input.destination, selection);
+	if (chosen.isErr()) {
+		return err(chosen.error);
+	}
+	await deps.repo.save(post);
+	return ok(post);
+}
+
+/**
+ * Troca só os TEXTOS da arte de um destino, mantendo a cópia do padrão — é o
+ * "corrigir o título que vai na arte" sem trazer junto uma versão nova do
+ * desenho que ninguém pediu.
+ */
+export async function setPostArtOverrides(
+	actor: StaffMember,
+	input: {
+		id: string;
+		destination: SocialDestination;
+		overrides: TextOverrides;
+	},
+	deps: Pick<PostArtDeps, "repo">,
+): Promise<
+	Result<
+		SocialPost,
+		Forbidden | SocialPostNotFound | InvalidArtChoice | InvalidPostTransition
+	>
+> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await deps.repo.findById(input.id);
+	if (!post) {
+		return err(new SocialPostNotFound(input.id));
+	}
+	const current = post.artFor(input.destination);
+	if (!current) {
+		return err(
+			new InvalidArtChoice("Este destino ainda não tem um padrão escolhido."),
+		);
+	}
+	const chosen = post.chooseArt(input.destination, {
+		...current,
+		overrides: input.overrides,
+	});
+	if (chosen.isErr()) {
+		return err(chosen.error);
+	}
+	await deps.repo.save(post);
+	return ok(post);
+}
+
+/** Troca o que preenche as caixas da arte (título, chapéu, editoria). */
+export async function setPostArtContent(
+	actor: StaffMember,
+	input: { id: string; content: ArtContent },
+	deps: Pick<PostArtDeps, "repo">,
+): Promise<
+	Result<SocialPost, Forbidden | SocialPostNotFound | InvalidPostTransition>
+> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await deps.repo.findById(input.id);
+	if (!post) {
+		return err(new SocialPostNotFound(input.id));
+	}
+	const changed = post.setArtContent(input.content);
+	if (changed.isErr()) {
+		return err(changed.error);
+	}
+	await deps.repo.save(post);
+	return ok(post);
 }

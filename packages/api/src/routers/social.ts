@@ -2,6 +2,7 @@ import { type Result, toPageRequest } from "@portal-app/shared-kernel";
 import {
 	approvePost,
 	cancelPost,
+	choosePostArt,
 	connectMetaPage,
 	countPendingPosts,
 	createDraft,
@@ -11,11 +12,16 @@ import {
 	getPost,
 	listAccounts,
 	listQueue,
+	overflowWarnings,
 	retryPost,
 	SOCIAL_DESTINATIONS,
 	SOCIAL_PLATFORMS,
 	type SocialAccount,
 	type SocialPost,
+	selectionAsTemplate,
+	setPostArtContent,
+	setPostArtOverrides,
+	TEMPLATE_TEXT_MAX,
 	updatePost,
 } from "@portal-app/social";
 import { TRPCError } from "@trpc/server";
@@ -30,6 +36,7 @@ import {
 	metaOAuth,
 	readCookie,
 	socialDeps,
+	templateDeps,
 	unsealPendingToken,
 } from "../social";
 import { socialTemplatesRouter } from "./social-templates";
@@ -44,6 +51,8 @@ const publish = requirePermission("social:publish");
 const manage = requirePermission("social:manage");
 
 const platform = z.enum(SOCIAL_PLATFORMS);
+/** O texto trocado no post, por id da camada de texto do padrão. */
+const artOverrides = z.record(z.string(), z.string().max(TEMPLATE_TEXT_MAX));
 /** Para onde o post vai — o feed de cada rede ou os Stories (spec 08, §17). */
 const destination = z.enum(SOCIAL_DESTINATIONS);
 
@@ -92,6 +101,25 @@ function postDto(post: SocialPost) {
 		createdAt: post.createdAt,
 		approvedAt: post.approvedAt,
 		approvedByStaffId: post.approvedByStaffId,
+		/** A arte de cada destino que tem padrão — a cópia guardada no post. */
+		art: { ...post.artSelections },
+		/** O conteúdo guardado das caixas, ou `null` (post avulso). */
+		artContent: post.artContent,
+		/** O conteúdo com que a arte é de fato desenhada — a tela usa na prévia. */
+		artContentForDrawing: post.artContentForDrawing(),
+		/** Por destino, os textos que não cabem e vão sair cortados. */
+		artWarnings: Object.fromEntries(
+			Object.entries(post.artSelections).map(([destination, selection]) => [
+				destination,
+				selection
+					? overflowWarnings(
+							selectionAsTemplate(selection),
+							post.artContentForDrawing(),
+							selection.overrides,
+						)
+					: [],
+			]),
+		) as Record<string, string[]>,
 	};
 }
 
@@ -123,6 +151,7 @@ function codeFor(error: Error): TRPCError["code"] {
 			return "FORBIDDEN";
 		case "SocialPostNotFound":
 		case "SocialAccountNotFound":
+		case "ArtTemplateNotFound":
 			return "NOT_FOUND";
 		// Estado errado é CONFLITO, não "requisição inválida": quase sempre é a
 		// segunda aba com o botão ainda na tela, e o 409 é o que diz isso.
@@ -234,6 +263,53 @@ export const socialRouter = router({
 			await wakeTask("publish-social", { postId: post.id });
 			return postDto(post);
 		}),
+
+	/**
+	 * Escolhe (ou tira, com `templateId: null`) o padrão da arte de um destino.
+	 * O post guarda a cópia do padrão como ele está agora (spec 09, D9).
+	 */
+	chooseArt: publish
+		.input(
+			z.object({
+				id: z.string(),
+				destination,
+				templateId: z.string().nullable(),
+				overrides: artOverrides.optional(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) =>
+			postDto(
+				ensure(
+					await choosePostArt(ctx.staff, input, {
+						repo: socialDeps.repo,
+						templates: templateDeps.templates,
+					}),
+				),
+			),
+		),
+
+	/** Troca só os textos da arte de um destino, mantendo a cópia do padrão. */
+	setArtOverrides: publish
+		.input(z.object({ id: z.string(), destination, overrides: artOverrides }))
+		.mutation(async ({ ctx, input }) =>
+			postDto(ensure(await setPostArtOverrides(ctx.staff, input, socialDeps))),
+		),
+
+	/** Troca o que preenche as caixas da arte (título, chapéu, editoria). */
+	setArtContent: publish
+		.input(
+			z.object({
+				id: z.string(),
+				content: z.object({
+					headline: z.string().max(TEMPLATE_TEXT_MAX),
+					kicker: z.string().max(TEMPLATE_TEXT_MAX).nullable(),
+					sectionName: z.string().max(TEMPLATE_TEXT_MAX).nullable(),
+				}),
+			}),
+		)
+		.mutation(async ({ ctx, input }) =>
+			postDto(ensure(await setPostArtContent(ctx.staff, input, socialDeps))),
+		),
 
 	cancel: publish
 		.input(z.object({ id: z.string() }))
