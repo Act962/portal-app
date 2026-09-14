@@ -14,7 +14,7 @@ import {
 	type PostStatus,
 	SocialPost,
 } from "../domain/social-post";
-import type { ArtContent } from "../domain/template/fit-text";
+import type { ArtContent } from "../domain/template/variables";
 
 /** As origens que fazem de um post "o post da matéria". */
 const ARTICLE_ORIGINS: PostOrigin[] = ["AUTOMATICA", "MATERIA"];
@@ -250,11 +250,15 @@ function artContentFrom(value: unknown): ArtContent | null {
 	if (!isObject(value) || typeof value.headline !== "string") {
 		return null;
 	}
+	const text = (field: unknown) => (typeof field === "string" ? field : null);
 	return {
 		headline: value.headline,
-		kicker: typeof value.kicker === "string" ? value.kicker : null,
-		sectionName:
-			typeof value.sectionName === "string" ? value.sectionName : null,
+		subtitle: text(value.subtitle),
+		kicker: text(value.kicker),
+		sectionName: text(value.sectionName),
+		authorName: text(value.authorName),
+		siteName: text(value.siteName),
+		date: text(value.date),
 	};
 }
 

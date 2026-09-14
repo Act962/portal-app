@@ -1,7 +1,7 @@
 import {
 	ArtTemplate,
 	Caption,
-	DEFAULT_TEXT_STYLE,
+	contentWithHeadline,
 	Delivery,
 	MAX_AUTOMATIC_ATTEMPTS,
 	type SocialPlatform,
@@ -13,6 +13,8 @@ import {
 	selectionFrom,
 } from "@portal-app/social";
 import { describe, expect, it } from "vitest";
+
+import { CONTEUDO, design, tituloEditavel } from "./art-fixtures";
 
 const CRIADO = new Date("2026-09-11T12:00:00Z");
 const AGORA = new Date("2026-09-11T12:05:00Z");
@@ -570,29 +572,18 @@ describe("Stories do Instagram (§17)", () => {
 });
 
 describe("arte por destino (spec 09, F5)", () => {
-	const titulo = {
-		id: "titulo",
-		kind: "TEXT" as const,
-		box: { x: 130, y: 560, width: 820, height: 240 },
-		source: "HEADLINE" as const,
-		text: "",
-		style: { ...DEFAULT_TEXT_STYLE },
-	};
+	const titulo = tituloEditavel();
 	const padrao = (format: "4:5" | "9:16", name = "Últimas") =>
 		ArtTemplate.create({
 			id: `tpl-${format}`,
 			name,
 			format,
-			layers: [titulo],
+			design: design([titulo]),
 			createdAt: CRIADO,
 		}).unwrap();
 	const feed = selectionFrom(padrao("4:5"));
 	const stories = selectionFrom(padrao("9:16", "Stories"));
-	const conteudo = {
-		headline: "Chuva alaga o centro",
-		kicker: "Últimas",
-		sectionName: "Cidades",
-	};
+	const conteudo = CONTEUDO;
 
 	function comArte() {
 		return SocialPost.draft({
@@ -637,11 +628,11 @@ describe("arte por destino (spec 09, F5)", () => {
 			post
 				.chooseArt("FACEBOOK", {
 					...feed,
-					overrides: { titulo: "Outro", sumiu: "x" },
+					texts: { titulo: "Outro", sumiu: "x" },
 				})
 				.isOk(),
 		).toBe(true);
-		expect(post.artFor("FACEBOOK")?.overrides).toEqual({ titulo: "Outro" });
+		expect(post.artFor("FACEBOOK")?.texts).toEqual({ titulo: "Outro" });
 
 		expect(post.chooseArt("FACEBOOK", null).isOk()).toBe(true);
 		expect(post.artFor("FACEBOOK")).toBeNull();
@@ -687,11 +678,9 @@ describe("arte por destino (spec 09, F5)", () => {
 		const avulso = rascunho({
 			captionText: "\n  Bom dia, Piracuruca  \nLegenda",
 		});
-		expect(avulso.artContentForDrawing()).toEqual({
-			headline: "Bom dia, Piracuruca",
-			kicker: null,
-			sectionName: null,
-		});
+		expect(avulso.artContentForDrawing()).toEqual(
+			contentWithHeadline("Bom dia, Piracuruca"),
+		);
 	});
 
 	it("setArtContent troca o conteúdo das caixas no rascunho", () => {

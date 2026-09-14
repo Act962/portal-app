@@ -1,12 +1,13 @@
 import { FixedClock, SequentialIdGenerator } from "@portal-app/shared-kernel";
 import {
 	ArtTemplate,
-	DEFAULT_TEXT_STYLE,
 	draftPostForArticle,
+	EMPTY_DESIGN,
 	type PublishedArticle,
 } from "@portal-app/social";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { design, tituloEditavel } from "./art-fixtures";
 import {
 	InMemoryArtTemplateRepository,
 	InMemorySocialPostRepository,
@@ -32,16 +33,7 @@ function padrao(id: string, format: "4:5" | "9:16") {
 		id,
 		name: `Padrão ${format}`,
 		format,
-		layers: [
-			{
-				id: "titulo",
-				kind: "TEXT",
-				box: { x: 130, y: 560, width: 820, height: 240 },
-				source: "HEADLINE",
-				text: "",
-				style: { ...DEFAULT_TEXT_STYLE },
-			},
-		],
+		design: design([tituloEditavel()]),
 		createdAt: AGORA,
 	}).unwrap();
 }
@@ -77,12 +69,16 @@ describe("rascunho automático com os padrões de destino (spec 09, D2)", () => 
 		expect(post?.artFor("FACEBOOK")).toBeNull();
 	});
 
-	it("guarda título, chapéu e editoria da matéria, com o chapéu limpo", async () => {
+	it("guarda o que as variáveis do sistema usam, limpo, com a data do preparo", async () => {
 		const post = await draftPostForArticle(MATERIA, deps());
 		expect(post?.artContent).toEqual({
 			headline: "Estudantes de Piracuruca são premiados na OBMEP",
+			subtitle: "Resultado destaca o avanço da educação no município.",
 			kicker: "Últimas",
 			sectionName: "Educação",
+			authorName: "Redação",
+			siteName: "Portal 7 Cidades",
+			date: "2026-09-14T12:00:00.000Z",
 		});
 	});
 
@@ -117,10 +113,10 @@ describe("rascunho automático com os padrões de destino (spec 09, D2)", () => 
 		await templates.save(feed);
 		const post = await draftPostForArticle(MATERIA, deps());
 
-		feed.update({ layers: [] }, AGORA);
+		feed.update({ design: EMPTY_DESIGN }, AGORA);
 
 		expect(feed.version).toBe(2);
 		expect(post?.artFor("INSTAGRAM")?.version).toBe(1);
-		expect(post?.artFor("INSTAGRAM")?.layers).toHaveLength(1);
+		expect(post?.artFor("INSTAGRAM")?.design.elements).toHaveLength(1);
 	});
 });

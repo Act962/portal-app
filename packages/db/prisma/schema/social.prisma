@@ -117,8 +117,10 @@ model SocialArtTemplate {
   /// "1:1" | "4:5" | "9:16".
   format String
 
-  /// A pilha de camadas, na ordem (a primeira fica embaixo).
-  layers Json @default("[]")
+  /// O desenho inteiro (spec 10, §4): fundo, elementos na ordem da pilha (o
+  /// primeiro fica embaixo) e as variáveis do padrão. Sempre lido e escrito
+  /// inteiro, validado pelo agregado.
+  design Json @default("{}")
 
   /// Os destinos de que este é o padrão. "Um por destino" é regra da aplicação
   /// (spec 09, D10), que desmarca o anterior na mesma transação.

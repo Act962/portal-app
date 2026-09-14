@@ -2,7 +2,6 @@ import { newPrismaClient } from "@portal-app/db/client";
 import {
 	ArtTemplate,
 	Caption,
-	DEFAULT_TEXT_STYLE,
 	Delivery,
 	SocialAccount,
 	SocialPost,
@@ -12,6 +11,8 @@ import { PrismaSocialAccountRepository } from "@portal-app/social/infrastructure
 import { PrismaSocialPostRepository } from "@portal-app/social/infrastructure/prisma-social-post-repository";
 import { TokenCipher } from "@portal-app/social/infrastructure/token-cipher";
 import { afterAll, beforeEach, describe, expect, inject, it } from "vitest";
+
+import { CONTEUDO, design, tituloEditavel } from "../unit/art-fixtures";
 
 const prisma = newPrismaClient(inject("databaseUrl"));
 const posts = new PrismaSocialPostRepository(prisma);
@@ -219,16 +220,7 @@ describe("PrismaSocialPostRepository", () => {
 			id: "tpl-1",
 			name: "Últimas — feed",
 			format: "4:5",
-			layers: [
-				{
-					id: "titulo",
-					kind: "TEXT",
-					box: { x: 130, y: 560, width: 820, height: 240 },
-					source: "HEADLINE",
-					text: "",
-					style: { ...DEFAULT_TEXT_STYLE },
-				},
-			],
+			design: design([tituloEditavel()]),
 			createdAt: AGORA,
 		}).unwrap();
 		const post = SocialPost.draft({
@@ -237,12 +229,12 @@ describe("PrismaSocialPostRepository", () => {
 			captionText: "Plantão",
 			mediaIds: ["media-1"],
 			platforms: ["INSTAGRAM", "FACEBOOK"],
-			art: { INSTAGRAM: selectionFrom(template, { titulo: "Título trocado" }) },
-			artContent: {
-				headline: "Chuva alaga o centro",
-				kicker: "Últimas",
-				sectionName: null,
+			art: {
+				INSTAGRAM: selectionFrom(template, {
+					texts: { titulo: "Título trocado" },
+				}),
 			},
+			artContent: { ...CONTEUDO, sectionName: null },
 			createdAt: AGORA,
 		}).unwrap();
 		await posts.save(post);
@@ -251,15 +243,11 @@ describe("PrismaSocialPostRepository", () => {
 
 		// A cópia do padrão volta inteira — camadas, versão e o texto trocado.
 		expect(lido?.artFor("INSTAGRAM")).toEqual(post.artFor("INSTAGRAM"));
-		expect(lido?.artFor("INSTAGRAM")?.overrides).toEqual({
+		expect(lido?.artFor("INSTAGRAM")?.texts).toEqual({
 			titulo: "Título trocado",
 		});
 		expect(lido?.artFor("FACEBOOK")).toBeNull();
-		expect(lido?.artContent).toEqual({
-			headline: "Chuva alaga o centro",
-			kicker: "Últimas",
-			sectionName: null,
-		});
+		expect(lido?.artContent).toEqual({ ...CONTEUDO, sectionName: null });
 	});
 
 	it("post sem arte volta sem arte e sem conteúdo", async () => {

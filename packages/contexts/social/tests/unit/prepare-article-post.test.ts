@@ -1,13 +1,13 @@
 import { FixedClock, SequentialIdGenerator } from "@portal-app/shared-kernel";
 import {
 	ArtTemplate,
-	DEFAULT_TEXT_STYLE,
 	draftPostForArticle,
 	type PublishedArticle,
 	prepareArticlePost,
 } from "@portal-app/social";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { design, tituloEditavel } from "./art-fixtures";
 import {
 	InMemoryArtTemplateRepository,
 	InMemorySocialPostRepository,
@@ -34,16 +34,7 @@ function padrao(id: string, format: "4:5" | "9:16") {
 		id,
 		name: `Padrão ${id}`,
 		format,
-		layers: [
-			{
-				id: "titulo",
-				kind: "TEXT",
-				box: { x: 130, y: 560, width: 820, height: 240 },
-				source: "HEADLINE",
-				text: "",
-				style: { ...DEFAULT_TEXT_STYLE },
-			},
-		],
+		design: design([tituloEditavel()]),
 		createdAt: AGORA,
 	}).unwrap();
 }
@@ -90,8 +81,12 @@ describe("prepareArticlePost (spec 09, F6)", () => {
 		expect(post.artFor("INSTAGRAM_STORIES")?.templateId).toBe("stories");
 		expect(post.artContent).toEqual({
 			headline: MATERIA.headline,
+			subtitle: "Resultado destaca o avanço da educação.",
 			kicker: "Últimas",
 			sectionName: "Educação",
+			authorName: "Redação",
+			siteName: "Portal 7 Cidades",
+			date: AGORA.toISOString(),
 		});
 		expect(repo.posts.size).toBe(1);
 	});

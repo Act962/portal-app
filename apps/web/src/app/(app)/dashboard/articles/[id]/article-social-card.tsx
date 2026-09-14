@@ -28,15 +28,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { templatesFor } from "@/app/(app)/dashboard/social/post-art-model";
-import { ArtPreview } from "@/app/(app)/dashboard/social/post-art-section";
 import { POST_STATUS_LABELS } from "@/app/(app)/dashboard/social/social-labels";
+import { ArtCanvas } from "@/components/art/art-canvas";
 import { trpc } from "@/utils/trpc";
 
 import {
 	articleSocialState,
 	initialDestinations,
 	initialPicks,
-	previewSelection,
 	type TemplatePicks,
 	templatesInput,
 } from "./article-social-model";
@@ -199,10 +198,13 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 						>
 							<div className="w-16 shrink-0">
 								{picked ? (
-									<ArtPreview
-										selection={previewSelection(picked)}
+									<ArtCanvas
+										format={picked.format}
+										design={picked.design}
 										content={content}
 										photoMediaId={coverMediaId}
+										label={`Prévia de ${picked.name}`}
+										className="rounded"
 									/>
 								) : (
 									<div className="flex aspect-[4/5] w-full items-center justify-center rounded border border-dashed text-[10px] text-muted-foreground">

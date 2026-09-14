@@ -1,24 +1,18 @@
 import type { SocialDestination } from "../platform";
 import {
+	type ArtDesign,
 	type ArtFormat,
 	ArtTemplate,
 	formatServes,
-	type TemplateLayer,
 } from "./art-template";
-import type { TextOverrides } from "./fit-text";
+import { type ArtInputs, NO_INPUTS } from "./variables";
 
 /**
- * A arte escolhida para UM destino de um post (spec 09, F5).
+ * A arte escolhida para UM destino de um post (spec 09, F5; spec 10, §4).
  *
  * **Guarda uma cópia do desenho, e não só o id do padrão.** O repositório de
- * padrões não tem histórico de versões: ele guarda o padrão como está agora. Se
- * o post apontasse só para o id, editar o padrão amanhã mudaria a arte de um
- * post aprovado hoje — exatamente o que o D9 proíbe. Com a cópia, o que foi
- * visto e aprovado é o que vai ao ar, mesmo que o padrão mude ou seja
- * arquivado no meio do caminho.
- *
- * O id e a versão ficam junto só para a tela dizer de onde veio o desenho
- * ("Últimas — feed, versão 3") e oferecer atualizar para a versão nova.
+ * padrões guarda o padrão como está agora; se o post apontasse só para o id,
+ * editar o padrão amanhã mudaria a arte de um post aprovado hoje (09, D9).
  */
 export type ArtSelection = {
 	templateId: string;
@@ -26,37 +20,38 @@ export type ArtSelection = {
 	/** A versão do padrão no momento da escolha. */
 	version: number;
 	format: ArtFormat;
-	layers: readonly TemplateLayer[];
-	/** O texto trocado NESTE post, por id da camada (`textForLayer`). */
-	overrides: TextOverrides;
-};
+	design: ArtDesign;
+} & ArtInputs;
 
 /** A escolha a partir do padrão como ele está agora. */
 export function selectionFrom(
 	template: ArtTemplate,
-	overrides: TextOverrides = {},
+	inputs: Partial<ArtInputs> = {},
 ): ArtSelection {
-	return {
-		templateId: template.id,
-		templateName: template.name,
-		version: template.version,
-		format: template.format,
-		layers: [...template.layers],
-		overrides: { ...overrides },
-	};
+	return withInputs(
+		{
+			templateId: template.id,
+			templateName: template.name,
+			version: template.version,
+			format: template.format,
+			design: template.design,
+			...NO_INPUTS,
+		},
+		{ ...NO_INPUTS, ...inputs },
+	);
 }
 
 /**
- * A cópia de volta como padrão, para o desenhista. `restore`, e não `create`:
- * a cópia já foi validada quando o padrão foi salvo, e revalidar aqui poderia
- * recusar um desenho aprovado só porque uma regra mudou depois.
+ * A cópia de volta como padrão. `restore`, e não `create`: a cópia já foi
+ * validada quando o padrão foi salvo, e revalidar poderia recusar um desenho
+ * aprovado só porque uma regra mudou depois.
  */
 export function selectionAsTemplate(selection: ArtSelection): ArtTemplate {
 	return ArtTemplate.restore({
 		id: selection.templateId,
 		name: selection.templateName,
 		format: selection.format,
-		layers: selection.layers,
+		design: selection.design,
 		defaultFor: [],
 		version: selection.version,
 		archived: false,
@@ -74,23 +69,32 @@ export function selectionServes(
 }
 
 /**
- * A mesma escolha com os textos trocados — só das camadas de texto que o
- * desenho tem. Um override de camada que não existe mais (o padrão foi
- * atualizado e a caixa sumiu) é descartado, em vez de ficar guardado sem uso.
+ * A mesma escolha com o que a redação preencheu — só das variáveis que o
+ * padrão declara e das caixas que são Editáveis. O resto (variável que o padrão
+ * novo não tem mais, caixa que virou Dinâmica) é descartado em vez de ficar
+ * guardado sem uso.
  */
-export function withOverrides(
+export function withInputs(
 	selection: ArtSelection,
-	overrides: TextOverrides,
+	inputs: ArtInputs,
 ): ArtSelection {
-	const textIds = new Set(
-		selection.layers
-			.filter((layer) => layer.kind === "TEXT")
-			.map((layer) => layer.id),
+	const keys = new Set(
+		selection.design.variables.map((variable) => variable.key),
+	);
+	const editable = new Set(
+		selection.design.elements
+			.filter(
+				(element) => element.kind === "TEXT" && element.mode === "EDITABLE",
+			)
+			.map((element) => element.id),
 	);
 	return {
 		...selection,
-		overrides: Object.fromEntries(
-			Object.entries(overrides).filter(([id]) => textIds.has(id)),
+		values: Object.fromEntries(
+			Object.entries(inputs.values).filter(([key]) => keys.has(key)),
+		),
+		texts: Object.fromEntries(
+			Object.entries(inputs.texts).filter(([id]) => editable.has(id)),
 		),
 	};
 }

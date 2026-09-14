@@ -379,11 +379,14 @@ export function PostDialog({
 						content={
 							post.data?.artContentForDrawing ?? {
 								headline: form.captionText.split("\n")[0] ?? "",
+								subtitle: null,
 								kicker: null,
 								sectionName: null,
+								authorName: null,
+								siteName: null,
+								date: null,
 							}
 						}
-						warnings={post.data?.artWarnings ?? {}}
 						onChanged={async () => {
 							await post.refetch();
 						}}

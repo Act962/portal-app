@@ -14,11 +14,11 @@ import type {
 	ArtTemplateRepository,
 } from "../domain/ports/art-template-repository";
 import {
+	type ArtDesign,
 	type ArtFormat,
 	ArtTemplate,
 	InvalidArtTemplate,
 	TEMPLATE_NAME_MAX,
-	type TemplateLayer,
 } from "../domain/template/art-template";
 
 /**
@@ -67,7 +67,7 @@ export async function createTemplate(
 	input: {
 		name: string;
 		format: ArtFormat;
-		layers?: readonly TemplateLayer[];
+		design?: ArtDesign;
 	},
 	deps: TemplateDeps,
 ): Promise<Result<ArtTemplate, Forbidden | InvalidArtTemplate>> {
@@ -78,7 +78,7 @@ export async function createTemplate(
 		id: deps.ids.generate(),
 		name: input.name,
 		format: input.format,
-		layers: input.layers ?? [],
+		design: input.design,
 		createdAt: deps.clock.now(),
 	});
 	if (created.isErr()) {
@@ -94,7 +94,7 @@ export async function updateTemplate(
 		id: string;
 		name?: string;
 		format?: ArtFormat;
-		layers?: readonly TemplateLayer[];
+		design?: ArtDesign;
 	},
 	deps: Pick<TemplateDeps, "templates" | "clock">,
 ): Promise<
@@ -143,7 +143,7 @@ export async function duplicateTemplate(
 		id: deps.ids.generate(),
 		name: input.name ?? copyName(source.name),
 		format: source.format,
-		layers: source.layers,
+		design: source.design,
 		createdAt: deps.clock.now(),
 	});
 	if (copy.isErr()) {

@@ -1,6 +1,7 @@
 import { type Result, toPageRequest } from "@portal-app/shared-kernel";
 import {
 	approvePost,
+	artContentFromArticle,
 	cancelPost,
 	choosePostArt,
 	connectMetaPage,
@@ -13,17 +14,14 @@ import {
 	getPost,
 	listAccounts,
 	listQueue,
-	overflowWarnings,
 	prepareArticlePost,
 	retryPost,
 	SOCIAL_DESTINATIONS,
 	SOCIAL_PLATFORMS,
 	type SocialAccount,
 	type SocialPost,
-	selectionAsTemplate,
 	setPostArtContent,
-	setPostArtOverrides,
-	TEMPLATE_TEXT_MAX,
+	setPostArtInputs,
 	updatePost,
 } from "@portal-app/social";
 import { TRPCError } from "@trpc/server";
@@ -42,7 +40,11 @@ import {
 	unsealPendingToken,
 } from "../social";
 import { loadArticleForSocial } from "../social-trigger";
-import { socialTemplatesRouter } from "./social-templates";
+import {
+	artContentInput,
+	artInputsInput,
+	socialTemplatesRouter,
+} from "./social-templates";
 
 /**
  * A fila de publicação no painel.
@@ -54,8 +56,6 @@ const publish = requirePermission("social:publish");
 const manage = requirePermission("social:manage");
 
 const platform = z.enum(SOCIAL_PLATFORMS);
-/** O texto trocado no post, por id da camada de texto do padrão. */
-const artOverrides = z.record(z.string(), z.string().max(TEMPLATE_TEXT_MAX));
 /** Para onde o post vai — o feed de cada rede ou os Stories (spec 08, §17). */
 const destination = z.enum(SOCIAL_DESTINATIONS);
 
@@ -108,21 +108,11 @@ function postDto(post: SocialPost) {
 		art: { ...post.artSelections },
 		/** O conteúdo guardado das caixas, ou `null` (post avulso). */
 		artContent: post.artContent,
-		/** O conteúdo com que a arte é de fato desenhada — a tela usa na prévia. */
+		/**
+		 * O conteúdo com que a arte é de fato desenhada. A tela desenha a prévia
+		 * com ele — e é ela que mede o texto que não cabe (spec 10, D9).
+		 */
 		artContentForDrawing: post.artContentForDrawing(),
-		/** Por destino, os textos que não cabem e vão sair cortados. */
-		artWarnings: Object.fromEntries(
-			Object.entries(post.artSelections).map(([destination, selection]) => [
-				destination,
-				selection
-					? overflowWarnings(
-							selectionAsTemplate(selection),
-							post.artContentForDrawing(),
-							selection.overrides,
-						)
-					: [],
-			]),
-		) as Record<string, string[]>,
 	};
 }
 
@@ -281,7 +271,8 @@ export const socialRouter = router({
 				id: z.string(),
 				destination,
 				templateId: z.string().nullable(),
-				overrides: artOverrides.optional(),
+				values: artInputsInput.shape.values.optional(),
+				texts: artInputsInput.shape.texts.optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) =>
@@ -295,25 +286,19 @@ export const socialRouter = router({
 			),
 		),
 
-	/** Troca só os textos da arte de um destino, mantendo a cópia do padrão. */
-	setArtOverrides: publish
-		.input(z.object({ id: z.string(), destination, overrides: artOverrides }))
+	/**
+	 * Troca o que a redação preenche na arte de um destino — variáveis do padrão
+	 * e caixas Editáveis (spec 10, D3) —, mantendo a cópia do desenho.
+	 */
+	setArtInputs: publish
+		.input(z.object({ id: z.string(), destination, ...artInputsInput.shape }))
 		.mutation(async ({ ctx, input }) =>
-			postDto(ensure(await setPostArtOverrides(ctx.staff, input, socialDeps))),
+			postDto(ensure(await setPostArtInputs(ctx.staff, input, socialDeps))),
 		),
 
-	/** Troca o que preenche as caixas da arte (título, chapéu, editoria). */
+	/** Troca o que preenche as variáveis do sistema (título, chapéu…). */
 	setArtContent: publish
-		.input(
-			z.object({
-				id: z.string(),
-				content: z.object({
-					headline: z.string().max(TEMPLATE_TEXT_MAX),
-					kicker: z.string().max(TEMPLATE_TEXT_MAX).nullable(),
-					sectionName: z.string().max(TEMPLATE_TEXT_MAX).nullable(),
-				}),
-			}),
-		)
+		.input(z.object({ id: z.string(), content: artContentInput }))
 		.mutation(async ({ ctx, input }) =>
 			postDto(ensure(await setPostArtContent(ctx.staff, input, socialDeps))),
 		),
@@ -345,11 +330,9 @@ export const socialRouter = router({
 			return {
 				published: loaded.published,
 				coverMediaId: loaded.article.coverMediaId,
-				content: {
-					headline: loaded.article.headline,
-					kicker: loaded.article.kicker ?? null,
-					sectionName: loaded.article.sectionName,
-				},
+				// O mesmo conteúdo que o post guarda ao ser criado — a prévia do cartão
+				// mostra o que vai sair.
+				content: artContentFromArticle(loaded.article, socialDeps.clock.now()),
 				post: post ? postDto(post) : null,
 				defaults: Object.fromEntries(
 					defaults.map(([item, template]) => [

@@ -6,9 +6,10 @@ import type {
 	ArtTemplateRepository,
 } from "../domain/ports/art-template-repository";
 import {
+	type ArtDesign,
 	type ArtFormat,
 	ArtTemplate,
-	type TemplateLayer,
+	EMPTY_DESIGN,
 } from "../domain/template/art-template";
 
 /** Adapter Prisma dos padrões de arte. Única camada que conhece Prisma. */
@@ -74,7 +75,7 @@ type TemplateRow = {
 	id: string;
 	name: string;
 	format: string;
-	layers: unknown;
+	design: unknown;
 	defaultFor: string[];
 	version: number;
 	archived: boolean;
@@ -89,7 +90,7 @@ function toPersistence(template: ArtTemplate) {
 		format: template.format,
 		// Serialização plana: o que entra no Json é exatamente o que o agregado
 		// devolve, sem protótipo nem `undefined`.
-		layers: JSON.parse(JSON.stringify(template.layers)),
+		design: JSON.parse(JSON.stringify(template.design)),
 		defaultFor: [...template.defaultFor],
 		mediaIds: [...template.mediaIds],
 		version: template.version,
@@ -106,11 +107,21 @@ function toDomain(row: TemplateRow): ArtTemplate {
 		format: row.format as ArtFormat,
 		// Só este repositório escreve a coluna, sempre a partir de um agregado
 		// válido — por isso a leitura confia, como `restore` confia.
-		layers: (Array.isArray(row.layers) ? row.layers : []) as TemplateLayer[],
+		design: isDesign(row.design) ? row.design : EMPTY_DESIGN,
 		defaultFor: row.defaultFor as SocialDestination[],
 		version: row.version,
 		archived: row.archived,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,
 	});
+}
+
+/** A forma mínima de um desenho; `{}` (o default da coluna) não é. */
+function isDesign(value: unknown): value is ArtDesign {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		Array.isArray((value as { elements?: unknown }).elements) &&
+		Array.isArray((value as { variables?: unknown }).variables)
+	);
 }

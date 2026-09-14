@@ -1,54 +1,54 @@
 import {
 	ArtTemplate,
-	DEFAULT_TEXT_STYLE,
+	EMPTY_DESIGN,
 	selectionAsTemplate,
 	selectionFrom,
 	selectionServes,
-	type TemplateLayer,
-	withOverrides,
+	withInputs,
 } from "@portal-app/social";
 import { describe, expect, it } from "vitest";
+
+import {
+	cartao,
+	design,
+	foto,
+	texto,
+	tituloEditavel,
+	variavel,
+} from "./art-fixtures";
 
 const CRIADO = new Date("2026-09-14T12:00:00Z");
 const DEPOIS = new Date("2026-09-14T13:00:00Z");
 
-const cartao: TemplateLayer = {
-	id: "cartao",
-	kind: "SHAPE",
-	box: { x: 80, y: 430, width: 920, height: 520 },
-	color: "#d9232e",
-	radius: 48,
-	opacity: 1,
-};
-const titulo: TemplateLayer = {
-	id: "titulo",
-	kind: "TEXT",
-	box: { x: 130, y: 560, width: 820, height: 240 },
-	source: "HEADLINE",
-	text: "",
-	style: { ...DEFAULT_TEXT_STYLE },
-};
+const desenho = design(
+	[cartao(), tituloEditavel(), texto("botao", "{{chamada}}")],
+	[variavel("chamada", "Leia")],
+);
 
 function padrao(format: "4:5" | "9:16" = "4:5") {
 	return ArtTemplate.create({
 		id: "tpl-1",
 		name: "Últimas — feed",
 		format,
-		layers: [cartao, titulo],
+		design: desenho,
 		createdAt: CRIADO,
 	}).unwrap();
 }
 
-describe("selectionFrom (D9)", () => {
-	it("copia o desenho, a versão e os textos trocados", () => {
-		const escolha = selectionFrom(padrao(), { titulo: "Outro título" });
+describe("selectionFrom (09, D9)", () => {
+	it("copia o desenho, a versão e o que a redação preencheu", () => {
+		const escolha = selectionFrom(padrao(), {
+			values: { chamada: "Leia agora" },
+			texts: { titulo: "Outro título" },
+		});
 		expect(escolha).toEqual({
 			templateId: "tpl-1",
 			templateName: "Últimas — feed",
 			version: 1,
 			format: "4:5",
-			layers: [cartao, titulo],
-			overrides: { titulo: "Outro título" },
+			design: desenho,
+			values: { chamada: "Leia agora" },
+			texts: { titulo: "Outro título" },
 		});
 	});
 
@@ -56,33 +56,32 @@ describe("selectionFrom (D9)", () => {
 		const template = padrao();
 		const escolha = selectionFrom(template);
 
-		template.update({ layers: [cartao] }, DEPOIS);
+		template.update({ design: EMPTY_DESIGN }, DEPOIS);
 
 		expect(template.version).toBe(2);
 		expect(escolha.version).toBe(1);
-		expect(escolha.layers).toEqual([cartao, titulo]);
+		expect(escolha.design.elements).toHaveLength(3);
 	});
 });
 
 describe("selectionAsTemplate", () => {
-	it("volta a ser um padrão para o desenhista, com a versão da cópia", () => {
+	it("volta a ser um padrão, com a versão da cópia", () => {
 		const template = selectionAsTemplate(selectionFrom(padrao()));
 		expect(template.id).toBe("tpl-1");
 		expect(template.version).toBe(1);
-		expect(template.textLayers.map((layer) => layer.id)).toEqual(["titulo"]);
+		expect(template.textElements.map((element) => element.id)).toEqual([
+			"titulo",
+			"botao",
+		]);
 		expect(template.defaultFor).toEqual([]);
 	});
 
 	it("não revalida: um desenho aprovado continua desenhável", () => {
-		// Duas fotos seria recusado hoje; uma cópia antiga assim ainda desenha.
 		const antiga = {
 			...selectionFrom(padrao()),
-			layers: [
-				{ id: "f1", kind: "PHOTO", box: cartao.box },
-				{ id: "f2", kind: "PHOTO", box: cartao.box },
-			] as TemplateLayer[],
+			design: design([foto("f1"), foto("f2")]),
 		};
-		expect(selectionAsTemplate(antiga).layers).toHaveLength(2);
+		expect(selectionAsTemplate(antiga).elements).toHaveLength(2);
 	});
 });
 
@@ -98,13 +97,18 @@ describe("selectionServes", () => {
 	});
 });
 
-describe("withOverrides", () => {
-	it("guarda só os textos das caixas que o desenho tem", () => {
-		const escolha = withOverrides(selectionFrom(padrao()), {
-			titulo: "Novo",
-			cartao: "não é texto",
-			sumiu: "caixa que não existe mais",
+describe("withInputs", () => {
+	it("guarda só variáveis do padrão e textos de caixas Editáveis", () => {
+		const escolha = withInputs(selectionFrom(padrao()), {
+			values: { chamada: "Leia agora", titulo: "variável do sistema", x: "?" },
+			texts: {
+				titulo: "Novo",
+				botao: "caixa Dinâmica",
+				cartao: "não é texto",
+				sumiu: "caixa que não existe mais",
+			},
 		});
-		expect(escolha.overrides).toEqual({ titulo: "Novo" });
+		expect(escolha.values).toEqual({ chamada: "Leia agora" });
+		expect(escolha.texts).toEqual({ titulo: "Novo" });
 	});
 });

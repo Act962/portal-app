@@ -29,7 +29,7 @@ import {
 	type ArtSelection,
 	selectionFrom,
 } from "../domain/template/art-selection";
-import type { ArtContent, TextOverrides } from "../domain/template/fit-text";
+import type { ArtContent, ArtInputs } from "../domain/template/variables";
 
 /**
  * Casos de uso da fila de publicação. Orquestram sem regra: a regra vive no
@@ -226,7 +226,8 @@ export async function choosePostArt(
 		id: string;
 		destination: SocialDestination;
 		templateId: string | null;
-		overrides?: TextOverrides;
+		values?: ArtInputs["values"];
+		texts?: ArtInputs["texts"];
 	},
 	deps: PostArtDeps,
 ): Promise<
@@ -259,7 +260,10 @@ export async function choosePostArt(
 				),
 			);
 		}
-		selection = selectionFrom(template, input.overrides ?? {});
+		selection = selectionFrom(template, {
+			values: input.values ?? {},
+			texts: input.texts ?? {},
+		});
 	}
 	const chosen = post.chooseArt(input.destination, selection);
 	if (chosen.isErr()) {
@@ -270,17 +274,17 @@ export async function choosePostArt(
 }
 
 /**
- * Troca só os TEXTOS da arte de um destino, mantendo a cópia do padrão — é o
- * "corrigir o título que vai na arte" sem trazer junto uma versão nova do
- * desenho que ninguém pediu.
+ * Troca só o que a redação PREENCHE na arte de um destino — as variáveis do
+ * padrão e as caixas Editáveis (spec 10, D3) —, mantendo a cópia do desenho: é
+ * o "corrigir o título que vai na arte" sem trazer junto uma versão nova do
+ * padrão que ninguém pediu.
  */
-export async function setPostArtOverrides(
+export async function setPostArtInputs(
 	actor: StaffMember,
 	input: {
 		id: string;
 		destination: SocialDestination;
-		overrides: TextOverrides;
-	},
+	} & ArtInputs,
 	deps: Pick<PostArtDeps, "repo">,
 ): Promise<
 	Result<
@@ -303,7 +307,8 @@ export async function setPostArtOverrides(
 	}
 	const chosen = post.chooseArt(input.destination, {
 		...current,
-		overrides: input.overrides,
+		values: input.values,
+		texts: input.texts,
 	});
 	if (chosen.isErr()) {
 		return err(chosen.error);

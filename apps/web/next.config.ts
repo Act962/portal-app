@@ -5,12 +5,13 @@ const nextConfig: NextConfig = {
 	typedRoutes: true,
 	reactCompiler: true,
 	/*
-	 * O desenhista dos padrões de arte (spec 09, F3) roda no servidor com um
-	 * binário nativo (resvg) e o WASM de layout do Satori. Empacotados pelo
-	 * bundler, os dois perdem o caminho do próprio arquivo; carregados do
-	 * `node_modules`, funcionam como no teste.
+	 * O desenhista dos padrões de arte (spec 10, D1) roda no servidor com o
+	 * Konva sobre o skia-canvas, um binário nativo. Empacotado, o skia perde o
+	 * caminho do próprio `.node`; e o Konva precisa ser UMA instância só, a
+	 * mesma que o backend do skia configura — carregados do `node_modules`, os
+	 * dois funcionam como no teste.
 	 */
-	serverExternalPackages: ["@resvg/resvg-js", "satori"],
+	serverExternalPackages: ["skia-canvas", "konva"],
 	/*
 	 * As fontes dos padrões são achadas no disco em tempo de execução
 	 * (`findInNodeModules`), e o rastreador de arquivos do build não enxerga

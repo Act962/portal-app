@@ -2,104 +2,120 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+	type ArtContent,
+	type ArtElement,
 	ArtTemplate,
 	DEFAULT_TEXT_STYLE,
 	TEMPLATE_FONTS,
 	type TemplateFontFamily,
-	type TemplateLayer,
 } from "@portal-app/social";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 
 import {
 	ArtRenderer,
-	buildArtTree,
 	findInNodeModules,
 	fontFilePath,
-	fontsFor,
-	PHOTO_PLACEHOLDER,
-	renderArtPng,
-	resolveTexts,
+	fontFilesFor,
 } from "../../src/social-art";
 
 const CRIADO = new Date("2026-09-14T12:00:00Z");
 
-const MATERIA = {
+const MATERIA: ArtContent = {
 	headline: "Estudantes de Piracuruca são premiados na OBMEP",
+	subtitle: null,
 	kicker: "Últimas",
 	sectionName: "Educação",
+	authorName: null,
+	siteName: null,
+	date: null,
 };
 
-const foto: TemplateLayer = {
+const base = {
+	name: "",
+	rotation: 0,
+	opacity: 1,
+	visible: true,
+	locked: false,
+};
+
+const foto: ArtElement = {
+	...base,
 	id: "foto",
 	kind: "PHOTO",
-	box: { x: 0, y: 0, width: 1080, height: 1350 },
+	x: 0,
+	y: 0,
+	width: 1080,
+	height: 1350,
+	cornerRadius: 0,
+	stroke: null,
 };
-const cartao: TemplateLayer = {
+const cartao: ArtElement = {
+	...base,
 	id: "cartao",
-	kind: "SHAPE",
-	box: { x: 80, y: 430, width: 920, height: 520 },
-	color: "#d9232e",
-	radius: 48,
-	opacity: 1,
+	kind: "RECT",
+	x: 80,
+	y: 430,
+	width: 920,
+	height: 520,
+	fill: { type: "solid", color: "#d9232e" },
+	cornerRadius: 48,
+	stroke: null,
+	shadow: null,
 };
-const moldura: TemplateLayer = {
+const moldura: ArtElement = {
+	...base,
 	id: "moldura",
 	kind: "IMAGE",
-	box: { x: 0, y: 0, width: 1080, height: 200 },
+	x: 0,
+	y: 0,
+	width: 1080,
+	height: 200,
 	mediaId: "media-moldura",
-	fit: "cover",
+	fit: "stretch",
+	cornerRadius: 0,
 };
-const chapeu: TemplateLayer = {
-	id: "chapeu",
-	kind: "TEXT",
-	box: { x: 110, y: 460, width: 300, height: 70 },
-	source: "KICKER",
-	text: "",
-	style: {
-		...DEFAULT_TEXT_STYLE,
-		fontSize: 36,
-		minFontSize: 20,
-		color: "#d9232e",
-		uppercase: true,
-		maxLines: 1,
-		background: { color: "#ffffff", radius: 35, paddingX: 24, paddingY: 8 },
-	},
-};
-const titulo: TemplateLayer = {
+const titulo: ArtElement = {
+	...base,
 	id: "titulo",
 	kind: "TEXT",
-	box: { x: 130, y: 560, width: 820, height: 260 },
-	source: "HEADLINE",
-	text: "",
+	x: 130,
+	y: 560,
+	width: 820,
+	height: 260,
+	mode: "EDITABLE",
+	content: "{{titulo}}",
+	fieldLabel: "Título",
 	style: {
 		...DEFAULT_TEXT_STYLE,
 		fontWeight: 900,
 		italic: true,
 		color: "#ffe14d",
 		uppercase: true,
+		maxLines: 1,
+		minFontSize: 60,
 	},
 };
 
-function padrao(layers: readonly TemplateLayer[]) {
+function padrao(elements: readonly ArtElement[]) {
 	return ArtTemplate.create({
 		id: "tpl-1",
 		name: "Últimas",
 		format: "4:5",
-		layers,
+		design: { background: "#ffffff", elements, variables: [] },
 		createdAt: CRIADO,
 	}).unwrap();
 }
 
-async function pixel(png: Buffer, x: number, y: number) {
-	const { data, info } = await sharp(png)
+async function pixel(image: Buffer, x: number, y: number) {
+	const { data, info } = await sharp(image)
 		.raw()
 		.toBuffer({ resolveWithObject: true });
 	const offset = (y * info.width + x) * info.channels;
 	return [data[offset], data[offset + 1], data[offset + 2]];
 }
 
-describe("fontes (D6)", () => {
+describe("fontes (10, D4)", () => {
 	it("todo corte que o domínio promete existe no pacote de fontes", () => {
 		// É a guarda contra o editor oferecer um peso que o servidor não desenha.
 		for (const [family, spec] of Object.entries(TEMPLATE_FONTS)) {
@@ -115,16 +131,9 @@ describe("fontes (D6)", () => {
 		}
 	});
 
-	it("carrega só os cortes usados, mais o de reserva", async () => {
-		const fontes = await fontsFor(padrao([chapeu, titulo]));
-		expect(
-			fontes.map((f) => `${f.name}:${f.weight}:${f.style}`).sort(),
-		).toEqual([
-			"Montserrat:400:normal",
-			"Montserrat:800:normal",
-			"Montserrat:900:italic",
-		]);
-		expect(fontes.every((f) => f.data.length > 1000)).toBe(true);
+	it("uma família registra cada peso, com e sem itálico", () => {
+		expect(fontFilesFor("Montserrat")).toHaveLength(12);
+		expect(fontFilesFor("Oswald")).toHaveLength(4);
 	});
 });
 
@@ -161,133 +170,7 @@ describe("findInNodeModules — sem require, para o bundler não enxergar", () =
 	});
 });
 
-describe("resolveTexts", () => {
-	it("texto e tamanho de cada caixa, com caixa-alta e troca no post", () => {
-		const textos = resolveTexts(padrao([chapeu, titulo]), MATERIA, {
-			titulo: "Curto",
-		});
-		expect(textos.chapeu?.text).toBe("ÚLTIMAS");
-		expect(textos.titulo).toEqual({ text: "CURTO", fontSize: 64 });
-	});
-});
-
-describe("buildArtTree", () => {
-	const entradas = {
-		photo: "data:image/jpeg;base64,AAAA",
-		images: { moldura: "data:image/png;base64,BBBB" },
-		texts: {
-			chapeu: { text: "ÚLTIMAS", fontSize: 36 },
-			titulo: { text: "TÍTULO", fontSize: 58 },
-		},
-	};
-
-	it("um quadro do formato, com as camadas NA ORDEM da pilha", () => {
-		const arvore = buildArtTree(
-			padrao([foto, cartao, moldura, chapeu, titulo]),
-			entradas,
-		);
-		expect(arvore.props.style).toMatchObject({ width: 1080, height: 1350 });
-		const filhos = arvore.props.children as { type: string }[];
-		expect(filhos.map((f) => f.type)).toEqual([
-			"img",
-			"div",
-			"img",
-			"div",
-			"div",
-		]);
-	});
-
-	it("posição absoluta arredondada, e o tamanho escolhido no texto", () => {
-		const arvore = buildArtTree(
-			padrao([
-				{ ...cartao, box: { x: 80.4, y: 429.6, width: 920.2, height: 1.4 } },
-				titulo,
-			]),
-			entradas,
-		);
-		const [forma, texto] = arvore.props.children as {
-			props: {
-				style: Record<string, unknown>;
-				children: { props: { children: { props: { style: object } }[] } }[];
-			};
-		}[];
-		expect(forma?.props.style).toMatchObject({
-			position: "absolute",
-			left: 80,
-			top: 430,
-			width: 920,
-			height: 1,
-		});
-		const estilo = texto?.props.children[0]?.props.children[0]?.props.style;
-		expect(estilo).toMatchObject({
-			fontSize: 58,
-			fontWeight: 900,
-			fontStyle: "italic",
-			lineClamp: 4,
-		});
-	});
-
-	it("caixa de texto vazia e moldura ausente não desenham nada", () => {
-		const arvore = buildArtTree(padrao([moldura, chapeu, titulo]), {
-			photo: null,
-			images: {},
-			texts: {
-				chapeu: { text: "", fontSize: 36 },
-				titulo: entradas.texts.titulo,
-			},
-		});
-		expect(arvore.props.children).toHaveLength(1);
-	});
-
-	it("sem foto, o lugar da foto sai em cinza", () => {
-		const arvore = buildArtTree(padrao([foto]), {
-			photo: null,
-			images: {},
-			texts: {},
-		});
-		const [lugar] = arvore.props.children as {
-			type: string;
-			props: { style: object };
-		}[];
-		expect(lugar?.type).toBe("div");
-		expect(lugar?.props.style).toMatchObject({
-			backgroundColor: PHOTO_PLACEHOLDER,
-		});
-	});
-});
-
-describe("renderArtPng", () => {
-	it("desenha o quadro inteiro, com cada camada no lugar", async () => {
-		const template = padrao([foto, cartao, chapeu, titulo]);
-		const png = await renderArtPng(template, {
-			photo: null,
-			images: {},
-			texts: resolveTexts(template, MATERIA),
-		});
-
-		const meta = await sharp(png).metadata();
-		expect(meta.width).toBe(1080);
-		expect(meta.height).toBe(1350);
-		// Fora do cartão, o cinza do lugar da foto; dentro, o vermelho do cartão.
-		expect(await pixel(png, 20, 20)).toEqual([156, 163, 175]);
-		expect(await pixel(png, 950, 900)).toEqual([217, 35, 46]);
-	});
-
-	it("a prévia é o mesmo desenho, reduzido", async () => {
-		const template = padrao([cartao]);
-		const png = await renderArtPng(
-			template,
-			{ photo: null, images: {}, texts: {} },
-			{ width: 540 },
-		);
-		const meta = await sharp(png).metadata();
-		expect(meta.width).toBe(540);
-		expect(meta.height).toBe(675);
-		expect(await pixel(png, 475, 450)).toEqual([217, 35, 46]);
-	});
-});
-
-describe("ArtRenderer", () => {
+describe("ArtRenderer (Konva + skia-canvas)", () => {
 	async function fotoAzul() {
 		return sharp({
 			create: {
@@ -369,15 +252,19 @@ describe("ArtRenderer", () => {
 		expect(gravada.format).toBe("jpeg");
 		expect(gravada.width).toBe(1080);
 		expect(gravada.height).toBe(1350);
-	});
+	}, 30_000);
 
-	it("a foto é desenhada no lugar dela", async () => {
+	it("a foto é desenhada no lugar dela, e o cartão por cima", async () => {
 		const { renderer, uploads } = setup({});
 		await renderer.publishable(pedido());
-		const [r, , b] = await pixel(Buffer.from(uploads[0] ?? []), 20, 20);
+		const arte = Buffer.from(uploads[0] ?? []);
+		const [r, , b] = await pixel(arte, 20, 20);
 		expect(b).toBeGreaterThan(180);
 		expect(r).toBeLessThan(60);
-	});
+		const [vermelho, verde] = await pixel(arte, 950, 900);
+		expect(vermelho).toBeGreaterThan(190);
+		expect(verde).toBeLessThan(70);
+	}, 30_000);
 
 	it("arte já gravada é reaproveitada — nada é desenhado de novo", async () => {
 		const { renderer, requests } = setup({ artExists: true });
@@ -385,11 +272,11 @@ describe("ArtRenderer", () => {
 		expect(requests.map((r) => r.method)).toEqual(["HEAD"]);
 	});
 
-	it("título diferente dá outra chave", async () => {
+	it("título trocado no post dá outra chave", async () => {
 		const { renderer } = setup({ artExists: true });
 		const a = await renderer.publishable(pedido());
 		const b = await renderer.publishable(
-			pedido({ overrides: { titulo: "Outro título" } }),
+			pedido({ inputs: { values: {}, texts: { titulo: "Outro título" } } }),
 		);
 		expect(a?.url).not.toBe(b?.url);
 	});
@@ -400,8 +287,8 @@ describe("ArtRenderer", () => {
 		expect(requests).toHaveLength(0);
 	});
 
-	it("padrão sem camada de foto ignora a foto do post", async () => {
-		const { renderer } = setup({ assets: {} });
+	it("padrão sem lugar de foto ignora a foto do post", async () => {
+		const { renderer } = setup({ assets: {}, artExists: true });
 		const arte = await renderer.publishable(
 			pedido({ template: padrao([cartao, titulo]) }),
 		);
@@ -415,7 +302,7 @@ describe("ArtRenderer", () => {
 		await expect(
 			setup({ uploadStatus: 500 }).renderer.publishable(pedido()),
 		).rejects.toThrow("HTTP 500");
-	});
+	}, 30_000);
 
 	it("arquivo da foto apagado (404) desenha o lugar em cinza", async () => {
 		const { renderer } = setup({ photoStatus: 404 });
@@ -423,14 +310,16 @@ describe("ArtRenderer", () => {
 		expect(await pixel(png, 10, 10)).toEqual([156, 163, 175]);
 	});
 
-	it("a prévia não grava nada", async () => {
+	it("a prévia é o mesmo desenho reduzido, e não grava nada", async () => {
 		const { renderer, requests } = setup({});
 		const png = await renderer.preview(pedido());
-		expect((await sharp(png).metadata()).width).toBe(540);
+		const meta = await sharp(png).metadata();
+		expect(meta.width).toBe(540);
+		expect(meta.height).toBe(675);
 		expect(requests.some((r) => r.method === "PUT")).toBe(false);
 	});
 
-	it("moldura com transparência entra no desenho; moldura inexistente é pulada", async () => {
+	it("moldura entra no desenho; moldura inexistente é pulada", async () => {
 		const assets = {
 			"media-moldura": {
 				id: "media-moldura",
@@ -445,7 +334,6 @@ describe("ArtRenderer", () => {
 			pedido({ template: padrao([moldura]), photoMediaId: null }),
 			1080,
 		);
-		// A "moldura" do fake é a foto azul, esticada na faixa de cima.
 		const [, , b] = await pixel(png, 540, 100);
 		expect(b).toBeGreaterThan(180);
 
@@ -454,5 +342,17 @@ describe("ArtRenderer", () => {
 			1080,
 		);
 		expect(await pixel(semMoldura, 540, 100)).toEqual([255, 255, 255]);
+	});
+
+	it("avisa o texto que não cabe nem no mínimo (D8)", async () => {
+		const { renderer } = setup({});
+		expect(await renderer.warnings(pedido())).toEqual([
+			'"Título" não cabe nem no tamanho mínimo e vai sair cortado.',
+		]);
+		expect(
+			await renderer.warnings(
+				pedido({ inputs: { values: {}, texts: { titulo: "Curto" } } }),
+			),
+		).toEqual([]);
 	});
 });

@@ -2,17 +2,16 @@ import { FixedClock, SequentialIdGenerator } from "@portal-app/shared-kernel";
 import {
 	archiveTemplate,
 	createTemplate,
-	DEFAULT_TEXT_STYLE,
 	defaultTemplateFor,
 	duplicateTemplate,
 	getTemplate,
 	listTemplates,
 	setTemplateDefaults,
-	type TemplateLayer,
 	updateTemplate,
 } from "@portal-app/social";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { design, moldura, tituloEditavel } from "./art-fixtures";
 import { InMemoryArtTemplateRepository, staff } from "./doubles";
 
 const AGORA = new Date("2026-09-14T12:00:00Z");
@@ -36,30 +35,12 @@ beforeEach(() => {
 const admin = staff("ADMIN");
 const editor = staff("EDITOR");
 
-const moldura: TemplateLayer = {
-	id: "moldura",
-	kind: "IMAGE",
-	box: { x: 0, y: 0, width: 1080, height: 1350 },
-	mediaId: "media-moldura",
-	fit: "cover",
-};
-
-const titulo: TemplateLayer = {
-	id: "titulo",
-	kind: "TEXT",
-	box: { x: 130, y: 560, width: 820, height: 220 },
-	source: "HEADLINE",
-	text: "",
-	style: { ...DEFAULT_TEXT_STYLE },
-};
+const completo = design([moldura(), tituloEditavel()]);
+const soTitulo = design([tituloEditavel()]);
 
 async function criar(name = "Últimas", format: "1:1" | "4:5" | "9:16" = "4:5") {
 	return (
-		await createTemplate(
-			admin,
-			{ name, format, layers: [moldura, titulo] },
-			deps,
-		)
+		await createTemplate(admin, { name, format, design: completo }, deps)
 	).unwrap();
 }
 
@@ -129,10 +110,10 @@ describe("criar e editar", () => {
 	it("editar sobe a versão", async () => {
 		const padrao = await criar();
 		const editado = (
-			await updateTemplate(admin, { id: padrao.id, layers: [titulo] }, deps)
+			await updateTemplate(admin, { id: padrao.id, design: soTitulo }, deps)
 		).unwrap();
 		expect(editado.version).toBe(2);
-		expect(editado.layers).toEqual([titulo]);
+		expect(editado.design).toEqual(soTitulo);
 	});
 
 	it("editar inexistente, inválido ou arquivado é recusado", async () => {
@@ -179,7 +160,7 @@ describe("duplicar", () => {
 		expect(copia.name).toBe("Últimas (cópia)");
 		expect(copia.version).toBe(1);
 		expect(copia.defaultFor).toEqual([]);
-		expect(copia.layers).toEqual(original.layers);
+		expect(copia.design).toEqual(original.design);
 	});
 
 	it("nome longo é cortado para caber o sufixo; nome dado é usado", async () => {

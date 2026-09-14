@@ -2,10 +2,10 @@ import { can } from "@portal-app/identity";
 
 import { requireStaff } from "@/lib/require-staff";
 
-import { TemplateEditor } from "../template-editor";
+import { TemplateEditorLoader } from "./editor-loader";
 
 /**
- * O editor de um padrão de arte (spec 09, F4).
+ * O editor de um padrão de arte (spec 10, F3–F4).
  *
  * Quem escolhe padrão (`social:publish`) abre para ver; só quem desenha
  * (`social:manage`) edita — resolvido aqui porque `StaffMember` não serializa
@@ -18,5 +18,7 @@ export default async function TemplateEditorPage({
 }) {
 	const { staff } = await requireStaff("social:publish");
 	const { id } = await params;
-	return <TemplateEditor id={id} canDesign={can(staff, "social:manage")} />;
+	return (
+		<TemplateEditorLoader id={id} canDesign={can(staff, "social:manage")} />
+	);
 }

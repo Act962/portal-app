@@ -2,7 +2,9 @@
 
 > **Status:** ✅ Entregue — F1 (domínio), F2 (persistência e API), F3
 > (desenhista e prévia), F4 (editor visual), F5 (padrão aplicado ao post) e F6
-> (publicação a partir da matéria) entregues em 14/09/2026.
+> (publicação a partir da matéria) entregues em 14/09/2026. **O editor (F4), o
+> desenhista Satori (F3, D5) e o modelo de camadas foram substituídos pela
+> `10-editor-de-artes-konva.md`**, a pedido do cliente no mesmo dia.
 > **Decisões do cliente:** tomadas em 14/09/2026 (D1–D4 abaixo).
 > **Referências:** `08-redes-sociais.md` (a fila, as entregas e os Stories — §17) ·
 > `06-biblioteca-de-midia.md` (de onde vêm foto e moldura) ·

@@ -24,9 +24,9 @@ import {
 import {
 	type ArtSelection,
 	selectionServes,
-	withOverrides,
+	withInputs,
 } from "./template/art-selection";
-import type { ArtContent } from "./template/fit-text";
+import { type ArtContent, contentWithHeadline } from "./template/variables";
 
 /** A arte escolhida para cada destino que tem arte. */
 export type ArtSelections = Partial<Record<SocialDestination, ArtSelection>>;
@@ -289,7 +289,7 @@ export class SocialPost extends AggregateRoot<string> {
 				.split("\n")
 				.map((line) => line.trim())
 				.find((line) => line !== "") ?? "";
-		return { headline: firstLine, kicker: null, sectionName: null };
+		return contentWithHeadline(firstLine);
 	}
 
 	/** A arte de cada destino que tem arte. */
@@ -347,7 +347,7 @@ export class SocialPost extends AggregateRoot<string> {
 		}
 		this.state.art = {
 			...(this.state.art ?? {}),
-			[destination]: withOverrides(selection, selection.overrides),
+			[destination]: withInputs(selection, selection),
 		};
 		return ok(undefined);
 	}

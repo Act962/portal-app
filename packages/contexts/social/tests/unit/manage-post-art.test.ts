@@ -1,13 +1,20 @@
 import {
 	ArtTemplate,
 	choosePostArt,
-	DEFAULT_TEXT_STYLE,
+	EMPTY_DESIGN,
 	SocialPost,
 	setPostArtContent,
-	setPostArtOverrides,
+	setPostArtInputs,
 } from "@portal-app/social";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import {
+	CONTEUDO,
+	design,
+	texto,
+	tituloEditavel,
+	variavel,
+} from "./art-fixtures";
 import {
 	InMemoryArtTemplateRepository,
 	InMemorySocialPostRepository,
@@ -27,16 +34,10 @@ function padrao(id: string, format: "4:5" | "9:16" = "4:5") {
 		id,
 		name: `Padrão ${id}`,
 		format,
-		layers: [
-			{
-				id: "titulo",
-				kind: "TEXT",
-				box: { x: 130, y: 560, width: 820, height: 240 },
-				source: "HEADLINE",
-				text: "",
-				style: { ...DEFAULT_TEXT_STYLE },
-			},
-		],
+		design: design(
+			[tituloEditavel(), texto("botao", "{{chamada}}")],
+			[variavel("chamada", "Leia")],
+		),
 		createdAt: AGORA,
 	}).unwrap();
 }
@@ -58,7 +59,7 @@ beforeEach(async () => {
 });
 
 describe("choosePostArt", () => {
-	it("o EDITOR escolhe o padrão de um destino, e o post guarda a cópia", async () => {
+	it("o EDITOR escolhe o padrão de um destino, e o post guarda a cópia com o preenchido", async () => {
 		const post = (
 			await choosePostArt(
 				editor,
@@ -66,7 +67,8 @@ describe("choosePostArt", () => {
 					id: "post-1",
 					destination: "INSTAGRAM",
 					templateId: "feed",
-					overrides: { titulo: "Título da arte" },
+					values: { chamada: "Leia agora" },
+					texts: { titulo: "Título da arte" },
 				},
 				deps(),
 			)
@@ -75,7 +77,8 @@ describe("choosePostArt", () => {
 		expect(post.artFor("INSTAGRAM")).toMatchObject({
 			templateId: "feed",
 			version: 1,
-			overrides: { titulo: "Título da arte" },
+			values: { chamada: "Leia agora" },
+			texts: { titulo: "Título da arte" },
 		});
 		expect(
 			(await repo.findById("post-1"))?.artFor("INSTAGRAM")?.templateId,
@@ -141,51 +144,54 @@ describe("choosePostArt", () => {
 	});
 });
 
-describe("setPostArtOverrides", () => {
-	it("troca os textos e MANTÉM a cópia — mesmo com o padrão editado depois (D9)", async () => {
+describe("setPostArtInputs (spec 10, D3)", () => {
+	it("troca o preenchido e MANTÉM a cópia — mesmo com o padrão editado depois (09, D9)", async () => {
 		await choosePostArt(
 			editor,
 			{ id: "post-1", destination: "INSTAGRAM", templateId: "feed" },
 			deps(),
 		);
 		const feed = await templates.findById("feed");
-		feed?.update({ name: "Renomeado", layers: [] }, AGORA);
+		feed?.update({ name: "Renomeado", design: EMPTY_DESIGN }, AGORA);
 
 		const post = (
-			await setPostArtOverrides(
+			await setPostArtInputs(
 				editor,
 				{
 					id: "post-1",
 					destination: "INSTAGRAM",
-					overrides: { titulo: "Corrigido" },
+					values: { chamada: "Leia agora", fantasma: "x" },
+					texts: { titulo: "Corrigido", botao: "caixa Dinâmica" },
 				},
 				deps(),
 			)
 		).unwrap();
 
 		const arte = post.artFor("INSTAGRAM");
-		expect(arte?.overrides).toEqual({ titulo: "Corrigido" });
+		expect(arte?.values).toEqual({ chamada: "Leia agora" });
+		expect(arte?.texts).toEqual({ titulo: "Corrigido" });
 		expect(arte?.version).toBe(1);
 		expect(arte?.templateName).toBe("Padrão feed");
-		expect(arte?.layers).toHaveLength(1);
+		expect(arte?.design.elements).toHaveLength(2);
 	});
 
 	it("destino sem arte, post inexistente ou sem permissão", async () => {
 		const pedido = {
 			id: "post-1",
 			destination: "INSTAGRAM" as const,
-			overrides: {},
+			values: {},
+			texts: {},
 		};
 		expect(
-			(await setPostArtOverrides(editor, pedido, deps())).unwrapErr().message,
+			(await setPostArtInputs(editor, pedido, deps())).unwrapErr().message,
 		).toContain("ainda não tem um padrão");
 		expect(
 			(
-				await setPostArtOverrides(editor, { ...pedido, id: "nada" }, deps())
+				await setPostArtInputs(editor, { ...pedido, id: "nada" }, deps())
 			).unwrapErr().name,
 		).toBe("SocialPostNotFound");
 		expect(
-			(await setPostArtOverrides(staff("REDATOR"), pedido, deps())).unwrapErr()
+			(await setPostArtInputs(staff("REDATOR"), pedido, deps())).unwrapErr()
 				.name,
 		).toBe("Forbidden");
 	});
@@ -193,12 +199,11 @@ describe("setPostArtOverrides", () => {
 
 describe("setPostArtContent", () => {
 	const conteudo = {
+		...CONTEUDO,
 		headline: "Chuva alaga o centro de Piracuruca",
-		kicker: "Plantão",
-		sectionName: "Cidades",
 	};
 
-	it("troca o conteúdo das caixas no rascunho", async () => {
+	it("troca o conteúdo das variáveis do sistema no rascunho", async () => {
 		const post = (
 			await setPostArtContent(
 				editor,

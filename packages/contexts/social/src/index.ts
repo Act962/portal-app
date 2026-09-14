@@ -27,5 +27,6 @@ export * from "./domain/social-post";
 export * from "./domain/template/art-key";
 export * from "./domain/template/art-selection";
 export * from "./domain/template/art-template";
-export * from "./domain/template/fit-text";
+export * from "./domain/template/art-text";
 export * from "./domain/template/fonts";
+export * from "./domain/template/variables";

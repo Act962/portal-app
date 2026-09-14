@@ -1,10 +1,7 @@
 import {
-	type ArtFormat,
-	type ArtSelection,
 	type PostStatus,
 	SOCIAL_DESTINATIONS,
 	type SocialDestination,
-	type TemplateLayer,
 } from "@portal-app/social";
 
 /**
@@ -117,22 +114,4 @@ export function articleSocialState(
 		};
 	}
 	return { editable, canApprove: true, hint: null };
-}
-
-/** Um padrão da lista como escolha de arte, para a prévia. */
-export function previewSelection(template: {
-	id: string;
-	name: string;
-	version: number;
-	format: ArtFormat;
-	layers: readonly TemplateLayer[];
-}): ArtSelection {
-	return {
-		templateId: template.id,
-		templateName: template.name,
-		version: template.version,
-		format: template.format,
-		layers: [...template.layers],
-		overrides: {},
-	};
 }

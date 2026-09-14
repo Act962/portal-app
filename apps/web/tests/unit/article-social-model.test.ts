@@ -1,11 +1,9 @@
-import { DEFAULT_TEXT_STYLE } from "@portal-app/social";
 import { describe, expect, it } from "vitest";
 
 import {
 	articleSocialState,
 	initialDestinations,
 	initialPicks,
-	previewSelection,
 	templatesInput,
 } from "@/app/(app)/dashboard/articles/[id]/article-social-model";
 
@@ -91,35 +89,6 @@ describe("articleSocialState", () => {
 		expect(articleSocialState(true, { status: "RASCUNHO" })).toMatchObject({
 			editable: true,
 			canApprove: true,
-		});
-	});
-});
-
-describe("previewSelection", () => {
-	it("um padrão da lista vira escolha de arte sem textos trocados", () => {
-		const layer = {
-			id: "titulo",
-			kind: "TEXT" as const,
-			box: { x: 0, y: 0, width: 100, height: 50 },
-			source: "HEADLINE" as const,
-			text: "",
-			style: { ...DEFAULT_TEXT_STYLE },
-		};
-		expect(
-			previewSelection({
-				id: "feed",
-				name: "Últimas — feed",
-				version: 3,
-				format: "4:5",
-				layers: [layer],
-			}),
-		).toEqual({
-			templateId: "feed",
-			templateName: "Últimas — feed",
-			version: 3,
-			format: "4:5",
-			layers: [layer],
-			overrides: {},
 		});
 	});
 });

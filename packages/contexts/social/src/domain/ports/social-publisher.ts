@@ -3,7 +3,7 @@ import type { Result } from "@portal-app/shared-kernel";
 import type { CropAspect } from "../focal-crop";
 import type { PublicationFormat, SocialPlatform } from "../platform";
 import type { ArtSelection } from "../template/art-selection";
-import type { ArtContent } from "../template/fit-text";
+import type { ArtContent } from "../template/variables";
 
 /** O que o desenhista precisa para a arte de um destino (spec 09, F5). */
 export type ArtworkRequest = {

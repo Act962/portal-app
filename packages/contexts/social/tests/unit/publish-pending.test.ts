@@ -1,7 +1,7 @@
 import { FixedClock } from "@portal-app/shared-kernel";
 import {
 	ArtTemplate,
-	DEFAULT_TEXT_STYLE,
+	contentWithHeadline,
 	MAX_AUTOMATIC_ATTEMPTS,
 	publishPendingPosts,
 	SocialAccount,
@@ -11,6 +11,7 @@ import {
 } from "@portal-app/social";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { CONTEUDO, design, tituloEditavel } from "./art-fixtures";
 import {
 	FakeImageSource,
 	InMemorySocialAccountRepository,
@@ -285,30 +286,13 @@ describe("publishPendingPosts", () => {
 			id: "tpl-feed",
 			name: "Últimas — feed",
 			format: "4:5",
-			layers: [
-				{
-					id: "titulo",
-					kind: "TEXT",
-					box: { x: 130, y: 560, width: 820, height: 240 },
-					source: "HEADLINE",
-					text: "",
-					style: { ...DEFAULT_TEXT_STYLE },
-				},
-			],
+			design: design([tituloEditavel()]),
 			createdAt: AGORA,
 		}).unwrap();
 
 		async function aprovadoComArte(
 			mediaIds: readonly string[] = ["m-1", "m-2", "m-3"],
-			artContent: {
-				headline: string;
-				kicker: string | null;
-				sectionName: string | null;
-			} | null = {
-				headline: "Chuva alaga o centro",
-				kicker: "Últimas",
-				sectionName: "Cidades",
-			},
+			artContent: typeof CONTEUDO | null = CONTEUDO,
 		) {
 			const post = SocialPost.draft({
 				id: "post-arte",
@@ -317,7 +301,11 @@ describe("publishPendingPosts", () => {
 				captionText: "Plantão: chuva forte\n\nMais na matéria.",
 				mediaIds,
 				platforms: ["INSTAGRAM", "FACEBOOK"],
-				art: { INSTAGRAM: selectionFrom(padrao, { titulo: "Título trocado" }) },
+				art: {
+					INSTAGRAM: selectionFrom(padrao, {
+						texts: { titulo: "Título trocado" },
+					}),
+				},
 				artContent,
 				createdAt: AGORA,
 			}).unwrap();
@@ -346,7 +334,7 @@ describe("publishPendingPosts", () => {
 				content: { headline: "Chuva alaga o centro", kicker: "Últimas" },
 				selection: {
 					templateId: "tpl-feed",
-					overrides: { titulo: "Título trocado" },
+					texts: { titulo: "Título trocado" },
 				},
 			});
 		});
@@ -372,11 +360,9 @@ describe("publishPendingPosts", () => {
 
 			await publishPendingPosts(deps);
 
-			expect(images.artworkRequests[0]?.content).toEqual({
-				headline: "Plantão: chuva forte",
-				kicker: null,
-				sectionName: null,
-			});
+			expect(images.artworkRequests[0]?.content).toEqual(
+				contentWithHeadline("Plantão: chuva forte"),
+			);
 		});
 
 		it("foto da arte que sumiu falha a entrega dizendo isso, sem chamar a Meta", async () => {

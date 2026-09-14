@@ -30,7 +30,10 @@ import type { SocialPostRepository } from "../domain/ports/social-post-repositor
 import { type ArtSelections, SocialPost } from "../domain/social-post";
 import { selectionFrom } from "../domain/template/art-selection";
 import { formatServes } from "../domain/template/art-template";
-import type { PublishedArticle } from "./draft-from-article";
+import {
+	artContentFromArticle,
+	type PublishedArticle,
+} from "./draft-from-article";
 
 export type PrepareArticlePostDeps = {
 	repo: SocialPostRepository;
@@ -125,13 +128,7 @@ export async function prepareArticlePost(
 			linkUrl: input.article.url,
 			platforms: input.destinations,
 			art: art.value,
-			artContent: {
-				headline: input.article.headline,
-				kicker: input.article.kicker?.trim()
-					? input.article.kicker.trim()
-					: null,
-				sectionName: input.article.sectionName,
-			},
+			artContent: artContentFromArticle(input.article, deps.clock.now()),
 			createdAt: deps.clock.now(),
 		});
 		if (created.isErr()) {

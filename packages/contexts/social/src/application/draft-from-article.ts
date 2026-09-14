@@ -11,6 +11,29 @@ import type { SocialPostRepository } from "../domain/ports/social-post-repositor
 import type { ArtSelections, SocialPost } from "../domain/social-post";
 import { SocialPost as Post } from "../domain/social-post";
 import { selectionFrom } from "../domain/template/art-selection";
+import type { ArtContent } from "../domain/template/variables";
+
+/**
+ * O que a matéria oferece às variáveis do sistema da arte (spec 10, D2). A
+ * data é a de agora — a do preparo do post —, guardada junto: a arte aprovada
+ * não muda sozinha no dia seguinte.
+ */
+export function artContentFromArticle(
+	article: PublishedArticle,
+	at: Date,
+): ArtContent {
+	const text = (value: string | null | undefined) =>
+		value?.trim() ? value.trim() : null;
+	return {
+		headline: article.headline,
+		subtitle: text(article.standfirst),
+		kicker: text(article.kicker),
+		sectionName: text(article.sectionName),
+		authorName: text(article.authorName),
+		siteName: text(article.siteName),
+		date: at.toISOString(),
+	};
+}
 
 /**
  * Tudo o que este contexto precisa saber sobre uma matéria publicada.
@@ -95,11 +118,7 @@ export async function draftPostForArticle(
 		art,
 		// Copiado da matéria agora: se ela for corrigida depois, a arte do post
 		// não muda sozinha — quem aprova vê e decide (D9).
-		artContent: {
-			headline: article.headline,
-			kicker: article.kicker?.trim() ? article.kicker.trim() : null,
-			sectionName: article.sectionName,
-		},
+		artContent: artContentFromArticle(article, deps.clock.now()),
 		articleId: article.id,
 		origin: "AUTOMATICA",
 		captionText,

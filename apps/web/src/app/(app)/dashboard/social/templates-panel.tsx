@@ -2,12 +2,13 @@
 
 import {
 	ART_FORMATS,
+	type ArtDesign,
 	type ArtFormat,
 	DESTINATION_LABEL,
 	formatServes,
+	SAMPLE_CONTENT,
 	SOCIAL_DESTINATIONS,
 	type SocialDestination,
-	type TemplateLayer,
 } from "@portal-app/social";
 import {
 	AlertDialog,
@@ -49,12 +50,11 @@ import { Archive, Copy, Pencil, Plus, Star } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
+import { ArtCanvas } from "@/components/art/art-canvas";
 import { trpc } from "@/utils/trpc";
-
-import { SAMPLE_CONTENT } from "./padroes/template-editor-model";
 
 const FORMAT_OPTIONS = [
 	{ value: "4:5", label: "4:5 — retrato (feed)" },
@@ -160,9 +160,7 @@ export function TemplatesPanel({ canDesign }: { canDesign: boolean }) {
 							<TemplateThumbnail
 								name={template.name}
 								format={template.format}
-								layers={template.layers}
-								version={template.version}
-								templateId={template.id}
+								design={template.design}
 							/>
 							<div className="flex items-start justify-between gap-2">
 								<div className="min-w-0">
@@ -315,52 +313,27 @@ export function TemplatesPanel({ canDesign }: { canDesign: boolean }) {
 }
 
 /**
- * A miniatura é a arte real, pedida ao servidor em 240 px. Redesenha só quando
- * o padrão muda de VERSÃO — a lista recarregada não pede tudo de novo.
+ * A miniatura é a arte de verdade, desenhada no navegador com a mesma cena do
+ * servidor (spec 10, D9) e o conteúdo de exemplo.
  */
 function TemplateThumbnail({
-	templateId,
 	name,
 	format,
-	layers,
-	version,
+	design,
 }: {
-	templateId: string;
 	name: string;
 	format: ArtFormat;
-	layers: readonly TemplateLayer[];
-	version: number;
+	design: ArtDesign;
 }) {
-	const preview = useMutation(trpc.social.templates.preview.mutationOptions());
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: redesenha por versão, não a cada render
-	useEffect(() => {
-		preview.mutate({
-			name,
-			format,
-			layers: [...layers],
-			content: SAMPLE_CONTENT,
-			width: 240,
-		});
-	}, [templateId, version]);
-
-	const ratio =
-		format === "9:16" ? "9 / 16" : format === "1:1" ? "1 / 1" : "4 / 5";
-
 	return (
-		<div
-			className="mx-auto w-full max-w-60 overflow-hidden rounded-md border bg-muted"
-			style={{ aspectRatio: ratio }}
-		>
-			{preview.data?.image ? (
-				<img
-					src={preview.data.image}
-					alt={`Prévia do padrão ${name}`}
-					className="size-full object-cover"
-				/>
-			) : (
-				<Skeleton className="size-full rounded-none" />
-			)}
+		<div className="mx-auto w-full max-w-60">
+			<ArtCanvas
+				format={format}
+				design={design}
+				content={SAMPLE_CONTENT}
+				label={`Prévia do padrão ${name}`}
+				className="rounded-md border"
+			/>
 		</div>
 	);
 }
@@ -440,7 +413,7 @@ function NewTemplateDialog({
 					</Button>
 					<Button
 						disabled={name.trim() === "" || create.isPending}
-						onClick={() => create.mutate({ name, format, layers: [] })}
+						onClick={() => create.mutate({ name, format })}
 					>
 						Criar e montar
 					</Button>

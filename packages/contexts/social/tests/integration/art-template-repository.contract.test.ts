@@ -2,10 +2,19 @@ import { newPrismaClient } from "@portal-app/db/client";
 import {
 	ArtTemplate,
 	DEFAULT_TEXT_STYLE,
-	type TemplateLayer,
+	EMPTY_DESIGN,
 } from "@portal-app/social";
 import { PrismaArtTemplateRepository } from "@portal-app/social/infrastructure/prisma-art-template-repository";
 import { afterAll, beforeEach, describe, expect, inject, it } from "vitest";
+
+import {
+	design,
+	foto,
+	moldura,
+	texto,
+	tituloEditavel,
+	variavel,
+} from "../unit/art-fixtures";
 
 const prisma = newPrismaClient(inject("databaseUrl"));
 const repo = new PrismaArtTemplateRepository(prisma);
@@ -21,41 +30,41 @@ beforeEach(async () => {
 const CRIADO = new Date("2026-09-14T12:00:00Z");
 const DEPOIS = new Date("2026-09-14T13:00:00Z");
 
-const camadas: TemplateLayer[] = [
-	{ id: "foto", kind: "PHOTO", box: { x: 0, y: 0, width: 1080, height: 1350 } },
-	{
-		id: "moldura",
-		kind: "IMAGE",
-		box: { x: 0, y: 0, width: 1080, height: 1350 },
-		mediaId: "media-moldura",
-		fit: "cover",
-	},
-	{
-		id: "chapeu",
-		kind: "TEXT",
-		box: { x: 110, y: 460, width: 240, height: 64 },
-		source: "KICKER",
-		text: "ÚLTIMAS",
-		style: {
-			...DEFAULT_TEXT_STYLE,
-			color: "#d9232e",
-			background: { color: "#ffffff", radius: 32, paddingX: 24, paddingY: 8 },
-		},
-	},
-];
+const desenho = design(
+	[
+		foto(),
+		moldura(),
+		texto("chapeu", "{{chapeu}}", {
+			style: {
+				...DEFAULT_TEXT_STYLE,
+				color: "#d9232e",
+				background: {
+					color: "#ffffff",
+					radius: 32,
+					paddingX: 24,
+					paddingY: 8,
+					shape: "hug",
+				},
+			},
+		}),
+		tituloEditavel(),
+		texto("botao", "{{chamada}}"),
+	],
+	[variavel("chamada", "MATÉRIA COMPLETA NOS STORIES")],
+);
 
 function padrao(id: string, name: string, format: "4:5" | "9:16" = "4:5") {
 	return ArtTemplate.create({
 		id,
 		name,
 		format,
-		layers: format === "4:5" ? camadas : [],
+		design: format === "4:5" ? desenho : EMPTY_DESIGN,
 		createdAt: CRIADO,
 	}).unwrap();
 }
 
 describe("PrismaArtTemplateRepository", () => {
-	it("guarda e devolve o padrão inteiro — camadas, versão e datas", async () => {
+	it("guarda e devolve o padrão inteiro — desenho, variáveis, versão e datas", async () => {
 		const original = padrao("tpl-1", "Últimas");
 		original.update({ name: "Últimas — feed" }, DEPOIS);
 		await repo.save(original);
@@ -65,7 +74,7 @@ describe("PrismaArtTemplateRepository", () => {
 		expect(lido?.name).toBe("Últimas — feed");
 		expect(lido?.format).toBe("4:5");
 		expect(lido?.version).toBe(2);
-		expect(lido?.layers).toEqual(camadas);
+		expect(lido?.design).toEqual(desenho);
 		expect(lido?.createdAt).toEqual(CRIADO);
 		expect(lido?.updatedAt).toEqual(DEPOIS);
 		expect(await repo.findById("nada")).toBeNull();
@@ -74,11 +83,18 @@ describe("PrismaArtTemplateRepository", () => {
 	it("regravar atualiza em vez de duplicar", async () => {
 		const template = padrao("tpl-1", "Últimas");
 		await repo.save(template);
-		template.update({ layers: [] }, DEPOIS);
+		template.update({ design: EMPTY_DESIGN }, DEPOIS);
 		await repo.save(template);
 
 		expect(await prisma.socialArtTemplate.count()).toBe(1);
-		expect((await repo.findById("tpl-1"))?.layers).toEqual([]);
+		expect((await repo.findById("tpl-1"))?.design).toEqual(EMPTY_DESIGN);
+	});
+
+	it("linha com a coluna no default ({}) volta com o desenho vazio", async () => {
+		await prisma.socialArtTemplate.create({
+			data: { id: "cru", name: "Cru", format: "1:1" },
+		});
+		expect((await repo.findById("cru"))?.design).toEqual(EMPTY_DESIGN);
 	});
 
 	it("lista por nome, sem os arquivados, e filtra por formato", async () => {

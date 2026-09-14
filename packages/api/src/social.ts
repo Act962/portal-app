@@ -117,8 +117,8 @@ export function metaAuthorizeUrl(state: string): string | null {
 }
 
 /**
- * O desenhista dos padrões (spec 09, F3): a prévia do editor e a arte que vai
- * ao ar saem dele, do mesmo código.
+ * O desenhista dos padrões no servidor (spec 10, D1): a arte que vai ao ar, e a
+ * prévia de conferência, com a mesma cena Konva do editor.
  */
 export const artRenderer = new ArtRenderer({
 	media: mediaDeps.repo,
@@ -142,7 +142,7 @@ const socialImages: SocialImageSource = {
 			template: selectionAsTemplate(selection),
 			photoMediaId,
 			content,
-			overrides: selection.overrides,
+			inputs: { values: selection.values, texts: selection.texts },
 		}),
 };
 
