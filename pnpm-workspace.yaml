@@ -10,6 +10,17 @@ allowBuilds:
   sharp: true
   skia-canvas: true
 
+# O pnpm fixado no projeto (10.24) só roda scripts de instalação dos pacotes
+# desta lista — `allowBuilds` acima é a chave das versões novas e é ignorada
+# por ele. Sem o script do skia-canvas, o binário nativo não é baixado, e o
+# desenho das artes quebra no CI e no deploy da Vercel.
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - esbuild
+  - prisma
+  - sharp
+  - skia-canvas
+
 catalog:
   '@prisma/client': 7.9.1
   '@tailwindcss/postcss': ^4.3.3
