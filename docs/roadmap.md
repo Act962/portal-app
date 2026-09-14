@@ -307,7 +307,12 @@ rich-text de verdade.
 > sabendo que redes sociais existem. Fatias 1–4 entregues (domínio, API, telas, adapter real da
 > Meta); da F5, a parte do código (diagnóstico, cota, reenvio, callbacks exigidos pela Meta).
 > Falta o que depende das contas do cliente: criar o App, publicar de verdade e o App Review —
-> roteiro em `specs/08-redes-sociais.md` §14.3.
+> roteiro em `specs/08-redes-sociais.md` §14.3. Em 14/09 entraram os Stories do Instagram
+> (§17).
+>
+> **Em execução:** [`specs/09-padroes-de-arte.md`](./specs/09-padroes-de-arte.md) — padrões de
+> arte com camadas (moldura, foto, textos) desenhados no servidor, aplicados ao post e à
+> matéria. Pedido do cliente em 14/09/2026: a arte de cada post era refeita à mão.
 
 Sem data definida; entram por prioridade de negócio: cobertura ao vivo, especiais e séries,
 editoria de vídeo, PWA, enquetes, relatórios de produção. Cada um com sua spec.
