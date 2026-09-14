@@ -118,7 +118,7 @@ async function diagnose(
 
 	if (!deps.probe) {
 		problems.push(
-			"A integração com a Meta não está configurada neste ambiente (META_APP_ID e META_APP_SECRET).",
+			"A integração com a Meta não está disponível. Fale com o administrador do sistema.",
 		);
 		return done();
 	}

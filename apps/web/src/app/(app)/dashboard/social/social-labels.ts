@@ -329,7 +329,7 @@ export function metaFlagMessage(
 			return {
 				tone: "erro",
 				message:
-					"O login da Meta não está configurado neste ambiente (META_APP_ID e META_APP_SECRET).",
+					"O login da Meta não está disponível. Fale com o administrador do sistema.",
 			};
 		default:
 			return null;

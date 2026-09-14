@@ -156,12 +156,19 @@ function accountDto(account: SocialAccount, now: Date) {
 		state: account.stateAt(now),
 		tokenExpiresAt: account.tokenExpiresAt,
 		unusableReason: account.unusableReasonAt(now),
-		connectedAt: account.connectedAt,
-		/** Veio do `.env` (§15): a tela não oferece desconectar nem mostra data
-		 * de conexão, que não existe. */
-		managedByEnvironment: isAccountFromEnvironment(account.platform),
+		/**
+		 * A tela diz só o que pode FAZER com a conta — nunca de onde a credencial
+		 * vem. Anunciar no painel que o Instagram está nas variáveis do servidor
+		 * seria entregar a quem vê a tela o caminho até o token (§15). A conta
+		 * configurada no servidor não tem data de conexão nem se desconecta aqui.
+		 */
+		connectedAt: fromServer(account) ? null : account.connectedAt,
+		canDisconnect: !fromServer(account),
 	};
 }
+
+const fromServer = (account: SocialAccount) =>
+	isAccountFromEnvironment(account.platform);
 
 function codeFor(error: Error): TRPCError["code"] {
 	switch (error.name) {
@@ -495,11 +502,10 @@ export const socialRouter = router({
 		return accounts.map((account) => accountDto(account, now));
 	}),
 
-	/** O App da Meta está configurado neste ambiente? A tela só oferece o login
-	 * quando está — sem ele, o botão levaria a um erro. */
+	/** O login da Meta está disponível? A tela só oferece o botão quando está —
+	 * sem ele, o botão levaria a um erro. */
 	metaStatus: publish.query(() => ({
 		configured: metaOAuth !== null,
-		instagramFromEnvironment: isAccountFromEnvironment("INSTAGRAM"),
 	})),
 
 	/**
@@ -569,12 +575,12 @@ export const socialRouter = router({
 			const now = socialDeps.clock.now();
 			return {
 				accounts: accounts.map((account) => accountDto(account, now)),
-				// A tela avisa quando a Página não tem Instagram vinculado: sem este
-				// sinal, a pessoa acharia que o Instagram também foi conectado.
+				// O Instagram foi conectado por ESTE login? Não foi quando a Página não
+				// tem Instagram vinculado, nem quando o Instagram é o configurado no
+				// servidor (§15), que o login não substitui. A tela só diz o resultado.
+				instagramConnected:
+					page.instagram !== null && !isAccountFromEnvironment("INSTAGRAM"),
 				instagramLinked: page.instagram !== null,
-				// Com o Instagram vindo do `.env`, o login NÃO o substitui — e a tela
-				// precisa dizer isso, senão "Página e Instagram conectados" mentiria.
-				instagramFromEnvironment: isAccountFromEnvironment("INSTAGRAM"),
 			};
 		}),
 
@@ -585,7 +591,7 @@ export const socialRouter = router({
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
 					message:
-						"Esta conta vem da configuração do ambiente (META_INSTAGRAM_*). Para desligá-la, remova as variáveis e reinicie o servidor.",
+						"Esta conta não pode ser desconectada pelo painel. Fale com o administrador do sistema.",
 				});
 			}
 			const account = ensure(
@@ -604,7 +610,8 @@ async function pendingPages(headers: Headers) {
 	if (!metaOAuth) {
 		throw new TRPCError({
 			code: "PRECONDITION_FAILED",
-			message: "A integração com a Meta não está configurada neste ambiente.",
+			message:
+				"O login da Meta não está disponível. Fale com o administrador do sistema.",
 		});
 	}
 	const token = unsealPendingToken(

@@ -772,7 +772,8 @@ linhas diferentes). Os eventos mantêm os campos `platform`/`platforms` pelo
 mesmo motivo — o payload já gravado no outbox e na auditoria usa esses nomes.
 
 **D41 — Stories não entram no post automático por padrão.** O rascunho que
-nasce da matéria continua indo ao feed das duas redes (`AUTO_POST_PLATFORMS`).
+nasce da matéria continua indo ao feed (`AUTO_POST_PLATFORMS`) — desde 14/09
+só o do Instagram, enquanto não há Página do Facebook conectada.
 Story some em 24 h e não leva legenda; marcá-lo é escolha de quem aprova.
 Mudar o padrão é uma linha em `packages/api/src/social.ts`.
 

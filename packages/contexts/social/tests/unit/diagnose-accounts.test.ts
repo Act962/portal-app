@@ -121,11 +121,12 @@ describe("diagnoseAccounts", () => {
 		}
 	});
 
-	it("App não configurado: diz quais variáveis faltam", async () => {
+	it("App não configurado: avisa sem expor a configuração do servidor", async () => {
 		conectar("FACEBOOK");
 		deps.probe = null;
 		const item = await diagnostico("FACEBOOK");
-		expect(item.problems[0]).toContain("META_APP_ID");
+		expect(item.problems[0]).toContain("administrador do sistema");
+		expect(item.problems[0]).not.toMatch(/META_|\.env|ambiente/);
 	});
 
 	it("conta sem credencial guardada pede reconexão", async () => {

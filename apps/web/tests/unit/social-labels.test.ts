@@ -175,9 +175,11 @@ describe("metaFlagMessage — a volta do login da Meta", () => {
 	it("falha e falta de configuração são erro, com o que conferir", () => {
 		expect(metaFlagMessage("erro")).toMatchObject({ tone: "erro" });
 		expect(metaFlagMessage("erro")?.message).toContain("endereço de retorno");
+		// Sem nome de variável: o painel não diz como o servidor é configurado.
 		expect(metaFlagMessage("nao-configurado")?.message).toContain(
-			"META_APP_ID",
+			"administrador do sistema",
 		);
+		expect(metaFlagMessage("nao-configurado")?.message).not.toContain("META_");
 	});
 
 	it("o caminho feliz não gera aviso — a escolha de Página já aparece", () => {

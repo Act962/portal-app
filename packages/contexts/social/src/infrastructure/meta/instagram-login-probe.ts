@@ -35,7 +35,7 @@ export class InstagramLoginProbe implements ConnectionProbe {
 			return {
 				problems: [
 					error.code === 190
-						? "O token do Instagram é inválido ou venceu. Gere um novo no painel da Meta e atualize META_INSTAGRAM_ACCESS_TOKEN."
+						? "A autorização do Instagram é inválida ou venceu. Peça ao administrador do sistema para renová-la."
 						: `Não foi possível consultar o Instagram agora: ${error.message}`,
 				],
 				quota: null,
@@ -49,7 +49,8 @@ export class InstagramLoginProbe implements ConnectionProbe {
 		) {
 			return {
 				problems: [
-					`O token é da conta ${username ? `@${username}` : ""} (id ${userId}), mas META_INSTAGRAM_USER_ID é ${credentials.accountRemoteId}. Use o id da conta dona do token.`,
+					// Sem ids nem nomes de configuração: o diagnóstico aparece no painel.
+					`A autorização é de outra conta do Instagram${username ? ` (@${username})` : ""}. Peça ao administrador do sistema para revisar a configuração.`,
 				],
 				quota: null,
 			};

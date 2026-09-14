@@ -69,8 +69,9 @@ describe("InstagramLoginProbe", () => {
 		).toEqual([]);
 	});
 
-	it("token de outra conta: diz de quem é o token e qual id usar", async () => {
-		// O erro mais provável de uma configuração à mão.
+	it("token de outra conta: diz de quem é, sem ids nem nomes de configuração", async () => {
+		// O erro mais provável de uma configuração à mão. A mensagem aparece no
+		// painel: nada de variável do servidor nem id de conta.
 		const { urls, probe } = fakeGraph(() =>
 			Response.json({ user_id: "999", username: "outra_conta" }),
 		);
@@ -78,17 +79,19 @@ describe("InstagramLoginProbe", () => {
 		const [problem] = (await probe.inspect(credenciais)).problems;
 
 		expect(problem).toContain("@outra_conta");
-		expect(problem).toContain("id 999");
-		expect(problem).toContain("META_INSTAGRAM_USER_ID é 17841400000000001");
+		expect(problem).toContain("outra conta do Instagram");
+		expect(problem).not.toMatch(/META_|999|17841400000000001/);
 		expect(urls).toHaveLength(1);
 	});
 
 	it("token de outra conta sem username na resposta", async () => {
 		const { probe } = fakeGraph(() => Response.json({ user_id: "999" }));
-		expect((await probe.inspect(credenciais)).problems[0]).toContain("id 999");
+		expect((await probe.inspect(credenciais)).problems[0]).toBe(
+			"A autorização é de outra conta do Instagram. Peça ao administrador do sistema para revisar a configuração.",
+		);
 	});
 
-	it("token vencido ou inválido (190) manda gerar outro", async () => {
+	it("token vencido ou inválido (190) pede a renovação, sem expor a configuração", async () => {
 		const { probe } = fakeGraph(() =>
 			Response.json(
 				{ error: { message: "Invalid OAuth access token", code: 190 } },
@@ -96,8 +99,9 @@ describe("InstagramLoginProbe", () => {
 			),
 		);
 		const [problem] = (await probe.inspect(credenciais)).problems;
-		expect(problem).toContain("Gere um novo");
+		expect(problem).toContain("renová-la");
 		expect(problem).not.toContain(TOKEN);
+		expect(problem).not.toMatch(/META_|\.env/);
 	});
 
 	it("Instagram fora do ar vira problema legível", async () => {

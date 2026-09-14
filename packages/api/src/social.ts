@@ -174,8 +174,12 @@ export const templateDeps = {
 	ids: socialDeps.ids,
 };
 
-/** As redes que recebem o post automático de cada matéria publicada. */
-export const AUTO_POST_PLATFORMS = ["INSTAGRAM", "FACEBOOK"] as const;
+/**
+ * As redes que recebem o post automático de cada matéria publicada. Só o
+ * Instagram enquanto o veículo não tem Página do Facebook conectada: com ela na
+ * lista, todo rascunho aprovado terminaria "publicado em parte".
+ */
+export const AUTO_POST_PLATFORMS = ["INSTAGRAM"] as const;
 
 /**
  * O diagnóstico das contas (spec 08, §14). A URL de amostra sai do MESMO

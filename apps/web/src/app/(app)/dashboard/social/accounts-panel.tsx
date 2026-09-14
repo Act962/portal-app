@@ -50,8 +50,12 @@ const CONNECT_HREF = "/api/social/meta/connect";
 /**
  * As contas conectadas, uma por rede (spec 08, D5), e o login da Meta.
  *
- * O login só aparece quando o ambiente tem o App configurado. Sem ele, a tela
- * diz o que falta em vez de oferecer um botão que terminaria em erro (D17).
+ * O login só aparece quando está disponível. Sem ele, a tela diz isso em vez de
+ * oferecer um botão que terminaria em erro (D17).
+ *
+ * **Nunca diz de onde vem a credencial** — nem nome de variável, nem "arquivo de
+ * configuração". O painel é visto por quem aprova post; indicar onde mora o
+ * token é dar a pista para chegar nele.
  *
  * Quem aprova post também enxerga esta aba (`social:publish`): entender por que
  * um envio falhou passa por saber se a conta está no ar. Conectar e
@@ -126,13 +130,9 @@ export function AccountsPanel({
 				<div className="flex min-w-0 flex-1 gap-3">
 					<Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
 					<p className="text-muted-foreground">
-						{meta.data?.instagramFromEnvironment
-							? configured
-								? "O Instagram vem da configuração do ambiente (.env). O login da Meta conecta só a Página do Facebook."
-								: "O Instagram vem da configuração do ambiente (.env). O login da Meta, usado para conectar o Facebook, não está configurado (META_APP_ID e META_APP_SECRET)."
-							: configured
-								? "A conexão é feita com o login do Facebook de quem administra a Página. Um login conecta a Página e o Instagram vinculado a ela."
-								: "O login da Meta não está configurado neste ambiente. Cadastre META_APP_ID e META_APP_SECRET — o passo a passo está na documentação do módulo."}
+						{configured
+							? "A conexão é feita com o login do Facebook de quem administra a Página."
+							: "O login da Meta não está disponível. Para conectar ou trocar uma conta, fale com o administrador do sistema."}
 					</p>
 				</div>
 				{canManage && configured ? (
@@ -181,11 +181,11 @@ export function AccountsPanel({
 											<p className="truncate font-medium text-sm">
 												{account.displayName}
 											</p>
-											<p className="text-muted-foreground text-xs">
-												{account.managedByEnvironment
-													? "Configurada pelo ambiente (.env)"
-													: `Conectada em ${new Date(account.connectedAt).toLocaleDateString("pt-BR")}`}
-											</p>
+											{account.connectedAt ? (
+												<p className="text-muted-foreground text-xs">
+													{`Conectada em ${new Date(account.connectedAt).toLocaleDateString("pt-BR")}`}
+												</p>
+											) : null}
 										</div>
 									</div>
 									{account.tokenExpiresAt ? (
@@ -195,12 +195,6 @@ export function AccountsPanel({
 												"pt-BR",
 											)}
 										</p>
-									) : account.managedByEnvironment ? (
-										<p className="text-amber-700 text-xs dark:text-amber-300">
-											Validade do token não informada. Defina
-											META_INSTAGRAM_TOKEN_EXPIRES_AT para o painel avisar antes
-											de vencer.
-										</p>
 									) : null}
 									{account.unusableReason ? (
 										<p className="text-destructive text-sm">
@@ -208,13 +202,13 @@ export function AccountsPanel({
 										</p>
 									) : account.state === "EXPIRANDO" ? (
 										<p className="text-amber-700 text-sm dark:text-amber-300">
-											{account.managedByEnvironment
-												? "O token vence em breve. Gere um novo no painel da Meta e atualize META_INSTAGRAM_ACCESS_TOKEN e META_INSTAGRAM_TOKEN_EXPIRES_AT."
-												: "A autorização vence em breve. Refaça o login da Meta para a fila não parar."}
+											{account.canDisconnect
+												? "A autorização vence em breve. Refaça o login da Meta para a fila não parar."
+												: "A autorização vence em breve. Fale com o administrador do sistema para renová-la."}
 										</p>
 									) : null}
 									{canManage &&
-									!account.managedByEnvironment &&
+									account.canDisconnect &&
 									account.state !== "DESCONECTADA" ? (
 										<div className="mt-auto">
 											<Button
@@ -387,12 +381,10 @@ function PageChooser() {
 	const connect = useMutation(
 		trpc.social.connectMetaPage.mutationOptions({
 			onSuccess: async (result) => {
-				if (result.instagramFromEnvironment) {
-					toast.success(
-						"Página conectada. O Instagram continua vindo da configuração do ambiente.",
-					);
-				} else if (result.instagramLinked) {
+				if (result.instagramConnected) {
 					toast.success("Página e Instagram conectados.");
+				} else if (result.instagramLinked) {
+					toast.success("Página conectada.");
 				} else {
 					toast.warning(
 						"Página conectada. Ela não tem Instagram profissional vinculado — o Instagram continua desconectado.",
