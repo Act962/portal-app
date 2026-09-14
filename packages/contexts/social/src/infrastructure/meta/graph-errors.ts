@@ -45,7 +45,7 @@ export function toPublishFailure(
 		// removeu o aplicativo ou tirou o acesso de quem conectou.
 		case 190:
 			return failure(
-				`A autorização do ${label} expirou ou foi revogada. Reconecte a conta em Redes sociais → Contas.`,
+				`A autorização do ${label} expirou ou foi revogada. Reconecte a conta em Redes sociais → Contas — ou, se o token vem do .env, gere um novo.`,
 				false,
 			);
 		// Permissão ausente: o App não foi aprovado para o escopo, ou a pessoa

@@ -622,3 +622,66 @@ Página do veículo.
   do que a fila já mostra por entrega; um contador "tentativa 2 de 3" é
   conforto para depois.
 
+## 15. Instagram do cliente pelo ambiente *(14/09/2026)*
+
+**Pedido do cliente:** começar a automação do Instagram já, sem esperar o App
+Review nem depender do botão Conectar. O Instagram é o foco; o Facebook fica
+para depois.
+
+**Como funciona.** Com `META_INSTAGRAM_ACCESS_TOKEN` e `META_INSTAGRAM_USER_ID`
+no `.env`, o Instagram passa a vir do ambiente:
+
+| Peça | Papel |
+|---|---|
+| `infrastructure/environment-instagram.ts` | Lê e valida as variáveis (`environmentInstagramFrom`) e decora o repositório de contas: para o Instagram, a conta e o token vêm do `.env`; o Facebook continua no banco |
+| `MetaSocialPublisher` com `instagramClient` | As chamadas do Instagram vão para `graph.instagram.com` — o host do token do login do Instagram. As rotas (`/media`, `/media_publish`, status, cota) são as mesmas |
+| `infrastructure/meta/instagram-login-probe.ts` | O "Verificar conexão" desse token: `GET /me` confere de quem é o token e compara com o id do `.env` |
+| Aba Contas | Mostra "Configurada pelo ambiente", sem Desconectar; avisa se a validade não foi informada |
+
+**Decisões:**
+
+- **D28 — Token do login do Instagram, não token de Página.** Sai com um clique
+  no painel da Meta e não exige Página do Facebook; o preço é valer 60 dias. O
+  token de Página não expira, mas pede o Graph API Explorer e uma troca de
+  tokens à mão. *(cliente, 14/09)*
+- **D29 — Decorador, não repositório novo.** Worker, diagnóstico e tela
+  continuam falando com a mesma porta. No go-live, trocar o `.env` pelo login
+  é **apagar as variáveis** — nenhum código muda.
+- **D30 — Com o modo ligado, o `.env` é a verdade.** Gravar ou desligar o
+  Instagram pelo painel é ignorado/recusado: aceitar criaria uma segunda conta
+  que a tela mostraria e o worker não usaria.
+- **D31 — Configuração inválida desliga o modo, não o servidor.** Só uma das
+  duas variáveis, id não numérico ou data inválida: o erro vai para o log com
+  a frase do que corrigir, e o Instagram aparece como não conectado.
+- **D32 — A validade é informada, não descoberta.** `META_INSTAGRAM_TOKEN_EXPIRES_AT`
+  alimenta a mesma regra de aviso de qualquer conta (7 dias antes). Sem ela, o
+  painel avisa que não vai conseguir avisar.
+
+**Variáveis:**
+
+```
+META_INSTAGRAM_ACCESS_TOKEN="IGAA..."      # obrigatória
+META_INSTAGRAM_USER_ID="17841400000000000"  # obrigatória, numérica
+META_INSTAGRAM_USERNAME="radio7cidades"     # opcional, só exibição
+META_INSTAGRAM_TOKEN_EXPIRES_AT="2026-11-13" # opcional, recomendada
+```
+
+**Onde pegar o token:** painel do App → *Instagram → Configuração da API com
+login do Instagram* → adicionar a conta do cliente (ela precisa aceitar o
+convite de testadora no Instagram) → **Gerar token**. O id numérico aparece ao
+lado da conta.
+
+**Limites honestos:**
+
+- **Renovação é manual.** Vencido o token, gere outro e troque as variáveis.
+  A Meta tem `GET graph.instagram.com/refresh_access_token`, mas o token novo
+  precisaria ser gravado em algum lugar — e o `.env` não é gravável pelo
+  servidor. Se a renovação virar incômodo, o próximo passo é guardar o token no
+  banco, cifrado, como as contas do login.
+- **O pedido de exclusão de dados da Meta não apaga o token do `.env`** — só o
+  que está no banco. Quem administra o servidor precisa removê-lo.
+- **Escopos não são conferidos** pelo diagnóstico: o `GET /me` não os devolve.
+  Permissão faltando aparece no primeiro envio, traduzida pelo `graph-errors`.
+- **O modo depende do App em desenvolvimento com a conta como testadora.** Para
+  contas fora do App, continua valendo o roteiro de §14.3.
+

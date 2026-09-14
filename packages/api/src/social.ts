@@ -1,8 +1,18 @@
 import { createPrismaClient } from "@portal-app/db";
 import { env } from "@portal-app/env/server";
 import { SystemClock, UuidGenerator } from "@portal-app/shared-kernel";
-import { type DiagnoseDeps, forgetAllCredentials } from "@portal-app/social";
+import {
+	type ConnectionProbe,
+	type DiagnoseDeps,
+	forgetAllCredentials,
+	type SocialPlatform,
+} from "@portal-app/social";
+import {
+	EnvironmentInstagramAccountRepository,
+	environmentInstagramFrom,
+} from "@portal-app/social/infrastructure/environment-instagram";
 import { MetaGraphClient } from "@portal-app/social/infrastructure/meta/graph-client";
+import { InstagramLoginProbe } from "@portal-app/social/infrastructure/meta/instagram-login-probe";
 import { MetaConnectionProbe } from "@portal-app/social/infrastructure/meta/meta-connection-probe";
 import {
 	buildAuthorizeUrl,
@@ -36,10 +46,33 @@ const prisma = createPrismaClient();
  */
 const cipher = new TokenCipher(env.BETTER_AUTH_SECRET);
 
-export const socialAccountRepo = new PrismaSocialAccountRepository(
-	prisma,
-	cipher,
+/**
+ * O Instagram do cliente pelo `.env` (spec 08, §15). Configuração inválida NÃO
+ * derruba o servidor: o modo fica desligado, o erro vai para o log e o painel
+ * mostra o Instagram como não conectado.
+ */
+const parsedEnvironmentInstagram = environmentInstagramFrom({
+	accessToken: env.META_INSTAGRAM_ACCESS_TOKEN,
+	userId: env.META_INSTAGRAM_USER_ID,
+	username: env.META_INSTAGRAM_USERNAME,
+	tokenExpiresAt: env.META_INSTAGRAM_TOKEN_EXPIRES_AT,
+});
+if (parsedEnvironmentInstagram.isErr()) {
+	console.error(`[social] ${parsedEnvironmentInstagram.unwrapErr()}`);
+}
+const environmentInstagram = parsedEnvironmentInstagram.isOk()
+	? parsedEnvironmentInstagram.unwrap()
+	: null;
+
+export const socialAccountRepo = new EnvironmentInstagramAccountRepository(
+	new PrismaSocialAccountRepository(prisma, cipher),
+	environmentInstagram,
 );
+
+/** A conta desta rede vem do `.env`? A tela esconde conectar/desconectar. */
+export function isAccountFromEnvironment(platform: SocialPlatform): boolean {
+	return socialAccountRepo.isManagedByEnvironment(platform);
+}
 
 /** O caminho da volta do login. Precisa estar cadastrado, igual, no App. */
 export const META_CALLBACK_PATH = "/api/social/meta/callback";
@@ -63,6 +96,12 @@ export const metaConfig: MetaOAuthConfig | null =
 
 const graph = new MetaGraphClient({ version: env.META_GRAPH_VERSION });
 
+/** O host do token do login do Instagram — só usado com o Instagram do `.env`. */
+const instagramGraph = new MetaGraphClient({
+	version: env.META_GRAPH_VERSION,
+	baseUrl: "https://graph.instagram.com",
+});
+
 export const metaOAuth = metaConfig ? new MetaOAuth(metaConfig, graph) : null;
 
 /**
@@ -78,13 +117,17 @@ export const socialDeps = {
 	accounts: socialAccountRepo,
 	// Com o App configurado, o adapter real. Sem ele, o que RECUSA e diz por quê
 	// — nunca um dublê que finja sucesso (D17).
-	publisher: metaConfig
-		? new MetaSocialPublisher({
-				client: graph,
-				credentialsFor: (platform) =>
-					socialAccountRepo.credentialsFor(platform),
-			})
-		: new UnconfiguredSocialPublisher(),
+	// O Instagram do `.env` publica sem App configurado: o token já é a
+	// autorização inteira. O Facebook, nesse caso, cai em "nenhuma conta".
+	publisher:
+		metaConfig || environmentInstagram
+			? new MetaSocialPublisher({
+					client: graph,
+					instagramClient: environmentInstagram ? instagramGraph : undefined,
+					credentialsFor: (platform) =>
+						socialAccountRepo.credentialsFor(platform),
+				})
+			: new UnconfiguredSocialPublisher(),
 	images: new CroppedImageSource({
 		media: mediaDeps.repo,
 		storage: mediaStorage,
@@ -101,15 +144,42 @@ export const AUTO_POST_PLATFORMS = ["INSTAGRAM", "FACEBOOK"] as const;
  * armazenamento que monta as imagens publicadas: é ela que diz se a Meta vai
  * conseguir baixá-las.
  */
+const metaProbe = metaConfig
+	? new MetaConnectionProbe({
+			client: graph,
+			appId: metaConfig.appId,
+			appSecret: metaConfig.appSecret,
+		})
+	: null;
+
+const instagramProbe = environmentInstagram
+	? new InstagramLoginProbe({ client: instagramGraph })
+	: null;
+
+/** Cada conta é inspecionada pela sonda do tipo de token que ela usa. */
+const accountProbe: ConnectionProbe | null =
+	metaProbe || instagramProbe
+		? {
+				inspect: (credentials) => {
+					if (credentials.platform === "INSTAGRAM" && instagramProbe) {
+						return instagramProbe.inspect(credentials);
+					}
+					if (metaProbe) {
+						return metaProbe.inspect(credentials);
+					}
+					return Promise.resolve({
+						problems: [
+							"O login da Meta não está configurado neste ambiente (META_APP_ID e META_APP_SECRET).",
+						],
+						quota: null,
+					});
+				},
+			}
+		: null;
+
 export const diagnoseDeps: DiagnoseDeps = {
 	accounts: socialAccountRepo,
-	probe: metaConfig
-		? new MetaConnectionProbe({
-				client: graph,
-				appId: metaConfig.appId,
-				appSecret: metaConfig.appSecret,
-			})
-		: null,
+	probe: accountProbe,
 	clock: socialDeps.clock,
 	mediaSampleUrl: mediaStorage.publicUrl("social/diagnostico.jpg"),
 };

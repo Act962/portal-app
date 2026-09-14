@@ -22,6 +22,7 @@ import { z } from "zod";
 import { requirePermission, router } from "../index";
 import {
 	diagnoseDeps,
+	isAccountFromEnvironment,
 	META_PENDING_COOKIE,
 	metaOAuth,
 	readCookie,
@@ -100,6 +101,9 @@ function accountDto(account: SocialAccount, now: Date) {
 		tokenExpiresAt: account.tokenExpiresAt,
 		unusableReason: account.unusableReasonAt(now),
 		connectedAt: account.connectedAt,
+		/** Veio do `.env` (§15): a tela não oferece desconectar nem mostra data
+		 * de conexão, que não existe. */
+		managedByEnvironment: isAccountFromEnvironment(account.platform),
 	};
 }
 
@@ -225,7 +229,10 @@ export const socialRouter = router({
 
 	/** O App da Meta está configurado neste ambiente? A tela só oferece o login
 	 * quando está — sem ele, o botão levaria a um erro. */
-	metaStatus: publish.query(() => ({ configured: metaOAuth !== null })),
+	metaStatus: publish.query(() => ({
+		configured: metaOAuth !== null,
+		instagramFromEnvironment: isAccountFromEnvironment("INSTAGRAM"),
+	})),
 
 	/**
 	 * "Cada rede consegue publicar agora?", respondido SEM publicar: consulta a
@@ -297,12 +304,22 @@ export const socialRouter = router({
 				// A tela avisa quando a Página não tem Instagram vinculado: sem este
 				// sinal, a pessoa acharia que o Instagram também foi conectado.
 				instagramLinked: page.instagram !== null,
+				// Com o Instagram vindo do `.env`, o login NÃO o substitui — e a tela
+				// precisa dizer isso, senão "Página e Instagram conectados" mentiria.
+				instagramFromEnvironment: isAccountFromEnvironment("INSTAGRAM"),
 			};
 		}),
 
 	disconnect: manage
 		.input(z.object({ platform }))
 		.mutation(async ({ ctx, input }) => {
+			if (isAccountFromEnvironment(input.platform)) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message:
+						"Esta conta vem da configuração do ambiente (META_INSTAGRAM_*). Para desligá-la, remova as variáveis e reinicie o servidor.",
+				});
+			}
 			const account = ensure(
 				await disconnectAccount(ctx.staff, input, socialDeps),
 			);

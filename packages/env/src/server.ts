@@ -86,6 +86,15 @@ export const env = createEnv({
 			.string()
 			.regex(/^v\d+\.\d+$/)
 			.default("v25.0"),
+		// Instagram do cliente configurado pelo ambiente (spec 08, §15): token do
+		// LOGIN DO INSTAGRAM gerado no painel da Meta, sem passar pelo botão
+		// Conectar. Strings cruas de propósito — a validação (as duas juntas, id
+		// numérico, data) mora em `environmentInstagramFrom`, onde é testada e
+		// devolve a frase do que corrigir em vez de derrubar o servidor.
+		META_INSTAGRAM_ACCESS_TOKEN: z.string().optional(),
+		META_INSTAGRAM_USER_ID: z.string().optional(),
+		META_INSTAGRAM_USERNAME: z.string().optional(),
+		META_INSTAGRAM_TOKEN_EXPIRES_AT: z.string().optional(),
 		INNGEST_DEV: z.string().optional(),
 		INNGEST_SIGNING_KEY: z.string().min(1).optional(),
 		INNGEST_EVENT_KEY: z.string().min(1).optional(),

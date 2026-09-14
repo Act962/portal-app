@@ -15,6 +15,15 @@ import { readInstagramQuota } from "./publishing-quota";
 
 export type MetaPublisherDeps = {
 	client: MetaGraphClient;
+	/**
+	 * O cliente das chamadas do INSTAGRAM, quando ele usa outro host.
+	 *
+	 * Com o token do login do Instagram (o do `.env`, §15), as mesmas rotas —
+	 * `/media`, `/media_publish`, status do container, cota — são servidas por
+	 * `graph.instagram.com`. Sem este campo, o Instagram usa `client`
+	 * (`graph.facebook.com`, token de Página).
+	 */
+	instagramClient?: MetaGraphClient;
 	/** De onde vem o token, no instante da chamada — nunca guardado aqui. */
 	credentialsFor: (
 		platform: SocialPlatform,
@@ -60,6 +69,10 @@ export class MetaSocialPublisher implements SocialPublisher {
 		this.pollIntervalMs = deps.pollIntervalMs ?? 5000;
 	}
 
+	private get instagram(): MetaGraphClient {
+		return this.deps.instagramClient ?? this.deps.client;
+	}
+
 	async publish(
 		request: PublishRequest,
 	): Promise<Result<PublishSuccess, PublishFailure>> {
@@ -92,7 +105,7 @@ export class MetaSocialPublisher implements SocialPublisher {
 		token: string,
 	): Promise<Result<PublishSuccess, PublishFailure>> {
 		const igId = request.accountRemoteId;
-		const { client } = this.deps;
+		const client = this.instagram;
 
 		// A cota é LIDA da conta, não cravada (D13). Esgotada, nem cria container:
 		// a Meta recusaria o `media_publish` depois de a imagem já ter sido
@@ -173,7 +186,7 @@ export class MetaSocialPublisher implements SocialPublisher {
 		const mediaId = published.unwrap().id;
 		return ok({
 			remoteId: mediaId,
-			permalink: await this.permalink(mediaId, "permalink", token),
+			permalink: await this.permalink(client, mediaId, "permalink", token),
 		});
 	}
 
@@ -189,7 +202,7 @@ export class MetaSocialPublisher implements SocialPublisher {
 		token: string,
 	): Promise<Result<void, PublishFailure>> {
 		for (let attempt = 0; attempt < this.pollAttempts; attempt += 1) {
-			const status = await this.deps.client.get<StatusResponse>(
+			const status = await this.instagram.get<StatusResponse>(
 				containerId,
 				{ fields: "status_code" },
 				token,
@@ -253,7 +266,7 @@ export class MetaSocialPublisher implements SocialPublisher {
 			const postId = photo.unwrap().post_id ?? photo.unwrap().id;
 			return ok({
 				remoteId: postId,
-				permalink: await this.permalink(postId, "permalink_url", token),
+				permalink: await this.permalink(client, postId, "permalink_url", token),
 			});
 		}
 
@@ -295,7 +308,7 @@ export class MetaSocialPublisher implements SocialPublisher {
 		const postId = post.unwrap().id;
 		return ok({
 			remoteId: postId,
-			permalink: await this.permalink(postId, "permalink_url", token),
+			permalink: await this.permalink(client, postId, "permalink_url", token),
 		});
 	}
 
@@ -307,11 +320,12 @@ export class MetaSocialPublisher implements SocialPublisher {
 	 * reenviar — duplicando o post por causa de um campo cosmético.
 	 */
 	private async permalink(
+		client: MetaGraphClient,
 		id: string,
 		field: "permalink" | "permalink_url",
 		token: string,
 	): Promise<string | null> {
-		const result = await this.deps.client.get<Record<string, string>>(
+		const result = await client.get<Record<string, string>>(
 			id,
 			{ fields: field },
 			token,

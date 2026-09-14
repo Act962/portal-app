@@ -501,6 +501,61 @@ describe("MetaSocialPublisher — guardas", () => {
 	});
 });
 
+describe("MetaSocialPublisher — Instagram por outro host (token do .env, §15)", () => {
+	it("todas as chamadas do Instagram vão para o cliente do Instagram", async () => {
+		const facebook = fakeGraph(() => ({ body: {} }));
+		const instagram = fakeGraph((call) => {
+			if (call.path === "ig-1/content_publishing_limit") {
+				return { body: { data: [] } };
+			}
+			if (call.method === "POST" && call.path === "ig-1/media") {
+				return { body: { id: "c1" } };
+			}
+			if (call.path === "c1") {
+				return { body: { status_code: "FINISHED" } };
+			}
+			if (call.path === "ig-1/media_publish") {
+				return { body: { id: "m1" } };
+			}
+			return { body: { permalink: "https://instagram.com/p/x" } };
+		});
+
+		const result = await publisher(facebook.client, {
+			instagramClient: instagram.client,
+			checkQuota: true,
+		}).publish(request("INSTAGRAM"));
+
+		expect(result.unwrap()).toEqual({
+			remoteId: "m1",
+			permalink: "https://instagram.com/p/x",
+		});
+		expect(instagram.calls.map((c) => `${c.method} ${c.path}`)).toEqual([
+			"GET ig-1/content_publishing_limit",
+			"POST ig-1/media",
+			"GET c1",
+			"POST ig-1/media_publish",
+			"GET m1",
+		]);
+		expect(facebook.calls).toHaveLength(0);
+	});
+
+	it("o Facebook continua no cliente do Facebook", async () => {
+		const facebook = fakeGraph((call) =>
+			call.method === "POST"
+				? { body: { id: "f", post_id: "page-1_1" } }
+				: { body: {} },
+		);
+		const instagram = fakeGraph(() => ({ body: {} }));
+
+		await publisher(facebook.client, {
+			instagramClient: instagram.client,
+		}).publish(request("FACEBOOK"));
+
+		expect(facebook.calls.length).toBeGreaterThan(0);
+		expect(instagram.calls).toHaveLength(0);
+	});
+});
+
 describe("MetaSocialPublisher — cota do Instagram (D13)", () => {
 	const cota = (usage: number, total = 50): Reply => ({
 		body: {

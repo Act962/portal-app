@@ -233,6 +233,7 @@ export function SocialQueue() {
 											key={delivery.platform}
 											variant="ghost"
 											size="sm"
+											nativeButton={false}
 											render={
 												<a
 													href={delivery.permalink ?? "#"}
