@@ -59,10 +59,8 @@ usa. O editorial não fica sabendo que redes sociais existem.
 
 ### Não entra (e por quê)
 
-- **Stories e Reels.** Outra API, outro ciclo de vida (Stories somem em 24 h e
-  não aceitam link clicável abaixo de 10 mil seguidores; Reels exigem upload
-  assíncrono com polling de transcodificação). Cada um vale uma fatia própria
-  depois que o feed estiver rodando.
+- **Reels.** Exigem upload assíncrono de vídeo com polling de transcodificação —
+  vale uma fatia própria. *(Os Stories com imagem entraram em 14/09 — ver §17.)*
 - **Responder comentário e DM pelo painel.** É atendimento, não distribuição —
   outro contexto, outro conjunto de permissões.
 - **Métricas de alcance e engajamento.** A Insights API é outra superfície. O
@@ -715,3 +713,87 @@ de segundos a 5 minutos — confuso para quem acabou de aprovar.
 **Produção:** o envio de evento usa a `INNGEST_EVENT_KEY` (já prevista). Sem
 ela, a aprovação funciona e o post sai no cron, com aviso no log.
 
+
+---
+
+## 17. Stories do Instagram *(14/09/2026)*
+
+A redação marca **Stories do Instagram** no editor, ao lado de Instagram e
+Facebook, e a mesma aprovação põe a notícia no feed e nos Stories. Nada muda na
+fila, no disparo na aprovação (§16) ou nas tentativas automáticas.
+
+### 17.1 O que o código entregou
+
+| Onde | O quê |
+|---|---|
+| `domain/platform.ts` | `SocialDestination` (`INSTAGRAM` · `INSTAGRAM_STORIES` · `FACEBOOK`), `DESTINATION_PLATFORM`, `DESTINATION_FORMAT`, `DESTINATION_LABEL`, `destinationOf`; `PLATFORM_LIMITS` passa a ser por destino, com `publishesCaption`, `images` e `imageAspect` |
+| `domain/social-post.ts` | entregas por destino; `captionFor` devolve vazio nos Stories; `imagesFor` (Stories: só a primeira); impedimentos de legenda e de carrossel não valem para os Stories |
+| `domain/focal-crop.ts` | proporção `9:16` (1080×1920) e `storyLayout` — onde a foto inteira fica no quadro |
+| `application/publish-pending.ts` | conta pela REDE do destino, imagens e proporção pelo destino, `format` no pedido |
+| `infrastructure/meta/meta-social-publisher.ts` | fluxo `media_type=STORIES` (container → espera → `media_publish` → link), com a mesma cota do feed; story fora do Instagram é recusado sem chamar a Meta |
+| `packages/api/src/social-image.ts` | `renderStory`: foto inteira centrada sobre ela mesma ampliada, desfocada e escurecida |
+| Router | `platforms` e o filtro aceitam destinos; o DTO da entrega traz `destination` e `platform`; `previews` traz as imagens de cada destino |
+| Tela | chip "Stories do Instagram" no editor, aviso do que muda (`storyNotice`), sem contador de legenda para os Stories, botão "Ver o story (24 h)" |
+
+### 17.2 Decisões
+
+**D35 — Stories é DESTINO, não tipo de post.** É o D6 de novo: uma aprovação,
+uma entrega por destino. O story que falha não derruba o post do feed (o post
+fica `PARCIAL`), e o "Tentar de novo" reenvia só o story. Um "post de story"
+separado obrigaria a aprovar duas vezes a mesma notícia.
+
+**D36 — Rede é conta; destino é para onde vai.** `SocialPlatform` continua
+sendo o que se conecta, guarda token e tem cota. O feed e os Stories do
+Instagram usam a MESMA conta — `DESTINATION_PLATFORM` faz a ponte, e a
+mensagem "Nenhuma conta do Instagram" continua falando da conta, não do destino.
+
+**D37 — Nos Stories vai UMA imagem, a primeira.** Publicar um carrossel como
+vários stories em sequência criaria um meio-publicado sem conserto: o terceiro
+falha e o "Tentar de novo" duplicaria os dois primeiros. Um story por entrega
+mantém a garantia de nunca duplicar. A tela avisa quando o post tem mais de uma
+imagem.
+
+**D38 — Sem legenda.** A API de publicação de Stories não tem campo de texto.
+O destino não entra na medida da legenda (nem no impedimento, nem no contador),
+e `captionFor` devolve vazio.
+
+**D39 — A arte é a foto INTEIRA, não um corte.** Foto de notícia é quase sempre
+deitada; cortada em 9:16 viraria uma fatia de um terço. O quadro 1080×1920
+mostra a foto inteira centrada, e o espaço de cima e de baixo é a própria foto
+ampliada, desfocada e escurecida (o fundo segue o ponto focal). O desfoque é
+feito numa miniatura e ampliado: mesmo resultado, milissegundos em vez de
+segundos de CPU dentro da tarefa de envio. A geometria é pura e testada
+(`storyLayout`); o `sharp` só executa.
+
+**D40 — Nenhuma migration.** A coluna `social_delivery.platform` passa a guardar
+o destino. O feed de cada rede tem o nome dela, então as linhas antigas seguem
+válidas; o `@@unique([postId, platform])` continua valendo (feed e story são
+linhas diferentes). Os eventos mantêm os campos `platform`/`platforms` pelo
+mesmo motivo — o payload já gravado no outbox e na auditoria usa esses nomes.
+
+**D41 — Stories não entram no post automático por padrão.** O rascunho que
+nasce da matéria continua indo ao feed das duas redes (`AUTO_POST_PLATFORMS`).
+Story some em 24 h e não leva legenda; marcá-lo é escolha de quem aprova.
+Mudar o padrão é uma linha em `packages/api/src/social.ts`.
+
+### 17.3 Limites conhecidos
+
+- **Sem link, figurinha ou texto.** A API não publica link sticker, enquete nem
+  texto sobre o story. O que se lê no story é o que está desenhado na imagem.
+  Uma arte com o título da matéria desenhado é o próximo passo natural.
+- **Some em 24 h.** O link devolvido pela Meta deixa de abrir depois disso; a
+  entrega continua `PUBLICADO` no histórico, com o `remoteId`.
+- **Mesma cota do feed.** Story publicado por API conta no limite de 24 h da
+  conta — o diagnóstico e a checagem de cota já cobrem.
+- **Só imagem.** Story em vídeo depende do mesmo upload assíncrono dos Reels.
+- **Stories do Facebook ficam fora** — o foco é o Instagram; o adapter recusa
+  com `STORY_UNSUPPORTED` em vez de publicar no feed por engano.
+
+### 17.4 Como testar
+
+1. Na conta de testes (`META_INSTAGRAM_*` no `.env`), crie uma publicação com
+   uma imagem e marque **Instagram** e **Stories do Instagram**.
+2. Aprove. Em segundos, as duas entregas devem aparecer como "no ar"; o botão
+   "Ver o story (24 h)" abre o story.
+3. Confira no Instagram: o story mostra a foto inteira sobre o fundo desfocado.
+   A imagem gerada fica no armazenamento em `social/<mídia>-9x16-<x>-<y>.jpg`.

@@ -92,7 +92,7 @@ describe("Delivery", () => {
 
 	it("restore devolve a entrega do banco como ela estava", () => {
 		const delivery = Delivery.restore({
-			platform: "INSTAGRAM",
+			destination: "INSTAGRAM",
 			status: "FALHOU",
 			remoteId: null,
 			permalink: null,

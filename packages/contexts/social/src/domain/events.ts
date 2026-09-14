@@ -1,6 +1,6 @@
 import { DomainEvent } from "@portal-app/shared-kernel";
 
-import type { SocialPlatform } from "./platform";
+import type { SocialDestination } from "./platform";
 
 /**
  * Os eventos deste contexto existem para a AUDITORIA: eles entram no mesmo
@@ -8,6 +8,10 @@ import type { SocialPlatform } from "./platform";
  * nas redes, quando, e a mando de quem". Publicação em rede social é fala
  * pública do veículo — precisa de rastro pelo mesmo motivo que publicar matéria
  * precisa.
+ *
+ * Os campos continuam se chamando `platform`/`platforms` mesmo guardando um
+ * DESTINO (§17): o payload já está gravado no outbox e na auditoria com esse
+ * nome, e os valores antigos (`INSTAGRAM`, `FACEBOOK`) seguem válidos.
  */
 
 export class SocialPostDrafted extends DomainEvent {
@@ -15,7 +19,7 @@ export class SocialPostDrafted extends DomainEvent {
 	constructor(
 		readonly postId: string,
 		readonly articleId: string | null,
-		readonly platforms: readonly SocialPlatform[],
+		readonly platforms: readonly SocialDestination[],
 		occurredAt: Date,
 	) {
 		super(occurredAt);
@@ -27,7 +31,7 @@ export class SocialPostApproved extends DomainEvent {
 	constructor(
 		readonly postId: string,
 		readonly approvedByStaffId: string,
-		readonly platforms: readonly SocialPlatform[],
+		readonly platforms: readonly SocialDestination[],
 		occurredAt: Date,
 	) {
 		super(occurredAt);
@@ -38,7 +42,7 @@ export class SocialPostPublished extends DomainEvent {
 	readonly eventName = "SocialPostPublished";
 	constructor(
 		readonly postId: string,
-		readonly platform: SocialPlatform,
+		readonly platform: SocialDestination,
 		readonly remoteId: string,
 		readonly permalink: string | null,
 		occurredAt: Date,
@@ -51,7 +55,7 @@ export class SocialPostFailed extends DomainEvent {
 	readonly eventName = "SocialPostFailed";
 	constructor(
 		readonly postId: string,
-		readonly platform: SocialPlatform,
+		readonly platform: SocialDestination,
 		readonly reason: string,
 		occurredAt: Date,
 	) {

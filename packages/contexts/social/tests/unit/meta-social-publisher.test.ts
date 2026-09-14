@@ -71,6 +71,7 @@ const request = (
 	caption = "Chuva alaga o centro",
 ) => ({
 	platform,
+	format: "FEED" as const,
 	accountRemoteId: platform === "INSTAGRAM" ? "ig-1" : "page-1",
 	caption,
 	images,
@@ -553,6 +554,126 @@ describe("MetaSocialPublisher — Instagram por outro host (token do .env, §15)
 
 		expect(facebook.calls.length).toBeGreaterThan(0);
 		expect(instagram.calls).toHaveLength(0);
+	});
+});
+
+describe("MetaSocialPublisher — Stories do Instagram (§17)", () => {
+	const story = (images = [imagem("s1")]) => ({
+		...request("INSTAGRAM", images, ""),
+		format: "STORY" as const,
+	});
+
+	function roteiroDoStory(call: Call): Reply {
+		if (call.path === "ig-1/content_publishing_limit") {
+			return {
+				body: {
+					data: [{ quota_usage: 1, config: { quota_total: 100 } }],
+				},
+			};
+		}
+		if (call.method === "POST" && call.path === "ig-1/media") {
+			return { body: { id: "c-story" } };
+		}
+		if (call.path === "c-story") {
+			return { body: { status_code: "FINISHED" } };
+		}
+		if (call.path === "ig-1/media_publish") {
+			return { body: { id: "story-1" } };
+		}
+		return { body: { permalink: "https://instagram.com/stories/x/1" } };
+	}
+
+	it("container STORIES com a imagem e sem legenda; espera, publica e busca o link", async () => {
+		const { calls, client } = fakeGraph(roteiroDoStory);
+
+		const result = await publisher(client).publish(story());
+
+		expect(result.unwrap()).toEqual({
+			remoteId: "story-1",
+			permalink: "https://instagram.com/stories/x/1",
+		});
+		expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
+			"POST ig-1/media",
+			"GET c-story",
+			"POST ig-1/media_publish",
+			"GET story-1",
+		]);
+		expect(calls[0]?.params.get("media_type")).toBe("STORIES");
+		expect(calls[0]?.params.get("image_url")).toBe("https://cdn.test/s1.jpg");
+		expect(calls[0]?.params.has("caption")).toBe(false);
+		expect(calls[0]?.params.has("is_carousel_item")).toBe(false);
+		expect(calls[2]?.params.get("creation_id")).toBe("c-story");
+	});
+
+	it("com o token do .env, vai inteiro para o host do Instagram e consulta a cota", async () => {
+		const facebook = fakeGraph(() => ({ body: {} }));
+		const instagram = fakeGraph(roteiroDoStory);
+
+		const result = await publisher(facebook.client, {
+			instagramClient: instagram.client,
+			checkQuota: true,
+		}).publish(story());
+
+		expect(result.isOk()).toBe(true);
+		expect(instagram.calls[0]?.path).toBe("ig-1/content_publishing_limit");
+		expect(facebook.calls).toHaveLength(0);
+	});
+
+	it("cota esgotada barra o story antes de criar o container", async () => {
+		const { calls, client } = fakeGraph((call) =>
+			call.path === "ig-1/content_publishing_limit"
+				? {
+						body: {
+							data: [{ quota_usage: 100, config: { quota_total: 100 } }],
+						},
+					}
+				: roteiroDoStory(call),
+		);
+
+		const failure = (
+			await publisher(client, { checkQuota: true }).publish(story())
+		).unwrapErr();
+
+		expect(failure.providerCode).toBe("QUOTA_EXCEEDED");
+		expect(calls).toHaveLength(1);
+	});
+
+	it("erro ao criar o container do story é traduzido e não publica", async () => {
+		const { calls, client } = fakeGraph(() => ({
+			status: 400,
+			body: { error: { message: "bad image", code: 9004 } },
+		}));
+
+		const failure = (await publisher(client).publish(story())).unwrapErr();
+
+		expect(failure.reason).toContain("baixar a imagem");
+		expect(calls).toHaveLength(1);
+	});
+
+	it("story com ERROR no processamento não chega ao media_publish", async () => {
+		const { calls, client } = fakeGraph((call) =>
+			call.method === "POST"
+				? { body: { id: "c-story" } }
+				: { body: { status_code: "ERROR" } },
+		);
+		const failure = (await publisher(client).publish(story())).unwrapErr();
+		expect(failure.providerCode).toBe("CONTAINER_ERROR");
+		expect(calls.some((c) => c.path === "ig-1/media_publish")).toBe(false);
+	});
+
+	it("story no Facebook é recusado sem chamar a Meta", async () => {
+		const { calls, client } = fakeGraph(() => ({ body: {} }));
+
+		const failure = (
+			await publisher(client).publish({
+				...request("FACEBOOK"),
+				format: "STORY",
+			})
+		).unwrapErr();
+
+		expect(failure.providerCode).toBe("STORY_UNSUPPORTED");
+		expect(failure.retryable).toBe(false);
+		expect(calls).toHaveLength(0);
 	});
 });
 

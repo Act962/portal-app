@@ -3,7 +3,7 @@ import type { Page, PageRequest } from "@portal-app/shared-kernel";
 
 import { Caption } from "../domain/caption";
 import { Delivery, type DeliveryStatus } from "../domain/delivery";
-import type { SocialPlatform } from "../domain/platform";
+import type { SocialDestination } from "../domain/platform";
 import type {
 	SocialPostFilter,
 	SocialPostRepository,
@@ -40,7 +40,7 @@ export class PrismaSocialPostRepository implements SocialPostRepository {
 			for (const delivery of post.deliveries) {
 				const row = {
 					postId: post.id,
-					platform: delivery.platform,
+					platform: delivery.destination,
 					status: delivery.status,
 					remoteId: delivery.remoteId,
 					permalink: delivery.permalink,
@@ -50,7 +50,10 @@ export class PrismaSocialPostRepository implements SocialPostRepository {
 				};
 				await tx.socialDelivery.upsert({
 					where: {
-						postId_platform: { postId: post.id, platform: delivery.platform },
+						postId_platform: {
+							postId: post.id,
+							platform: delivery.destination,
+						},
 					},
 					create: row,
 					update: row,
@@ -198,7 +201,7 @@ function toDomain(row: PostRow): SocialPost {
 			.sort((a, b) => a.platform.localeCompare(b.platform))
 			.map((delivery) =>
 				Delivery.restore({
-					platform: delivery.platform as SocialPlatform,
+					destination: delivery.platform as SocialDestination,
 					status: delivery.status as DeliveryStatus,
 					remoteId: delivery.remoteId,
 					permalink: delivery.permalink,

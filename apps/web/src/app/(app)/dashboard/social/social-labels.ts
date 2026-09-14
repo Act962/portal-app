@@ -1,11 +1,11 @@
 import {
 	Caption,
+	DESTINATION_LABEL,
 	type DeliveryStatus,
 	type DiagnosisVerdict,
-	PLATFORM_LABEL,
 	PLATFORM_LIMITS,
 	type PostStatus,
-	type SocialPlatform,
+	type SocialDestination,
 } from "@portal-app/social";
 
 /**
@@ -73,7 +73,7 @@ export function availableActions(status: PostStatus): readonly PostAction[] {
 
 /** O contador de uma rede, como a tela o mostra. */
 export type CaptionCounter = {
-	platform: SocialPlatform;
+	destination: SocialDestination;
 	label: string;
 	length: number;
 	max: number;
@@ -93,22 +93,26 @@ export type CaptionCounter = {
  */
 export function captionCounters(
 	text: string,
-	platforms: readonly SocialPlatform[],
+	destinations: readonly SocialDestination[],
 ): readonly CaptionCounter[] {
 	const caption = Caption.restore(text);
-	return platforms.map((platform) => {
-		const limits = PLATFORM_LIMITS[platform];
-		return {
-			platform,
-			label: PLATFORM_LABEL[platform],
-			length: caption.length,
-			max: limits.captionMaxLength,
-			over: caption.exceedsLengthFor(platform),
-			hashtags: caption.hashtags.length,
-			hashtagMax: limits.hashtagMaxCount,
-			hashtagsOver: caption.exceedsHashtagsFor(platform),
-		};
-	});
+	// Destino que não publica legenda (os Stories) não ganha contador: medir um
+	// texto que ninguém vai ler só assustaria.
+	return destinations
+		.filter((destination) => PLATFORM_LIMITS[destination].publishesCaption)
+		.map((destination) => {
+			const limits = PLATFORM_LIMITS[destination];
+			return {
+				destination,
+				label: DESTINATION_LABEL[destination],
+				length: caption.length,
+				max: limits.captionMaxLength,
+				over: caption.exceedsLengthFor(destination),
+				hashtags: caption.hashtags.length,
+				hashtagMax: limits.hashtagMaxCount,
+				hashtagsOver: caption.exceedsHashtagsFor(destination),
+			};
+		});
 }
 
 /**
@@ -118,7 +122,10 @@ export function captionCounters(
  * post está. A ordem é a das entregas, que o repositório já devolve estável.
  */
 export function summarizeDeliveries(
-	deliveries: readonly { platform: SocialPlatform; status: DeliveryStatus }[],
+	deliveries: readonly {
+		destination: SocialDestination;
+		status: DeliveryStatus;
+	}[],
 ): string {
 	if (deliveries.length === 0) {
 		return "Nenhuma rede escolhida";
@@ -126,9 +133,40 @@ export function summarizeDeliveries(
 	return deliveries
 		.map(
 			(delivery) =>
-				`${PLATFORM_LABEL[delivery.platform]} ${DELIVERY_STATUS_LABELS[delivery.status]}`,
+				`${DESTINATION_LABEL[delivery.destination]} ${DELIVERY_STATUS_LABELS[delivery.status]}`,
 		)
 		.join(" · ");
+}
+
+/**
+ * O texto do botão que abre o post publicado. "Ver no Stories do Instagram"
+ * seria português torto — e o story some em 24 h, o que vale lembrar no botão.
+ */
+export function permalinkLabel(destination: SocialDestination): string {
+	switch (destination) {
+		case "INSTAGRAM_STORIES":
+			return "Ver o story (24 h)";
+		default:
+			return `Ver no ${DESTINATION_LABEL[destination]}`;
+	}
+}
+
+/**
+ * O aviso do editor quando os Stories estão entre os destinos: o que muda no
+ * que sai lá. `null` quando não há Stories.
+ */
+export function storyNotice(
+	destinations: readonly SocialDestination[],
+	mediaCount: number,
+): string | null {
+	if (!destinations.includes("INSTAGRAM_STORIES")) {
+		return null;
+	}
+	const base =
+		"Nos Stories sai só a imagem, em tela cheia (1080×1920) sobre um fundo desfocado, sem legenda — e some depois de 24 h.";
+	return mediaCount > 1
+		? `${base} Das ${mediaCount} imagens, vai só a primeira.`
+		: base;
 }
 
 /** Corta a legenda para caber no cartão, sem partir palavra ao meio. */

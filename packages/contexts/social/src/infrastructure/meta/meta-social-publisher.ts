@@ -45,7 +45,7 @@ type StatusResponse = { status_code?: string };
 
 /**
  * O adapter real da porta `SocialPublisher`: Instagram e Página do Facebook
- * pela Graph API (spec 08, §6.5).
+ * pela Graph API (spec 08, §6.5), no feed e nos Stories do Instagram (§17).
  *
  * É o **único arquivo** do sistema que conhece container, `creation_id`,
  * `media_publish` e `attached_media`. Nenhum caso de uso sabe que publicar no
@@ -84,6 +84,15 @@ export class MetaSocialPublisher implements SocialPublisher {
 				retryable: false,
 			});
 		}
+		// O domínio não oferece Stories do Facebook; a guarda existe para quem
+		// chamar a porta direto não receber um post de feed no lugar do story.
+		if (request.format === "STORY" && request.platform !== "INSTAGRAM") {
+			return err({
+				reason: `Esta integração não publica Stories no ${label}.`,
+				retryable: false,
+				providerCode: "STORY_UNSUPPORTED",
+			});
+		}
 
 		const credentials = await this.deps.credentialsFor(request.platform);
 		if (!credentials) {
@@ -93,9 +102,12 @@ export class MetaSocialPublisher implements SocialPublisher {
 			});
 		}
 
-		return request.platform === "INSTAGRAM"
-			? this.publishInstagram(request, credentials.accessToken)
-			: this.publishFacebook(request, credentials.accessToken);
+		if (request.platform === "FACEBOOK") {
+			return this.publishFacebook(request, credentials.accessToken);
+		}
+		return request.format === "STORY"
+			? this.publishInstagramStory(request, credentials.accessToken)
+			: this.publishInstagram(request, credentials.accessToken);
 	}
 
 	// ── Instagram ──────────────────────────────────────────────────────────────
@@ -107,19 +119,9 @@ export class MetaSocialPublisher implements SocialPublisher {
 		const igId = request.accountRemoteId;
 		const client = this.instagram;
 
-		// A cota é LIDA da conta, não cravada (D13). Esgotada, nem cria container:
-		// a Meta recusaria o `media_publish` depois de a imagem já ter sido
-		// processada. Não é repetível pelo worker — a cota volta em horas, não nos
-		// quinze minutos das tentativas automáticas.
-		if (this.deps.checkQuota ?? true) {
-			const quota = await readInstagramQuota(client, igId, token);
-			if (quota && quota.used >= quota.total) {
-				return err({
-					reason: `O Instagram atingiu o limite de ${quota.total} publicações em 24 horas. Tente de novo mais tarde.`,
-					retryable: false,
-					providerCode: "QUOTA_EXCEEDED",
-				});
-			}
+		const blocked = await this.quotaFailure(igId, token);
+		if (blocked) {
+			return err(blocked);
 		}
 
 		let creationId: string;
@@ -168,6 +170,73 @@ export class MetaSocialPublisher implements SocialPublisher {
 			}
 			creationId = carousel.unwrap().id;
 		}
+
+		return this.publishContainer(igId, creationId, token);
+	}
+
+	/**
+	 * Story: um container `media_type=STORIES` com UMA imagem, sem legenda.
+	 *
+	 * A imagem já chega em 1080×1920 (o `SocialImageSource` a monta com a foto
+	 * inteira sobre o fundo desfocado); aqui só se publica. A cota é a mesma do
+	 * feed — story publicado por API conta no limite de 24 h da conta.
+	 */
+	private async publishInstagramStory(
+		request: PublishRequest,
+		token: string,
+	): Promise<Result<PublishSuccess, PublishFailure>> {
+		const igId = request.accountRemoteId;
+
+		const blocked = await this.quotaFailure(igId, token);
+		if (blocked) {
+			return err(blocked);
+		}
+
+		const [image] = request.images as [PublishableImage];
+		const container = await this.instagram.post<IdResponse>(
+			`${igId}/media`,
+			{ media_type: "STORIES", image_url: image.url },
+			token,
+		);
+		if (container.isErr()) {
+			return this.fail(container.unwrapErr(), "INSTAGRAM");
+		}
+
+		return this.publishContainer(igId, container.unwrap().id, token);
+	}
+
+	/**
+	 * A cota é LIDA da conta, não cravada (D13). Esgotada, nem cria container: a
+	 * Meta recusaria o `media_publish` depois de a imagem já ter sido
+	 * processada. Não é repetível pelo worker — a cota volta em horas, não nos
+	 * quinze minutos das tentativas automáticas.
+	 */
+	private async quotaFailure(
+		igId: string,
+		token: string,
+	): Promise<PublishFailure | null> {
+		if (!(this.deps.checkQuota ?? true)) {
+			return null;
+		}
+		const quota = await readInstagramQuota(this.instagram, igId, token);
+		if (quota && quota.used >= quota.total) {
+			return {
+				reason: `O Instagram atingiu o limite de ${quota.total} publicações em 24 horas. Tente de novo mais tarde.`,
+				retryable: false,
+				providerCode: "QUOTA_EXCEEDED",
+			};
+		}
+		return null;
+	}
+
+	/** Espera o container terminar, publica e busca o link — igual para foto,
+	 * carrossel e story. */
+	private async publishContainer(
+		igId: string,
+		creationId: string,
+		token: string,
+	): Promise<Result<PublishSuccess, PublishFailure>> {
+		const client = this.instagram;
 
 		const ready = await this.waitUntilFinished(creationId, token);
 		if (ready.isErr()) {

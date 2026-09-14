@@ -15,9 +15,9 @@ import {
 	SocialPostPublished,
 } from "./events";
 import {
-	PLATFORM_LABEL,
+	DESTINATION_LABEL,
 	PLATFORM_LIMITS,
-	type SocialPlatform,
+	type SocialDestination,
 } from "./platform";
 
 /**
@@ -66,7 +66,7 @@ type PostProps = {
 
 /**
  * Um post a caminho das redes — uma legenda, um conjunto de imagens e uma
- * entrega por rede escolhida.
+ * entrega por destino escolhido (o feed de cada rede, os Stories).
  *
  * O fluxo, e por que ele tem esta forma:
  *
@@ -102,7 +102,9 @@ export class SocialPost extends AggregateRoot<string> {
 		captionText: string;
 		mediaIds: readonly string[];
 		linkUrl?: string | null;
-		platforms: readonly SocialPlatform[];
+		/** Os DESTINOS escolhidos. Chama-se `platforms` porque nasceu antes dos
+		 * Stories, e o feed de cada rede tem o nome dela. */
+		platforms: readonly SocialDestination[];
 		createdAt: Date;
 	}): Result<SocialPost, CaptionRequired | InvalidMediaSelection> {
 		const caption = Caption.create(input.captionText);
@@ -121,8 +123,8 @@ export class SocialPost extends AggregateRoot<string> {
 			caption: caption.value,
 			mediaIds: media.value,
 			linkUrl: input.linkUrl ?? null,
-			deliveries: uniquePlatforms(input.platforms).map((platform) =>
-				Delivery.pending(platform),
+			deliveries: uniqueDestinations(input.platforms).map((destination) =>
+				Delivery.pending(destination),
 			),
 			// Nasce RASCUNHO mesmo vindo de matéria já publicada: a decisão do
 			// cliente (D1) é que ninguém seja surpreendido por um post que não leu.
@@ -182,27 +184,31 @@ export class SocialPost extends AggregateRoot<string> {
 		return this.state.approvedByStaffId;
 	}
 
-	/** As redes escolhidas. */
-	get targets(): readonly SocialPlatform[] {
-		return this.state.deliveries.map((delivery) => delivery.platform);
+	/** Os destinos escolhidos. */
+	get targets(): readonly SocialDestination[] {
+		return this.state.deliveries.map((delivery) => delivery.destination);
 	}
 
 	/**
-	 * A legenda como ela sai NESTA rede.
+	 * A legenda como ela sai NESTE destino.
 	 *
-	 * A diferença entre as duas é UMA linha — o link — e é aqui que ela mora, e
-	 * não numa segunda legenda guardada no agregado. O motivo é o D8: o que foi
-	 * aprovado é um texto só. Duas legendas significariam aprovar duas vezes, e
-	 * no dia em que alguém corrigisse só uma, o veículo estaria dizendo coisas
-	 * diferentes em cada rede sem ninguém perceber.
+	 * A diferença entre os destinos é UMA linha — o link — e é aqui que ela
+	 * mora, e não numa segunda legenda guardada no agregado. O motivo é o D8: o
+	 * que foi aprovado é um texto só. Duas legendas significariam aprovar duas
+	 * vezes, e no dia em que alguém corrigisse só uma, o veículo estaria dizendo
+	 * coisas diferentes em cada rede sem ninguém perceber.
 	 *
 	 * No Instagram a URL não é clicável, então ela não entra. No Facebook entra —
 	 * e não é acrescentada se a pessoa já a escreveu na legenda à mão, o que é o
-	 * caso mais comum de duplicata boba.
+	 * caso mais comum de duplicata boba. Nos Stories não há legenda nenhuma.
 	 */
-	captionFor(platform: SocialPlatform): string {
+	captionFor(destination: SocialDestination): string {
+		const limits = PLATFORM_LIMITS[destination];
+		if (!limits.publishesCaption) {
+			return "";
+		}
 		const text = this.state.caption.value;
-		if (!PLATFORM_LIMITS[platform].captionLinksAreClickable) {
+		if (!limits.captionLinksAreClickable) {
 			return text;
 		}
 		if (this.state.linkUrl === null || text.includes(this.state.linkUrl)) {
@@ -211,14 +217,27 @@ export class SocialPost extends AggregateRoot<string> {
 		return `${text}\n\n${this.state.linkUrl}`;
 	}
 
+	/**
+	 * As imagens que vão para ESTE destino, na ordem.
+	 *
+	 * No feed, todas (uma é foto, várias são carrossel). No story, só a primeira
+	 * — a capa. A regra mora aqui, e não no worker, pelo mesmo motivo do
+	 * `captionFor`: a tela precisa dizer ANTES da aprovação o que vai sair.
+	 */
+	imagesFor(destination: SocialDestination): readonly string[] {
+		return PLATFORM_LIMITS[destination].images === "FIRST"
+			? this.state.mediaIds.slice(0, 1)
+			: this.state.mediaIds;
+	}
+
 	/** Uma imagem é foto; duas ou mais, carrossel. */
 	get isCarousel(): boolean {
 		return this.state.mediaIds.length > 1;
 	}
 
-	deliveryFor(platform: SocialPlatform): Delivery | undefined {
+	deliveryFor(destination: SocialDestination): Delivery | undefined {
 		return this.state.deliveries.find(
-			(delivery) => delivery.platform === platform,
+			(delivery) => delivery.destination === destination,
 		);
 	}
 
@@ -245,19 +264,26 @@ export class SocialPost extends AggregateRoot<string> {
 			blockers.push("A publicação precisa de ao menos uma imagem.");
 		}
 
-		for (const platform of this.targets) {
-			const limits = PLATFORM_LIMITS[platform];
-			const label = PLATFORM_LABEL[platform];
+		for (const destination of this.targets) {
+			const limits = PLATFORM_LIMITS[destination];
+			const label = DESTINATION_LABEL[destination];
 
-			if (this.state.caption.exceedsLengthFor(platform)) {
-				blockers.push(
-					`A legenda tem ${this.state.caption.length} caracteres e o ${label} aceita ${limits.captionMaxLength}.`,
-				);
+			// Destino sem legenda (Stories) não tem o que medir no texto.
+			if (limits.publishesCaption) {
+				if (this.state.caption.exceedsLengthFor(destination)) {
+					blockers.push(
+						`A legenda tem ${this.state.caption.length} caracteres e o ${label} aceita ${limits.captionMaxLength}.`,
+					);
+				}
+				if (this.state.caption.exceedsHashtagsFor(destination)) {
+					blockers.push(
+						`São ${this.state.caption.hashtags.length} hashtags e o ${label} aceita ${limits.hashtagMaxCount}.`,
+					);
+				}
 			}
-			if (this.state.caption.exceedsHashtagsFor(platform)) {
-				blockers.push(
-					`São ${this.state.caption.hashtags.length} hashtags e o ${label} aceita ${limits.hashtagMaxCount}.`,
-				);
+			// Destino que usa só a primeira imagem não é barrado pelo carrossel.
+			if (limits.images === "FIRST") {
+				continue;
 			}
 			if (this.state.mediaIds.length > limits.mediaMaxCount) {
 				blockers.push(
@@ -285,7 +311,7 @@ export class SocialPost extends AggregateRoot<string> {
 		captionText?: string;
 		mediaIds?: readonly string[];
 		linkUrl?: string | null;
-		platforms?: readonly SocialPlatform[];
+		platforms?: readonly SocialDestination[];
 	}): Result<
 		void,
 		CaptionRequired | InvalidMediaSelection | InvalidPostTransition
@@ -313,8 +339,8 @@ export class SocialPost extends AggregateRoot<string> {
 		if (input.platforms !== undefined) {
 			// As entregas são recriadas do zero: nada foi ao ar (o post está em
 			// RASCUNHO, garantido acima), então não há histórico a preservar.
-			this.state.deliveries = uniquePlatforms(input.platforms).map((platform) =>
-				Delivery.pending(platform),
+			this.state.deliveries = uniqueDestinations(input.platforms).map(
+				(destination) => Delivery.pending(destination),
 			);
 		}
 		return ok(undefined);
@@ -345,20 +371,20 @@ export class SocialPost extends AggregateRoot<string> {
 		return ok(undefined);
 	}
 
-	/** A rede aceitou. O `remoteId` é a prova, e nunca mais será sobrescrito. */
+	/** O destino aceitou. O `remoteId` é a prova, e nunca mais será sobrescrito. */
 	recordSuccess(
-		platform: SocialPlatform,
+		destination: SocialDestination,
 		remoteId: string,
 		permalink: string | null,
 		at: Date,
 	): void {
-		const delivery = this.deliveryFor(platform);
+		const delivery = this.deliveryFor(destination);
 		if (!delivery || delivery.isPublished()) {
 			return;
 		}
 		delivery.markPublished(remoteId, permalink, at);
 		this.record(
-			new SocialPostPublished(this.id, platform, remoteId, permalink, at),
+			new SocialPostPublished(this.id, destination, remoteId, permalink, at),
 		);
 		this.refreshStatus();
 	}
@@ -381,12 +407,12 @@ export class SocialPost extends AggregateRoot<string> {
 	 * registra o que deixou de ir ao ar, não cada soluço da rede.
 	 */
 	recordFailure(
-		platform: SocialPlatform,
+		destination: SocialDestination,
 		reason: string,
 		at: Date,
 		options: { retryable?: boolean } = {},
 	): void {
-		const delivery = this.deliveryFor(platform);
+		const delivery = this.deliveryFor(destination);
 		if (!delivery || delivery.isPublished()) {
 			return;
 		}
@@ -402,7 +428,7 @@ export class SocialPost extends AggregateRoot<string> {
 			? `${reason} Foram ${MAX_AUTOMATIC_ATTEMPTS} tentativas automáticas sem sucesso — use "Tentar de novo" quando o problema passar.`
 			: reason;
 		delivery.markFailed(finalReason, at);
-		this.record(new SocialPostFailed(this.id, platform, finalReason, at));
+		this.record(new SocialPostFailed(this.id, destination, finalReason, at));
 		this.refreshStatus();
 	}
 
@@ -503,8 +529,8 @@ function normalizeMedia(
 }
 
 /** Escolher "Instagram" duas vezes na tela não pode virar dois envios. */
-function uniquePlatforms(
-	platforms: readonly SocialPlatform[],
-): readonly SocialPlatform[] {
-	return [...new Set(platforms)];
+function uniqueDestinations(
+	destinations: readonly SocialDestination[],
+): readonly SocialDestination[] {
+	return [...new Set(destinations)];
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import {
+	DESTINATION_LABEL,
 	MAX_MEDIA_ITEMS,
-	PLATFORM_LABEL,
+	SOCIAL_DESTINATIONS,
 	SOCIAL_PLATFORMS,
-	type SocialPlatform,
+	type SocialDestination,
 } from "@portal-app/social";
 import { Button } from "@portal-app/ui/components/button";
 import {
@@ -34,18 +35,20 @@ import { AssetImage } from "@/components/media/asset-image";
 import { MediaPickerDialog } from "@/components/media/media-picker-dialog";
 import { trpc } from "@/utils/trpc";
 
-import { captionCounters } from "./social-labels";
+import { captionCounters, storyNotice } from "./social-labels";
 
 type Form = {
 	captionText: string;
 	mediaIds: string[];
-	platforms: SocialPlatform[];
+	platforms: SocialDestination[];
 	linkUrl: string;
 };
 
 const EMPTY: Form = {
 	captionText: "",
 	mediaIds: [],
+	// O feed das duas redes. Stories é escolha explícita: some em 24 h e não
+	// leva legenda, então não é o padrão de uma notícia.
 	platforms: [...SOCIAL_PLATFORMS],
 	linkUrl: "",
 };
@@ -96,7 +99,7 @@ export function PostDialog({
 			setForm({
 				captionText: post.data.caption,
 				mediaIds: [...post.data.mediaIds],
-				platforms: post.data.deliveries.map((d) => d.platform),
+				platforms: post.data.deliveries.map((d) => d.destination),
 				linkUrl: post.data.linkUrl ?? "",
 			});
 		} else if (!postId) {
@@ -158,6 +161,7 @@ export function PostDialog({
 		saveBeforeApprove.isPending ||
 		approve.isPending;
 	const counters = captionCounters(form.captionText, form.platforms);
+	const notice = storyNotice(form.platforms, form.mediaIds.length);
 
 	/**
 	 * Os impedimentos vêm do SERVIDOR (`post.blockers`), que os calcula no
@@ -218,19 +222,21 @@ export function PostDialog({
 					<div className="flex flex-col gap-2">
 						<Label>Redes</Label>
 						<div className="flex flex-wrap gap-2">
-							{SOCIAL_PLATFORMS.map((platform) => {
-								const checked = form.platforms.includes(platform);
+							{SOCIAL_DESTINATIONS.map((destination) => {
+								const checked = form.platforms.includes(destination);
 								return (
 									<button
-										key={platform}
+										key={destination}
 										type="button"
 										disabled={!editable || busy}
 										onClick={() =>
 											setForm({
 												...form,
 												platforms: checked
-													? form.platforms.filter((item) => item !== platform)
-													: [...form.platforms, platform],
+													? form.platforms.filter(
+															(item) => item !== destination,
+														)
+													: [...form.platforms, destination],
 											})
 										}
 										className={cn(
@@ -242,11 +248,14 @@ export function PostDialog({
 										)}
 										aria-pressed={checked}
 									>
-										{PLATFORM_LABEL[platform]}
+										{DESTINATION_LABEL[destination]}
 									</button>
 								);
 							})}
 						</div>
+						{notice ? (
+							<p className="text-muted-foreground text-xs">{notice}</p>
+						) : null}
 					</div>
 
 					<div className="flex flex-col gap-2">
@@ -264,7 +273,7 @@ export function PostDialog({
 						<div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
 							{counters.map((counter) => (
 								<span
-									key={counter.platform}
+									key={counter.destination}
 									className={cn(
 										"tabular-nums",
 										counter.over || counter.hashtagsOver

@@ -67,7 +67,10 @@ model SocialDelivery {
   postId String
   post   SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  /// "INSTAGRAM" | "FACEBOOK".
+  /// O DESTINO da entrega: "INSTAGRAM" | "INSTAGRAM_STORIES" | "FACEBOOK"
+  /// (spec 08, §17). A coluna guarda o nome antigo porque o feed de cada rede
+  /// tem o nome dela — as linhas gravadas antes dos Stories seguem válidas, e
+  /// nenhuma migration foi preciso.
   platform String
 
   /// "PENDENTE" | "PUBLICADO" | "FALHOU".

@@ -1,4 +1,4 @@
-import type { SocialPlatform } from "./platform";
+import type { SocialDestination } from "./platform";
 
 /**
  * O estado da ENTREGA em uma rede. Não confundir com o estado do post: um post
@@ -7,7 +7,9 @@ import type { SocialPlatform } from "./platform";
 export type DeliveryStatus = "PENDENTE" | "PUBLICADO" | "FALHOU";
 
 type DeliveryProps = {
-	platform: SocialPlatform;
+	/** Para onde vai: o feed de uma rede ou os Stories (§17). A conta que
+	 * publica sai daqui, por `DESTINATION_PLATFORM`. */
+	destination: SocialDestination;
 	status: DeliveryStatus;
 	/** O id do post NA REDE (`ig_media_id`, `page_post_id`). É a prova de que
 	 * saiu — e a razão de nunca reenviarmos esta entrega. */
@@ -37,9 +39,9 @@ type DeliveryProps = {
 export class Delivery {
 	private constructor(private readonly state: DeliveryProps) {}
 
-	static pending(platform: SocialPlatform): Delivery {
+	static pending(destination: SocialDestination): Delivery {
 		return new Delivery({
-			platform,
+			destination,
 			status: "PENDENTE",
 			remoteId: null,
 			permalink: null,
@@ -53,8 +55,8 @@ export class Delivery {
 		return new Delivery({ ...props });
 	}
 
-	get platform(): SocialPlatform {
-		return this.state.platform;
+	get destination(): SocialDestination {
+		return this.state.destination;
 	}
 	get status(): DeliveryStatus {
 		return this.state.status;

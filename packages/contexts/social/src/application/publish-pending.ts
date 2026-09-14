@@ -1,6 +1,13 @@
 import type { Clock } from "@portal-app/shared-kernel";
 
-import { PLATFORM_LABEL, type SocialPlatform } from "../domain/platform";
+import type { CropAspect } from "../domain/focal-crop";
+import {
+	DESTINATION_FORMAT,
+	DESTINATION_PLATFORM,
+	PLATFORM_LABEL,
+	PLATFORM_LIMITS,
+	type SocialDestination,
+} from "../domain/platform";
 import type { SocialAccountRepository } from "../domain/ports/social-account-repository";
 import type { SocialPostRepository } from "../domain/ports/social-post-repository";
 import type {
@@ -66,7 +73,7 @@ export async function publishPendingPosts(
 
 	for (const post of posts) {
 		for (const delivery of [...post.pendingDeliveries()]) {
-			totals[await deliver(post, delivery.platform, deps)] += 1;
+			totals[await deliver(post, delivery.destination, deps)] += 1;
 			// Uma gravação por entrega — ver o porquê no cabeçalho.
 			await deps.repo.save(post);
 		}
@@ -77,16 +84,18 @@ export async function publishPendingPosts(
 
 async function deliver(
 	post: SocialPost,
-	platform: SocialPlatform,
+	destination: SocialDestination,
 	deps: PublishPendingDeps,
 ): Promise<Outcome> {
 	const now = deps.clock.now();
+	// A CONTA é da rede: o feed e os Stories do Instagram publicam com a mesma.
+	const platform = DESTINATION_PLATFORM[destination];
 	const label = PLATFORM_LABEL[platform];
 
 	const account = await deps.accounts.findByPlatform(platform);
 	if (!account) {
 		post.recordFailure(
-			platform,
+			destination,
 			`Nenhuma conta do ${label} está conectada ao portal.`,
 			now,
 		);
@@ -94,17 +103,21 @@ async function deliver(
 	}
 	if (!account.isUsableAt(now)) {
 		post.recordFailure(
-			platform,
+			destination,
 			`A conta do ${label} não pode publicar: ${account.unusableReasonAt(now)}.`,
 			now,
 		);
 		return "failed";
 	}
 
-	const images = await resolveImages(post, deps);
+	const images = await resolveImages(
+		post.imagesFor(destination),
+		PLATFORM_LIMITS[destination].imageAspect,
+		deps,
+	);
 	if (images === null) {
 		post.recordFailure(
-			platform,
+			destination,
 			"Uma das imagens não está mais na biblioteca de mídia.",
 			now,
 		);
@@ -118,7 +131,7 @@ async function deliver(
 		const problem = mediaUrlProblem(image.url);
 		if (problem) {
 			post.recordFailure(
-				platform,
+				destination,
 				`O ${label} não consegue baixar a imagem: ${problem}.`,
 				now,
 			);
@@ -128,40 +141,43 @@ async function deliver(
 
 	const result = await deps.publisher.publish({
 		platform,
+		format: DESTINATION_FORMAT[destination],
 		accountRemoteId: account.remoteId,
-		// A legenda como ela sai NESTA rede — o link entra só onde é clicável.
-		caption: post.captionFor(platform),
+		// A legenda como ela sai NESTE destino — o link entra só onde é clicável,
+		// e nos Stories não há legenda.
+		caption: post.captionFor(destination),
 		images,
 		linkUrl: post.linkUrl,
 	});
 
 	if (result.isErr()) {
 		const failure = result.unwrapErr();
-		post.recordFailure(platform, failure.reason, now, {
+		post.recordFailure(destination, failure.reason, now, {
 			retryable: failure.retryable,
 		});
-		return post.deliveryFor(platform)?.isPending() ? "retrying" : "failed";
+		return post.deliveryFor(destination)?.isPending() ? "retrying" : "failed";
 	}
 
 	const success = result.unwrap();
-	post.recordSuccess(platform, success.remoteId, success.permalink, now);
+	post.recordSuccess(destination, success.remoteId, success.permalink, now);
 	return "published";
 }
 
 /**
  * Resolve os ids da biblioteca nas imagens que a Meta vai baixar.
  *
- * `1:1` porque é o corte do feed e o que o cliente pediu (D3). Devolve `null`
- * se qualquer uma sumiu — publicar um carrossel com um buraco no meio seria
- * pior do que não publicar, e a mensagem diz o que houve.
+ * A proporção vem do destino: `1:1` no feed (D3), `9:16` no story. Devolve
+ * `null` se qualquer uma sumiu — publicar um carrossel com um buraco no meio
+ * seria pior do que não publicar, e a mensagem diz o que houve.
  */
 async function resolveImages(
-	post: SocialPost,
+	mediaIds: readonly string[],
+	aspect: CropAspect,
 	deps: PublishPendingDeps,
 ): Promise<readonly PublishableImage[] | null> {
 	const images: PublishableImage[] = [];
-	for (const mediaId of post.mediaIds) {
-		const image = await deps.images.resolve(mediaId, "1:1");
+	for (const mediaId of mediaIds) {
+		const image = await deps.images.resolve(mediaId, aspect);
 		if (!image) {
 			return null;
 		}

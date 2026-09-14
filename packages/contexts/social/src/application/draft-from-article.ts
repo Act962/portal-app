@@ -5,7 +5,7 @@ import {
 	DEFAULT_CAPTION_TEMPLATE,
 	renderCaption,
 } from "../domain/caption-template";
-import type { SocialPlatform } from "../domain/platform";
+import type { SocialDestination } from "../domain/platform";
 import type { SocialPostRepository } from "../domain/ports/social-post-repository";
 import type { SocialPost } from "../domain/social-post";
 import { SocialPost as Post } from "../domain/social-post";
@@ -28,8 +28,8 @@ export type DraftFromArticleDeps = {
 	repo: SocialPostRepository;
 	clock: Clock;
 	ids: IdGenerator;
-	/** As redes que recebem o post automático. */
-	platforms: readonly SocialPlatform[];
+	/** Os destinos que recebem o post automático (feed, Stories). */
+	platforms: readonly SocialDestination[];
 	/** O modelo da legenda. Injetado para a tela de configuração poder trocá-lo
 	 * sem que este módulo saiba onde ele é guardado. */
 	template?: string;

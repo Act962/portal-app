@@ -1,7 +1,11 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 
-import { CroppedImageSource, renderCrop } from "../../src/social-image";
+import {
+	CroppedImageSource,
+	renderCrop,
+	renderStory,
+} from "../../src/social-image";
 
 /**
  * Uma imagem de verdade, gerada em memória: metade esquerda vermelha, metade
@@ -108,6 +112,54 @@ describe("renderCrop", () => {
 	});
 });
 
+async function pixelAt(jpeg: Buffer, x: number, y: number) {
+	const { data, info } = await sharp(jpeg)
+		.raw()
+		.toBuffer({ resolveWithObject: true });
+	const offset = (y * info.width + x) * info.channels;
+	return {
+		r: data[offset] ?? 0,
+		g: data[offset + 1] ?? 0,
+		b: data[offset + 2] ?? 0,
+	};
+}
+
+describe("renderStory (§17)", () => {
+	it("gera JPEG 1080×1920", async () => {
+		const meta = await sharp(
+			await renderStory(await halfRedHalfBlue(), { x: 0.5, y: 0.5 }),
+		).metadata();
+		expect(meta.format).toBe("jpeg");
+		expect(meta.width).toBe(1080);
+		expect(meta.height).toBe(1920);
+	});
+
+	it("a foto aparece INTEIRA na faixa do meio — as duas metades estão lá", async () => {
+		// 400×200 vira 1080×540, centrada: a faixa vai de y=690 a y=1230.
+		const jpeg = await renderStory(await halfRedHalfBlue(), {
+			x: 0.5,
+			y: 0.5,
+		});
+		const esquerda = await pixelAt(jpeg, 270, 960);
+		const direita = await pixelAt(jpeg, 810, 960);
+		expect(esquerda.r).toBeGreaterThan(150);
+		expect(esquerda.b).toBeLessThan(80);
+		expect(direita.b).toBeGreaterThan(150);
+		expect(direita.r).toBeLessThan(80);
+	});
+
+	it("acima e abaixo da foto vai o fundo escurecido, não branco", async () => {
+		const jpeg = await renderStory(await halfRedHalfBlue(), {
+			x: 0.5,
+			y: 0.5,
+		});
+		for (const y of [100, 1800]) {
+			const fundo = await pixelAt(jpeg, 540, y);
+			expect(Math.max(fundo.r, fundo.g, fundo.b)).toBeLessThan(200);
+		}
+	});
+});
+
 describe("CroppedImageSource", () => {
 	type Asset = {
 		storageKey: string;
@@ -176,6 +228,17 @@ describe("CroppedImageSource", () => {
 		expect((await sharp(Buffer.from(uploads[0] ?? [])).metadata()).format).toBe(
 			"jpeg",
 		);
+	});
+
+	it("'9:16' monta o quadro do story e grava na chave própria", async () => {
+		const { source, uploads } = setup({ asset: foto });
+
+		const image = await source.resolve("m-1", "9:16");
+
+		expect(image?.url).toBe("https://cdn.test/social/m-1-9x16-250-500.jpg");
+		const meta = await sharp(Buffer.from(uploads[0] ?? [])).metadata();
+		expect(meta.width).toBe(1080);
+		expect(meta.height).toBe(1920);
 	});
 
 	it("corte que já existe é reaproveitado — reenviar não refaz o trabalho", async () => {

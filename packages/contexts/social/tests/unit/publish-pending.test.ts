@@ -277,6 +277,77 @@ describe("publishPendingPosts", () => {
 		});
 	});
 
+	describe("Stories do Instagram (§17)", () => {
+		it("publica com a conta do Instagram, UMA imagem em 9:16 e sem legenda", async () => {
+			conectar("INSTAGRAM");
+			await postAprovado(["INSTAGRAM_STORIES"], ["m-1", "m-2"]);
+
+			await publishPendingPosts(deps);
+
+			expect(publisher.requests).toHaveLength(1);
+			const [story] = publisher.requests;
+			expect(story?.platform).toBe("INSTAGRAM");
+			expect(story?.format).toBe("STORY");
+			expect(story?.accountRemoteId).toBe("remote-INSTAGRAM");
+			expect(story?.caption).toBe("");
+			expect(story?.images.map((image) => image.url)).toEqual([
+				"https://cdn.test/m-1.jpg",
+			]);
+			// Nem chega a gerar a segunda imagem, que o story não usa.
+			expect(images.aspects).toEqual(["9:16"]);
+		});
+
+		it("feed e story saem na mesma aprovação, cada um com sua prova", async () => {
+			conectar("INSTAGRAM");
+			publisher
+				.succeedOn("INSTAGRAM", "ig-feed")
+				.succeedOn("INSTAGRAM_STORIES", "ig-story");
+			const post = await postAprovado(["INSTAGRAM", "INSTAGRAM_STORIES"]);
+
+			const resultado = await publishPendingPosts(deps);
+
+			expect(resultado.published).toBe(2);
+			expect(post.status).toBe("PUBLICADO");
+			expect(post.deliveryFor("INSTAGRAM")?.remoteId).toBe("ig-feed");
+			expect(post.deliveryFor("INSTAGRAM_STORIES")?.remoteId).toBe("ig-story");
+			expect(publisher.requests.map((request) => request.format)).toEqual([
+				"FEED",
+				"STORY",
+			]);
+			expect(images.aspects).toEqual(["1:1", "9:16"]);
+		});
+
+		it("story que falha não derruba o feed, e o reenvio é só do story", async () => {
+			conectar("INSTAGRAM");
+			publisher
+				.succeedOn("INSTAGRAM", "ig-feed")
+				.failOn("INSTAGRAM_STORIES", "O Instagram recusou a publicação.");
+			const post = await postAprovado(["INSTAGRAM", "INSTAGRAM_STORIES"]);
+			await publishPendingPosts(deps);
+			expect(post.status).toBe("PARCIAL");
+
+			post.retryFailed();
+			await repo.save(post);
+			publisher.succeedOn("INSTAGRAM_STORIES", "ig-story");
+			await publishPendingPosts(deps);
+
+			expect(post.status).toBe("PUBLICADO");
+			expect(
+				publisher.requests.filter((request) => request.format === "FEED"),
+			).toHaveLength(1);
+		});
+
+		it("sem conta do Instagram, o story diz qual CONTA falta", async () => {
+			const post = await postAprovado(["INSTAGRAM_STORIES"]);
+
+			await publishPendingPosts(deps);
+
+			expect(post.deliveryFor("INSTAGRAM_STORIES")?.error).toBe(
+				"Nenhuma conta do Instagram está conectada ao portal.",
+			);
+		});
+	});
+
 	it("respeita o teto da rodada — a cota da Meta não volta", async () => {
 		conectar("INSTAGRAM");
 		for (let index = 0; index < 5; index += 1) {

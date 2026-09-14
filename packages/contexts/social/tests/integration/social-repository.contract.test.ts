@@ -151,6 +151,33 @@ describe("PrismaSocialPostRepository", () => {
 		expect(aguardando.map((post) => post.id)).toEqual(["post-2"]);
 	});
 
+	it("guarda a entrega dos Stories na mesma coluna, sem migration (§17)", async () => {
+		const post = SocialPost.draft({
+			id: "post-s",
+			origin: "MANUAL",
+			captionText: "Plantão",
+			mediaIds: ["media-1"],
+			platforms: ["INSTAGRAM", "INSTAGRAM_STORIES"],
+			createdAt: AGORA,
+		}).unwrap();
+		await posts.save(post);
+
+		post.approve("editor-1", AGORA);
+		post.recordSuccess("INSTAGRAM_STORIES", "story-1", null, AGORA);
+		await posts.save(post);
+
+		const lido = await posts.findById("post-s");
+		expect(lido?.targets).toEqual(["INSTAGRAM", "INSTAGRAM_STORIES"]);
+		expect(lido?.deliveryFor("INSTAGRAM_STORIES")?.remoteId).toBe("story-1");
+		expect(lido?.deliveryFor("INSTAGRAM")?.isPending()).toBe(true);
+
+		const soStories = await posts.list(
+			{ platform: "INSTAGRAM_STORIES" },
+			{ limit: 10, offset: 0 },
+		);
+		expect(soStories.items.map((item) => item.id)).toEqual(["post-s"]);
+	});
+
 	it("filtra por rede", async () => {
 		const so_instagram = SocialPost.restore({
 			id: "post-ig",

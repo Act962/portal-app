@@ -1,6 +1,7 @@
 import type { Result } from "@portal-app/shared-kernel";
 
-import type { SocialPlatform } from "../platform";
+import type { CropAspect } from "../focal-crop";
+import type { PublicationFormat, SocialPlatform } from "../platform";
 
 /**
  * Uma imagem pronta para a Meta.
@@ -20,7 +21,10 @@ export type PublishableImage = {
 };
 
 export type PublishRequest = {
+	/** A rede — é ela que decide a conta e o token. */
 	platform: SocialPlatform;
+	/** Feed ou story. No story vai UMA imagem e a legenda é ignorada (§17). */
+	format: PublicationFormat;
 	/** O id da conta NA META (`ig-user-id` ou `page-id`). */
 	accountRemoteId: string;
 	caption: string;
@@ -86,10 +90,11 @@ export interface SocialPublisher {
 export interface SocialImageSource {
 	/**
 	 * @param mediaId id na biblioteca de mídia
-	 * @param aspect proporção pedida — `"1:1"` é o quadrado do feed
+	 * @param aspect proporção pedida — `"1:1"` é o quadrado do feed; `"9:16"` é
+	 * o quadro do story, com a foto inteira sobre o fundo desfocado
 	 */
 	resolve(
 		mediaId: string,
-		aspect: "1:1" | "4:5" | "original",
+		aspect: CropAspect | "original",
 	): Promise<PublishableImage | null>;
 }

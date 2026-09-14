@@ -448,7 +448,7 @@ describe("retryFailed — reenvia só o que falhou", () => {
 		const post = parcial();
 		expect(post.retryFailed().isOk()).toBe(true);
 		expect(post.status).toBe("PUBLICANDO");
-		expect(post.pendingDeliveries().map((d) => d.platform)).toEqual([
+		expect(post.pendingDeliveries().map((d) => d.destination)).toEqual([
 			"INSTAGRAM",
 		]);
 		expect(post.deliveryFor("FACEBOOK")?.remoteId).toBe("fb-1");
@@ -483,6 +483,86 @@ describe("cancel", () => {
 		const post = rascunho();
 		post.approve("staff-1", AGORA);
 		expect(post.cancel().unwrapErr().name).toBe("InvalidPostTransition");
+	});
+});
+
+describe("Stories do Instagram (§17)", () => {
+	it("não levam legenda", () => {
+		const post = rascunho({ platforms: ["INSTAGRAM", "INSTAGRAM_STORIES"] });
+		expect(post.captionFor("INSTAGRAM_STORIES")).toBe("");
+		expect(post.captionFor("INSTAGRAM")).not.toBe("");
+	});
+
+	it("usam só a primeira imagem; o feed do mesmo post usa todas", () => {
+		const post = rascunho({
+			mediaIds: ["m-1", "m-2", "m-3"],
+			platforms: ["INSTAGRAM", "INSTAGRAM_STORIES"],
+		});
+		expect(post.imagesFor("INSTAGRAM_STORIES")).toEqual(["m-1"]);
+		expect(post.imagesFor("INSTAGRAM")).toEqual(["m-1", "m-2", "m-3"]);
+	});
+
+	it("legenda longa e hashtags demais não barram os Stories, que não a publicam", () => {
+		const post = rascunho({
+			captionText: `${"a".repeat(2201)} ${Array.from({ length: 31 }, (_, i) => `#t${i}`).join(" ")}`,
+			platforms: ["INSTAGRAM_STORIES"],
+		});
+		expect(post.publicationBlockers()).toEqual([]);
+	});
+
+	it("mas continuam barrando o feed do mesmo post", () => {
+		const post = rascunho({
+			captionText: "a".repeat(2201),
+			platforms: ["INSTAGRAM", "INSTAGRAM_STORIES"],
+		});
+		const impedimentos = post.publicationBlockers();
+		expect(impedimentos).toHaveLength(1);
+		expect(impedimentos[0]).toContain("Instagram aceita 2200");
+	});
+
+	it("carrossel acima do limite não barra o story, que usa uma imagem só", () => {
+		const post = SocialPost.restore({
+			id: "antigo",
+			articleId: null,
+			origin: "MANUAL",
+			caption: Caption.restore("Retrospectiva"),
+			mediaIds: Array.from({ length: 11 }, (_, index) => `m-${index}`),
+			linkUrl: null,
+			deliveries: [Delivery.pending("INSTAGRAM_STORIES")],
+			status: "RASCUNHO",
+			createdAt: CRIADO,
+			approvedAt: null,
+			approvedByStaffId: null,
+		});
+		expect(post.publicationBlockers()).toEqual([]);
+	});
+
+	it("sem imagem, o story também avisa", () => {
+		const post = rascunho({ mediaIds: [], platforms: ["INSTAGRAM_STORIES"] });
+		expect(post.publicationBlockers()).toContain(
+			"A publicação precisa de ao menos uma imagem.",
+		);
+	});
+
+	it("feed e story são entregas separadas: um no ar, o outro reenviado sozinho", () => {
+		const post = rascunho({ platforms: ["INSTAGRAM", "INSTAGRAM_STORIES"] });
+		post.approve("staff-1", AGORA);
+		post.recordSuccess("INSTAGRAM", "ig-feed", null, AGORA);
+		post.recordFailure("INSTAGRAM_STORIES", "imagem recusada", AGORA);
+		expect(post.status).toBe("PARCIAL");
+
+		const eventos = post.pullEvents();
+		expect(
+			eventos
+				.filter((evento) => evento instanceof SocialPostFailed)
+				.map((evento) => (evento as SocialPostFailed).platform),
+		).toEqual(["INSTAGRAM_STORIES"]);
+
+		post.retryFailed();
+		expect(post.pendingDeliveries().map((d) => d.destination)).toEqual([
+			"INSTAGRAM_STORIES",
+		]);
+		expect(post.deliveryFor("INSTAGRAM")?.remoteId).toBe("ig-feed");
 	});
 });
 

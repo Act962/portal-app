@@ -15,7 +15,7 @@ export type Size = { width: number; height: number };
  * mídia: (0,0) é o topo-esquerda, (1,1) o canto inferior-direito. */
 export type Focal = { x: number; y: number };
 
-export type CropAspect = "1:1" | "4:5";
+export type CropAspect = "1:1" | "4:5" | "9:16";
 
 export type CropBox = {
 	left: number;
@@ -29,12 +29,41 @@ export type CropBox = {
  *
  * 1080 de largura é a resolução em que o Instagram exibe o feed. Mandar maior
  * só aumenta o download que a Meta faz (com teto de 8 MB) sem ganho visível;
- * mandar menor, ela amplia e borra.
+ * mandar menor, ela amplia e borra. `9:16` é a tela cheia dos Stories.
  */
 export const OUTPUT_SIZE: Record<CropAspect, Size> = {
 	"1:1": { width: 1080, height: 1080 },
 	"4:5": { width: 1080, height: 1350 },
+	"9:16": { width: 1080, height: 1920 },
 };
+
+/**
+ * Onde a foto INTEIRA fica dentro do quadro do story (§17).
+ *
+ * O story não usa o corte do feed. Foto de notícia é quase sempre deitada, e
+ * cortá-la em 9:16 deixaria uma fatia vertical de um terço da imagem — o
+ * prefeito sem o público, o acidente sem a rua. O quadro mostra a foto inteira,
+ * o maior possível e centrada; o que sobra em cima e embaixo é preenchido com
+ * a própria foto ampliada e desfocada (quem desenha isso é o `sharp`, na raiz
+ * de composição).
+ *
+ * Nunca amplia além do quadro e nunca devolve dimensão zero.
+ */
+export function storyLayout(image: Size): CropBox {
+	const frame = OUTPUT_SIZE["9:16"];
+	const scale = Math.min(
+		frame.width / Math.max(1, image.width),
+		frame.height / Math.max(1, image.height),
+	);
+	const width = clamp(Math.round(image.width * scale), 1, frame.width);
+	const height = clamp(Math.round(image.height * scale), 1, frame.height);
+	return {
+		left: Math.floor((frame.width - width) / 2),
+		top: Math.floor((frame.height - height) / 2),
+		width,
+		height,
+	};
+}
 
 /**
  * O maior retângulo da proporção pedida que cabe na imagem, centrado no ponto

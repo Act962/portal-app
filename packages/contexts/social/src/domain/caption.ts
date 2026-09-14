@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "@portal-app/shared-kernel";
 
 import { CaptionRequired } from "./errors";
-import { PLATFORM_LIMITS, type SocialPlatform } from "./platform";
+import { PLATFORM_LIMITS, type SocialDestination } from "./platform";
 
 /** Hashtag: `#` seguido de letra, número ou `_`. `\p{L}` para acento e cedilha
  * contarem — `#seleção` e `#coração` são hashtags reais no Brasil, e um `\w`
@@ -60,14 +60,14 @@ export class Caption {
 		return this.value.match(MENTION) ?? [];
 	}
 
-	/** A legenda estoura o limite desta rede? */
-	exceedsLengthFor(platform: SocialPlatform): boolean {
-		return this.length > PLATFORM_LIMITS[platform].captionMaxLength;
+	/** A legenda estoura o limite deste destino? */
+	exceedsLengthFor(destination: SocialDestination): boolean {
+		return this.length > PLATFORM_LIMITS[destination].captionMaxLength;
 	}
 
-	/** Passou do teto de hashtags desta rede? */
-	exceedsHashtagsFor(platform: SocialPlatform): boolean {
-		return this.hashtags.length > PLATFORM_LIMITS[platform].hashtagMaxCount;
+	/** Passou do teto de hashtags deste destino? */
+	exceedsHashtagsFor(destination: SocialDestination): boolean {
+		return this.hashtags.length > PLATFORM_LIMITS[destination].hashtagMaxCount;
 	}
 
 	equals(other: Caption): boolean {

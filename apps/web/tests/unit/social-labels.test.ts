@@ -8,10 +8,50 @@ import {
 	diagnosisTone,
 	metaFlagMessage,
 	POST_STATUS_LABELS,
+	permalinkLabel,
 	previewCaption,
 	quotaSummary,
+	storyNotice,
 	summarizeDeliveries,
 } from "@/app/(app)/dashboard/social/social-labels";
+
+describe("Stories do Instagram (§17)", () => {
+	it("não ganham contador de legenda — ela não é publicada lá", () => {
+		expect(captionCounters("oi", ["INSTAGRAM_STORIES"])).toEqual([]);
+		expect(
+			captionCounters("oi", ["INSTAGRAM", "INSTAGRAM_STORIES"]).map(
+				(counter) => counter.destination,
+			),
+		).toEqual(["INSTAGRAM"]);
+	});
+
+	it("o resumo das entregas nomeia o destino", () => {
+		expect(
+			summarizeDeliveries([
+				{ destination: "INSTAGRAM", status: "PUBLICADO" },
+				{ destination: "INSTAGRAM_STORIES", status: "PENDENTE" },
+			]),
+		).toBe("Instagram no ar · Stories do Instagram na fila");
+	});
+
+	it("o botão do link diz para onde vai, sem português torto", () => {
+		expect(permalinkLabel("INSTAGRAM")).toBe("Ver no Instagram");
+		expect(permalinkLabel("FACEBOOK")).toBe("Ver no Facebook");
+		expect(permalinkLabel("INSTAGRAM_STORIES")).toBe("Ver o story (24 h)");
+	});
+
+	it("o aviso do editor só aparece com Stories escolhidos", () => {
+		expect(storyNotice(["INSTAGRAM", "FACEBOOK"], 3)).toBeNull();
+		expect(storyNotice(["INSTAGRAM_STORIES"], 1)).toContain("1080×1920");
+		expect(storyNotice(["INSTAGRAM_STORIES"], 1)).not.toContain("Das ");
+	});
+
+	it("com carrossel, avisa que só a primeira imagem vai para o story", () => {
+		expect(storyNotice(["INSTAGRAM", "INSTAGRAM_STORIES"], 3)).toContain(
+			"Das 3 imagens, vai só a primeira.",
+		);
+	});
+});
 
 describe("availableActions", () => {
 	it("o rascunho oferece aprovar, editar e descartar", () => {
@@ -75,8 +115,8 @@ describe("summarizeDeliveries", () => {
 	it("resume onde o post está, em uma linha", () => {
 		expect(
 			summarizeDeliveries([
-				{ platform: "INSTAGRAM", status: "PUBLICADO" },
-				{ platform: "FACEBOOK", status: "FALHOU" },
+				{ destination: "INSTAGRAM", status: "PUBLICADO" },
+				{ destination: "FACEBOOK", status: "FALHOU" },
 			]),
 		).toBe("Instagram no ar · Facebook falhou");
 	});

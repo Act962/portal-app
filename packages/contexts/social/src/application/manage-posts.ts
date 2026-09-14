@@ -16,7 +16,7 @@ import {
 	type PostNotReady,
 	SocialPostNotFound,
 } from "../domain/errors";
-import type { SocialPlatform } from "../domain/platform";
+import type { SocialDestination } from "../domain/platform";
 import type {
 	SocialPostFilter,
 	SocialPostRepository,
@@ -40,7 +40,8 @@ export type PostDeps = {
 export type DraftInput = {
 	captionText: string;
 	mediaIds: readonly string[];
-	platforms: readonly SocialPlatform[];
+	/** Os destinos: o feed de cada rede e/ou os Stories do Instagram. */
+	platforms: readonly SocialDestination[];
 	linkUrl?: string | null;
 	articleId?: string | null;
 };

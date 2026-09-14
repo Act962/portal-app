@@ -5,12 +5,14 @@ import {
 	connectMetaPage,
 	countPendingPosts,
 	createDraft,
+	DESTINATION_PLATFORM,
 	diagnoseAccounts,
 	disconnectAccount,
 	getPost,
 	listAccounts,
 	listQueue,
 	retryPost,
+	SOCIAL_DESTINATIONS,
 	SOCIAL_PLATFORMS,
 	type SocialAccount,
 	type SocialPost,
@@ -41,6 +43,8 @@ const publish = requirePermission("social:publish");
 const manage = requirePermission("social:manage");
 
 const platform = z.enum(SOCIAL_PLATFORMS);
+/** Para onde o post vai — o feed de cada rede ou os Stories (spec 08, §17). */
+const destination = z.enum(SOCIAL_DESTINATIONS);
 
 const postStatus = z.enum([
 	"RASCUNHO",
@@ -66,13 +70,17 @@ function postDto(post: SocialPost) {
 		status: post.status,
 		/** O que impede este post de subir — a tela mostra ANTES do clique. */
 		blockers: [...post.publicationBlockers()],
-		/** A legenda como sai em cada rede (no Facebook, com o link). */
+		/** A legenda e as imagens como saem em cada destino (no Facebook, com o
+		 * link; nos Stories, sem legenda e só com a primeira imagem). */
 		previews: post.targets.map((target) => ({
-			platform: target,
+			destination: target,
 			caption: post.captionFor(target),
+			mediaIds: [...post.imagesFor(target)],
 		})),
 		deliveries: post.deliveries.map((delivery) => ({
-			platform: delivery.platform,
+			destination: delivery.destination,
+			/** A rede da conta que publica este destino. */
+			platform: DESTINATION_PLATFORM[delivery.destination],
 			status: delivery.status,
 			remoteId: delivery.remoteId,
 			permalink: delivery.permalink,
@@ -135,7 +143,7 @@ function ensure<T>(result: Result<T, Error>): T {
 const draftInput = {
 	captionText: z.string().min(1),
 	mediaIds: z.array(z.string()).max(10),
-	platforms: z.array(platform),
+	platforms: z.array(destination),
 	linkUrl: z.url().nullish(),
 };
 
@@ -144,7 +152,7 @@ export const socialRouter = router({
 		.input(
 			z.object({
 				status: postStatus.optional(),
-				platform: platform.optional(),
+				platform: destination.optional(),
 				articleId: z.string().optional(),
 				page: z.number().int().positive().optional(),
 				perPage: z.number().int().positive().optional(),

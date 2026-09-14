@@ -6,6 +6,7 @@ import {
 	OUTPUT_SIZE,
 	type PublishableImage,
 	type SocialImageSource,
+	storyLayout,
 } from "@portal-app/social";
 import sharp from "sharp";
 
@@ -79,11 +80,12 @@ export class CroppedImageSource implements SocialImageSource {
 			);
 		}
 
-		const jpeg = await renderCrop(
-			Buffer.from(await original.arrayBuffer()),
-			focal,
-			aspect,
-		);
+		const buffer = Buffer.from(await original.arrayBuffer());
+		// O story não é um corte: é a foto inteira num quadro 9:16 (§17).
+		const jpeg =
+			aspect === "9:16"
+				? await renderStory(buffer, focal)
+				: await renderCrop(buffer, focal, aspect);
 
 		const uploadUrl = await this.deps.storage.getUploadUrl(key, "image/jpeg");
 		const upload = await this.fetchImpl(uploadUrl, {
@@ -144,4 +146,47 @@ export async function renderCrop(
 			.jpeg({ quality: 88, mozjpeg: true })
 			.toBuffer()
 	);
+}
+
+/**
+ * O quadro do story: a foto INTEIRA, centrada, sobre ela mesma ampliada e
+ * desfocada. Onde a foto fica é decisão do `storyLayout` (puro e testado); o
+ * fundo usa o corte 9:16 do `focalCrop`, para o borrão ter as cores da parte
+ * que importa.
+ *
+ * O desfoque é feito numa miniatura e depois ampliado: borrar 1080×1920 com
+ * raio grande custa segundos de CPU dentro da tarefa de envio; borrar 270×480 e
+ * ampliar dá o mesmo resultado visual em milissegundos.
+ */
+export async function renderStory(
+	input: Buffer,
+	focal: { x: number; y: number },
+): Promise<Buffer> {
+	const oriented = await sharp(input)
+		.rotate()
+		.flatten({ background: "#ffffff" })
+		.toBuffer({ resolveWithObject: true });
+	const size = { width: oriented.info.width, height: oriented.info.height };
+	const frame = OUTPUT_SIZE["9:16"];
+
+	const blurred = await sharp(oriented.data)
+		.extract(focalCrop(size, focal, "9:16"))
+		.resize(frame.width / 4, frame.height / 4, { fit: "cover" })
+		.blur(6)
+		// Escurecido, para a foto da frente ser o que o olho encontra primeiro.
+		.modulate({ brightness: 0.55 })
+		.toBuffer();
+	const background = await sharp(blurred)
+		.resize(frame.width, frame.height, { fit: "fill" })
+		.toBuffer();
+
+	const layout = storyLayout(size);
+	const foreground = await sharp(oriented.data)
+		.resize(layout.width, layout.height, { fit: "fill" })
+		.toBuffer();
+
+	return sharp(background)
+		.composite([{ input: foreground, left: layout.left, top: layout.top }])
+		.jpeg({ quality: 88, mozjpeg: true })
+		.toBuffer();
 }

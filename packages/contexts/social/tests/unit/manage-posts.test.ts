@@ -181,7 +181,7 @@ describe("retryPost", () => {
 		rascunho.recordFailure("INSTAGRAM", "imagem inválida", AGORA);
 
 		const post = (await retryPost(admin, { id: rascunho.id }, deps)).unwrap();
-		expect(post.pendingDeliveries().map((d) => d.platform)).toEqual([
+		expect(post.pendingDeliveries().map((d) => d.destination)).toEqual([
 			"INSTAGRAM",
 		]);
 		expect(post.deliveryFor("FACEBOOK")?.remoteId).toBe("fb-1");

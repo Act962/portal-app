@@ -1,7 +1,71 @@
-import { croppedImageKey, focalCrop } from "@portal-app/social";
+import {
+	croppedImageKey,
+	focalCrop,
+	OUTPUT_SIZE,
+	storyLayout,
+} from "@portal-app/social";
 import { describe, expect, it } from "vitest";
 
 const CENTRO = { x: 0.5, y: 0.5 };
+
+describe("storyLayout — a foto inteira no quadro 9:16 (§17)", () => {
+	it("o quadro é 1080×1920", () => {
+		expect(OUTPUT_SIZE["9:16"]).toEqual({ width: 1080, height: 1920 });
+	});
+
+	it("foto deitada ocupa a largura e fica centrada na vertical", () => {
+		// Cortar em 9:16 deixaria só um terço da foto; aqui ela aparece inteira.
+		expect(storyLayout({ width: 2000, height: 1000 })).toEqual({
+			left: 0,
+			top: 690,
+			width: 1080,
+			height: 540,
+		});
+	});
+
+	it("foto mais alta que 9:16 ocupa a altura e centra na horizontal", () => {
+		expect(storyLayout({ width: 1000, height: 4000 })).toEqual({
+			left: 300,
+			top: 0,
+			width: 480,
+			height: 1920,
+		});
+	});
+
+	it("foto já em 9:16 preenche o quadro inteiro", () => {
+		expect(storyLayout({ width: 540, height: 960 })).toEqual({
+			left: 0,
+			top: 0,
+			width: 1080,
+			height: 1920,
+		});
+	});
+
+	it("foto pequena é ampliada até encostar no quadro", () => {
+		expect(storyLayout({ width: 200, height: 100 })).toMatchObject({
+			width: 1080,
+			height: 540,
+		});
+	});
+
+	it("dimensão zero não gera largura zero, que o sharp recusa", () => {
+		const box = storyLayout({ width: 0, height: 0 });
+		expect(box.width).toBeGreaterThanOrEqual(1);
+		expect(box.height).toBeGreaterThanOrEqual(1);
+	});
+
+	it("o fundo do story usa o corte 9:16 do ponto focal", () => {
+		expect(focalCrop({ width: 2000, height: 1000 }, CENTRO, "9:16")).toEqual({
+			left: 719,
+			top: 0,
+			width: 563,
+			height: 1000,
+		});
+		expect(croppedImageKey("m-1", "9:16", CENTRO)).toBe(
+			"social/m-1-9x16-500-500.jpg",
+		);
+	});
+});
 
 describe("focalCrop — 1:1", () => {
 	it("em foto deitada, pega o maior quadrado, centrado", () => {

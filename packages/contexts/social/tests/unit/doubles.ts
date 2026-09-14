@@ -1,22 +1,24 @@
 import { StaffMember } from "@portal-app/identity";
 import type { Page, PageRequest } from "@portal-app/shared-kernel";
 import { err, ok, type Result } from "@portal-app/shared-kernel";
-import type {
-	AccountCredentials,
-	ConnectionInspection,
-	ConnectionProbe,
-	PublishableImage,
-	PublishFailure,
-	PublishRequest,
-	PublishSuccess,
-	SocialAccount,
-	SocialAccountRepository,
-	SocialImageSource,
-	SocialPlatform,
-	SocialPost,
-	SocialPostFilter,
-	SocialPostRepository,
-	SocialPublisher,
+import {
+	type AccountCredentials,
+	type ConnectionInspection,
+	type ConnectionProbe,
+	destinationOf,
+	type PublishableImage,
+	type PublishFailure,
+	type PublishRequest,
+	type PublishSuccess,
+	type SocialAccount,
+	type SocialAccountRepository,
+	type SocialDestination,
+	type SocialImageSource,
+	type SocialPlatform,
+	type SocialPost,
+	type SocialPostFilter,
+	type SocialPostRepository,
+	type SocialPublisher,
 } from "@portal-app/social";
 
 /**
@@ -147,22 +149,27 @@ export class FakeConnectionProbe implements ConnectionProbe {
 	}
 }
 
-/** Publisher programável: registra o que recebeu e devolve o que mandarem. */
+/** Publisher programável: registra o que recebeu e devolve o que mandarem —
+ * por DESTINO, para o feed e os Stories do Instagram responderem diferente. */
 export class SpySocialPublisher implements SocialPublisher {
 	readonly requests: PublishRequest[] = [];
 	private readonly outcomes = new Map<
-		SocialPlatform,
+		SocialDestination,
 		Result<PublishSuccess, PublishFailure>
 	>();
 
-	succeedOn(platform: SocialPlatform, remoteId: string, permalink = null) {
-		this.outcomes.set(platform, ok({ remoteId, permalink }));
+	succeedOn(
+		destination: SocialDestination,
+		remoteId: string,
+		permalink = null,
+	) {
+		this.outcomes.set(destination, ok({ remoteId, permalink }));
 		return this;
 	}
 
-	failOn(platform: SocialPlatform, reason: string, retryable = false) {
+	failOn(destination: SocialDestination, reason: string, retryable = false) {
 		this.outcomes.set(
-			platform,
+			destination,
 			err<PublishSuccess, PublishFailure>({ reason, retryable }),
 		);
 		return this;
@@ -172,9 +179,11 @@ export class SpySocialPublisher implements SocialPublisher {
 		request: PublishRequest,
 	): Promise<Result<PublishSuccess, PublishFailure>> {
 		this.requests.push(request);
+		const destination =
+			destinationOf(request.platform, request.format) ?? request.platform;
 		return Promise.resolve(
-			this.outcomes.get(request.platform) ??
-				ok({ remoteId: `remote-${request.platform}`, permalink: null }),
+			this.outcomes.get(destination) ??
+				ok({ remoteId: `remote-${destination}`, permalink: null }),
 		);
 	}
 }
@@ -182,10 +191,13 @@ export class SpySocialPublisher implements SocialPublisher {
 /** Fonte de imagem que resolve tudo, menos os ids que mandarem sumir. */
 export class FakeImageSource implements SocialImageSource {
 	readonly missing = new Set<string>();
+	/** As proporções pedidas, na ordem — o story pede 9:16, o feed 1:1. */
+	readonly aspects: string[] = [];
 	/** Troque para simular o armazenamento de dev (`http://localhost:9000/...`). */
 	baseUrl = "https://cdn.test";
 
-	resolve(mediaId: string): Promise<PublishableImage | null> {
+	resolve(mediaId: string, aspect = "1:1"): Promise<PublishableImage | null> {
+		this.aspects.push(aspect);
 		if (this.missing.has(mediaId)) {
 			return Promise.resolve(null);
 		}

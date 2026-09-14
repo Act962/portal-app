@@ -1,11 +1,12 @@
 import type { Page, PageRequest } from "@portal-app/shared-kernel";
 
-import type { SocialPlatform } from "../platform";
+import type { SocialDestination } from "../platform";
 import type { PostStatus, SocialPost } from "../social-post";
 
 export type SocialPostFilter = {
 	status?: PostStatus;
-	platform?: SocialPlatform;
+	/** O destino exato: filtrar por `INSTAGRAM` não traz quem só vai aos Stories. */
+	platform?: SocialDestination;
 	articleId?: string;
 };
 

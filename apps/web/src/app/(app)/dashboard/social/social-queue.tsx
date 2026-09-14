@@ -1,6 +1,6 @@
 "use client";
 
-import { PLATFORM_LABEL, type PostStatus } from "@portal-app/social";
+import type { PostStatus } from "@portal-app/social";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -43,6 +43,7 @@ import { PostDialog } from "./post-dialog";
 import { PostStatusBadge } from "./post-status-badge";
 import {
 	availableActions,
+	permalinkLabel,
 	previewCaption,
 	summarizeDeliveries,
 } from "./social-labels";
@@ -209,7 +210,7 @@ export function SocialQueue() {
 								.filter((delivery) => delivery.error)
 								.map((delivery) => (
 									<p
-										key={delivery.platform}
+										key={delivery.destination}
 										className="flex gap-2 rounded border border-destructive/30 bg-destructive/5 p-2 text-destructive text-xs"
 									>
 										<AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
@@ -230,7 +231,7 @@ export function SocialQueue() {
 									.filter((delivery) => delivery.permalink)
 									.map((delivery) => (
 										<Button
-											key={delivery.platform}
+											key={delivery.destination}
 											variant="ghost"
 											size="sm"
 											nativeButton={false}
@@ -243,7 +244,7 @@ export function SocialQueue() {
 											}
 										>
 											<ExternalLink className="size-4" />
-											Ver no {PLATFORM_LABEL[delivery.platform]}
+											{permalinkLabel(delivery.destination)}
 										</Button>
 									))}
 
