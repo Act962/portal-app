@@ -13,7 +13,6 @@ import {
 } from "@portal-app/ui/components/alert-dialog";
 import { Badge } from "@portal-app/ui/components/badge";
 import { Button } from "@portal-app/ui/components/button";
-import { Checkbox } from "@portal-app/ui/components/checkbox";
 import {
 	Select,
 	SelectContent,
@@ -34,6 +33,7 @@ import {
 	Sparkles,
 	Trash2,
 } from "lucide-react";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 import { toast } from "sonner";
 import { PaginationBar } from "@/components/admin/pagination-bar";
@@ -75,23 +75,20 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
  * não. Uma tabela com a legenda truncada numa célula esconderia justamente o
  * que está sendo aprovado.
  *
- * O filtro começa em "Aguardando aprovação" porque é o trabalho: o resto é
- * histórico, e histórico se procura, não se encara.
+ * O filtro começa em "Todos os estados" para dar uma visão completa da fila e
+ * do histórico logo na entrada da tela.
  */
 export function SocialQueue() {
 	const queryClient = useQueryClient();
-	const [status, setStatus] = useState<string>("RASCUNHO");
-	const [page, setPage] = useState(1);
+	const [status, setStatus] = useQueryState(
+		"status",
+		parseAsString.withDefault(ALL),
+	);
+	const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
 	const [editing, setEditing] = useState<string | null>(null);
 	const [creating, setCreating] = useState(false);
 	const [discarding, setDiscarding] = useState<string | null>(null);
-	const [deleting, setDeleting] = useState<{
-		id: string;
-		hasRemotePosts: boolean;
-		remoteLinks: readonly { label: string; url: string }[];
-	} | null>(null);
-	const [remoteRemovalAcknowledged, setRemoteRemovalAcknowledged] =
-		useState(false);
+	const [deleting, setDeleting] = useState<string | null>(null);
 
 	const queue = useQuery(
 		trpc.social.queue.queryOptions({
@@ -100,8 +97,8 @@ export function SocialQueue() {
 		}),
 	);
 
-	// Quantos stories esperam alguém publicar à mão (spec 11, D9). O filtro abre
-	// em "Aguardando aprovação", e sem este aviso quem publica não os veria.
+	// Quantos stories esperam alguém publicar à mão (spec 11, D9). O aviso mantém
+	// esse trabalho urgente visível mesmo quando a pessoa escolhe outro estado.
 	const awaitingPerson = useQuery(
 		trpc.social.queue.queryOptions({
 			status: "AGUARDANDO_PESSOA",
@@ -159,7 +156,6 @@ export function SocialQueue() {
 			onSuccess: async () => {
 				toast.success("Publicação apagada do portal.");
 				setDeleting(null);
-				setRemoteRemovalAcknowledged(false);
 				await refresh();
 			},
 			onError: (error) => toast.error(error.message),
@@ -191,7 +187,7 @@ export function SocialQueue() {
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex flex-wrap items-center gap-2">
+			<div className="grid gap-2 sm:grid-cols-[minmax(0,16rem)_auto] sm:items-center">
 				<Select
 					items={STATUS_OPTIONS}
 					value={status}
@@ -200,7 +196,7 @@ export function SocialQueue() {
 						setPage(1);
 					}}
 				>
-					<SelectTrigger className="w-64">
+					<SelectTrigger className="w-full">
 						<SelectValue placeholder="Estado" />
 					</SelectTrigger>
 					<SelectContent>
@@ -212,8 +208,11 @@ export function SocialQueue() {
 					</SelectContent>
 				</Select>
 
-				<div className="ml-auto">
-					<Button onClick={() => setCreating(true)}>
+				<div className="sm:ml-auto">
+					<Button
+						className="w-full sm:w-auto"
+						onClick={() => setCreating(true)}
+					>
 						<Plus className="size-4" />
 						Nova publicação
 					</Button>
@@ -227,13 +226,13 @@ export function SocialQueue() {
 						setStatus("AGUARDANDO_PESSOA");
 						setPage(1);
 					}}
-					className="flex items-center gap-2 rounded-md border border-violet-300 bg-violet-50 p-3 text-left text-sm text-violet-900 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200"
+					className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-violet-300 bg-violet-50 p-3 text-left text-sm text-violet-900 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200"
 				>
 					<Hand className="size-4 shrink-0" />
 					{awaitingCount === 1
 						? "1 story espera alguém publicar à mão."
 						: `${awaitingCount} stories esperam alguém publicar à mão.`}
-					<span className="ml-auto font-medium underline">Ver</span>
+					<span className="ml-auto shrink-0 font-medium underline">Ver</span>
 				</button>
 			) : null}
 
@@ -267,13 +266,13 @@ export function SocialQueue() {
 											</Badge>
 										) : null}
 									</div>
-									<p className="mt-2 text-sm leading-relaxed">
+									<p className="mt-2 break-words text-sm leading-relaxed">
 										{previewCaption(post.caption)}
 									</p>
 								</div>
 							</div>
 
-							<p className="text-muted-foreground text-xs">
+							<p className="break-words text-muted-foreground text-xs">
 								{summarizeDeliveries(post.deliveries)} ·{" "}
 								{formatLongDate(new Date(post.createdAt))}
 							</p>
@@ -405,25 +404,7 @@ export function SocialQueue() {
 										variant="ghost"
 										size="sm"
 										disabled={remove.isPending}
-										onClick={() => {
-											setRemoteRemovalAcknowledged(false);
-											setDeleting({
-												id: post.id,
-												hasRemotePosts: post.deliveries.some(
-													(delivery) => delivery.status === "PUBLICADO",
-												),
-												remoteLinks: post.deliveries.flatMap((delivery) =>
-													delivery.permalink
-														? [
-																{
-																	label: permalinkLabel(delivery.destination),
-																	url: delivery.permalink,
-																},
-															]
-														: [],
-												),
-											});
-										}}
+										onClick={() => setDeleting(post.id)}
 									>
 										<Trash2 className="size-4" />
 										Apagar
@@ -504,53 +485,11 @@ export function SocialQueue() {
 							portal não será alterada e poderá gerar uma nova postagem.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
-					{deleting?.hasRemotePosts ? (
-						<div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950 text-sm dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
-							<p>
-								A Meta não permite que o portal apague publicações do Instagram.
-								Abra cada publicação e remova-a manualmente antes de apagar o
-								histórico local.
-							</p>
-							<div className="flex flex-wrap gap-2">
-								{deleting.remoteLinks.map((link) => (
-									<Button
-										key={link.url}
-										variant="outline"
-										size="sm"
-										nativeButton={false}
-										render={
-											<a href={link.url} target="_blank" rel="noreferrer" />
-										}
-									>
-										<ExternalLink className="size-3.5" />
-										{link.label}
-									</Button>
-								))}
-							</div>
-							<div className="flex items-start gap-2">
-								<Checkbox
-									id="remote-removal-acknowledged"
-									checked={remoteRemovalAcknowledged}
-									onCheckedChange={(checked) =>
-										setRemoteRemovalAcknowledged(checked === true)
-									}
-								/>
-								<label htmlFor="remote-removal-acknowledged">
-									Entendi que apagar aqui não remove o conteúdo das redes
-									sociais.
-								</label>
-							</div>
-						</div>
-					) : null}
 					<AlertDialogFooter>
 						<AlertDialogCancel>Manter</AlertDialogCancel>
 						<AlertDialogAction
-							disabled={
-								remove.isPending ||
-								(Boolean(deleting?.hasRemotePosts) &&
-									!remoteRemovalAcknowledged)
-							}
-							onClick={() => deleting && remove.mutate({ id: deleting.id })}
+							disabled={remove.isPending}
+							onClick={() => deleting && remove.mutate({ id: deleting })}
 						>
 							Apagar
 						</AlertDialogAction>

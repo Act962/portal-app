@@ -7,7 +7,7 @@ import {
 	TabsTrigger,
 } from "@portal-app/ui/components/tabs";
 import { Megaphone, Wallet } from "lucide-react";
-import { useState } from "react";
+import { parseAsStringLiteral, useQueryState } from "nuqs";
 
 import { PageHeader } from "@/components/admin/page-header";
 
@@ -26,7 +26,12 @@ import { CampaignsList } from "./campaigns-list";
  * mexe toda semana. O AdSense é o que preenche o que sobra.
  */
 export function CampaignsManager() {
-	const [tab, setTab] = useState("campanhas");
+	const [tab, setTab] = useQueryState(
+		"tab",
+		parseAsStringLiteral(["campanhas", "adsense"] as const).withDefault(
+			"campanhas",
+		),
+	);
 
 	return (
 		<>

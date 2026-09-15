@@ -46,7 +46,8 @@ import {
 	Search,
 	Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -119,9 +120,9 @@ function last30Days(): { from: Date; to: Date } {
 export function CampaignsList() {
 	const queryClient = useQueryClient();
 	const columns = useColumnWidths(COLUMNS, COLUMNS_STORAGE_KEY);
-	const [slot, setSlot] = useState<string>(ALL);
-	const [search, setSearch] = useState("");
-	const [page, setPage] = useState(1);
+	const [slot, setSlot] = useQueryState("slot", parseAsString.withDefault(ALL));
+	const [search, setSearch] = useQueryState("q", parseAsString.withDefault(""));
+	const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
 	const [editing, setEditing] = useState<string | null>(null);
 	const [creating, setCreating] = useState(false);
 	const [removing, setRemoving] = useState<{ id: string; name: string } | null>(
@@ -153,11 +154,6 @@ export function CampaignsList() {
 	const statsById = new Map(
 		(stats.data ?? []).map((row) => [row.campaignId, row]),
 	);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reagir à MUDANÇA dos filtros, não ao valor de `page`
-	useEffect(() => {
-		setPage(1);
-	}, [slot, search]);
 
 	const refresh = async () => {
 		await queryClient.invalidateQueries({
@@ -204,7 +200,10 @@ export function CampaignsList() {
 					<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
 					<Input
 						value={search}
-						onChange={(event) => setSearch(event.target.value)}
+						onChange={(event) => {
+							setSearch(event.target.value);
+							setPage(1);
+						}}
 						placeholder="Buscar por campanha ou anunciante…"
 						className="pl-8"
 					/>
@@ -213,7 +212,10 @@ export function CampaignsList() {
 				<Select
 					items={[{ value: ALL, label: "Todas as posições" }, ...SLOT_OPTIONS]}
 					value={slot}
-					onValueChange={(value) => setSlot(value ?? ALL)}
+					onValueChange={(value) => {
+						setSlot(value ?? ALL);
+						setPage(1);
+					}}
 				>
 					<SelectTrigger className="w-56">
 						<SelectValue placeholder="Posição" />
@@ -234,6 +236,7 @@ export function CampaignsList() {
 						onClick={() => {
 							setSlot(ALL);
 							setSearch("");
+							setPage(1);
 						}}
 					>
 						Limpar
