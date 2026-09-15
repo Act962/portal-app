@@ -8,7 +8,7 @@ import {
 } from "@portal-app/ui/components/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { Inbox, Link2, Palette } from "lucide-react";
-import { useState } from "react";
+import { parseAsStringLiteral, useQueryState } from "nuqs";
 
 import { PageHeader } from "@/components/admin/page-header";
 import { trpc } from "@/utils/trpc";
@@ -34,7 +34,12 @@ export function SocialManager({
 	/** O resultado da volta do login da Meta, quando a tela abre por ela. */
 	metaFlag: string | null;
 }) {
-	const [tab, setTab] = useState<string>(initialTab);
+	const [tab, setTab] = useQueryState(
+		"tab",
+		parseAsStringLiteral(["fila", "padroes", "contas"] as const).withDefault(
+			initialTab,
+		),
+	);
 	const pending = useQuery(trpc.social.pendingCount.queryOptions());
 
 	return (

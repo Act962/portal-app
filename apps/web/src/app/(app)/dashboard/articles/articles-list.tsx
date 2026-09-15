@@ -55,6 +55,12 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+	parseAsBoolean,
+	parseAsInteger,
+	parseAsString,
+	useQueryState,
+} from "nuqs";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDestructiveDialog } from "@/components/admin/confirm-destructive-dialog";
@@ -214,11 +220,20 @@ function confirmCopy(action: BulkAction, targets: readonly Target[]) {
 export function ArticlesList() {
 	const router = useRouter();
 	const queryClient = useQueryClient();
-	const [status, setStatus] = useState<string>(ALL);
-	const [sectionId, setSectionId] = useState<string>(ALL);
-	const [search, setSearch] = useState("");
-	const [showArchived, setShowArchived] = useState(false);
-	const [page, setPage] = useState(1);
+	const [status, setStatus] = useQueryState(
+		"status",
+		parseAsString.withDefault(ALL),
+	);
+	const [sectionId, setSectionId] = useQueryState(
+		"section",
+		parseAsString.withDefault(ALL),
+	);
+	const [search, setSearch] = useQueryState("q", parseAsString.withDefault(""));
+	const [showArchived, setShowArchived] = useQueryState(
+		"archived",
+		parseAsBoolean.withDefault(false),
+	);
+	const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
 	const [headline, setHeadline] = useState("");
 	const [creating, setCreating] = useState(false);
 	// A seleção do arquivamento em lote. Guarda ids, e não os objetos: a lista
@@ -325,13 +340,6 @@ export function ArticlesList() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
-
-	// Mudou o filtro, volta para a primeira página. Sem isto, filtrar estando na
-	// página 5 devolve lista vazia — e parece que o filtro não achou nada.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reagir à MUDANÇA dos filtros, não ao valor de `page`
-	useEffect(() => {
-		setPage(1);
-	}, [status, sectionId, search, showArchived]);
 
 	const sectionName = (id: string | null) =>
 		sections.data?.find((s) => s.id === id)?.name ?? "—";
@@ -509,7 +517,10 @@ export function ArticlesList() {
 					<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
 					<Input
 						value={search}
-						onChange={(e) => setSearch(e.target.value)}
+						onChange={(e) => {
+							setSearch(e.target.value);
+							setPage(1);
+						}}
 						placeholder="Buscar por título…"
 						className="pl-8"
 					/>
@@ -524,7 +535,10 @@ export function ArticlesList() {
 						})),
 					]}
 					value={status}
-					onValueChange={(value) => setStatus(value ?? ALL)}
+					onValueChange={(value) => {
+						setStatus(value ?? ALL);
+						setPage(1);
+					}}
 				>
 					<SelectTrigger className="w-44">
 						<SelectValue placeholder="Status" />
@@ -548,7 +562,10 @@ export function ArticlesList() {
 						})),
 					]}
 					value={sectionId}
-					onValueChange={(value) => setSectionId(value ?? ALL)}
+					onValueChange={(value) => {
+						setSectionId(value ?? ALL);
+						setPage(1);
+					}}
 				>
 					<SelectTrigger className="w-44">
 						<SelectValue placeholder="Editoria" />
@@ -570,7 +587,10 @@ export function ArticlesList() {
 					variant={showArchived ? "secondary" : "outline"}
 					aria-pressed={showArchived}
 					disabled={status === "ARQUIVADA"}
-					onClick={() => setShowArchived((value) => !value)}
+					onClick={() => {
+						setShowArchived((value) => !value);
+						setPage(1);
+					}}
 				>
 					<Archive className="size-4" />
 					{showArchived ? "Ocultar arquivadas" : "Mostrar arquivadas"}
@@ -584,6 +604,7 @@ export function ArticlesList() {
 							setSectionId(ALL);
 							setSearch("");
 							setShowArchived(false);
+							setPage(1);
 						}}
 					>
 						Limpar

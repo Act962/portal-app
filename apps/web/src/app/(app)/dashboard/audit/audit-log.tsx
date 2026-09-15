@@ -14,8 +14,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import type { Route } from "next";
 import Link from "next/link";
-
-import { useState } from "react";
+import { parseAsInteger, useQueryState } from "nuqs";
 
 import { PaginationBar } from "@/components/admin/pagination-bar";
 import { trpc } from "@/utils/trpc";
@@ -37,7 +36,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export function AuditLog() {
-	const [page, setPage] = useState(1);
+	const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
 	const audit = useQuery(trpc.editorial.audit.list.queryOptions({ page }));
 
 	// O título vem RESOLVIDO do servidor. Antes esta tela cruzava o

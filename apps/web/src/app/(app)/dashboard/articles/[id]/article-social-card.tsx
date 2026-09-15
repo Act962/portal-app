@@ -5,6 +5,16 @@ import {
 	DESTINATION_LABEL,
 	type SocialDestination,
 } from "@portal-app/social";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@portal-app/ui/components/alert-dialog";
 import { Button } from "@portal-app/ui/components/button";
 import {
 	Card,
@@ -28,6 +38,7 @@ import {
 	Eye,
 	RotateCw,
 	Share2,
+	Trash2,
 	X,
 } from "lucide-react";
 import type { Route } from "next";
@@ -36,6 +47,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { templatesFor } from "@/app/(app)/dashboard/social/post-art-model";
 import {
+	availableActions,
 	canRetry,
 	POST_STATUS_LABELS,
 } from "@/app/(app)/dashboard/social/social-labels";
@@ -79,6 +91,9 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 	const [content, setContent] = useState<ArtContent | null>(null);
 	const [caption, setCaption] = useState("");
 	const [previewing, setPreviewing] = useState(false);
+	const [deletionIntent, setDeletionIntent] = useState<
+		"delete" | "republish" | null
+	>(null);
 	/** Em que destino o diálogo abre — o do cartão clicado, ou o primeiro. */
 	const [focused, setFocused] = useState<SocialDestination | null>(null);
 	const openPreview = (destination: SocialDestination | null) => {
@@ -164,6 +179,21 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const remove = useMutation(
+		trpc.social.remove.mutationOptions({
+			onSuccess: async () => {
+				const republishing = deletionIntent === "republish";
+				setDeletionIntent(null);
+				toast.success(
+					republishing
+						? "Configure os destinos e aprove a nova publicação."
+						: "Publicação apagada do portal.",
+				);
+				await refreshPost();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 
 	if (info.isLoading) {
 		return (
@@ -184,7 +214,11 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 	const { published, coverMediaId, post, defaults } = info.data;
 	const drawn = content ?? info.data.content;
 	const state = articleSocialState(published, post);
-	const busy = prepare.isPending || retry.isPending || remake.isPending;
+	const busy =
+		prepare.isPending ||
+		retry.isPending ||
+		remake.isPending ||
+		remove.isPending;
 	const templateList = templates.data ?? [];
 
 	const submit = (approve: boolean) =>
@@ -258,6 +292,29 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 						<RotateCw className="size-4" />
 						Refazer postagem
 					</Button>
+				) : null}
+
+				{post && availableActions(post.status).includes("apagar") ? (
+					<div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2">
+						<Button
+							variant="outline"
+							className="min-w-0"
+							disabled={busy}
+							onClick={() => setDeletionIntent("delete")}
+						>
+							<Trash2 className="size-4" />
+							Apagar
+						</Button>
+						<Button
+							variant="secondary"
+							className="min-w-0"
+							disabled={busy}
+							onClick={() => setDeletionIntent("republish")}
+						>
+							<RotateCw className="size-4" />
+							Publicar novamente
+						</Button>
+					</div>
 				) : null}
 
 				<div className="flex flex-wrap gap-1.5">
@@ -470,6 +527,35 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 				hasPost={post !== null}
 				onSubmit={submit}
 			/>
+
+			<AlertDialog
+				open={deletionIntent !== null}
+				onOpenChange={(open) => !open && setDeletionIntent(null)}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{deletionIntent === "republish"
+								? "Preparar uma nova publicação?"
+								: "Apagar esta publicação?"}
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							{deletionIntent === "republish"
+								? "O registro atual será apagado e a configuração será reaberta para você escolher Instagram, Stories ou ambos."
+								: "O histórico e a fila desta publicação serão apagados. A matéria no portal não será alterada."}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancelar</AlertDialogCancel>
+						<AlertDialogAction
+							disabled={remove.isPending}
+							onClick={() => post && remove.mutate({ id: post.id })}
+						>
+							{deletionIntent === "republish" ? "Continuar" : "Apagar"}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</Card>
 	);
 }

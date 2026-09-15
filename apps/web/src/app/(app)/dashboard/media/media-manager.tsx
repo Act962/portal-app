@@ -37,6 +37,7 @@ import {
 	Upload,
 	X,
 } from "lucide-react";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/admin/page-header";
@@ -56,8 +57,8 @@ const VIEW_STORAGE_KEY = "portal:media-view";
 
 export function MediaManager() {
 	const queryClient = useQueryClient();
-	const [search, setSearch] = useState("");
-	const [page, setPage] = useState(1);
+	const [search, setSearch] = useQueryState("q", parseAsString.withDefault(""));
+	const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
 	/**
 	 * Começa em "Todas". A primeira versão abria na RAIZ, como um gerenciador de
 	 * arquivos — mas aqui a raiz é o único recorte que ESVAZIA à medida que a
@@ -69,7 +70,10 @@ export function MediaManager() {
 	 * "Sem pasta" continua a um clique, e é o recorte de quem quer ARRUMAR — a
 	 * fila do que ainda não foi guardado.
 	 */
-	const [folderId, setFolderId] = useState<string>(ALL);
+	const [folderId, setFolderId] = useQueryState(
+		"folder",
+		parseAsString.withDefault(ALL),
+	);
 	const [view, setView] = useState<"grid" | "list">("grid");
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -103,13 +107,17 @@ export function MediaManager() {
 		window.localStorage.setItem(VIEW_STORAGE_KEY, next);
 	};
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reagir à busca e à pasta, não a `page`
-	useEffect(() => {
+	const changeFolder = (next: string) => {
+		setFolderId(next);
 		setPage(1);
-		// A seleção não sobrevive à troca de recorte: agir sobre itens que saíram
-		// da tela é o caminho mais curto para apagar o que não se queria.
 		setSelectedIds(new Set());
-	}, [search, folderId]);
+	};
+
+	const changeSearch = (next: string) => {
+		setSearch(next);
+		setPage(1);
+		setSelectedIds(new Set());
+	};
 
 	const requestUpload = useMutation(trpc.media.requestUpload.mutationOptions());
 	const register = useMutation(trpc.media.register.mutationOptions());
@@ -149,7 +157,7 @@ export function MediaManager() {
 		trpc.media.folders.remove.mutationOptions({
 			onSuccess: async () => {
 				await refreshLibrary();
-				setFolderId(ALL);
+				changeFolder(ALL);
 				toast.success("Pasta excluída.");
 			},
 			// A recusa por pasta cheia chega AQUI, com a contagem na mensagem —
@@ -402,7 +410,7 @@ export function MediaManager() {
 				<FolderChip
 					label="Todas"
 					active={folderId === ALL}
-					onClick={() => setFolderId(ALL)}
+					onClick={() => changeFolder(ALL)}
 				/>
 				<span className="mx-1 h-4 w-px bg-border" />
 				{(folders.data ?? []).map((folder) => (
@@ -411,7 +419,7 @@ export function MediaManager() {
 						label={folder.name}
 						count={folder.assetCount}
 						active={folderId === folder.id}
-						onClick={() => setFolderId(folder.id)}
+						onClick={() => changeFolder(folder.id)}
 						onRename={() => {
 							setFolderName(folder.name);
 							setFolderDialog({
@@ -426,7 +434,7 @@ export function MediaManager() {
 				<FolderChip
 					label="Sem pasta"
 					active={folderId === NONE}
-					onClick={() => setFolderId(NONE)}
+					onClick={() => changeFolder(NONE)}
 				/>
 			</div>
 
@@ -435,7 +443,7 @@ export function MediaManager() {
 					<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
 					<Input
 						value={search}
-						onChange={(event) => setSearch(event.target.value)}
+						onChange={(event) => changeSearch(event.target.value)}
 						placeholder="Buscar por nome, legenda ou crédito…"
 						className="pl-8"
 					/>
@@ -543,7 +551,7 @@ export function MediaManager() {
 								<button
 									type="button"
 									className="cursor-pointer underline"
-									onClick={() => setFolderId(ALL)}
+									onClick={() => changeFolder(ALL)}
 								>
 									Ver todas
 								</button>

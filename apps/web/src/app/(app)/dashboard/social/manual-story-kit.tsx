@@ -150,8 +150,8 @@ export function ManualStoryKit({
 	}
 
 	return (
-		<section className="flex gap-3 rounded-md border border-violet-300 bg-violet-50 p-3 dark:border-violet-900 dark:bg-violet-950/30">
-			<div className="aspect-[9/16] w-24 shrink-0 overflow-hidden rounded bg-muted">
+		<section className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-md border border-violet-300 bg-violet-50 p-3 sm:flex-row dark:border-violet-900 dark:bg-violet-950/30">
+			<div className="aspect-[9/16] w-24 shrink-0 self-center overflow-hidden rounded bg-muted sm:self-start">
 				{previewUrl ? (
 					<img
 						src={previewUrl}
@@ -177,14 +177,14 @@ export function ManualStoryKit({
 					) : null}
 				</div>
 
-				<ol className="list-decimal space-y-0.5 pl-4 text-xs">
+				<ol className="list-decimal space-y-1 pl-4 text-xs leading-relaxed">
 					{MANUAL_STORY_STEPS.map((step) => (
 						<li key={step}>{step}</li>
 					))}
 				</ol>
 
 				{linkUrl ? (
-					<p className="truncate rounded bg-background px-2 py-1 font-mono text-xs">
+					<p className="break-all rounded bg-background px-2 py-1 font-mono text-xs">
 						{linkUrl}
 					</p>
 				) : (
@@ -193,8 +193,13 @@ export function ManualStoryKit({
 					</p>
 				)}
 
-				<div className="flex flex-wrap gap-2">
-					<Button size="sm" disabled={!file} onClick={shareOrDownload}>
+				<div className="grid gap-2 sm:flex sm:flex-wrap min-[420px]:grid-cols-2">
+					<Button
+						size="sm"
+						className="min-w-0"
+						disabled={!file}
+						onClick={shareOrDownload}
+					>
 						{canShareFile ? (
 							<Share2 className="size-4" />
 						) : (
@@ -205,6 +210,7 @@ export function ManualStoryKit({
 					<Button
 						size="sm"
 						variant="outline"
+						className="min-w-0"
 						disabled={!linkUrl}
 						onClick={copyLink}
 					>
@@ -214,6 +220,7 @@ export function ManualStoryKit({
 					<Button
 						size="sm"
 						variant="outline"
+						className="min-w-0"
 						onClick={() => {
 							setStoryLink("");
 							setConfirming(true);
@@ -222,7 +229,12 @@ export function ManualStoryKit({
 						<Check className="size-4" />
 						Já publiquei
 					</Button>
-					<Button size="sm" variant="ghost" onClick={() => setDismissing(true)}>
+					<Button
+						size="sm"
+						variant="ghost"
+						className="min-w-0"
+						onClick={() => setDismissing(true)}
+					>
 						<X className="size-4" />
 						Não vou publicar
 					</Button>
