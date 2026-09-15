@@ -44,11 +44,11 @@ export const env = createEnv({
 		// variável existir.
 		AWESOMEAPI_TOKEN: z.string().min(1).optional(),
 		MAIL_FROM: z.email().default("nao-responda@fm7cidades.com.br"),
-		// Contador de "mais lidas" (Bloco 3). Default mira o Redis do
-		// `pnpm db:start` — dev funciona sem configurar nada. Sem Redis
-		// disponível (build do CI, Redis fora do ar), a leitura degrada para
-		// "mais recentes" (N03) em vez de quebrar a página.
-		REDIS_URL: z.string().min(1).default("redis://localhost:6379"),
+		// Contador de "mais lidas" (Bloco 3). O `.env.example` aponta para o
+		// Redis do `pnpm db:start`; produção precisa fornecer uma URL de Redis
+		// gerenciado. Sem ela, o ranking degrada para "mais recentes" (N03), em
+		// vez de tentar conectar a localhost durante o build da Vercel.
+		REDIS_URL: z.string().min(1).optional(),
 		// Inngest — o agendador de produção (ADR 0007). O próprio SDK lê estas três
 		// do ambiente; estão declaradas aqui para ficarem documentadas e validadas
 		// num lugar só. Todas opcionais, porque a combinação válida depende do

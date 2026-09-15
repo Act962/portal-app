@@ -87,6 +87,8 @@ Em *Settings → Environment Variables*, ambiente **Production**:
 | `S3_FORCE_PATH_STYLE` | `false` |
 | `INNGEST_SIGNING_KEY` | Settings → Keys, no painel do Inngest — ver §3.1 |
 | `INNGEST_EVENT_KEY` | idem |
+| `REDIS_URL` | URL de um Redis gerenciado (necessária para o ranking de “mais lidas”; sem ela, o portal usa recência) |
+| `AWESOMEAPI_TOKEN` | Token da AwesomeAPI (evita o limite anônimo compartilhado da Vercel na faixa de cotações) |
 
 Ainda em *Settings*, confira em **General**:
 
