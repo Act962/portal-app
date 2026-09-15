@@ -8,10 +8,18 @@ import { Redis } from "ioredis";
  * página esperando uma reconexão que talvez nunca venha.
  */
 export function createRedisClient(url: string): Redis {
-	return new Redis(url, {
+	const redis = new Redis(url, {
 		lazyConnect: true,
 		connectTimeout: 2000,
 		maxRetriesPerRequest: 1,
 		retryStrategy: () => null,
 	});
+
+	// The caller still receives a rejected command and can use its fallback,
+	// but ioredis no longer emits an unhandled `error` event for the process.
+	redis.on("error", (error) => {
+		console.warn("[analytics] Redis unavailable; ranking disabled:", error);
+	});
+
+	return redis;
 }

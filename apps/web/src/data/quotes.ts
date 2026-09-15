@@ -72,6 +72,11 @@ const TIMEOUT_MS = 3000;
  */
 const REVALIDATE_SECONDS = 120;
 
+// A build prerenders dozens of routes. Quotes are runtime data; fetching them
+// here multiplies a third-party request across routes and build workers. ISR
+// populates the cache on the first runtime render instead.
+const isBuild = process.env.NEXT_PHASE === "phase-production-build";
+
 export type { Quote };
 
 /**
@@ -137,4 +142,6 @@ const fetchQuotes = unstable_cache(
 );
 
 /** `cache()` do React deduplica dentro de um render; o de cima, entre visitas. */
-export const loadQuotes = cache((): Promise<Quote[]> => fetchQuotes());
+export const loadQuotes = cache((): Promise<Quote[]> =>
+	isBuild ? Promise.resolve([]) : fetchQuotes(),
+);
