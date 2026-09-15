@@ -23,7 +23,8 @@ import {
 	type TemplateFontSpec,
 	textsFor,
 } from "@portal-app/social";
-import sharp from "sharp";
+
+import { loadSharp } from "./social-image";
 
 /**
  * O desenhista dos padrões de arte no servidor (spec 10, D1).
@@ -379,6 +380,7 @@ export class ArtRenderer {
 		if (!original) {
 			return null;
 		}
+		const sharp = await loadSharp();
 		const pipeline = sharp(original)
 			.rotate()
 			.resize(2160, 2160, { fit: "inside", withoutEnlargement: true });
