@@ -57,7 +57,8 @@ services:
     # Armazenamento de mídia no dev (Fase 2). MinIO fala a API S3 do R2, então o
     # mesmo adapter S3MediaStorage roda aqui offline e, em produção, no R2 — sem
     # conta em serviço nenhum (Decisão D1). O CI usa MinIO via Testcontainers.
-    image: minio/minio
+    # Do quay.io, com versão fixa: `minio/minio` saiu do Docker Hub.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: portal-app-minio
     command: server /data --console-address ":9001"
     environment:
@@ -75,7 +76,7 @@ services:
     # Provisiona o bucket assim que o MinIO sobe: cria `portal-media` e o deixa
     # com leitura pública (o portal serve as imagens por `publicUrl`). Roda uma
     # vez e sai — por isso não tem restart.
-    image: minio/mc
+    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
     container_name: portal-app-minio-init
     depends_on:
       - minio

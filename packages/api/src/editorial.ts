@@ -6,6 +6,8 @@ import type { Page, PageRequest } from "@portal-app/shared-kernel";
 import { SystemClock, UuidGenerator } from "@portal-app/shared-kernel";
 import type { ContentUsage } from "@portal-app/taxonomy";
 
+import { draftSocialPostForArticle } from "./social-trigger";
+
 /**
  * Eventos que viram registro de auditoria (A35).
  *
@@ -80,6 +82,29 @@ for (const eventName of AUDITED_EVENTS) {
 		});
 	});
 }
+
+/**
+ * Matéria publicada vira rascunho de post nas redes sociais (spec 08).
+ *
+ * Assina o MESMO evento que a auditoria já consumia, pelo mesmo bus — foi o que
+ * tornou a Fase 8 barata: o gatilho já existia, e nenhuma linha do contexto
+ * editorial precisou mudar.
+ *
+ * O `catch` não é zelo genérico. Este consumidor roda dentro do despacho do
+ * outbox: uma exceção aqui interromperia a entrega de TODOS os eventos
+ * seguintes, inclusive os de auditoria. Um post que não foi montado é um
+ * problema; um relay travado é vários.
+ */
+eventBus.on("ArticlePublished", async (record) => {
+	try {
+		await draftSocialPostForArticle(record.aggregateId);
+	} catch (error) {
+		console.error(
+			`[social] falha ao montar o post da matéria ${record.aggregateId}`,
+			error,
+		);
+	}
+});
 
 /**
  * Despacha o outbox pelo bus síncrono. Chamado após cada mutação editorial (e

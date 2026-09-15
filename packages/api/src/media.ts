@@ -44,16 +44,25 @@ export const mediaStorage = new S3MediaStorage({
  *
  * Vale para QUALQUER estado, inclusive rascunho: bloquear só o publicado
  * deixaria o redator apagar a foto do rascunho do colega.
+ *
+ * Um terceiro caminho desde a spec 09: a **moldura de um padrão de arte**
+ * (`social_art_template.mediaIds`), arquivado inclusive — apagá-la faria toda
+ * arte redesenhada sair sem ela. Consultado direto no Prisma, e não pelo
+ * repositório do contexto social, porque `social.ts` já importa daqui: o
+ * caminho contrário fecharia um ciclo.
  */
 class EditorialMediaUsage implements MediaUsage {
 	async isMediaInUse(mediaId: string): Promise<boolean> {
-		const [asCover, inBody] = await Promise.all([
+		const [asCover, inBody, inTemplate] = await Promise.all([
 			prisma.article.count({ where: { coverMediaId: mediaId } }),
 			prisma.article.count({
 				where: { body: { array_contains: [{ type: "image", mediaId }] } },
 			}),
+			prisma.socialArtTemplate.count({
+				where: { mediaIds: { has: mediaId } },
+			}),
 		]);
-		return asCover + inBody > 0;
+		return asCover + inBody + inTemplate > 0;
 	}
 }
 

@@ -22,6 +22,14 @@ export const ACTIONS = [
 	// Publicidade é RECEITA, não redação: só ADMIN. Um editor não deve conseguir
 	// subir um anúncio, nem por engano.
 	"ads:manage",
+	// Redes sociais em DUAS ações, e não uma, porque são dois riscos diferentes.
+	// Aprovar um post é ato EDITORIAL — quem decide o que vai ao ar no portal
+	// decide o que vai ao ar no Instagram, e concentrar isso no admin faria a
+	// fila parar toda vez que ele estivesse fora. Conectar a conta é ato de
+	// CREDENCIAL: quem conecta entrega à aplicação um token que fala em nome do
+	// veículo, e trocar a conta conectada redireciona tudo que sai daqui.
+	"social:publish",
+	"social:manage",
 	"user:manage",
 	"settings:manage",
 	"audit:view",

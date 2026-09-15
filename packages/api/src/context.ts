@@ -9,6 +9,10 @@ export async function createContext(req: NextRequest) {
 	return {
 		session,
 		staff,
+		// Os cabeçalhos crus, para o raro procedimento que precisa de um cookie
+		// próprio — o login da Meta guarda ali o token entre a volta do login e a
+		// escolha da Página (spec 08, F4).
+		headers: req.headers,
 		can: (action: Action, resource?: ResourceRef): boolean =>
 			staff !== null && can(staff, action, resource),
 	};

@@ -76,6 +76,13 @@ function canEditor(
 		// que só enxerga a própria editoria não consegue comparar.
 		case "analytics:view":
 			return true;
+		// Aprovar o post da rede social é a mesma decisão de publicar a matéria,
+		// tomada de novo em outra vitrine — e é o editor quem a toma. Sem isto a
+		// fila de aprovação dependeria de o admin estar on-line, que é justamente o
+		// gargalo que este módulo existe para remover. CONECTAR a conta
+		// (`social:manage`) continua fora: aquilo é credencial, não pauta.
+		case "social:publish":
+			return true;
 		case "article:edit-own":
 			return ownsResource(staff, resource);
 		// Ou é da editoria do editor, ou é dele. O "ou é dele" não é folga: um

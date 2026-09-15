@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
 	createTaskFunctions,
+	createTaskWaker,
 	type InngestFunctionFactory,
+	type InngestTrigger,
 } from "../../src/inngest-tasks";
 
 /**
@@ -14,7 +16,8 @@ type Criada = {
 	options: {
 		id: string;
 		description?: string;
-		triggers: Array<{ cron: string }>;
+		triggers: InngestTrigger[];
+		concurrency?: { limit: number };
 	};
 	handler: () => Promise<unknown>;
 };
@@ -35,6 +38,8 @@ function registryCom(
 	...tarefas: Array<{
 		name: string;
 		cron: string;
+		wakeOn?: string;
+		exclusive?: boolean;
 		run?: () => Promise<unknown>;
 	}>
 ): TaskRegistry {
@@ -43,6 +48,8 @@ function registryCom(
 		registry.register({
 			name: t.name,
 			cron: t.cron,
+			wakeOn: t.wakeOn,
+			exclusive: t.exclusive,
 			description: `Descrição de ${t.name}.`,
 			run: t.run ?? (async () => null),
 		});
@@ -95,6 +102,52 @@ describe("createTaskFunctions", () => {
 		expect(inngest.criadas[0]?.options.triggers).toEqual([
 			{ cron: "0 6 * * 1-5" },
 		]);
+	});
+
+	it("tarefa sem sinal não ganha limite de concorrência", () => {
+		const inngest = fakeInngest();
+		createTaskFunctions(
+			inngest,
+			registryCom({ name: "diaria", cron: "0 6 * * *" }),
+		);
+		expect(inngest.criadas[0]?.options).not.toHaveProperty("concurrency");
+	});
+
+	it("tarefa acordável ganha o evento como SEGUNDO gatilho, mantendo o cron", () => {
+		// O cron é a rede de segurança: sem ele, um evento perdido deixaria o post
+		// parado para sempre.
+		const inngest = fakeInngest();
+
+		createTaskFunctions(
+			inngest,
+			registryCom({
+				name: "publish-social",
+				cron: "*/5 * * * *",
+				wakeOn: "social/post.approved",
+				exclusive: true,
+			}),
+		);
+
+		expect(inngest.criadas[0]?.options.triggers).toEqual([
+			{ cron: "*/5 * * * *" },
+			{ event: "social/post.approved" },
+		]);
+	});
+
+	it("exclusive vira concorrência 1 — a execução do evento e a do cron não rodam juntas", () => {
+		const inngest = fakeInngest();
+
+		createTaskFunctions(
+			inngest,
+			registryCom({
+				name: "publish-social",
+				cron: "*/5 * * * *",
+				wakeOn: "social/post.approved",
+				exclusive: true,
+			}),
+		);
+
+		expect(inngest.criadas[0]?.options.concurrency).toEqual({ limit: 1 });
 	});
 
 	it("leva a descrição para o painel do Inngest", () => {
@@ -153,5 +206,93 @@ describe("createTaskFunctions", () => {
 
 		expect(createTaskFunctions(inngest, new TaskRegistry())).toEqual([]);
 		expect(inngest.criadas).toHaveLength(0);
+	});
+});
+
+describe("createTaskWaker", () => {
+	const acordavel = () =>
+		registryCom(
+			{
+				name: "publish-social",
+				cron: "*/5 * * * *",
+				wakeOn: "social/post.approved",
+				exclusive: true,
+			},
+			{ name: "diaria", cron: "0 6 * * *" },
+		);
+
+	it("manda o evento da tarefa, com os dados", async () => {
+		const send = vi.fn(async () => ({ ids: ["1"] }));
+		const wake = createTaskWaker({ send }, acordavel(), () => {});
+
+		expect(await wake("publish-social", { postId: "p-1" })).toBe(true);
+		expect(send).toHaveBeenCalledWith({
+			name: "social/post.approved",
+			data: { postId: "p-1" },
+		});
+	});
+
+	it("sem dados, manda um objeto vazio", async () => {
+		const send = vi.fn(async () => null);
+		await createTaskWaker({ send }, acordavel(), () => {})("publish-social");
+		expect(send).toHaveBeenCalledWith({
+			name: "social/post.approved",
+			data: {},
+		});
+	});
+
+	it("falha no envio NÃO lança — a aprovação já foi gravada e o cron cobre", async () => {
+		const log = vi.fn();
+		const wake = createTaskWaker(
+			{
+				send: async () => {
+					throw new Error("Failed to send event: missing event key");
+				},
+			},
+			acordavel(),
+			log,
+		);
+
+		await expect(wake("publish-social")).resolves.toBe(false);
+		expect(log).toHaveBeenCalledWith(
+			expect.stringContaining("próxima rodada do cron"),
+		);
+		expect(log).toHaveBeenCalledWith(
+			expect.stringContaining("missing event key"),
+		);
+	});
+
+	it("falha com valor que não é Error também é logada", async () => {
+		const log = vi.fn();
+		const wake = createTaskWaker(
+			{
+				send: () => Promise.reject("fora do ar"),
+			},
+			acordavel(),
+			log,
+		);
+		expect(await wake("publish-social")).toBe(false);
+		expect(log).toHaveBeenCalledWith(expect.stringContaining("fora do ar"));
+	});
+
+	it("tarefa sem sinal ou inexistente: não manda nada e avisa no log", async () => {
+		const send = vi.fn(async () => null);
+		const log = vi.fn();
+		const wake = createTaskWaker({ send }, acordavel(), log);
+
+		expect(await wake("diaria")).toBe(false);
+		expect(await wake("nao-existe")).toBe(false);
+		expect(send).not.toHaveBeenCalled();
+		expect(log).toHaveBeenCalledTimes(2);
+	});
+
+	it("o log padrão é console.warn", async () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		try {
+			await createTaskWaker({ send: async () => null }, acordavel())("diaria");
+			expect(warn).toHaveBeenCalledOnce();
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
 import Link from "next/link";
 
 import { LegalPage } from "@/components/layout/legal-page";
@@ -25,7 +25,7 @@ import { breadcrumbSchema } from "@/lib/structured-data";
  *
  * O nome e o contato saem das Configurações para não divergirem do rodapé.
  */
-const UPDATED_AT = "2026-08-31";
+const UPDATED_AT = "2026-09-14";
 
 export async function generateMetadata(): Promise<Metadata> {
 	const identity = await loadSiteIdentity();
@@ -110,6 +110,25 @@ export default async function PrivacyPage() {
 					A área restrita da redação (login e painel) usa cookies de sessão para
 					manter a pessoa autenticada. Ela é destinada apenas à equipe do
 					veículo e não faz parte da navegação pública.
+				</p>
+
+				<h3>Conexão com Facebook e Instagram</h3>
+				<p>
+					A equipe da redação pode conectar a Página do Facebook e a conta
+					profissional do Instagram do veículo ao painel, para publicar as
+					matérias nas redes. Nessa conexão guardamos o identificador, o nome e
+					a foto da Página e da conta do Instagram, e a autorização de acesso
+					concedida pela Meta — cifrada, e usada só para publicar em nome do
+					veículo. Não lemos nem guardamos dados de seguidores, mensagens ou
+					métricas, e nada disso envolve quem apenas lê o portal.
+				</p>
+				<p>
+					Para retirar essa autorização e apagar o que foi recebido da Meta,
+					veja{" "}
+					<Link href={`${routes.privacy}/exclusao-de-dados` as Route}>
+						como pedir a exclusão de dados
+					</Link>
+					.
 				</p>
 
 				<h2>Cookies</h2>

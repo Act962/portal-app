@@ -1,0 +1,4 @@
+{
+	"extends": "@portal-app/config/tsconfig.base.json",
+	"include": ["src"]
+}

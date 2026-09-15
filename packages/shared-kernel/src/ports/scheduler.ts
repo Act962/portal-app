@@ -34,6 +34,29 @@ export type ScheduledTask = {
 	 */
 	cron: string;
 
+	/**
+	 * Um sinal que acorda a tarefa FORA do cron, no formato `contexto/fato`
+	 * (ex.: `social/post.approved`). Opcional.
+	 *
+	 * Existe para o trabalho que tem dono esperando: quem aprova um post não
+	 * deveria esperar a próxima rodada. O cron continua valendo — é a rede de
+	 * segurança para quando o sinal se perde —, e a tarefa continua perguntando
+	 * ao banco o que fazer, então acordar sem ter nada pendente não faz mal.
+	 *
+	 * O adapter decide o que o sinal é: evento no Inngest; num driver sem
+	 * eventos, ele simplesmente não existe e a tarefa espera o cron.
+	 */
+	wakeOn?: string;
+
+	/**
+	 * Nunca rodar duas execuções desta tarefa ao mesmo tempo. Opcional.
+	 *
+	 * **Obrigatório com `wakeOn`**: com dois gatilhos, uma aprovação perto da
+	 * virada do cron dispara duas execuções simultâneas, e as duas pegariam o
+	 * mesmo item da fila. Para quem publica no Instagram, isso é post duplicado.
+	 */
+	exclusive?: boolean;
+
 	/** Para quem opera: o que esta tarefa faz e por que existe. */
 	description: string;
 
@@ -77,6 +100,7 @@ export interface Scheduler {
 
 const NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const CRON_FIELDS = 5;
+const WAKE_SIGNAL_PATTERN = /^[a-z0-9-]+\/[a-z0-9.-]+$/;
 
 /**
  * Registro em memória — e é a implementação de PRODUÇÃO, não um dublê.
@@ -110,6 +134,20 @@ export class TaskRegistry implements Scheduler {
 			throw new Error(
 				`Cron de "${task.name}" precisa ter ${CRON_FIELDS} campos, veio "${task.cron}".`,
 			);
+		}
+		if (task.wakeOn !== undefined) {
+			if (!WAKE_SIGNAL_PATTERN.test(task.wakeOn)) {
+				throw new Error(
+					`Sinal de "${task.name}" inválido: "${task.wakeOn}". Use "contexto/fato", ex.: "social/post.approved".`,
+				);
+			}
+			// A trava que impede o post duplicado mora aqui, no registro, e não na
+			// memória de quem registra: esquecer o `exclusive` quebra na subida.
+			if (!task.exclusive) {
+				throw new Error(
+					`Tarefa "${task.name}" é acordada por sinal e precisa de exclusive: true — com dois gatilhos, duas execuções simultâneas pegariam o mesmo item.`,
+				);
+			}
 		}
 
 		this.registry.set(task.name, task);

@@ -67,6 +67,50 @@ describe("TaskRegistry.register", () => {
 			registry.register(tarefa({ cron: "  */5   *  * * *  " })),
 		).not.toThrow();
 	});
+
+	it("aceita tarefa acordável quando ela é exclusiva", () => {
+		const registry = new TaskRegistry();
+
+		registry.register(
+			tarefa({ wakeOn: "social/post.approved", exclusive: true }),
+		);
+
+		expect(registry.get("publicar-agendadas")?.wakeOn).toBe(
+			"social/post.approved",
+		);
+	});
+
+	// Com dois gatilhos (cron e sinal), uma execução acordada perto da virada do
+	// cron roda junto com a do cron — e as duas pegariam o mesmo item da fila.
+	// Para quem publica em rede social, isso é post duplicado.
+	it("recusa tarefa acordável que não é exclusiva", () => {
+		const registry = new TaskRegistry();
+
+		expect(() =>
+			registry.register(tarefa({ wakeOn: "social/post.approved" })),
+		).toThrow(/exclusive/);
+		expect(() =>
+			registry.register(
+				tarefa({ wakeOn: "social/post.approved", exclusive: false }),
+			),
+		).toThrow(/exclusive/);
+	});
+
+	it.each(["post-aprovado", "Social/Post", "social/", "/aprovado", ""])(
+		"recusa sinal fora do formato contexto/fato: %s",
+		(wakeOn) => {
+			const registry = new TaskRegistry();
+
+			expect(() =>
+				registry.register(tarefa({ wakeOn, exclusive: true })),
+			).toThrow(/Sinal/);
+		},
+	);
+
+	it("exclusive sem sinal é permitido", () => {
+		const registry = new TaskRegistry();
+		expect(() => registry.register(tarefa({ exclusive: true }))).not.toThrow();
+	});
 });
 
 describe("TaskRegistry.run", () => {

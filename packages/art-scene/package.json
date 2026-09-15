@@ -1,0 +1,31 @@
+{
+	"name": "@portal-app/art-scene",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"check-types": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@portal-app/social": "workspace:*"
+	},
+	"peerDependencies": {
+		"konva": "^10.5.0"
+	},
+	"devDependencies": {
+		"@fontsource/montserrat": "5.3.0",
+		"@portal-app/config": "workspace:*",
+		"@types/node": "^22.20.1",
+		"konva": "^10.5.0",
+		"skia-canvas": "^3.0.8",
+		"typescript": "catalog:"
+	}
+}

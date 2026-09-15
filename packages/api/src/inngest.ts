@@ -1,6 +1,6 @@
 import { Inngest } from "inngest";
 
-import { createTaskFunctions } from "./inngest-tasks";
+import { createTaskFunctions, createTaskWaker } from "./inngest-tasks";
 import { scheduler } from "./scheduler";
 
 /**
@@ -27,3 +27,12 @@ export const inngest = new Inngest({ id: "portal-app" });
  * basta: ela aparece aqui sozinha, e no próximo deploy o Inngest a sincroniza.
  */
 export const inngestFunctions = createTaskFunctions(inngest, scheduler);
+
+/**
+ * Acorda uma tarefa registrada com `wakeOn`, sem esperar o cron. Nunca lança:
+ * falhar em avisar só atrasa o trabalho até a próxima rodada.
+ */
+export const wakeTask = createTaskWaker(
+	{ send: (payload) => inngest.send(payload) },
+	scheduler,
+);

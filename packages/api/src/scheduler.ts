@@ -1,7 +1,9 @@
 import { publishDueScheduled } from "@portal-app/editorial";
 import { TaskRegistry } from "@portal-app/shared-kernel";
+import { publishPendingPosts } from "@portal-app/social";
 
 import { articleDeps, dispatchEditorialEvents } from "./editorial";
+import { socialDeps } from "./social";
 
 /**
  * Raiz de composição do agendamento (ADR 0007).
@@ -45,4 +47,28 @@ scheduler.register({
 			ids: published.map((article) => article.id),
 		};
 	},
+});
+
+scheduler.register({
+	name: "publish-social",
+	cron: "*/5 * * * *",
+	// Acordada na aprovação (spec 08, D33): o post sai em segundos, e o cron fica
+	// como rede de segurança e como relógio das tentativas automáticas.
+	wakeOn: "social/post.approved",
+	exclusive: true,
+	description:
+		"Entrega às redes sociais os posts já aprovados na fila (spec 08).",
+	/**
+	 * A entrega roda AQUI, e não dentro da mutação `social.approve`, e é a
+	 * decisão que faz a fila ser segura: publicar é chamada à Meta, que pode
+	 * levar minutos processando um carrossel. Dentro da requisição do painel
+	 * isso vira timeout — com o post possivelmente já publicado do lado de lá e
+	 * o nosso banco achando que falhou.
+	 *
+	 * O `approve` tranca o post em PUBLICANDO, acorda esta tarefa e devolve na
+	 * hora; ela pega a fila fora da requisição, e o Inngest traz o retry com
+	 * backoff de graça. `exclusive` impede que a execução acordada e a do cron
+	 * rodem juntas e publiquem o mesmo post duas vezes.
+	 */
+	run: () => publishPendingPosts(socialDeps),
 });

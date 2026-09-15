@@ -35,7 +35,11 @@ let minioConfig: S3StorageConfig | undefined;
 let minioClient: S3Client | undefined;
 
 beforeAll(async () => {
-	minio = await new GenericContainer("minio/minio")
+	// Do quay.io e com versão fixa: a imagem `minio/minio` saiu do Docker Hub
+	// (setembro/2026), e o CI parou de conseguir baixá-la.
+	minio = await new GenericContainer(
+		"quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z",
+	)
 		.withEnvironment({
 			MINIO_ROOT_USER: "minioadmin",
 			MINIO_ROOT_PASSWORD: "minioadmin",

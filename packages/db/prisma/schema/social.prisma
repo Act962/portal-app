@@ -1,0 +1,198 @@
+// Contexto de Redes Sociais (Fase 8). Publicação no Instagram e no Facebook a
+// partir do que já foi publicado no portal.
+//
+// Sem dado de leitor: o que se guarda aqui é o que o VEÍCULO disse e para onde
+// mandou. Nenhuma métrica de audiência da Meta é lida ou armazenada.
+
+model SocialPost {
+  id String @id
+
+  /// A matéria de origem. Nulo num post avulso ("bom dia, Piracuruca").
+  articleId String?
+
+  /// "AUTOMATICA" | "MANUAL". Guardado, e não inferido de `articleId`, porque a
+  /// fila ordena por isso: o automático chegou sozinho e ninguém o leu ainda.
+  origin String @default("MANUAL")
+
+  /// A trava de duplicata do gatilho, no BANCO.
+  ///
+  /// Vale `articleId` quando o post é AUTOMÁTICO e nulo quando é manual — e em
+  /// Postgres um índice único ignora nulos, então posts manuais continuam
+  /// ilimitados por matéria. A checagem em código (`existsForArticle`) cobre o
+  /// caso normal; esta cobre a CORRIDA, que aqui não é hipótese: o outbox
+  /// garante entrega *ao menos uma vez*, e o relay pode rodar duas vezes em
+  /// paralelo (uma por mutação, outra pelo agendador). É a mesma razão que pôs
+  /// o `@@unique` em `poll_vote`: só o banco resiste a dois simultâneos.
+  autoKey String? @unique
+
+  caption String
+
+  /// Ids da biblioteca de mídia, NA ORDEM do carrossel — a primeira é a capa
+  /// que aparece no feed. Array, e não tabela filha, porque a lista é curta
+  /// (no máximo 10), é sempre lida inteira e nunca é consultada por item.
+  mediaIds String[] @default([])
+
+  /// O link da matéria. Só o Facebook usa: no Instagram, URL em legenda não é
+  /// clicável.
+  linkUrl String?
+
+  /// A arte de cada destino (spec 09, F5): uma CÓPIA do padrão escolhido — as
+  /// camadas, a versão e os textos trocados no post —, por destino. Cópia, e não
+  /// id, porque os padrões não guardam histórico: editar o padrão depois não
+  /// pode mudar a arte de um post aprovado (D9). `{}` é post sem arte.
+  art Json @default("{}")
+
+  /// O que preenche as caixas de texto da arte (título, chapéu, editoria),
+  /// copiado da matéria no rascunho. `{}` é "sem conteúdo".
+  artContent Json @default("{}")
+
+  /// "RASCUNHO" | "PUBLICANDO" | "PUBLICADO" | "PARCIAL" | "FALHOU" |
+  /// "CANCELADA". A máquina de estados vive no domínio; aqui é só o valor.
+  status String @default("RASCUNHO")
+
+  approvedAt        DateTime?
+  approvedByStaffId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveries SocialDelivery[]
+
+  /// A consulta da fila: o que espera aprovação, mais recente primeiro.
+  @@index([status, createdAt])
+  /// A checagem de uso da biblioteca de mídia não cabe em índice (é array);
+  /// este cobre a busca por matéria, que a tela da matéria faz.
+  @@index([articleId])
+  @@map("social_post")
+}
+
+/// A tentativa de colocar UM post em UMA rede.
+///
+/// Tabela própria, e não colunas `instagramId`/`facebookId` no post, porque
+/// cada rede falha por conta própria e precisa do seu `remoteId`, do seu erro e
+/// da sua contagem de tentativas. Com colunas fixas, a terceira rede seria uma
+/// migration; assim é uma linha.
+model SocialDelivery {
+  id     String     @id @default(cuid())
+  postId String
+  post   SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  /// O DESTINO da entrega: "INSTAGRAM" | "INSTAGRAM_STORIES" | "FACEBOOK"
+  /// (spec 08, §17). A coluna guarda o nome antigo porque o feed de cada rede
+  /// tem o nome dela — as linhas gravadas antes dos Stories seguem válidas, e
+  /// nenhuma migration foi preciso.
+  platform String
+
+  /// "PENDENTE" | "AGUARDANDO_PESSOA" | "PUBLICADO" | "FALHOU" | "DISPENSADA".
+  status String @default("PENDENTE")
+
+  /// "AUTOMATICO" (o worker publica pela API) | "MANUAL" (uma pessoa publica
+  /// pelo app, com a arte preparada pelo portal — spec 11).
+  mode String @default("AUTOMATICO")
+
+  /// A arte pronta para a pessoa publicar. Só no modo manual.
+  preparedImageUrl String?
+
+  /// Quem confirmou a publicação manual — a prova no lugar do `remoteId`.
+  publishedByStaffId String?
+
+  /// O id do post NA REDE (`ig_media_id`, `page_post_id`). É a prova de que
+  /// saiu, e o que impede o reenvio de duplicar.
+  remoteId  String?
+  permalink String?
+
+  /// Por que falhou, em português — a tela mostra sem traduzir.
+  error         String?
+  attempts      Int       @default(0)
+  lastAttemptAt DateTime?
+
+  /// Uma entrega por rede por post. No banco, porque é o que impede duas
+  /// linhas nascerem de um duplo envio.
+  @@unique([postId, platform])
+  /// A consulta do worker: tudo que ainda precisa sair.
+  @@index([status])
+  @@map("social_delivery")
+}
+
+/// Um padrão de arte (spec 09): o desenho que a notícia veste nas redes.
+///
+/// As camadas vão como JSON, e não como tabela filha: a lista é sempre lida e
+/// gravada inteira, nunca consultada por camada, e quem valida a forma dela é o
+/// agregado `ArtTemplate` — o banco só guarda.
+model SocialArtTemplate {
+  id String @id
+
+  name String
+
+  /// "1:1" | "4:5" | "9:16".
+  format String
+
+  /// O desenho inteiro (spec 10, §4): fundo, elementos na ordem da pilha (o
+  /// primeiro fica embaixo) e as variáveis do padrão. Sempre lido e escrito
+  /// inteiro, validado pelo agregado.
+  design Json @default("{}")
+
+  /// Os destinos de que este é o padrão. "Um por destino" é regra da aplicação
+  /// (spec 09, D10), que desmarca o anterior na mesma transação.
+  defaultFor String[] @default([])
+
+  /// As mídias que o desenho usa (molduras, logos), copiadas das camadas. Existe
+  /// para a biblioteca responder "esta imagem está em uso?" com um `has`, sem
+  /// abrir o JSON de todo padrão.
+  mediaIds String[] @default([])
+
+  /// Sobe a cada mudança no desenho. O post guarda a versão que aprovou (D9).
+  version Int @default(1)
+
+  /// Arquivado sai da escolha, mas não some: posts aprovados apontam para ele.
+  archived Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  /// Sem `@updatedAt`: quem diz quando o padrão mudou é o domínio.
+  updatedAt DateTime @default(now())
+
+  /// A lista da tela: os ativos, por nome.
+  @@index([archived, name])
+  @@map("social_art_template")
+}
+
+/// Uma conta da Meta conectada ao portal. Uma por rede (D5).
+model SocialAccount {
+  id String @id
+
+  /// "INSTAGRAM" | "FACEBOOK". ÚNICO: é o que materializa o D5 no banco, em vez
+  /// de depender de toda escrita lembrar de checar.
+  platform String @unique
+
+  /// O id da conta NA META: `ig-user-id` no Instagram, `page-id` no Facebook.
+  remoteId String
+
+  displayName String
+  avatarUrl   String?
+
+  /// O token de acesso, CIFRADO em repouso (AES-256-GCM). Fica nesta tabela,
+  /// mas fora do agregado de propósito (spec 08, D9): o agregado vira DTO do
+  /// tRPC, linha de auditoria e log de erro — três caminhos por onde um campo
+  /// de token vazaria sem ninguém escrever uma linha errada. Só o repositório
+  /// lê esta coluna, e só no instante da chamada à Meta.
+  accessToken String
+
+  /// Quando o token para de valer. NULO É NORMAL e bom: o token de Página de
+  /// longa duração da Meta não expira. Quem expira é o de usuário (60 dias).
+  tokenExpiresAt DateTime?
+
+  /// "CONECTADA" | "DESCONECTADA". EXPIRADA e EXPIRANDO NÃO são guardados: saem
+  /// da comparação com o relógio na leitura, para não existir um status gravado
+  /// que discorde da data no dia em que um job falhar.
+  status String @default("CONECTADA")
+
+  connectedAt DateTime @default(now())
+
+  /// Quem autorizou o aplicativo a falar em nome do veículo. Fica para a
+  /// auditoria poder responder essa pergunta meses depois.
+  connectedByStaffId String
+
+  updatedAt DateTime @updatedAt
+
+  @@map("social_account")
+}
