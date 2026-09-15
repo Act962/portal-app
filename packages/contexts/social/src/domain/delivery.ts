@@ -285,4 +285,10 @@ export class Delivery {
 		this.state.error = null;
 		this.state.attempts = 0;
 	}
+
+	/** Abre um novo rascunho depois de uma falha definitiva. Só é chamado quando
+	 * o post inteiro falhou, portanto não há `remoteId` publicado a perder. */
+	remake(): Delivery {
+		return Delivery.pending(this.state.destination, this.state.mode);
+	}
 }

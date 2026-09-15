@@ -115,6 +115,16 @@ describe("PrismaSocialPostRepository", () => {
 		expect(await posts.existsForArticle("art-1")).toBe(true);
 	});
 
+	it("apagar remove as entregas e libera a matéria para uma nova postagem", async () => {
+		await posts.save(rascunho("post-antigo"));
+		await posts.remove("post-antigo");
+
+		expect(await posts.findById("post-antigo")).toBeNull();
+		expect(await prisma.socialDelivery.count()).toBe(0);
+		expect(await posts.existsForArticle("art-1")).toBe(false);
+		await expect(posts.save(rascunho("post-novo"))).resolves.toBeUndefined();
+	});
+
 	it("o post preparado no editor da matéria também trava, e findForArticle o acha (spec 09, F6)", async () => {
 		const daMateria = SocialPost.draft({
 			id: "post-materia",

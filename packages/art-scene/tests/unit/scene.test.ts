@@ -96,6 +96,53 @@ function pixel(layer: InstanceType<typeof Konva.Layer>, x: number, y: number) {
 }
 
 describe("peças puras", () => {
+	it.each(["vertical", "horizontal"] as const)(
+		"repete a foto na direção %s preservando o ponto focal",
+		(repeat) => {
+			const source = Konva.Util.createCanvasElement();
+			source.width = 800;
+			source.height = 600;
+			const context = source.getContext("2d");
+			if (!context) throw new Error("Canvas indisponível");
+			context.fillStyle = "#ff0000";
+			context.fillRect(0, 0, 800, 600);
+			const { layer } = buildArtLayer(Konva, {
+				format: "4:5",
+				design: desenho([
+					{
+						...base,
+						id: "photo",
+						kind: "PHOTO",
+						cornerRadius: 20,
+						stroke: null,
+						repeat,
+						repeatCount: 2,
+					},
+				]),
+				content: CONTEUDO,
+				assets: {
+					images: {},
+					photo: {
+						image: source,
+						width: 800,
+						height: 600,
+						focal: { x: 1, y: 1 },
+					},
+				},
+			});
+			const images = layer.find("Image") as InstanceType<typeof Konva.Image>[];
+			expect(images).toHaveLength(2);
+			expect(images[0]?.width()).toBe(repeat === "horizontal" ? 300 : 600);
+			expect(images[0]?.height()).toBe(repeat === "vertical" ? 150 : 300);
+			expect(images[1]?.x()).toBe(repeat === "horizontal" ? 300 : 0);
+			expect(images[1]?.y()).toBe(repeat === "vertical" ? 150 : 0);
+			expect(images[1]?.crop()).toEqual(images[0]?.crop());
+			expect(pixel(layer, 250, 275)).toEqual([255, 0, 0]);
+			expect(pixel(layer, 550, 425)).toEqual([255, 0, 0]);
+			expect(pixel(layer, 100, 200)).toEqual([255, 255, 255]);
+			layer.destroy();
+		},
+	);
 	it("o degradê de 0° vai da esquerda para a direita; o de 90°, de cima para baixo", () => {
 		expect(gradientPoints(0, 200, 100)).toEqual({
 			start: { x: 0, y: 50 },

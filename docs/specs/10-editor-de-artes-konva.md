@@ -1,5 +1,21 @@
 # Spec — Fase 10: Editor profissional de artes (Konva) e variáveis
 
+## Ajustes solicitados em 15/09/2026 — foto no padrão
+
+- O editor carrega uma paisagem local de exemplo quando não há foto escolhida.
+  A imagem serve apenas à edição; a publicação continua usando a capa da matéria.
+- Com a camada PHOTO selecionada, o usuário pode trocar essa paisagem por uma
+  imagem da biblioteca de mídia e restaurar a foto padrão. A escolha também fica
+  disponível nos dados de exemplo e dura durante a sessão de edição.
+- A camada PHOTO oferece foto única ou repetição vertical/horizontal, com 2 a 6
+  cópias (padrão: 2). Cada cópia preenche sua divisão da caixa pelo ponto focal.
+  Cantos e contorno são aplicados à caixa inteira. Editor e exportação usam o
+  mesmo renderizador.
+- `repeat` e `repeatCount` são opcionais no desenho persistido, mantendo os
+  padrões existentes como foto única. Não há alteração no schema do banco.
+- Validação: testes de posições, tamanho, pixels e cantos das repetições.
+
+
 > **Status:** 🚧 Em validação — F1 a F5 implementadas em 14/09/2026; falta a
 > validação do cliente no editor. Decisões do cliente em 14/09/2026 (D1–D4).
 > **Operação:** o `skia-canvas` baixa um binário nativo no `install`

@@ -15,7 +15,7 @@ import {
 	InvalidArtChoice,
 	type InvalidDeliveryTransition,
 	type InvalidMediaSelection,
-	type InvalidPostTransition,
+	InvalidPostTransition,
 	type PostNotReady,
 	SocialPostNotFound,
 } from "../domain/errors";
@@ -159,6 +159,52 @@ export async function retryPost(
 	}
 	await deps.repo.save(post);
 	return ok(post);
+}
+
+/** Volta uma publicação totalmente falha/descartada para um rascunho editável. */
+export async function remakePost(
+	actor: StaffMember,
+	input: { id: string },
+	deps: Pick<PostDeps, "repo">,
+): Promise<
+	Result<SocialPost, Forbidden | SocialPostNotFound | InvalidPostTransition>
+> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await deps.repo.findById(input.id);
+	if (!post) {
+		return err(new SocialPostNotFound(input.id));
+	}
+	const remade = post.remake();
+	if (remade.isErr()) {
+		return err(remade.error);
+	}
+	await deps.repo.save(post);
+	return ok(post);
+}
+
+/** Apaga o histórico local. Publicações já enviadas continuam na rede: a API da
+ * Meta não oferece exclusão de mídia publicada no Instagram. */
+export async function deletePost(
+	actor: StaffMember,
+	input: { id: string },
+	deps: Pick<PostDeps, "repo">,
+): Promise<
+	Result<void, Forbidden | SocialPostNotFound | InvalidPostTransition>
+> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await deps.repo.findById(input.id);
+	if (!post) {
+		return err(new SocialPostNotFound(input.id));
+	}
+	if (post.status === "PUBLICANDO") {
+		return err(new InvalidPostTransition("apagar", post.status));
+	}
+	await deps.repo.remove(post.id);
+	return ok(undefined);
 }
 
 export async function cancelPost(

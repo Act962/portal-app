@@ -101,6 +101,8 @@ const element = z.discriminatedUnion("kind", [
 	z.object({
 		...base,
 		kind: z.literal("PHOTO"),
+		repeat: z.enum(["none", "vertical", "horizontal"]).optional(),
+		repeatCount: z.number().int().min(2).max(6).optional(),
 		cornerRadius: z.number(),
 		stroke: stroke.nullable(),
 	}),

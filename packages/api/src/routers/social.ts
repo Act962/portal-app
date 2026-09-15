@@ -12,6 +12,7 @@ import {
 	DEFAULT_CAPTION_TEMPLATE,
 	DESTINATION_PLATFORM,
 	defaultTemplateFor,
+	deletePost,
 	diagnoseAccounts,
 	disconnectAccount,
 	dismissDelivery,
@@ -20,6 +21,7 @@ import {
 	listQueue,
 	prepareArticlePost,
 	publishDeliveryManually,
+	remakePost,
 	renderCaption,
 	retryPost,
 	SOCIAL_DESTINATIONS,
@@ -298,6 +300,20 @@ export const socialRouter = router({
 			await wakeTask("publish-social", { postId: post.id });
 			return postDto(post);
 		}),
+
+	/** Reabre como rascunho somente quando nada chegou a ser publicado. */
+	remake: publish
+		.input(z.object({ id: z.string() }))
+		.mutation(async ({ ctx, input }) =>
+			postDto(ensure(await remakePost(ctx.staff, input, socialDeps))),
+		),
+
+	/** Apaga o histórico local depois da confirmação explícita da tela. */
+	remove: publish
+		.input(z.object({ id: z.string() }))
+		.mutation(async ({ ctx, input }) =>
+			ensure(await deletePost(ctx.staff, input, socialDeps)),
+		),
 
 	/**
 	 * "Já publiquei" — a pessoa publicou pelo app a entrega manual (spec 11, D7).

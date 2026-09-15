@@ -42,6 +42,11 @@ export class InMemorySocialPostRepository implements SocialPostRepository {
 		return Promise.resolve();
 	}
 
+	remove(id: string): Promise<void> {
+		this.posts.delete(id);
+		return Promise.resolve();
+	}
+
 	findById(id: string): Promise<SocialPost | null> {
 		return Promise.resolve(this.posts.get(id) ?? null);
 	}

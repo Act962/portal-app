@@ -222,7 +222,7 @@ function photoNode(
 	K: Konva,
 	element: PhotoElement,
 	assets: SceneAssets,
-): KShape {
+): KShape | KGroup {
 	const { width, height, cornerRadius } = element;
 	const photo = assets.photo;
 	if (!photo) {
@@ -233,6 +233,57 @@ function photoNode(
 			fill: PHOTO_PLACEHOLDER,
 			...strokeAttrs(element.stroke),
 		});
+	}
+	if (element.repeat && element.repeat !== "none") {
+		const count = element.repeatCount ?? 2;
+		const tileWidth = element.repeat === "horizontal" ? width / count : width;
+		const tileHeight = element.repeat === "vertical" ? height / count : height;
+		const group = new K.Group({
+			clipFunc: (ctx) => {
+				ctx.beginPath();
+				ctx.roundRect(
+					0,
+					0,
+					width,
+					height,
+					Math.min(cornerRadius, width / 2, height / 2),
+				);
+				ctx.closePath();
+			},
+		});
+		const crop = focalCropTo(photo, photo.focal, {
+			width: tileWidth,
+			height: tileHeight,
+		});
+		for (let index = 0; index < count; index++) {
+			group.add(
+				new K.Image({
+					image: photo.image,
+					x: element.repeat === "horizontal" ? index * tileWidth : 0,
+					y: element.repeat === "vertical" ? index * tileHeight : 0,
+					width: tileWidth,
+					height: tileHeight,
+					crop: {
+						x: crop.left,
+						y: crop.top,
+						width: crop.width,
+						height: crop.height,
+					},
+				}),
+			);
+		}
+		const result = new K.Group();
+		result.add(group);
+		result.add(
+			new K.Rect({
+				width,
+				height,
+				cornerRadius,
+				...strokeAttrs(element.stroke),
+				listening: false,
+			}),
+		);
+		return result;
 	}
 	const crop = focalCropTo(photo, photo.focal, { width, height });
 	return new K.Image({

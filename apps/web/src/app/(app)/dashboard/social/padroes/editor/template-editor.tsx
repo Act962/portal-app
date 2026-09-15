@@ -221,7 +221,11 @@ export function TemplateEditor({
 		: [];
 
 	const fontsReady = useArtFontsReady(design);
-	const { assets } = useArtAssets(design, samplePhotoId);
+	const { assets } = useArtAssets(
+		design,
+		samplePhotoId,
+		"/editor/sample-photo.jpg",
+	);
 
 	// No modo "variáveis", as caixas mostram o texto cru, com os marcadores.
 	const stageDesign = useMemo<ArtDesign>(
@@ -856,6 +860,9 @@ export function TemplateEditor({
 							onPickImage={(elementId) =>
 								setPicking({ mode: "replace-image", elementId })
 							}
+							samplePhotoId={samplePhotoId}
+							onPickSamplePhoto={() => setPicking({ mode: "sample-photo" })}
+							onResetSamplePhoto={() => setSamplePhotoId(null)}
 							contentRef={contentRef}
 							onInsertToken={insertVariable}
 						/>
@@ -1624,7 +1631,7 @@ function TemplateSettings({
 						onClick={onPickSamplePhoto}
 					>
 						<UserSquare className="size-3.5" />
-						{samplePhotoId ? "Trocar foto" : "Foto de exemplo"}
+						{samplePhotoId ? "Trocar exemplo" : "Escolher outra foto"}
 					</Button>
 					{samplePhotoId ? (
 						<Button
@@ -1633,7 +1640,7 @@ function TemplateSettings({
 							className="h-7 text-xs"
 							onClick={onClearSamplePhoto}
 						>
-							Sem foto
+							Restaurar padrão
 						</Button>
 					) : null}
 				</div>

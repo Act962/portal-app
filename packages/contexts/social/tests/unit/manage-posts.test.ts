@@ -5,10 +5,12 @@ import {
 	confirmManualPublish,
 	countPendingPosts,
 	createDraft,
+	deletePost,
 	dismissDelivery,
 	getPost,
 	listQueue,
 	publishDeliveryManually,
+	remakePost,
 	retryPost,
 	updatePost,
 } from "@portal-app/social";
@@ -188,6 +190,63 @@ describe("retryPost", () => {
 			"INSTAGRAM",
 		]);
 		expect(post.deliveryFor("FACEBOOK")?.remoteId).toBe("fb-1");
+	});
+});
+
+describe("remakePost", () => {
+	it("reabre falha total como rascunho editável e zera as tentativas", async () => {
+		const admin = staff("ADMIN");
+		const post = (await createDraft(admin, entrada, deps)).unwrap();
+		post.approve(admin.id, AGORA);
+		post.recordFailure("INSTAGRAM", "imagem ausente", AGORA);
+		post.recordFailure("FACEBOOK", "imagem ausente", AGORA);
+
+		const remade = (await remakePost(admin, { id: post.id }, deps)).unwrap();
+		expect(remade.status).toBe("RASCUNHO");
+		expect(remade.approvedAt).toBeNull();
+		expect(remade.deliveries.every((delivery) => delivery.attempts === 0)).toBe(
+			true,
+		);
+		expect(remade.edit({ captionText: "Legenda corrigida" }).isOk()).toBe(true);
+	});
+
+	it("recusa refazer falha parcial para não duplicar a rede já publicada", async () => {
+		const admin = staff("ADMIN");
+		const post = (await createDraft(admin, entrada, deps)).unwrap();
+		post.approve(admin.id, AGORA);
+		post.recordSuccess("FACEBOOK", "fb-1", null, AGORA);
+		post.recordFailure("INSTAGRAM", "falhou", AGORA);
+		expect((await remakePost(admin, { id: post.id }, deps)).isErr()).toBe(true);
+	});
+});
+
+describe("deletePost", () => {
+	it("apaga o histórico local de uma publicação concluída", async () => {
+		const admin = staff("ADMIN");
+		const post = (await createDraft(admin, entrada, deps)).unwrap();
+		post.approve(admin.id, AGORA);
+		post.recordSuccess("INSTAGRAM", "ig-1", null, AGORA);
+		post.recordSuccess("FACEBOOK", "fb-1", null, AGORA);
+		await repo.save(post);
+
+		expect((await deletePost(admin, { id: post.id }, deps)).isOk()).toBe(true);
+		expect(repo.posts.has(post.id)).toBe(false);
+	});
+
+	it("apaga um rascunho", async () => {
+		const admin = staff("ADMIN");
+		const post = (await createDraft(admin, entrada, deps)).unwrap();
+		await deletePost(admin, { id: post.id }, deps);
+		expect(repo.posts.has(post.id)).toBe(false);
+	});
+
+	it("não apaga enquanto uma entrega ainda pode estar saindo", async () => {
+		const admin = staff("ADMIN");
+		const post = (await createDraft(admin, entrada, deps)).unwrap();
+		post.approve(admin.id, AGORA);
+		const result = await deletePost(admin, { id: post.id }, deps);
+		expect(result.unwrapErr().name).toBe("InvalidPostTransition");
+		expect(repo.posts.has(post.id)).toBe(true);
 	});
 });
 

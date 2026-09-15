@@ -32,6 +32,7 @@ import {
 	Braces,
 	Eye,
 	EyeOff,
+	ImagePlus,
 	Lock,
 	LockOpen,
 	Plus,
@@ -74,6 +75,9 @@ export function ElementInspector({
 	disabled,
 	onPatch,
 	onPickImage,
+	samplePhotoId,
+	onPickSamplePhoto,
+	onResetSamplePhoto,
 	contentRef,
 	onInsertToken,
 }: {
@@ -82,6 +86,9 @@ export function ElementInspector({
 	disabled: boolean;
 	onPatch: ElementPatch;
 	onPickImage: (id: string) => void;
+	samplePhotoId: string | null;
+	onPickSamplePhoto: () => void;
+	onResetSamplePhoto: () => void;
 	contentRef: RefObject<HTMLTextAreaElement | null>;
 	onInsertToken: (key: string) => void;
 }) {
@@ -360,9 +367,72 @@ export function ElementInspector({
 			{element.kind === "PHOTO" ? (
 				<>
 					<Section title="Foto da matéria">
+						{samplePhotoId ? (
+							<ImageThumb mediaId={samplePhotoId} />
+						) : (
+							<div className="flex h-24 items-center justify-center overflow-hidden rounded-md border bg-muted">
+								<AssetImage
+									src="/editor/sample-photo.jpg"
+									alt="Foto de exemplo padrão"
+									className="size-full object-cover"
+								/>
+							</div>
+						)}
+						<div className="flex gap-1.5">
+							<Button
+								variant="outline"
+								size="sm"
+								className="h-7 flex-1 text-xs"
+								onClick={onPickSamplePhoto}
+							>
+								<ImagePlus className="size-3.5" />
+								{samplePhotoId ? "Trocar exemplo" : "Escolher outra foto"}
+							</Button>
+							{samplePhotoId ? (
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-7 text-xs"
+									onClick={onResetSamplePhoto}
+								>
+									Restaurar padrão
+								</Button>
+							) : null}
+						</div>
+						<Segmented
+							ariaLabel="Repetição da foto"
+							value={element.repeat ?? "none"}
+							disabled={disabled}
+							options={[
+								{ value: "none", label: "Única" },
+								{ value: "vertical", label: "Vertical" },
+								{ value: "horizontal", label: "Horizontal" },
+							]}
+							onChange={(repeat) =>
+								patch((current) =>
+									current.kind === "PHOTO" ? { ...current, repeat } : current,
+								)
+							}
+						/>
+						{element.repeat && element.repeat !== "none" ? (
+							<NumberField
+								label="Repetições"
+								value={element.repeatCount ?? 2}
+								min={2}
+								max={6}
+								disabled={disabled}
+								onCommit={(repeatCount) =>
+									patch((current) =>
+										current.kind === "PHOTO"
+											? { ...current, repeatCount: Math.round(repeatCount) }
+											: current,
+									)
+								}
+							/>
+						) : null}
 						<p className="text-muted-foreground text-xs">
-							Aqui entra a capa de cada post, enquadrada pelo ponto focal da
-							foto. Teste com uma foto de exemplo nas configurações do padrão.
+							A foto escolhida serve apenas para testar o padrão. Na publicação,
+							ela é substituída pela capa da matéria e seu ponto focal.
 						</p>
 						<NumberField
 							label="Cantos"
