@@ -89,6 +89,10 @@ export class PrismaSocialPostRepository implements SocialPostRepository {
 		});
 	}
 
+	async remove(id: string): Promise<void> {
+		await this.prisma.socialPost.delete({ where: { id } });
+	}
+
 	async findById(id: string): Promise<SocialPost | null> {
 		const row = await this.prisma.socialPost.findUnique({
 			where: { id },

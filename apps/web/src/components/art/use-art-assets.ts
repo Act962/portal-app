@@ -40,6 +40,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 export function useArtAssets(
 	design: ArtDesign,
 	photoMediaId: string | null,
+	placeholderUrl?: string,
 ): { assets: SceneAssets; loading: boolean } {
 	const wantsPhoto = photoElementOf(design) !== null && photoMediaId !== null;
 	const ids = [
@@ -54,6 +55,25 @@ export function useArtAssets(
 		enabled: ids.length > 0,
 	});
 
+	const [placeholder, setPlaceholder] = useState<LoadedImage | null>(null);
+	useEffect(() => {
+		let active = true;
+		if (placeholderUrl && !photoMediaId) {
+			loadImage(placeholderUrl)
+				.then((image) => {
+					if (active)
+						setPlaceholder({
+							image,
+							width: image.naturalWidth,
+							height: image.naturalHeight,
+						});
+				})
+				.catch(() => {});
+		}
+		return () => {
+			active = false;
+		};
+	}, [placeholderUrl, photoMediaId]);
 	const [images, setImages] = useState<Record<string, LoadedImage>>({});
 
 	useEffect(() => {
@@ -96,7 +116,9 @@ export function useArtAssets(
 		return {
 			photo: photo
 				? { ...photo, focal: photoItem?.focalPoint ?? CENTER }
-				: null,
+				: !photoMediaId && placeholderUrl && placeholder
+					? { ...placeholder, focal: CENTER }
+					: null,
 			images: Object.fromEntries(
 				mediaIdsOf(design)
 					.map((id) => [id, images[id]] as const)
@@ -105,7 +127,15 @@ export function useArtAssets(
 					),
 			),
 		};
-	}, [images, library.data, photoMediaId, wantsPhoto, idsKey]);
+	}, [
+		images,
+		library.data,
+		photoMediaId,
+		wantsPhoto,
+		idsKey,
+		placeholder,
+		placeholderUrl,
+	]);
 
 	const loading =
 		(ids.length > 0 && library.isPending) ||

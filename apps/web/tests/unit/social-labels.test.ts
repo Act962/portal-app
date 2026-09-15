@@ -62,6 +62,7 @@ describe("availableActions", () => {
 			"aprovar",
 			"editar",
 			"descartar",
+			"apagar",
 		]);
 	});
 
@@ -72,15 +73,19 @@ describe("availableActions", () => {
 	});
 
 	it("falha e falha parcial oferecem tentar de novo", () => {
-		expect(availableActions("FALHOU")).toEqual(["tentar-de-novo"]);
-		expect(availableActions("PARCIAL")).toEqual(["tentar-de-novo"]);
+		expect(availableActions("FALHOU")).toEqual([
+			"tentar-de-novo",
+			"refazer",
+			"apagar",
+		]);
+		expect(availableActions("PARCIAL")).toEqual(["tentar-de-novo", "apagar"]);
 	});
 
 	it("o que já está no ar não oferece aprovar de novo", () => {
 		// Oferecer levaria ao segundo post que o agregado recusa: o erro viraria
 		// mensagem vermelha em vez de nunca ter sido oferecido.
 		expect(availableActions("PUBLICADO")).not.toContain("aprovar");
-		expect(availableActions("CANCELADA")).toEqual([]);
+		expect(availableActions("CANCELADA")).toEqual(["refazer", "apagar"]);
 	});
 });
 

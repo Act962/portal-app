@@ -335,10 +335,29 @@ social.createDraft    // post avulso                          (social:publish)
 social.update         // legenda, imagens, redes (só RASCUNHO)(social:publish)
 social.approve        // tranca e envia                       (social:publish)
 social.retry          // reenvia SÓ o que falhou              (social:publish)
+social.remake         // falha total/descartado → rascunho    (social:publish)
+social.remove         // apaga o histórico local              (social:publish)
 social.cancel         // descarta o rascunho                  (social:publish)
 social.accounts       // contas e estado dos tokens           (social:manage)
 social.disconnect     // desliga a conta                      (social:manage)
 ```
+
+### Recuperação e exclusão (15/09/2026)
+
+- **Tentar novamente** recoloca na fila somente as entregas `FALHOU`. Em
+  `PARCIAL`, a entrega já publicada conserva o `remoteId` e nunca é duplicada.
+  A ação aparece na fila e no cartão da matéria, junto ao erro por destino.
+- **Refazer postagem** volta `FALHOU` ou `CANCELADA` para `RASCUNHO`, zerando
+  aprovação, erros e tentativas para permitir trocar capa, arte e texto. Não
+  vale em `PARCIAL`, pois recriar todas as entregas duplicaria a rede que já
+  publicou.
+- **Apagar** remove o post e suas entregas locais, exceto em `PUBLICANDO`, pois
+  uma chamada à Meta pode estar em andamento. A exclusão libera a chave única
+  da matéria, permitindo criar outro post.
+- A API de publicação do Instagram não permite apagar mídia publicada. Quando
+  há entrega no ar, o diálogo oferece os links disponíveis, orienta a remoção
+  manual e exige que a pessoa confirme que apagar o histórico local não remove
+  o conteúdo da rede.
 
 O envio em si **não** acontece dentro da mutação `approve`: ela tranca o post e
 devolve. Quem chama a Meta é uma tarefa do `Scheduler`/Inngest, que já traz

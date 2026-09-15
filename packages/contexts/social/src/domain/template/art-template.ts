@@ -69,6 +69,9 @@ export type ElementBase = {
 /** O lugar da foto do post, enquadrada pelo ponto focal. */
 export type PhotoElement = ElementBase & {
 	kind: "PHOTO";
+	/** Ausente em padrões antigos: uma única foto. */
+	repeat?: "none" | "vertical" | "horizontal";
+	repeatCount?: number;
 	cornerRadius: number;
 	stroke: Stroke | null;
 };
@@ -404,6 +407,16 @@ function kindProblems(
 	switch (element.kind) {
 		case "PHOTO":
 			return [
+				...(element.repeat !== undefined &&
+				!["none", "vertical", "horizontal"].includes(element.repeat)
+					? [`${label}: direção de repetição inválida.`]
+					: []),
+				...(element.repeatCount !== undefined &&
+				(!Number.isInteger(element.repeatCount) ||
+					element.repeatCount < 2 ||
+					element.repeatCount > 6)
+					? [`${label}: use de 2 a 6 repetições.`]
+					: []),
 				...radiusProblems(label, element.cornerRadius),
 				...strokeProblems(label, element.stroke),
 			];

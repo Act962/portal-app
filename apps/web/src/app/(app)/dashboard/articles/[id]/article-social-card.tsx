@@ -22,13 +22,23 @@ import {
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import { cn } from "@portal-app/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Eye, Share2, X } from "lucide-react";
+import {
+	AlertTriangle,
+	ExternalLink,
+	Eye,
+	RotateCw,
+	Share2,
+	X,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { templatesFor } from "@/app/(app)/dashboard/social/post-art-model";
-import { POST_STATUS_LABELS } from "@/app/(app)/dashboard/social/social-labels";
+import {
+	canRetry,
+	POST_STATUS_LABELS,
+} from "@/app/(app)/dashboard/social/social-labels";
 import { ArtCanvas } from "@/components/art/art-canvas";
 import { trpc } from "@/utils/trpc";
 
@@ -128,6 +138,32 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const refreshPost = async () => {
+		await Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: trpc.social.articlePost.queryKey({ articleId }),
+			}),
+			queryClient.invalidateQueries({ queryKey: trpc.social.queue.queryKey() }),
+		]);
+	};
+	const retry = useMutation(
+		trpc.social.retry.mutationOptions({
+			onSuccess: async () => {
+				toast.success("Nova tentativa enviada para a fila.");
+				await refreshPost();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const remake = useMutation(
+		trpc.social.remake.mutationOptions({
+			onSuccess: async () => {
+				toast.success("Postagem reaberta para edição.");
+				await refreshPost();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 
 	if (info.isLoading) {
 		return (
@@ -148,7 +184,7 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 	const { published, coverMediaId, post, defaults } = info.data;
 	const drawn = content ?? info.data.content;
 	const state = articleSocialState(published, post);
-	const busy = prepare.isPending;
+	const busy = prepare.isPending || retry.isPending || remake.isPending;
 	const templateList = templates.data ?? [];
 
 	const submit = (approve: boolean) =>
@@ -186,6 +222,42 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 							Ver na fila
 						</Button>
 					</div>
+				) : null}
+
+				{post?.deliveries
+					.filter((delivery) => delivery.error)
+					.map((delivery) => (
+						<p
+							key={delivery.destination}
+							className="flex gap-2 rounded border border-destructive/30 bg-destructive/5 p-2 text-destructive text-xs"
+						>
+							<AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+							<span>
+								{DESTINATION_LABEL[delivery.destination]}: {delivery.error}
+							</span>
+						</p>
+					))}
+
+				{post && canRetry(post.status, post.deliveries) ? (
+					<Button
+						variant="outline"
+						disabled={busy}
+						onClick={() => retry.mutate({ id: post.id })}
+					>
+						<RotateCw className="size-4" />
+						Tentar novamente
+					</Button>
+				) : null}
+
+				{post && (post.status === "FALHOU" || post.status === "CANCELADA") ? (
+					<Button
+						variant="secondary"
+						disabled={busy}
+						onClick={() => remake.mutate({ id: post.id })}
+					>
+						<RotateCw className="size-4" />
+						Refazer postagem
+					</Button>
 				) : null}
 
 				<div className="flex flex-wrap gap-1.5">

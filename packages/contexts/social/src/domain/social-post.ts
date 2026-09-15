@@ -619,6 +619,21 @@ export class SocialPost extends AggregateRoot<string> {
 		return ok(undefined);
 	}
 
+	/** Volta uma publicação totalmente falha ou descartada a um rascunho
+	 * editável. `PARCIAL` fica de fora para nunca duplicar o destino já publicado. */
+	remake(): Result<void, InvalidPostTransition> {
+		if (this.state.status !== "FALHOU" && this.state.status !== "CANCELADA") {
+			return err(new InvalidPostTransition("refazer", this.state.status));
+		}
+		this.state.deliveries = this.state.deliveries.map((delivery) =>
+			delivery.remake(),
+		);
+		this.state.status = "RASCUNHO";
+		this.state.approvedAt = null;
+		this.state.approvedByStaffId = null;
+		return ok(undefined);
+	}
+
 	// ── publicação manual (spec 11) ─────────────────────────────────────────────
 
 	/**

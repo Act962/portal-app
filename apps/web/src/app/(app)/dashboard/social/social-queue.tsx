@@ -13,6 +13,7 @@ import {
 } from "@portal-app/ui/components/alert-dialog";
 import { Badge } from "@portal-app/ui/components/badge";
 import { Button } from "@portal-app/ui/components/button";
+import { Checkbox } from "@portal-app/ui/components/checkbox";
 import {
 	Select,
 	SelectContent,
@@ -84,6 +85,13 @@ export function SocialQueue() {
 	const [editing, setEditing] = useState<string | null>(null);
 	const [creating, setCreating] = useState(false);
 	const [discarding, setDiscarding] = useState<string | null>(null);
+	const [deleting, setDeleting] = useState<{
+		id: string;
+		hasRemotePosts: boolean;
+		remoteLinks: readonly { label: string; url: string }[];
+	} | null>(null);
+	const [remoteRemovalAcknowledged, setRemoteRemovalAcknowledged] =
+		useState(false);
 
 	const queue = useQuery(
 		trpc.social.queue.queryOptions({
@@ -130,6 +138,28 @@ export function SocialQueue() {
 		trpc.social.retry.mutationOptions({
 			onSuccess: async () => {
 				toast.success("Reenviando só o que falhou.");
+				await refresh();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const remake = useMutation(
+		trpc.social.remake.mutationOptions({
+			onSuccess: async () => {
+				toast.success("Publicação reaberta como rascunho para revisão.");
+				await refresh();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const remove = useMutation(
+		trpc.social.remove.mutationOptions({
+			onSuccess: async () => {
+				toast.success("Publicação apagada do portal.");
+				setDeleting(null);
+				setRemoteRemovalAcknowledged(false);
 				await refresh();
 			},
 			onError: (error) => toast.error(error.message),
@@ -325,6 +355,18 @@ export function SocialQueue() {
 									</Button>
 								) : null}
 
+								{availableActions(post.status).includes("refazer") ? (
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={remake.isPending}
+										onClick={() => remake.mutate({ id: post.id })}
+									>
+										<RotateCw className="size-4" />
+										Refazer postagem
+									</Button>
+								) : null}
+
 								{post.deliveries
 									.filter((delivery) =>
 										deliveryActions(delivery).includes("publicar-a-mao"),
@@ -355,6 +397,36 @@ export function SocialQueue() {
 									>
 										<Trash2 className="size-4" />
 										Descartar
+									</Button>
+								) : null}
+
+								{availableActions(post.status).includes("apagar") ? (
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={remove.isPending}
+										onClick={() => {
+											setRemoteRemovalAcknowledged(false);
+											setDeleting({
+												id: post.id,
+												hasRemotePosts: post.deliveries.some(
+													(delivery) => delivery.status === "PUBLICADO",
+												),
+												remoteLinks: post.deliveries.flatMap((delivery) =>
+													delivery.permalink
+														? [
+																{
+																	label: permalinkLabel(delivery.destination),
+																	url: delivery.permalink,
+																},
+															]
+														: [],
+												),
+											});
+										}}
+									>
+										<Trash2 className="size-4" />
+										Apagar
 									</Button>
 								) : null}
 
@@ -415,6 +487,72 @@ export function SocialQueue() {
 							onClick={() => discarding && cancel.mutate({ id: discarding })}
 						>
 							Descartar
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			<AlertDialog
+				open={deleting !== null}
+				onOpenChange={(open) => !open && setDeleting(null)}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Apagar esta publicação?</AlertDialogTitle>
+						<AlertDialogDescription>
+							O histórico e a fila desta publicação serão apagados. A matéria no
+							portal não será alterada e poderá gerar uma nova postagem.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					{deleting?.hasRemotePosts ? (
+						<div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950 text-sm dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+							<p>
+								A Meta não permite que o portal apague publicações do Instagram.
+								Abra cada publicação e remova-a manualmente antes de apagar o
+								histórico local.
+							</p>
+							<div className="flex flex-wrap gap-2">
+								{deleting.remoteLinks.map((link) => (
+									<Button
+										key={link.url}
+										variant="outline"
+										size="sm"
+										nativeButton={false}
+										render={
+											<a href={link.url} target="_blank" rel="noreferrer" />
+										}
+									>
+										<ExternalLink className="size-3.5" />
+										{link.label}
+									</Button>
+								))}
+							</div>
+							<div className="flex items-start gap-2">
+								<Checkbox
+									id="remote-removal-acknowledged"
+									checked={remoteRemovalAcknowledged}
+									onCheckedChange={(checked) =>
+										setRemoteRemovalAcknowledged(checked === true)
+									}
+								/>
+								<label htmlFor="remote-removal-acknowledged">
+									Entendi que apagar aqui não remove o conteúdo das redes
+									sociais.
+								</label>
+							</div>
+						</div>
+					) : null}
+					<AlertDialogFooter>
+						<AlertDialogCancel>Manter</AlertDialogCancel>
+						<AlertDialogAction
+							disabled={
+								remove.isPending ||
+								(Boolean(deleting?.hasRemotePosts) &&
+									!remoteRemovalAcknowledged)
+							}
+							onClick={() => deleting && remove.mutate({ id: deleting.id })}
+						>
+							Apagar
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

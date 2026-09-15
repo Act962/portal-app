@@ -12,6 +12,7 @@ export type SocialPostFilter = {
 
 export interface SocialPostRepository {
 	save(post: SocialPost): Promise<void>;
+	remove(id: string): Promise<void>;
 	findById(id: string): Promise<SocialPost | null>;
 	list(filter: SocialPostFilter, page: PageRequest): Promise<Page<SocialPost>>;
 

@@ -60,19 +60,31 @@ export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
  * que o agregado recusa — o erro vira mensagem vermelha em vez de nunca ter
  * sido oferecido.
  */
-export type PostAction = "aprovar" | "editar" | "descartar" | "tentar-de-novo";
+export type PostAction =
+	| "aprovar"
+	| "editar"
+	| "descartar"
+	| "tentar-de-novo"
+	| "refazer"
+	| "apagar";
 
 export function availableActions(status: PostStatus): readonly PostAction[] {
 	switch (status) {
 		case "RASCUNHO":
-			return ["aprovar", "editar", "descartar"];
+			return ["aprovar", "editar", "descartar", "apagar"];
 		// Enviando: nada a fazer senão esperar. Um "cancelar" aqui mentiria — a
 		// chamada à Meta já pode ter saído.
 		case "PUBLICANDO":
 			return [];
 		case "PARCIAL":
+			return ["tentar-de-novo", "apagar"];
 		case "FALHOU":
-			return ["tentar-de-novo"];
+			return ["tentar-de-novo", "refazer", "apagar"];
+		case "CANCELADA":
+			return ["refazer", "apagar"];
+		case "PUBLICADO":
+		case "AGUARDANDO_PESSOA":
+			return ["apagar"];
 		default:
 			return [];
 	}
