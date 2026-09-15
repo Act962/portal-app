@@ -18,8 +18,18 @@ const nextConfig: NextConfig = {
 	 * isso — sem esta lista, o deploy sairia sem os `.woff` e toda arte com
 	 * texto quebraria em produção.
 	 */
+	/*
+	 * O `sharp` carrega a `libvips` por um `.so` que o rastreador não segue: sem
+	 * as pastas do Linux abaixo, o deploy saiu sem `libvips-cpp.so` e todo o
+	 * servidor respondeu 500. A versão do `sharp` é a MESMA do Next (0.34), para
+	 * haver uma instalação só no `node_modules`.
+	 */
 	outputFileTracingIncludes: {
-		"/*": ["./node_modules/@fontsource/*/files/*-latin-*.woff"],
+		"/*": [
+			"./node_modules/@fontsource/*/files/*-latin-*.woff",
+			"../../node_modules/.pnpm/@img+sharp-linux-x64@*/node_modules/@img/sharp-linux-x64/**",
+			"../../node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/**",
+		],
 	},
 };
 

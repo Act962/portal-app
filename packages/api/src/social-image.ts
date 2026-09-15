@@ -8,7 +8,20 @@ import {
 	type SocialImageSource,
 	storyLayout,
 } from "@portal-app/social";
-import sharp from "sharp";
+
+/**
+ * O `sharp` só é carregado na hora de processar uma imagem.
+ *
+ * Importado no topo, ele entrava no pacote comum a TODAS as rotas do servidor:
+ * no dia em que a biblioteca nativa dele não carregou na Vercel, o portal
+ * inteiro respondeu 500 — a home, o painel, até o favicon. Carregado aqui, uma
+ * falha nativa derruba só o corte ou a arte que pediu a imagem, e o erro chega
+ * na entrega da fila, onde alguém o lê.
+ */
+export async function loadSharp() {
+	const { default: sharp } = await import("sharp");
+	return sharp;
+}
 
 /**
  * A imagem que a Meta vai baixar: a da biblioteca, cortada na proporção do
@@ -127,6 +140,7 @@ export async function renderCrop(
 	focal: { x: number; y: number },
 	aspect: CropAspect,
 ): Promise<Buffer> {
+	const sharp = await loadSharp();
 	const oriented = await sharp(input)
 		.rotate()
 		.toBuffer({ resolveWithObject: true });
@@ -164,6 +178,7 @@ export async function renderStory(
 	input: Buffer,
 	focal: { x: number; y: number },
 ): Promise<Buffer> {
+	const sharp = await loadSharp();
 	const oriented = await sharp(input)
 		.rotate()
 		.flatten({ background: "#ffffff" })
