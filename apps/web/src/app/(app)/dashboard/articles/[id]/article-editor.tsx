@@ -66,6 +66,7 @@ import {
 	Check,
 	ImageIcon,
 	Loader2,
+	Pencil,
 	Tag,
 	Trash2,
 } from "lucide-react";
@@ -85,6 +86,7 @@ import { ConfirmDestructiveDialog } from "@/components/admin/confirm-destructive
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { BlockRenderer } from "@/components/editorial/block-renderer";
+import { CoverCropEditor } from "@/components/media/cover-crop-editor";
 import { MediaPickerDialog } from "@/components/media/media-picker-dialog";
 import {
 	type BulkAction,
@@ -201,6 +203,20 @@ export function ArticleEditor({
 	const [savedAt, setSavedAt] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState(false);
 	const [pickingCover, setPickingCover] = useState(false);
+	const [editingCover, setEditingCover] = useState(false);
+	const [cropX, setCropX] = useState(0.5);
+	const [cropY, setCropY] = useState(0.5);
+	const [cropZoom, setCropZoom] = useState(1);
+	const crop = useMutation(
+		trpc.media.crop.mutationOptions({
+			onSuccess: (asset) => {
+				setCoverId(asset.id);
+				setEditingCover(false);
+				toast.success("Recorte aplicado. Salvando a capa…");
+			},
+			onError: onWorkflowError,
+		}),
+	);
 	/** Qual ação sem volta está esperando confirmação. */
 	const [confirming, setConfirming] = useState<BulkAction | null>(null);
 
@@ -473,6 +489,16 @@ export function ArticleEditor({
 									<p className="mt-2 text-lg text-muted-foreground">
 										{standfirst}
 									</p>
+								) : null}
+								{cover ? (
+									<img
+										src={cover.url}
+										alt={cover.altText ?? ""}
+										className="my-4 aspect-video w-full rounded-md object-cover"
+										style={{
+											objectPosition: `${(cover.focalPoint?.x ?? 0.5) * 100}% ${(cover.focalPoint?.y ?? 0.5) * 100}%`,
+										}}
+									/>
 								) : null}
 								<BlockRenderer blocks={blocks} imageUrls={imageUrls} />
 							</article>
@@ -833,14 +859,30 @@ export function ArticleEditor({
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3">
 							{cover ? (
-								<img
-									src={cover.url}
-									alt={cover.altText ?? ""}
-									style={{
-										objectPosition: `${(cover.focalPoint?.x ?? 0.5) * 100}% ${(cover.focalPoint?.y ?? 0.5) * 100}%`,
-									}}
-									className="aspect-video w-full rounded-md border object-cover"
-								/>
+								<div className="group relative">
+									<img
+										src={cover.url}
+										alt={cover.altText ?? ""}
+										style={{
+											objectPosition: `${(cover.focalPoint?.x ?? 0.5) * 100}% ${(cover.focalPoint?.y ?? 0.5) * 100}%`,
+										}}
+										className="aspect-video w-full rounded-md border object-cover"
+									/>
+									<Button
+										size="icon-sm"
+										aria-label="Editar foco e recorte da capa"
+										title="Editar foco e recorte"
+										className="absolute top-2 right-2 bg-black/70 text-white opacity-0 shadow-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+										onClick={() => {
+											setCropX(cover.focalPoint?.x ?? 0.5);
+											setCropY(cover.focalPoint?.y ?? 0.5);
+											setCropZoom(1);
+											setEditingCover(true);
+										}}
+									>
+										<Pencil className="size-4" />
+									</Button>
+								</div>
 							) : (
 								<div className="flex aspect-video w-full items-center justify-center rounded-md border border-dashed text-muted-foreground">
 									<ImageIcon className="size-6" />
@@ -884,6 +926,16 @@ export function ArticleEditor({
 				title="Escolher imagem de capa"
 				confirmLabel="Usar como capa"
 			/>
+			{editingCover && cover ? (
+				<CoverCropEditor
+					url={cover.url}
+					alt={cover.altText ?? ""}
+					initial={{ x: cropX, y: cropY, zoom: cropZoom }}
+					pending={crop.isPending}
+					onClose={() => setEditingCover(false)}
+					onApply={(selection) => crop.mutate({ id: coverId, ...selection })}
+				/>
+			) : null}
 
 			<ConfirmDestructiveDialog
 				open={confirming !== null}

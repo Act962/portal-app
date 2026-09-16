@@ -17,8 +17,9 @@ import {
 } from "@portal-app/media";
 import { DEFAULT_PAGE_SIZE, toPageRequest } from "@portal-app/shared-kernel";
 import { TRPCError } from "@trpc/server";
+import sharp from "sharp";
 import { z } from "zod";
-
+import { coverCrop } from "../cover-crop";
 import { router, staffProcedure } from "../index";
 import { mediaDeps, mediaStorage } from "../media";
 
@@ -57,6 +58,83 @@ function fail(error: Error): never {
 }
 
 export const mediaRouter = router({
+	/** Gera uma capa independente, preservando o arquivo original. */
+	crop: staffProcedure
+		.input(
+			z.object({
+				id: z.string().min(1),
+				x: z.number().min(0).max(1),
+				y: z.number().min(0).max(1),
+				zoom: z.number().min(1).max(3),
+			}),
+		)
+		.mutation(async ({ input }) => {
+			const asset = await getAsset(input.id, mediaDeps);
+			if (asset?.type !== "IMAGE") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Escolha uma imagem válida.",
+				});
+			}
+			const response = await fetch(mediaStorage.publicUrl(asset.storageKey));
+			if (!response.ok)
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Não foi possível carregar a imagem.",
+				});
+			const source = await sharp(Buffer.from(await response.arrayBuffer()))
+				.rotate()
+				.toBuffer();
+			const metadata = await sharp(source).metadata();
+			if (!metadata.width || !metadata.height)
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Dimensões da imagem inválidas.",
+				});
+			const region = coverCrop(
+				metadata.width,
+				metadata.height,
+				input.x,
+				input.y,
+				input.zoom,
+			);
+			const output = await sharp(source)
+				.extract(region)
+				.jpeg({ quality: 90 })
+				.toBuffer();
+			const filename = `capa-${asset.filename.replace(/\.[^.]+$/, "")}.jpg`;
+			const upload = await requestUpload(
+				{ filename, contentType: "image/jpeg" },
+				mediaDeps,
+			);
+			const sent = await fetch(upload.url, {
+				method: "PUT",
+				headers: { "Content-Type": "image/jpeg" },
+				body: new Uint8Array(output),
+			});
+			if (!sent.ok)
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Não foi possível salvar o recorte.",
+				});
+			const result = await registerAsset(
+				{
+					storageKey: upload.key,
+					type: "IMAGE",
+					filename,
+					mimeType: "image/jpeg",
+					credit: asset.credit.value,
+					caption: asset.caption.value,
+					altText: asset.altText?.value,
+					folderId: asset.folderId,
+					dimensions: { width: region.width, height: region.height },
+					focalPoint: { x: 0.5, y: 0.5 },
+				},
+				mediaDeps,
+			);
+			if (result.isErr()) fail(result.error);
+			return assetDto(result.unwrap());
+		}),
 	/** Passo 1 do upload: devolve a URL PUT pré-assinada e a storageKey. */
 	requestUpload: staffProcedure
 		.input(
