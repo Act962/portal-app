@@ -17,6 +17,22 @@ import { serve } from "inngest/next";
  * segurança. As tarefas são idempotentes, então disparar pelos dois caminhos
  * não duplica nada — ver docs/deploy.md §3.
  */
+/**
+ * Quanto tempo a função pode rodar (spec 12).
+ *
+ * Os cinco minutos existem por causa do VÍDEO: montar o padrão sobre um Reels
+ * é transcodificação, e leva dezenas de segundos. Com o teto padrão da Vercel,
+ * a entrega morreria no meio, voltaria para a fila e tentaria de novo — para
+ * morrer no mesmo lugar, para sempre.
+ *
+ * **Isto exige Fluid Compute ligado no projeto** (padrão nos projetos novos) ou
+ * um plano que permita o valor; caso contrário o deploy falha dizendo qual é o
+ * máximo. Ver docs/deploy.md §3. O teto do vídeo em si é outro e menor —
+ * `RENDER_MAX_SECONDS`, 90 s de duração —, e é ele que garante que a montagem
+ * caiba aqui com folga.
+ */
+export const maxDuration = 300;
+
 export const { GET, POST, PUT } = serve({
 	client: inngest,
 	functions: inngestFunctions,

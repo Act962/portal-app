@@ -20,16 +20,12 @@ import {
 	type InvalidPostTransition,
 	type PostNotReady,
 } from "../domain/errors";
-import {
-	DESTINATION_FORMAT,
-	DESTINATION_LABEL,
-	type SocialDestination,
-} from "../domain/platform";
+import { DESTINATION_LABEL, type SocialDestination } from "../domain/platform";
 import type { ArtTemplateRepository } from "../domain/ports/art-template-repository";
 import type { SocialPostRepository } from "../domain/ports/social-post-repository";
 import { type ArtSelections, SocialPost } from "../domain/social-post";
 import { selectionFrom } from "../domain/template/art-selection";
-import { formatServes } from "../domain/template/art-template";
+import { formatServes, formatsLabel } from "../domain/template/art-template";
 import {
 	type ArtContent,
 	type ArtInputs,
@@ -117,7 +113,13 @@ export async function prepareArticlePost(
 	if (existing) {
 		const edited = existing.edit({
 			platforms: input.destinations,
-			mediaIds: withCover(existing.mediaIds, input.article.coverMediaId),
+			// A capa da matéria entra na frente — MENOS num post de vídeo, onde as
+			// mídias são os arquivos dos trechos. Forçá-la ali trocaria o arquivo e
+			// descartaria a montagem inteira, e o sumiço apareceria depois de um
+			// salvamento na tela da MATÉRIA, longe de quem cortou o vídeo.
+			mediaIds: existing.isVideo
+				? existing.mediaIds
+				: withCover(existing.mediaIds, input.article.coverMediaId),
 			...(input.captionText === undefined
 				? {}
 				: { captionText: input.captionText }),
@@ -229,8 +231,7 @@ async function resolveArt(
 			);
 		}
 		if (!formatServes(template.format, destination)) {
-			const expected =
-				DESTINATION_FORMAT[destination] === "STORY" ? "9:16" : "1:1 ou 4:5";
+			const expected = formatsLabel(destination);
 			return err(
 				new InvalidArtChoice(
 					`O padrão "${template.name}" é ${template.format}, e ${label} pede ${expected}.`,

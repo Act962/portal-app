@@ -6,6 +6,7 @@ packages:
 allowBuilds:
   '@prisma/engines': true
   esbuild: true
+  ffmpeg-static: true
   prisma: true
   sharp: true
   skia-canvas: true
@@ -13,10 +14,14 @@ allowBuilds:
 # O pnpm fixado no projeto (10.24) só roda scripts de instalação dos pacotes
 # desta lista — `allowBuilds` acima é a chave das versões novas e é ignorada
 # por ele. Sem o script do skia-canvas, o binário nativo não é baixado, e o
-# desenho das artes quebra no CI e no deploy da Vercel.
+# desenho das artes quebra no CI e no deploy da Vercel. Vale o mesmo para o
+# `ffmpeg-static`, cujo script baixa o binário do sistema em que se instala —
+# sem ele, o pacote instala vazio e a montagem do vídeo quebra na primeira
+# chamada, em produção (spec 12).
 onlyBuiltDependencies:
   - '@prisma/engines'
   - esbuild
+  - ffmpeg-static
   - prisma
   - sharp
   - skia-canvas

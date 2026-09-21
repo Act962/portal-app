@@ -18,10 +18,11 @@ import {
 	SocialPostPublished,
 } from "./events";
 import {
-	DESTINATION_FORMAT,
+	acceptsVideo,
 	DESTINATION_LABEL,
 	type DeliveryMode,
 	PLATFORM_LIMITS,
+	requiresVideo,
 	type SocialDestination,
 } from "./platform";
 import {
@@ -29,7 +30,13 @@ import {
 	selectionServes,
 	withInputs,
 } from "./template/art-selection";
+import { formatsLabel } from "./template/art-template";
 import { type ArtContent, contentWithHeadline } from "./template/variables";
+import {
+	normalizeSequence,
+	sequenceProblems,
+	type VideoSequence,
+} from "./video";
 
 /** A arte escolhida para cada destino que tem arte. */
 export type ArtSelections = Partial<Record<SocialDestination, ArtSelection>>;
@@ -98,6 +105,15 @@ type PostProps = {
 	 * pode ser corrigida depois, e a arte aprovada não pode mudar sozinha (D9).
 	 */
 	artContent?: ArtContent | null;
+	/**
+	 * Os trechos de vídeo do post, NA ORDEM em que vão ao ar (spec 12). Lista
+	 * vazia é post de foto — que é o que todo post gravado antes desta spec é.
+	 *
+	 * Os ARQUIVOS continuam em `mediaIds`, como os de qualquer post: é por ali
+	 * que a biblioteca conta "em uso". O que mora aqui é só a EDIÇÃO — que
+	 * pedaço de cada arquivo, em que ordem, com ou sem som.
+	 */
+	clips?: VideoSequence;
 	status: PostStatus;
 	createdAt: Date;
 	approvedAt: Date | null;
@@ -152,6 +168,8 @@ export class SocialPost extends AggregateRoot<string> {
 		 * padrões de destino, que já são compatíveis. */
 		art?: ArtSelections;
 		artContent?: ArtContent | null;
+		/** Os trechos, num post de vídeo. */
+		clips?: VideoSequence;
 		createdAt: Date;
 	}): Result<SocialPost, CaptionRequired | InvalidMediaSelection> {
 		const caption = Caption.create(input.captionText);
@@ -182,6 +200,7 @@ export class SocialPost extends AggregateRoot<string> {
 			approvedByStaffId: null,
 			art: keepServing(input.art ?? {}, uniqueDestinations(input.platforms)),
 			artContent: input.artContent ?? null,
+			clips: normalizeSequence(input.clips ?? []),
 		});
 		post.record(
 			new SocialPostDrafted(
@@ -201,6 +220,7 @@ export class SocialPost extends AggregateRoot<string> {
 			deliveries: [...props.deliveries],
 			art: { ...(props.art ?? {}) },
 			artContent: props.artContent ?? null,
+			clips: [...(props.clips ?? [])],
 		});
 	}
 
@@ -348,8 +368,7 @@ export class SocialPost extends AggregateRoot<string> {
 			);
 		}
 		if (!selectionServes(selection, destination)) {
-			const expected =
-				DESTINATION_FORMAT[destination] === "STORY" ? "9:16" : "1:1 ou 4:5";
+			const expected = formatsLabel(destination);
 			return err(
 				new InvalidArtChoice(
 					`O padrão "${selection.templateName}" é ${selection.format}, e ${label} pede ${expected}.`,
@@ -360,6 +379,49 @@ export class SocialPost extends AggregateRoot<string> {
 			...(this.state.art ?? {}),
 			[destination]: withInputs(selection, selection),
 		};
+		return ok(undefined);
+	}
+
+	/** Os trechos de vídeo, na ordem; lista vazia num post de foto. */
+	get clips(): VideoSequence {
+		return this.state.clips ?? [];
+	}
+
+	/** Este post publica vídeo? */
+	get isVideo(): boolean {
+		return this.clips.length > 0;
+	}
+
+	/**
+	 * Escolhe o vídeo e o corte — ou tira, com `null`, e o post volta a ser de
+	 * foto.
+	 *
+	 * **Escolher o vídeo ANEXA o arquivo ao post**, trocando o que estivesse
+	 * lá. É a parte que não pode faltar: sem ela, `clipFor` recusa um corte
+	 * cujo arquivo não é a primeira mídia, e a escolha da tela some sem erro
+	 * nenhum — que foi exatamente o defeito da primeira versão desta spec.
+	 *
+	 * Trocar, e não acrescentar, porque um post é de vídeo OU de imagens: o
+	 * Reels publica um vídeo só (`mediaMaxCount: 1`) e os destinos de imagem
+	 * recusam vídeo (`publicationBlockers`). Guardar as duas coisas deixaria o
+	 * post num estado que destino nenhum aceita.
+	 *
+	 * Só no rascunho, pela mesma razão do texto e da arte (D8): o que foi
+	 * aprovado é o que vai ao ar. O corte chega aparado (`normalizeClip`): uma
+	 * ponta além do arquivo é o deslizador da tela indo até o fim, não erro.
+	 */
+	setVideo(clips: VideoSequence): Result<void, InvalidPostTransition> {
+		if (this.state.status !== "RASCUNHO") {
+			return err(
+				new InvalidPostTransition("editar o vídeo", this.state.status),
+			);
+		}
+		const next = normalizeSequence(clips);
+		this.state.clips = next;
+		// Os ARQUIVOS do post passam a ser os dos trechos, sem repetir e na ordem
+		// em que aparecem. Lista vazia devolve o post ao estado de foto — sem
+		// mídia, porque as que estavam ali eram os vídeos.
+		this.state.mediaIds = [...new Set(next.map((clip) => clip.mediaId))];
 		return ok(undefined);
 	}
 
@@ -403,12 +465,34 @@ export class SocialPost extends AggregateRoot<string> {
 			blockers.push("Escolha ao menos uma rede social.");
 		}
 		if (this.state.mediaIds.length === 0) {
-			blockers.push("A publicação precisa de ao menos uma imagem.");
+			// Qual arquivo falta depende do DESTINO, e não de o post já ter vídeo:
+			// sem arquivo nenhum não há vídeo (o corte é descartado junto com a
+			// mídia), e pedir "uma imagem" a quem escolheu o Reels mandaria a
+			// redação procurar a coisa errada.
+			blockers.push(
+				this.targets.some(requiresVideo)
+					? "A publicação precisa de um vídeo."
+					: "A publicação precisa de ao menos uma imagem.",
+			);
+		}
+		// Os limites do vídeo — duração mínima, teto da rede, teto do portal —
+		// numa passada só, em vez de repetidos dentro do laço dos destinos.
+		if (this.isVideo) {
+			blockers.push(...sequenceProblems(this.clips, this.targets));
 		}
 
 		for (const destination of this.targets) {
 			const limits = PLATFORM_LIMITS[destination];
 			const label = DESTINATION_LABEL[destination];
+
+			// A mídia que o destino publica. Um Reels sem vídeo e um feed de fotos
+			// com vídeo falham aqui, na montagem — não no 400 da Meta.
+			if (requiresVideo(destination) && !this.isVideo) {
+				blockers.push(`O ${label} publica vídeo, e este post não tem um.`);
+			}
+			if (this.isVideo && !acceptsVideo(destination)) {
+				blockers.push(`O ${label} não publica vídeo.`);
+			}
 
 			// Destino sem legenda (Stories) não tem o que medir no texto.
 			if (limits.publishesCaption) {
@@ -455,6 +539,8 @@ export class SocialPost extends AggregateRoot<string> {
 		linkUrl?: string | null;
 		platforms?: readonly SocialDestination[];
 		modes?: DeliveryModes;
+		/** Lista vazia tira o vídeo; ausente deixa como está. */
+		clips?: VideoSequence;
 	}): Result<
 		void,
 		CaptionRequired | InvalidMediaSelection | InvalidPostTransition
@@ -476,6 +562,15 @@ export class SocialPost extends AggregateRoot<string> {
 			}
 			this.state.mediaIds = media.value;
 		}
+		if (input.clips !== undefined) {
+			this.state.clips = normalizeSequence(input.clips);
+		}
+		// Trocar os ARQUIVOS do post descarta os trechos que apontavam para os que
+		// saíram: as marcas de começo e fim valiam para OUTRO vídeo, e aproveitá-las
+		// publicaria um pedaço que ninguém escolheu.
+		this.state.clips = (this.state.clips ?? []).filter((clip) =>
+			this.state.mediaIds.includes(clip.mediaId),
+		);
 		if (input.linkUrl !== undefined) {
 			this.state.linkUrl = input.linkUrl;
 		}

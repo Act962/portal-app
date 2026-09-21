@@ -68,6 +68,7 @@ type MediaRow = {
 	height: number | null;
 	focalX: number | null;
 	focalY: number | null;
+	durationSeconds: number | null;
 	folderId: string | null;
 };
 
@@ -87,6 +88,7 @@ function toPersistence(asset: MediaAsset) {
 		height: dim?.height ?? null,
 		focalX: focal?.x ?? null,
 		focalY: focal?.y ?? null,
+		durationSeconds: asset.durationSeconds,
 		folderId: asset.folderId,
 	};
 }
@@ -109,6 +111,7 @@ function toDomain(row: MediaRow): MediaAsset {
 			row.focalX !== null && row.focalY !== null
 				? { x: row.focalX, y: row.focalY }
 				: null,
+		durationSeconds: row.durationSeconds,
 		folderId: row.folderId,
 	});
 }

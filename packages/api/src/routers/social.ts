@@ -19,6 +19,7 @@ import {
 	getPost,
 	listAccounts,
 	listQueue,
+	MAX_CLIPS,
 	prepareArticlePost,
 	publishDeliveryManually,
 	remakePost,
@@ -30,6 +31,7 @@ import {
 	type SocialPost,
 	setPostArtContent,
 	setPostArtInputs,
+	setPostVideo,
 	updatePost,
 } from "@portal-app/social";
 import { TRPCError } from "@trpc/server";
@@ -99,6 +101,9 @@ function postDto(post: SocialPost) {
 		mediaIds: [...post.mediaIds],
 		linkUrl: post.linkUrl,
 		isCarousel: post.isCarousel,
+		/** Os trechos de vídeo, na ordem; lista vazia num post de foto (spec 12). */
+		clips: [...post.clips],
+		isVideo: post.isVideo,
 		status: post.status,
 		/** O que impede este post de subir — a tela mostra ANTES do clique. */
 		blockers: [...post.publicationBlockers()],
@@ -209,6 +214,31 @@ const draftInput = {
 	modes: deliveryModes.optional(),
 	linkUrl: z.url().nullish(),
 };
+
+/**
+ * Um trecho do vídeo. Os limites de verdade (duração mínima, teto da rede, teto
+ * do portal) são do domínio e saem como `blockers` na tela — aqui só se recusa
+ * o que nem é número.
+ */
+const clipInput = z.object({
+	mediaId: z.string().min(1),
+	sourceSeconds: z.number().nonnegative(),
+	startSeconds: z.number().nonnegative(),
+	endSeconds: z.number().nonnegative(),
+	muted: z.boolean(),
+});
+
+/** Um valor por destino, opcional — a forma de `templates` e `inputs`. */
+function byDestination<T extends z.ZodTypeAny>(value: T) {
+	return z
+		.object(
+			Object.fromEntries(
+				SOCIAL_DESTINATIONS.map((item) => [item, value]),
+			) as Record<(typeof SOCIAL_DESTINATIONS)[number], T>,
+		)
+		.partial()
+		.optional();
+}
 
 /** Uma entrega de um post — o alvo das ações da publicação manual. */
 const deliveryInput = z.object({ id: z.string(), destination });
@@ -381,6 +411,22 @@ export const socialRouter = router({
 			postDto(ensure(await setPostArtInputs(ctx.staff, input, socialDeps))),
 		),
 
+	/**
+	 * Monta o vídeo do post: os trechos, na ordem. Lista vazia tira o vídeo
+	 * (spec 12).
+	 *
+	 * Mutação própria, e não um campo do `update`, porque é chamada a cada
+	 * arrasto do deslizador de corte: misturá-la com a legenda faria cada ajuste
+	 * de meio segundo regravar o texto inteiro do post.
+	 */
+	setVideo: publish
+		.input(
+			z.object({ id: z.string(), clips: z.array(clipInput).max(MAX_CLIPS) }),
+		)
+		.mutation(async ({ ctx, input }) =>
+			postDto(ensure(await setPostVideo(ctx.staff, input, socialDeps))),
+		),
+
 	/** Troca o que preenche as variáveis do sistema (título, chapéu…). */
 	setArtContent: publish
 		.input(z.object({ id: z.string(), content: artContentInput }))
@@ -447,26 +493,16 @@ export const socialRouter = router({
 			z.object({
 				articleId: z.string(),
 				destinations: z.array(destination).min(1),
-				templates: z
-					.object({
-						INSTAGRAM: z.string().nullable(),
-						INSTAGRAM_STORIES: z.string().nullable(),
-						FACEBOOK: z.string().nullable(),
-					})
-					.partial()
-					.optional(),
+				// Derivado de `SOCIAL_DESTINATIONS`, e não escrito à mão: a lista
+				// tinha três nomes fixos, e o Reels — destino novo — simplesmente
+				// não podia ser escolhido a partir da matéria. Assim o destino que
+				// entrar amanhã já vem junto.
+				templates: byDestination(z.string().nullable()),
 				approve: z.boolean(),
 				/** Os textos revisados no diálogo de prévia da matéria. */
 				captionText: z.string().min(1).optional(),
 				artContent: artContentInput.optional(),
-				inputs: z
-					.object({
-						INSTAGRAM: artInputsInput,
-						INSTAGRAM_STORIES: artInputsInput,
-						FACEBOOK: artInputsInput,
-					})
-					.partial()
-					.optional(),
+				inputs: byDestination(artInputsInput),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {

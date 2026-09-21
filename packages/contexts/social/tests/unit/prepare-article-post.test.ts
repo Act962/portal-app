@@ -318,3 +318,59 @@ describe("prepareArticlePost (spec 09, F6)", () => {
 		).toBe("Forbidden");
 	});
 });
+
+describe("prepareArticlePost — post de VÍDEO da matéria (spec 12, F5)", () => {
+	const CORTE = {
+		mediaId: "video-1",
+		sourceSeconds: 60,
+		startSeconds: 0,
+		endSeconds: 20,
+		muted: false,
+	};
+
+	it("a capa da matéria NÃO invade um post de vídeo", async () => {
+		// A matéria força a foto de capa como primeira mídia; num post de vídeo
+		// isso trocaria o arquivo e, com ele, descartaria todos os trechos — a
+		// montagem sumiria por causa de um salvamento na tela da matéria.
+		const criado = (
+			await prepareArticlePost(
+				editor,
+				pedido({ destinations: ["INSTAGRAM_REELS"] as const }),
+				deps(),
+			)
+		).unwrap();
+		criado.setVideo([CORTE]);
+		await repo.save(criado);
+
+		const depois = (
+			await prepareArticlePost(
+				editor,
+				pedido({
+					destinations: ["INSTAGRAM_REELS"] as const,
+					article: { ...MATERIA, coverMediaId: "capa-nova" },
+				}),
+				deps(),
+			)
+		).unwrap();
+
+		expect(depois.mediaIds).toEqual(["video-1"]);
+		expect(depois.clips).toHaveLength(1);
+	});
+
+	it("num post de FOTO, a capa continua entrando na frente", async () => {
+		const criado = (
+			await prepareArticlePost(editor, pedido(), deps())
+		).unwrap();
+		await repo.save(criado);
+
+		const depois = (
+			await prepareArticlePost(
+				editor,
+				pedido({ article: { ...MATERIA, coverMediaId: "capa-nova" } }),
+				deps(),
+			)
+		).unwrap();
+
+		expect(depois.mediaIds[0]).toBe("capa-nova");
+	});
+});

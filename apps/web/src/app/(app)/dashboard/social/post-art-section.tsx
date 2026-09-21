@@ -8,6 +8,7 @@ import {
 	inputsAfterTextEdit,
 	inputsAfterVariableEdit,
 	type SocialDestination,
+	type VideoSequence,
 } from "@portal-app/social";
 import { Input } from "@portal-app/ui/components/input";
 import { Label } from "@portal-app/ui/components/label";
@@ -25,6 +26,7 @@ import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 
 import { ArtCanvas } from "@/components/art/art-canvas";
+import { VideoArtPreview } from "@/components/art/video-art-preview";
 import { trpc } from "@/utils/trpc";
 
 import { templatesFor } from "./post-art-model";
@@ -45,6 +47,7 @@ export function PostArtSection({
 	editable,
 	destinations,
 	photoMediaId,
+	clips = [],
 	art,
 	content,
 	onChanged,
@@ -54,6 +57,8 @@ export function PostArtSection({
 	destinations: readonly SocialDestination[];
 	/** A primeira foto do post — a que a arte desenha. */
 	photoMediaId: string | null;
+	/** Os trechos do post, quando há: a prévia toca no lugar da foto (spec 12). */
+	clips?: VideoSequence;
 	art: Readonly<Partial<Record<SocialDestination, ArtSelection>>>;
 	/** O conteúdo com que a arte é desenhada. */
 	content: ArtContent;
@@ -75,8 +80,9 @@ export function PostArtSection({
 			<div>
 				<Label>Arte</Label>
 				<p className="mt-1 text-muted-foreground text-xs">
-					Com padrão, a rede recebe uma imagem só: a arte, desenhada com a
-					primeira foto. Sem padrão, as fotos saem cortadas, como antes.
+					{clips.length > 0
+						? "Com padrão, o vídeo entra no lugar da foto e o desenho é queimado por cima. Sem padrão, ele sai enquadrado no formato da rede."
+						: "Com padrão, a rede recebe uma imagem só: a arte, desenhada com a primeira foto. Sem padrão, as fotos saem cortadas, como antes."}
 				</p>
 			</div>
 			<ArtContentFields
@@ -93,6 +99,7 @@ export function PostArtSection({
 					selection={art[destination] ?? null}
 					content={content}
 					photoMediaId={photoMediaId}
+					clips={clips}
 					editable={editable}
 					onChanged={onChanged}
 				/>
@@ -186,6 +193,7 @@ function DestinationArt({
 	selection,
 	content,
 	photoMediaId,
+	clips,
 	editable,
 	onChanged,
 }: {
@@ -194,6 +202,7 @@ function DestinationArt({
 	selection: ArtSelection | null;
 	content: ArtContent;
 	photoMediaId: string | null;
+	clips: VideoSequence;
 	editable: boolean;
 	onChanged: () => Promise<void> | void;
 }) {
@@ -219,7 +228,13 @@ function DestinationArt({
 	);
 
 	const options = [
-		{ value: NO_TEMPLATE, label: "Sem padrão — fotos cortadas" },
+		{
+			value: NO_TEMPLATE,
+			label:
+				clips.length > 0
+					? "Sem padrão — vídeo cru"
+					: "Sem padrão — fotos cortadas",
+		},
 		...choices.map((template) => ({
 			value: template.id,
 			label: template.defaultFor.includes(destination)
@@ -286,16 +301,24 @@ function DestinationArt({
 
 			{selection && fields ? (
 				<div className="grid gap-3 sm:grid-cols-[200px_minmax(0,1fr)]">
-					<ArtCanvas
-						format={selection.format}
-						design={selection.design}
-						content={content}
-						inputs={{ values: selection.values, texts: selection.texts }}
-						photoMediaId={photoMediaId}
-						onWarnings={setWarnings}
-						label={`Prévia da arte "${selection.templateName}"`}
-						className="rounded border"
-					/>
+					{clips.length > 0 ? (
+						<VideoArtPreviewCard
+							selection={selection}
+							content={content}
+							clips={clips}
+						/>
+					) : (
+						<ArtCanvas
+							format={selection.format}
+							design={selection.design}
+							content={content}
+							inputs={{ values: selection.values, texts: selection.texts }}
+							photoMediaId={photoMediaId}
+							onWarnings={setWarnings}
+							label={`Prévia da arte "${selection.templateName}"`}
+							className="rounded border"
+						/>
+					)}
 					<div className="flex flex-col gap-2">
 						{fields.texts.map((field) => (
 							<ArtTextInput
@@ -351,6 +374,56 @@ function DestinationArt({
 					</div>
 				</div>
 			) : null}
+		</div>
+	);
+}
+
+/**
+ * A prévia do vídeo dentro do padrão, com o botão de tocar.
+ *
+ * Nasce PARADA, no primeiro quadro do trecho. Três ou quatro destinos tocando
+ * juntos ao abrir o diálogo seria um festival de vídeo e de processador — e
+ * quem abre o post quer, primeiro, ver se o desenho está no lugar.
+ */
+function VideoArtPreviewCard({
+	selection,
+	content,
+	clips,
+}: {
+	selection: ArtSelection;
+	content: ArtContent;
+	clips: VideoSequence;
+}) {
+	const [playing, setPlaying] = useState(false);
+	const mediaIds = [...new Set(clips.map((clip) => clip.mediaId))];
+	const assets = useQuery(trpc.media.library.queryOptions({ ids: mediaIds }));
+	const items = assets.data?.items ?? [];
+	const focal = items[0]?.focalPoint ?? undefined;
+
+	return (
+		<div className="flex flex-col gap-2">
+			<VideoArtPreview
+				format={selection.format}
+				design={selection.design}
+				content={content}
+				inputs={{ values: selection.values, texts: selection.texts }}
+				clips={clips}
+				urlFor={(mediaId) =>
+					items.find((item) => item.id === mediaId)?.url ?? null
+				}
+				focal={focal ?? undefined}
+				playing={playing}
+				onEnded={() => setPlaying(false)}
+				label={`Prévia do vídeo no padrão "${selection.templateName}"`}
+				className="rounded border"
+			/>
+			<button
+				type="button"
+				className="rounded border px-2 py-1 text-xs hover:bg-accent"
+				onClick={() => setPlaying((value) => !value)}
+			>
+				{playing ? "Pausar prévia" : "Tocar prévia"}
+			</button>
 		</div>
 	);
 }

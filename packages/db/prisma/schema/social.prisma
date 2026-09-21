@@ -46,6 +46,18 @@ model SocialPost {
   /// copiado da matéria no rascunho. `{}` é "sem conteúdo".
   artContent Json @default("{}")
 
+  /// O vídeo do post e o corte feito nele (spec 12): o id do arquivo, a
+  /// duração dele, onde o trecho começa e termina, e se vai com som.
+  ///
+  /// `{}` é post de foto — que é o que todo post gravado antes da spec 12 é.
+  /// Vazio em vez de nulo pelo mesmo motivo de `art` e `artContent` logo acima:
+  /// a coluna sem valor é um caso a menos para o adapter tratar, e quem traduz
+  /// "vazio" em "não há vídeo" é o mapeador, num lugar só.
+  ///
+  /// O ARQUIVO continua em `mediaIds[0]`, como em qualquer post: é assim que a
+  /// biblioteca de mídia responde "este vídeo está em uso?" sem abrir Json.
+  video Json @default("{}")
+
   /// "RASCUNHO" | "PUBLICANDO" | "PUBLICADO" | "PARCIAL" | "FALHOU" |
   /// "CANCELADA". A máquina de estados vive no domínio; aqui é só o valor.
   status String @default("RASCUNHO")

@@ -4,6 +4,7 @@ import { PLATFORM_LABEL, type SocialPlatform } from "../../domain/platform";
 import type { AccountCredentials } from "../../domain/ports/social-account-repository";
 import type {
 	PublishableImage,
+	PublishableVideo,
 	PublishFailure,
 	PublishRequest,
 	PublishSuccess,
@@ -33,6 +34,14 @@ export type MetaPublisherDeps = {
 	/** Quantas vezes perguntar pelo processamento do container. */
 	pollAttempts?: number;
 	pollIntervalMs?: number;
+	/**
+	 * O mesmo, para VÍDEO. Separado porque a ordem de grandeza é outra: a Meta
+	 * transcodifica um Reels de um minuto em minutos, não em segundos, e usar a
+	 * espera da foto faria toda entrega de vídeo morrer no tempo limite e voltar
+	 * para a fila — criando um container novo a cada rodada e nunca publicando.
+	 */
+	videoPollAttempts?: number;
+	videoPollIntervalMs?: number;
 	/** Consultar a cota do Instagram antes de publicar (D13). Padrão: sim. Só o
 	 * teste da sequência de chamadas desliga, para não repetir a consulta em
 	 * cada roteiro. */
@@ -57,6 +66,8 @@ export class MetaSocialPublisher implements SocialPublisher {
 	private readonly sleep: (ms: number) => Promise<void>;
 	private readonly pollAttempts: number;
 	private readonly pollIntervalMs: number;
+	private readonly videoPollAttempts: number;
+	private readonly videoPollIntervalMs: number;
 
 	constructor(private readonly deps: MetaPublisherDeps) {
 		this.sleep =
@@ -67,6 +78,9 @@ export class MetaSocialPublisher implements SocialPublisher {
 		// REPETÍVEL e a próxima rodada tenta com um container novo.
 		this.pollAttempts = deps.pollAttempts ?? 12;
 		this.pollIntervalMs = deps.pollIntervalMs ?? 5000;
+		// 30 × 5 s = 2,5 minutos, dentro dos 5 minutos que a Meta recomenda.
+		this.videoPollAttempts = deps.videoPollAttempts ?? 30;
+		this.videoPollIntervalMs = deps.videoPollIntervalMs ?? 5000;
 	}
 
 	private get instagram(): MetaGraphClient {
@@ -78,19 +92,40 @@ export class MetaSocialPublisher implements SocialPublisher {
 	): Promise<Result<PublishSuccess, PublishFailure>> {
 		const label = PLATFORM_LABEL[request.platform];
 
-		if (request.images.length === 0) {
+		const video = request.video ?? null;
+
+		// As guardas de FORMATO vêm primeiro, e a ordem importa para a mensagem:
+		// um Reels sem vídeo precisa dizer que falta o vídeo, não que "não tem
+		// imagem" — a pessoa que lê o erro na fila é quem vai atrás do arquivo.
+		//
+		// O domínio não oferece Stories nem Reels do Facebook; estas existem para
+		// quem chamar a porta direto não receber um post de feed no lugar.
+		if (request.format !== "FEED" && request.platform !== "INSTAGRAM") {
+			const what = request.format === "REEL" ? "Reels" : "Stories";
+			return err({
+				reason: `Esta integração não publica ${what} no ${label}.`,
+				retryable: false,
+				providerCode: `${what === "Reels" ? "REEL" : "STORY"}_UNSUPPORTED`,
+			});
+		}
+		if (video && request.platform !== "INSTAGRAM") {
+			return err({
+				reason: `Esta integração não publica vídeo no ${label}.`,
+				retryable: false,
+				providerCode: "VIDEO_UNSUPPORTED",
+			});
+		}
+		if (request.format === "REEL" && !video) {
+			return err({
+				reason: "O Reels precisa de um vídeo.",
+				retryable: false,
+				providerCode: "VIDEO_REQUIRED",
+			});
+		}
+		if (!video && request.images.length === 0) {
 			return err({
 				reason: `A publicação para o ${label} não tem imagem.`,
 				retryable: false,
-			});
-		}
-		// O domínio não oferece Stories do Facebook; a guarda existe para quem
-		// chamar a porta direto não receber um post de feed no lugar do story.
-		if (request.format === "STORY" && request.platform !== "INSTAGRAM") {
-			return err({
-				reason: `Esta integração não publica Stories no ${label}.`,
-				retryable: false,
-				providerCode: "STORY_UNSUPPORTED",
 			});
 		}
 
@@ -105,9 +140,23 @@ export class MetaSocialPublisher implements SocialPublisher {
 		if (request.platform === "FACEBOOK") {
 			return this.publishFacebook(request, credentials.accessToken);
 		}
-		return request.format === "STORY"
-			? this.publishInstagramStory(request, credentials.accessToken)
-			: this.publishInstagram(request, credentials.accessToken);
+		if (request.format === "REEL") {
+			return this.publishInstagramReel(
+				request,
+				video as PublishableVideo,
+				credentials.accessToken,
+			);
+		}
+		if (request.format === "STORY") {
+			return video
+				? this.publishInstagramStoryVideo(
+						request,
+						video,
+						credentials.accessToken,
+					)
+				: this.publishInstagramStory(request, credentials.accessToken);
+		}
+		return this.publishInstagram(request, credentials.accessToken);
 	}
 
 	// ── Instagram ──────────────────────────────────────────────────────────────
@@ -206,6 +255,69 @@ export class MetaSocialPublisher implements SocialPublisher {
 	}
 
 	/**
+	 * Reels: um container `media_type=REELS` com o vídeo e a legenda.
+	 *
+	 * `share_to_feed` é o que faz o Reels aparecer TAMBÉM na grade do perfil —
+	 * sem ele, o vídeo sai só na aba de Reels, e a matéria some do lugar onde o
+	 * leitor do portal costuma procurá-la. É por isso que não existe aqui um
+	 * "feed em vídeo" separado: esta chamada já é os dois.
+	 */
+	private async publishInstagramReel(
+		request: PublishRequest,
+		video: PublishableVideo,
+		token: string,
+	): Promise<Result<PublishSuccess, PublishFailure>> {
+		const igId = request.accountRemoteId;
+
+		const blocked = await this.quotaFailure(igId, token);
+		if (blocked) {
+			return err(blocked);
+		}
+
+		const container = await this.instagram.post<IdResponse>(
+			`${igId}/media`,
+			{
+				media_type: "REELS",
+				video_url: video.url,
+				caption: request.caption,
+				share_to_feed: "true",
+				...(video.coverUrl ? { cover_url: video.coverUrl } : {}),
+			},
+			token,
+		);
+		if (container.isErr()) {
+			return this.fail(container.unwrapErr(), "INSTAGRAM");
+		}
+
+		return this.publishContainer(igId, container.unwrap().id, token, true);
+	}
+
+	/** Story em vídeo: `media_type=STORIES` com `video_url`, sem legenda. */
+	private async publishInstagramStoryVideo(
+		request: PublishRequest,
+		video: PublishableVideo,
+		token: string,
+	): Promise<Result<PublishSuccess, PublishFailure>> {
+		const igId = request.accountRemoteId;
+
+		const blocked = await this.quotaFailure(igId, token);
+		if (blocked) {
+			return err(blocked);
+		}
+
+		const container = await this.instagram.post<IdResponse>(
+			`${igId}/media`,
+			{ media_type: "STORIES", video_url: video.url },
+			token,
+		);
+		if (container.isErr()) {
+			return this.fail(container.unwrapErr(), "INSTAGRAM");
+		}
+
+		return this.publishContainer(igId, container.unwrap().id, token, true);
+	}
+
+	/**
 	 * A cota é LIDA da conta, não cravada (D13). Esgotada, nem cria container: a
 	 * Meta recusaria o `media_publish` depois de a imagem já ter sido
 	 * processada. Não é repetível pelo worker — a cota volta em horas, não nos
@@ -235,10 +347,11 @@ export class MetaSocialPublisher implements SocialPublisher {
 		igId: string,
 		creationId: string,
 		token: string,
+		video = false,
 	): Promise<Result<PublishSuccess, PublishFailure>> {
 		const client = this.instagram;
 
-		const ready = await this.waitUntilFinished(creationId, token);
+		const ready = await this.waitUntilFinished(creationId, token, video);
 		if (ready.isErr()) {
 			return err(ready.unwrapErr());
 		}
@@ -269,8 +382,12 @@ export class MetaSocialPublisher implements SocialPublisher {
 	private async waitUntilFinished(
 		containerId: string,
 		token: string,
+		video = false,
 	): Promise<Result<void, PublishFailure>> {
-		for (let attempt = 0; attempt < this.pollAttempts; attempt += 1) {
+		const attempts = video ? this.videoPollAttempts : this.pollAttempts;
+		const interval = video ? this.videoPollIntervalMs : this.pollIntervalMs;
+		const what = video ? "o vídeo" : "a imagem";
+		for (let attempt = 0; attempt < attempts; attempt += 1) {
 			const status = await this.instagram.get<StatusResponse>(
 				containerId,
 				{ fields: "status_code" },
@@ -285,8 +402,9 @@ export class MetaSocialPublisher implements SocialPublisher {
 					return ok(undefined);
 				case "ERROR":
 					return err({
-						reason:
-							"O Instagram não conseguiu processar a imagem. Confira se ela é um JPEG válido e tente outra.",
+						reason: video
+							? "O Instagram não conseguiu processar o vídeo. Confira a duração e o formato e tente de novo."
+							: "O Instagram não conseguiu processar a imagem. Confira se ela é um JPEG válido e tente outra.",
 						retryable: false,
 						providerCode: "CONTAINER_ERROR",
 					});
@@ -297,12 +415,11 @@ export class MetaSocialPublisher implements SocialPublisher {
 						providerCode: "CONTAINER_EXPIRED",
 					});
 				default:
-					await this.sleep(this.pollIntervalMs);
+					await this.sleep(interval);
 			}
 		}
 		return err({
-			reason:
-				"O Instagram ainda estava processando a imagem quando o tempo de espera acabou.",
+			reason: `O Instagram ainda estava processando ${what} quando o tempo de espera acabou.`,
 			retryable: true,
 			providerCode: "CONTAINER_TIMEOUT",
 		});

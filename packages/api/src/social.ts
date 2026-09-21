@@ -35,6 +35,7 @@ import { UnconfiguredSocialPublisher } from "@portal-app/social/infrastructure/u
 import { mediaDeps, mediaStorage } from "./media";
 import { ArtRenderer } from "./social-art";
 import { CroppedImageSource } from "./social-image";
+import { VideoArtRenderer } from "./social-video";
 
 /**
  * Raiz de composição das redes sociais. Como nos demais contextos, é AQUI que a
@@ -125,6 +126,15 @@ export const artRenderer = new ArtRenderer({
 	storage: mediaStorage,
 });
 
+/**
+ * O montador dos vídeos no padrão (spec 12): o mesmo desenho do `artRenderer`,
+ * queimado sobre o vídeo pelo ffmpeg.
+ */
+export const videoRenderer = new VideoArtRenderer({
+	media: mediaDeps.repo,
+	storage: mediaStorage,
+});
+
 const croppedImages = new CroppedImageSource({
 	media: mediaDeps.repo,
 	storage: mediaStorage,
@@ -163,6 +173,7 @@ export const socialDeps = {
 				})
 			: new UnconfiguredSocialPublisher(),
 	images: socialImages,
+	videos: videoRenderer,
 	clock: new SystemClock(),
 	ids: new UuidGenerator(),
 };

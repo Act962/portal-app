@@ -1159,9 +1159,9 @@ function ElementsTab({
 						onClick={() => onAdd("PHOTO")}
 					>
 						<UserSquare className="size-4 text-sky-600" />
-						<span className="font-medium">Foto da matéria</span>
+						<span className="font-medium">Foto ou vídeo</span>
 						<span className="text-[11px] text-muted-foreground">
-							{hasPhoto ? "Já está no padrão" : "A capa de cada post"}
+							{hasPhoto ? "Já está no padrão" : "A capa — ou o vídeo — do post"}
 						</span>
 					</button>
 					<button

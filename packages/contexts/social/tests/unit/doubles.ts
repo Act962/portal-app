@@ -11,6 +11,7 @@ import {
 	type ConnectionProbe,
 	destinationOf,
 	type PublishableImage,
+	type PublishableVideo,
 	type PublishFailure,
 	type PublishRequest,
 	type PublishSuccess,
@@ -23,6 +24,8 @@ import {
 	type SocialPostFilter,
 	type SocialPostRepository,
 	type SocialPublisher,
+	type SocialVideoSource,
+	type VideoArtworkRequest,
 } from "@portal-app/social";
 
 /**
@@ -236,6 +239,37 @@ export class FakeImageSource implements SocialImageSource {
 		return Promise.resolve({
 			url: `${this.baseUrl}/${mediaId}.jpg`,
 			altText: `alt de ${mediaId}`,
+		});
+	}
+}
+
+/**
+ * Fonte de vídeo que monta tudo, menos os ids que mandarem sumir.
+ *
+ * Devolve uma URL derivada do padrão E dos trechos: é o que deixa o teste
+ * provar que trechos diferentes do mesmo arquivo não viram o mesmo vídeo — o
+ * defeito que um cache mal fechado produziria.
+ */
+export class FakeVideoSource implements SocialVideoSource {
+	readonly missing = new Set<string>();
+	readonly requests: VideoArtworkRequest[] = [];
+	baseUrl = "https://cdn.test";
+
+	artwork(request: VideoArtworkRequest): Promise<PublishableVideo | null> {
+		this.requests.push(request);
+		if (request.clips.some((clip) => this.missing.has(clip.mediaId))) {
+			return Promise.resolve(null);
+		}
+		const slug = [
+			request.selection.templateId,
+			...request.clips.map(
+				(clip) => `${clip.mediaId}-${clip.startSeconds}-${clip.endSeconds}`,
+			),
+		].join("-");
+		return Promise.resolve({
+			url: `${this.baseUrl}/video-${slug}.mp4`,
+			coverUrl: `${this.baseUrl}/video-${slug}.jpg`,
+			altText: "",
 		});
 	}
 }

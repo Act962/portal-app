@@ -37,16 +37,23 @@ const DOCUMENT_MIME_TYPES = new Set([
  * O mime chega do navegador e pode vir com parâmetros (`text/csv;charset=utf-8`)
  * ou em caixa alta; ambos são normalizados antes de comparar.
  */
+/** O mime sem parâmetros e em minúscula — o navegador manda os dois jeitos. */
+function normalizeMime(mimeType: string): string {
+	return mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+}
+
 export function mediaTypeFromMime(
 	mimeType: string,
 ): Result<MediaType, UnsupportedMediaType> {
-	const mime = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+	const mime = normalizeMime(mimeType);
 
 	if (mime.startsWith("image/")) {
 		return ok("IMAGE");
 	}
 	if (mime.startsWith("video/")) {
-		return ok("VIDEO");
+		return VIDEO_MIME_TYPES.has(mime)
+			? ok("VIDEO")
+			: err(new UnsupportedMediaType(mimeType));
 	}
 	if (mime.startsWith("audio/")) {
 		return ok("AUDIO");
@@ -57,7 +64,32 @@ export function mediaTypeFromMime(
 	return err(new UnsupportedMediaType(mimeType));
 }
 
+/**
+ * Vídeos aceitos (spec 12). Lista fechada, e não `video/*`, pelo mesmo motivo
+ * do documento — e por um segundo: o que entra aqui vai ser transcodificado
+ * pelo portal e depois BAIXADO pela Meta. Um contêiner exótico atravessaria o
+ * envio inteiro para morrer no ffmpeg, com o post já montado.
+ *
+ * Os três cobrem o que a redação produz: `mp4` de qualquer câmera ou celular,
+ * `quicktime` (`.mov`) do iPhone, `webm` de gravação de tela.
+ */
+const VIDEO_MIME_TYPES = new Set([
+	"video/mp4",
+	"video/quicktime",
+	"video/webm",
+]);
+
+/** Este arquivo é um vídeo que o portal aceita? */
+export function isAcceptedVideoMime(mimeType: string): boolean {
+	return VIDEO_MIME_TYPES.has(normalizeMime(mimeType));
+}
+
 /** O `accept` do input de arquivo — mesma lista, para a tela não divergir. */
-export const ACCEPTED_UPLOAD_MIME = ["image/*", ...DOCUMENT_MIME_TYPES].join(
-	",",
-);
+export const ACCEPTED_UPLOAD_MIME = [
+	"image/*",
+	...VIDEO_MIME_TYPES,
+	...DOCUMENT_MIME_TYPES,
+].join(",");
+
+/** Só vídeo — o `accept` da tela de vídeo, que não aceita foto. */
+export const ACCEPTED_VIDEO_MIME = [...VIDEO_MIME_TYPES].join(",");

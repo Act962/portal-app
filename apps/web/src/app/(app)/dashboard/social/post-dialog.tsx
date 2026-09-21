@@ -37,6 +37,7 @@ import { AssetImage } from "@/components/media/asset-image";
 import { MediaPickerDialog } from "@/components/media/media-picker-dialog";
 import { trpc } from "@/utils/trpc";
 import { PostArtSection } from "./post-art-section";
+import { PostVideoSection } from "./post-video-section";
 import { captionCounters, storyNotice } from "./social-labels";
 
 type Form = {
@@ -212,6 +213,8 @@ export function PostDialog({
 	].filter((blocker): blocker is string => blocker !== null);
 
 	const editable = !post.data || post.data.status === "RASCUNHO";
+	/** Post de vídeo: a mídia é o vídeo, e a lista de imagens não se aplica. */
+	const isVideoPost = (post.data?.clips ?? []).length > 0;
 
 	function move(index: number, direction: -1 | 1) {
 		const target = index + direction;
@@ -337,62 +340,70 @@ export function PostDialog({
 						</div>
 					</div>
 
-					<div className="flex flex-col gap-2">
-						<div className="flex items-center justify-between">
-							<Label>
-								Imagens{" "}
-								<span className="font-normal text-muted-foreground">
-									({form.mediaIds.length}/{MAX_MEDIA_ITEMS}
-									{form.mediaIds.length > 1 ? " · carrossel" : ""})
-								</span>
-							</Label>
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								disabled={
-									!editable || busy || form.mediaIds.length >= MAX_MEDIA_ITEMS
-								}
-								onClick={() => setPicking(true)}
-							>
-								<ImagePlus className="size-4" />
-								Adicionar
-							</Button>
-						</div>
+					{/*
+					  Num post de VÍDEO não há lista de imagens: o vídeo é a mídia, e o
+					  agregado troca uma coisa pela outra (`setVideo`). Mostrar a lista
+					  aqui exibiria o arquivo de vídeo como uma miniatura quebrada e
+					  ofereceria um "Adicionar" que desfaria a escolha.
+					*/}
+					{isVideoPost ? null : (
+						<div className="flex flex-col gap-2">
+							<div className="flex items-center justify-between">
+								<Label>
+									Imagens{" "}
+									<span className="font-normal text-muted-foreground">
+										({form.mediaIds.length}/{MAX_MEDIA_ITEMS}
+										{form.mediaIds.length > 1 ? " · carrossel" : ""})
+									</span>
+								</Label>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									disabled={
+										!editable || busy || form.mediaIds.length >= MAX_MEDIA_ITEMS
+									}
+									onClick={() => setPicking(true)}
+								>
+									<ImagePlus className="size-4" />
+									Adicionar
+								</Button>
+							</div>
 
-						{form.mediaIds.length === 0 ? (
-							<p className="rounded-md border border-dashed p-6 text-center text-muted-foreground text-sm">
-								Nenhuma imagem escolhida.
-							</p>
-						) : (
-							<ul className="flex flex-col gap-2">
-								{form.mediaIds.map((mediaId, index) => (
-									<MediaRow
-										key={mediaId}
-										mediaId={mediaId}
-										index={index}
-										total={form.mediaIds.length}
-										disabled={!editable || busy}
-										onMove={move}
-										onRemove={() =>
-											setForm({
-												...form,
-												mediaIds: form.mediaIds.filter(
-													(item) => item !== mediaId,
-												),
-											})
-										}
-									/>
-								))}
-							</ul>
-						)}
-						{form.mediaIds.length > 1 ? (
-							<p className="text-muted-foreground text-xs">
-								A primeira imagem é a capa do carrossel — é ela que aparece no
-								feed.
-							</p>
-						) : null}
-					</div>
+							{form.mediaIds.length === 0 ? (
+								<p className="rounded-md border border-dashed p-6 text-center text-muted-foreground text-sm">
+									Nenhuma imagem escolhida.
+								</p>
+							) : (
+								<ul className="flex flex-col gap-2">
+									{form.mediaIds.map((mediaId, index) => (
+										<MediaRow
+											key={mediaId}
+											mediaId={mediaId}
+											index={index}
+											total={form.mediaIds.length}
+											disabled={!editable || busy}
+											onMove={move}
+											onRemove={() =>
+												setForm({
+													...form,
+													mediaIds: form.mediaIds.filter(
+														(item) => item !== mediaId,
+													),
+												})
+											}
+										/>
+									))}
+								</ul>
+							)}
+							{form.mediaIds.length > 1 ? (
+								<p className="text-muted-foreground text-xs">
+									A primeira imagem é a capa do carrossel — é ela que aparece no
+									feed.
+								</p>
+							) : null}
+						</div>
+					)}
 
 					<div className="flex flex-col gap-2">
 						<Label htmlFor={linkId}>Link da matéria</Label>
@@ -412,6 +423,18 @@ export function PostDialog({
 					</div>
 
 					{/*
+					  O vídeo e o corte (spec 12). Vem ANTES da arte porque é a decisão
+					  de cima: com vídeo escolhido, é ele que ocupa o lugar da foto em
+					  todos os padrões, e a seção de arte passa a mostrar a prévia em
+					  movimento.
+					*/}
+					<PostVideoSection
+						postId={postId}
+						editable={editable}
+						clips={post.data?.clips ?? []}
+					/>
+
+					{/*
 					  A arte de cada destino (spec 09, F5). Grava a cada escolha — é a
 					  gravação que tira a cópia do padrão —, então só aparece num post
 					  que já existe. `refetch` traz a arte e os avisos novos sem
@@ -422,6 +445,7 @@ export function PostDialog({
 						editable={editable}
 						destinations={form.platforms}
 						photoMediaId={form.mediaIds[0] ?? null}
+						clips={post.data?.clips ?? []}
 						art={post.data?.art ?? {}}
 						content={
 							post.data?.artContentForDrawing ?? {

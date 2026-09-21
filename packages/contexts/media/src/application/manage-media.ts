@@ -56,6 +56,8 @@ type RegisterInput = {
 	caption?: string | null;
 	altText?: string | null;
 	dimensions?: { width: number; height: number } | null;
+	/** Duração do vídeo/áudio, medida no navegador antes do envio. */
+	durationSeconds?: number | null;
 	focalPoint?: { x: number; y: number } | null;
 	folderId?: string | null;
 };

@@ -3,6 +3,7 @@ import {
 	type ArtDesign,
 	type ArtFormat,
 	ArtTemplate,
+	EMPTY_DESIGN,
 	formatServes,
 } from "./art-template";
 import { type ArtInputs, NO_INPUTS } from "./variables";
@@ -22,6 +23,33 @@ export type ArtSelection = {
 	format: ArtFormat;
 	design: ArtDesign;
 } & ArtInputs;
+
+/**
+ * O id que uma escolha SEM padrão carrega. Não é o id de padrão nenhum: existe
+ * para o cache da arte (`artImageKey`) ter uma chave estável para "nenhum
+ * padrão", em vez de uma string vazia que colidiria com a de outro destino.
+ */
+export const NO_TEMPLATE_ID = "sem-padrao";
+
+/**
+ * A escolha de quem não escolheu padrão: o quadro vazio.
+ *
+ * Um vídeo sem padrão continua publicável — sai enquadrado no formato do
+ * destino, sobre o fundo do quadro, que é exatamente o que a redação espera de
+ * "publicar esse vídeo sem arte". Sem isto, o único jeito de pôr um vídeo no ar
+ * seria desenhar um padrão antes, e a feature deixaria de ser fácil de usar
+ * justamente no caso mais simples.
+ */
+export function plainSelection(format: ArtFormat): ArtSelection {
+	return {
+		templateId: NO_TEMPLATE_ID,
+		templateName: "Sem padrão",
+		version: 0,
+		format,
+		design: EMPTY_DESIGN,
+		...NO_INPUTS,
+	};
+}
 
 /** A escolha a partir do padrão como ele está agora. */
 export function selectionFrom(

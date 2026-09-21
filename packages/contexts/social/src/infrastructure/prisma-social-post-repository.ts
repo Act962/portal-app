@@ -15,6 +15,7 @@ import {
 	SocialPost,
 } from "../domain/social-post";
 import type { ArtContent } from "../domain/template/variables";
+import type { VideoClip } from "../domain/video";
 
 /** As origens que fazem de um post "o post da matéria". */
 const ARTICLE_ORIGINS: PostOrigin[] = ["AUTOMATICA", "MATERIA"];
@@ -190,6 +191,7 @@ type PostRow = {
 	approvedByStaffId: string | null;
 	art: unknown;
 	artContent: unknown;
+	video: unknown;
 	deliveries: DeliveryRow[];
 };
 
@@ -216,6 +218,9 @@ function toPersistence(post: SocialPost) {
 		art: JSON.parse(JSON.stringify(post.artSelections)),
 		// `{}` é "sem conteúdo" — a coluna não é nula, e ler de volta devolve null.
 		artContent: post.artContent ? { ...post.artContent } : {},
+		// Lista dos trechos; `[]` é post de foto. Array direto no Json, como
+		// `mediaIds` é array de coluna — é sempre lido e escrito inteiro.
+		video: post.clips.map((clip) => ({ ...clip })),
 	};
 }
 
@@ -235,6 +240,7 @@ function toDomain(row: PostRow): SocialPost {
 		// — a leitura confia na forma, como `restore` confia.
 		art: (isObject(row.art) ? row.art : {}) as ArtSelections,
 		artContent: artContentFrom(row.artContent),
+		clips: clipsFrom(row.video),
 		deliveries: row.deliveries
 			// Ordem ESTÁVEL: a tela lista as redes sempre na mesma sequência, e um
 			// `findMany` sem ordenação não a garante entre consultas.
@@ -258,6 +264,40 @@ function toDomain(row: PostRow): SocialPost {
 
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Os trechos gravados. Lista vazia é post de foto.
+ *
+ * **Aceita as duas formas:** a lista de hoje e o trecho ÚNICO da primeira
+ * versão desta coluna, que vira uma lista de um. É migration em código, e cabe
+ * aqui porque a coluna nunca chegou a produção — um `UPDATE` valeria mais se
+ * houvesse linha para migrar.
+ *
+ * A checagem campo a campo não é paranoia: a pergunta "o post é de vídeo?"
+ * decide se o worker chama o transcodificador, e um Json meio preenchido
+ * viraria um `startSeconds` `undefined` dentro do ffmpeg — com o erro
+ * aparecendo a três camadas de distância daqui.
+ */
+function clipsFrom(value: unknown): VideoClip[] {
+	const raw = Array.isArray(value) ? value : [value];
+	return raw.filter(isClip).map((clip) => ({
+		mediaId: clip.mediaId,
+		sourceSeconds: clip.sourceSeconds,
+		startSeconds: clip.startSeconds,
+		endSeconds: clip.endSeconds,
+		muted: clip.muted === true,
+	}));
+}
+
+function isClip(value: unknown): value is VideoClip {
+	return (
+		isObject(value) &&
+		typeof value.mediaId === "string" &&
+		typeof value.sourceSeconds === "number" &&
+		typeof value.startSeconds === "number" &&
+		typeof value.endSeconds === "number"
+	);
 }
 
 /** `{}` (ou qualquer coisa sem título) é "sem conteúdo". */

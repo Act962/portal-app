@@ -77,8 +77,15 @@ export type ArticlePostSummary = {
 	>;
 };
 
+/**
+ * O padrão de cada destino, por destino. PARCIAL: o editor da matéria oferece
+ * só alguns destinos (`ARTICLE_SOCIAL_DESTINATIONS`), e exigir uma chave para
+ * cada destino que existe no sistema obrigaria quem monta este mapa a inventar
+ * um `null` para o Reels — que este cartão nem oferece, porque a matéria tem
+ * foto de capa, não vídeo.
+ */
 export type DefaultTemplates = Readonly<
-	Record<SocialDestination, { id: string; name: string } | null>
+	Partial<Record<SocialDestination, { id: string; name: string } | null>>
 >;
 
 /** O padrão escolhido por destino: um id, ou `null` para "sem padrão". */

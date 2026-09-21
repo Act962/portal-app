@@ -131,6 +131,10 @@ export const ROUTE_LABELS: Record<string, string> = {
 	"/dashboard/articles": "Matérias",
 	"/dashboard/media": "Mídia",
 	"/dashboard/social": "Redes sociais",
+	// Os dois editores das redes sociais: sem rótulo, a trilha mostrava
+	// "Detalhe › Detalhe" — o segmento fixo e o id caindo no mesmo genérico.
+	"/dashboard/social/padroes": "Padrões",
+	"/dashboard/social/videos": "Vídeos",
 	"/dashboard/insights": "Insights",
 	"/dashboard/taxonomy": "Editorias e tags",
 	"/dashboard/programacao": "Programação",

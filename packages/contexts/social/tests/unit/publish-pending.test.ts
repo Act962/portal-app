@@ -16,6 +16,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { CONTEUDO, design, tituloEditavel } from "./art-fixtures";
 import {
 	FakeImageSource,
+	FakeVideoSource,
 	InMemorySocialAccountRepository,
 	InMemorySocialPostRepository,
 	SpySocialPublisher,
@@ -27,6 +28,7 @@ let repo: InMemorySocialPostRepository;
 let accounts: InMemorySocialAccountRepository;
 let publisher: SpySocialPublisher;
 let images: FakeImageSource;
+let videos: FakeVideoSource;
 let deps: Parameters<typeof publishPendingPosts>[0];
 
 function conectar(
@@ -73,7 +75,15 @@ beforeEach(() => {
 	accounts = new InMemorySocialAccountRepository();
 	publisher = new SpySocialPublisher();
 	images = new FakeImageSource();
-	deps = { repo, accounts, publisher, images, clock: new FixedClock(AGORA) };
+	videos = new FakeVideoSource();
+	deps = {
+		repo,
+		accounts,
+		publisher,
+		images,
+		videos,
+		clock: new FixedClock(AGORA),
+	};
 });
 
 describe("publishPendingPosts", () => {
@@ -580,5 +590,119 @@ describe("publishPendingPosts", () => {
 			expect((await publishPendingPosts(deps)).posts).toBe(0);
 			expect(images.aspects).toEqual(["9:16"]);
 		});
+	});
+});
+
+// ── vídeo (spec 12) ────────────────────────────────────────────────────────
+
+describe("post de vídeo", () => {
+	const CORTE = {
+		mediaId: "media-1",
+		sourceSeconds: 60,
+		startSeconds: 4,
+		endSeconds: 20,
+		muted: false,
+	};
+	const CORTES = [CORTE];
+
+	async function videoAprovado(
+		platforms: readonly SocialDestination[] = ["INSTAGRAM_REELS"],
+		art: Parameters<typeof SocialPost.draft>[0]["art"] = undefined,
+	) {
+		const post = SocialPost.draft({
+			id: "post-video",
+			origin: "MANUAL",
+			captionText: "Entrevista com o prefeito",
+			mediaIds: ["media-1"],
+			platforms,
+			art,
+			clips: CORTES,
+			createdAt: AGORA,
+		}).unwrap();
+		post.approve("editor-1", AGORA);
+		post.pullEvents();
+		await repo.save(post);
+		return post;
+	}
+
+	it("entrega o VÍDEO montado, e nenhuma imagem", async () => {
+		conectar("INSTAGRAM");
+		publisher.succeedOn("INSTAGRAM_REELS", "ig-reel-1");
+		const post = await videoAprovado();
+
+		await publishPendingPosts(deps);
+
+		const [request] = publisher.requests;
+		expect(request?.format).toBe("REEL");
+		expect(request?.images).toEqual([]);
+		expect(request?.video?.url).toContain("video-");
+		expect(post.deliveryFor("INSTAGRAM_REELS")?.remoteId).toBe("ig-reel-1");
+	});
+
+	it("sem padrão escolhido, monta no quadro vazio do formato do destino", async () => {
+		// "Publicar sem arte" continua sendo publicável: o vídeo sai enquadrado
+		// em 9:16, sobre o fundo do quadro. Exigir um padrão antes tornaria o caso
+		// mais simples o mais trabalhoso.
+		conectar("INSTAGRAM");
+		publisher.succeedOn("INSTAGRAM_REELS", "ig-reel-1");
+		await videoAprovado();
+
+		await publishPendingPosts(deps);
+
+		expect(videos.requests[0]?.selection.templateId).toBe("sem-padrao");
+		expect(videos.requests[0]?.selection.format).toBe("9:16");
+	});
+
+	it("com padrão, monta com a CÓPIA guardada no post", async () => {
+		conectar("INSTAGRAM");
+		publisher.succeedOn("INSTAGRAM_REELS", "ig-reel-1");
+		const padrao = ArtTemplate.create({
+			id: "tpl-reels",
+			name: "Reels — últimas",
+			format: "9:16",
+			design: design([tituloEditavel()]),
+			createdAt: AGORA,
+		}).unwrap();
+		await videoAprovado(["INSTAGRAM_REELS"], {
+			INSTAGRAM_REELS: selectionFrom(padrao),
+		});
+
+		await publishPendingPosts(deps);
+
+		expect(videos.requests[0]?.selection.templateId).toBe("tpl-reels");
+		expect(videos.requests[0]?.clips).toEqual(CORTES);
+	});
+
+	it("o corte vai junto — trecho diferente é arquivo diferente", async () => {
+		conectar("INSTAGRAM");
+		publisher.succeedOn("INSTAGRAM_REELS", "ig-reel-1");
+		await videoAprovado();
+
+		await publishPendingPosts(deps);
+
+		expect(publisher.requests[0]?.video?.url).toContain("media-1-4-20");
+	});
+
+	it("vídeo que sumiu falha em definitivo, dizendo o que houve", async () => {
+		conectar("INSTAGRAM");
+		videos.missing.add("media-1");
+		const post = await videoAprovado();
+
+		const resultado = await publishPendingPosts(deps);
+
+		expect(resultado.failed).toBe(1);
+		expect(post.deliveryFor("INSTAGRAM_REELS")?.error).toContain(
+			"O vídeo não está mais",
+		);
+	});
+
+	it("no story manual, o que fica pronto para a pessoa é o vídeo montado", async () => {
+		const post = await videoAprovado(["INSTAGRAM_STORIES"]);
+
+		await publishPendingPosts(deps);
+
+		expect(post.deliveryFor("INSTAGRAM_STORIES")?.preparedImageUrl).toContain(
+			".mp4",
+		);
 	});
 });

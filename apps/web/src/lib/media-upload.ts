@@ -18,16 +18,18 @@ export type PickedFile = {
 	file: File;
 	/** Derivado do mime pelo DOMÍNIO — a tela não classifica (D6). */
 	type: MediaType;
-	/** Só imagem tem preview local; documento não abre em `<img>`. */
+	/** Imagem e vídeo têm preview local; documento não abre em `<img>`. */
 	previewUrl: string | null;
 	width: number | null;
 	height: number | null;
+	/** Duração em segundos — só vídeo (spec 12). */
+	durationSeconds: number | null;
 };
 
 /**
  * Prepara o arquivo escolhido. Imagem tem preview e dimensões reais lidas aqui
- * (o domínio as exige, A29); documento não tem nem uma coisa nem outra — e
- * exigir seria inventar regra para PDF.
+ * (o domínio as exige, A29); vídeo tem preview e DURAÇÃO; documento não tem nem
+ * uma coisa nem outra — e exigir seria inventar regra para PDF.
  */
 export function readPickedFile(file: File): Promise<PickedFile> {
 	const type = mediaTypeFromMime(file.type);
@@ -36,16 +38,23 @@ export function readPickedFile(file: File): Promise<PickedFile> {
 	}
 	const mediaType = type.unwrap();
 
-	if (mediaType !== "IMAGE") {
-		return Promise.resolve({
-			file,
-			type: mediaType,
-			previewUrl: null,
-			width: null,
-			height: null,
-		});
+	if (mediaType === "IMAGE") {
+		return readImage(file);
 	}
+	if (mediaType === "VIDEO") {
+		return readVideo(file);
+	}
+	return Promise.resolve({
+		file,
+		type: mediaType,
+		previewUrl: null,
+		width: null,
+		height: null,
+		durationSeconds: null,
+	});
+}
 
+function readImage(file: File): Promise<PickedFile> {
 	return new Promise((resolve, reject) => {
 		const previewUrl = URL.createObjectURL(file);
 		const img = new Image();
@@ -56,9 +65,57 @@ export function readPickedFile(file: File): Promise<PickedFile> {
 				previewUrl,
 				width: img.naturalWidth,
 				height: img.naturalHeight,
+				durationSeconds: null,
 			});
 		img.onerror = () => reject(new Error("Arquivo de imagem inválido"));
 		img.src = previewUrl;
+	});
+}
+
+/**
+ * Mede o vídeo NO NAVEGADOR, antes de subir.
+ *
+ * É aqui, e não no servidor, porque medir no servidor significaria baixar o
+ * arquivo inteiro de volta do armazenamento só para ler um cabeçalho — e o
+ * navegador já tem o arquivo na mão. A duração é o que a tela de corte precisa
+ * para desenhar a régua, e o que o post copia para saber sozinho se o trecho
+ * escolhido cabe no limite da rede.
+ *
+ * `preload="metadata"` basta: o navegador lê o cabeçalho e para, sem carregar
+ * os megabytes do vídeo.
+ */
+function readVideo(file: File): Promise<PickedFile> {
+	return new Promise((resolve, reject) => {
+		const previewUrl = URL.createObjectURL(file);
+		const video = document.createElement("video");
+		video.preload = "metadata";
+		video.onloadedmetadata = () => {
+			// Arquivo de gravação de tela às vezes vem com duração `Infinity` até
+			// alguém tocá-lo. Sem duração não há corte, e é melhor recusar aqui do
+			// que subir cinquenta megabytes para descobrir depois.
+			if (!Number.isFinite(video.duration) || video.duration <= 0) {
+				URL.revokeObjectURL(previewUrl);
+				reject(
+					new Error(
+						"Não foi possível ler a duração deste vídeo. Converta-o para MP4 e tente de novo.",
+					),
+				);
+				return;
+			}
+			resolve({
+				file,
+				type: "VIDEO",
+				previewUrl,
+				width: video.videoWidth || null,
+				height: video.videoHeight || null,
+				durationSeconds: video.duration,
+			});
+		};
+		video.onerror = () => {
+			URL.revokeObjectURL(previewUrl);
+			reject(new Error("Arquivo de vídeo inválido ou em formato não aceito."));
+		};
+		video.src = previewUrl;
 	});
 }
 

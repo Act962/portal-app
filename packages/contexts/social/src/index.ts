@@ -30,3 +30,5 @@ export * from "./domain/template/art-template";
 export * from "./domain/template/art-text";
 export * from "./domain/template/fonts";
 export * from "./domain/template/variables";
+export * from "./domain/template/video-frame";
+export * from "./domain/video";

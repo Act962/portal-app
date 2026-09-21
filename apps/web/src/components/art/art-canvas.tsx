@@ -29,6 +29,7 @@ export function ArtCanvas({
 	photoMediaId = null,
 	onWarnings,
 	label,
+	transparent = false,
 	className,
 }: {
 	format: ArtFormat;
@@ -38,7 +39,17 @@ export function ArtCanvas({
 	photoMediaId?: string | null;
 	/** Os textos que não cabem — só depois das fontes carregadas, quando a medida vale. */
 	onWarnings?: (warnings: string[]) => void;
-	label: string;
+	/**
+	 * O que o leitor de tela anuncia. `null` é camada DECORATIVA — uma das duas
+	 * metades de uma prévia de vídeo (spec 12), que sozinha não descreve nada e
+	 * seria só ruído anunciada duas vezes.
+	 */
+	label: string | null;
+	/**
+	 * O cinza de fundo enquanto o desenho não chega. Some na camada de cima de
+	 * uma prévia de vídeo, que precisa deixar o vídeo aparecer por baixo.
+	 */
+	transparent?: boolean;
 	className?: string;
 }) {
 	const [host, setHost] = useState<HTMLDivElement | null>(null);
@@ -102,9 +113,14 @@ export function ArtCanvas({
 	return (
 		<div
 			ref={setHost}
-			role="img"
-			aria-label={label}
-			className={cn("relative w-full overflow-hidden bg-muted", className)}
+			{...(label === null
+				? { "aria-hidden": true }
+				: { role: "img", "aria-label": label })}
+			className={cn(
+				"relative w-full overflow-hidden",
+				transparent ? "bg-transparent" : "bg-muted",
+				className,
+			)}
 			style={{ aspectRatio: ratio }}
 		/>
 	);

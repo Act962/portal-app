@@ -19,6 +19,15 @@ type MediaAssetState = {
 	filename: string;
 	mimeType: string;
 	dimensions: Dimensions | null;
+	/**
+	 * Duração em segundos — só vídeo e áudio a têm; `null` no resto.
+	 *
+	 * Número solto, e não objeto de valor: não há invariante a proteger (um
+	 * vídeo de zero segundo não existe na prática, e um arquivo corrompido não é
+	 * problema que o domínio resolva) e ela vem MEDIDA do navegador, não
+	 * calculada aqui. O que tem regra é o CORTE — e essa mora em `social`.
+	 */
+	durationSeconds: number | null;
 	caption: Caption;
 	credit: Credit;
 	altText: AltText | null;
@@ -37,6 +46,7 @@ type CreateInput = {
 	caption?: string | null;
 	altText?: string | null;
 	dimensions?: { width: number; height: number } | null;
+	durationSeconds?: number | null;
 	focalPoint?: { x: number; y: number } | null;
 	folderId?: string | null;
 };
@@ -123,6 +133,12 @@ export class MediaAsset extends AggregateRoot<string> {
 				filename: input.filename,
 				mimeType: input.mimeType,
 				dimensions,
+				durationSeconds:
+					typeof input.durationSeconds === "number" &&
+					Number.isFinite(input.durationSeconds) &&
+					input.durationSeconds > 0
+						? input.durationSeconds
+						: null,
 				caption: Caption.create(input.caption),
 				credit: credit.value,
 				altText,
@@ -159,6 +175,10 @@ export class MediaAsset extends AggregateRoot<string> {
 
 	get dimensions(): Dimensions | null {
 		return this.state.dimensions;
+	}
+
+	get durationSeconds(): number | null {
+		return this.state.durationSeconds;
 	}
 
 	get caption(): Caption {
