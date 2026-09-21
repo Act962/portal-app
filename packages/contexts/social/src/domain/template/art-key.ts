@@ -22,6 +22,38 @@ export function artImageKey(input: ArtKeyInput): string {
 	return `social/art/${input.templateId}-v${input.templateVersion}-${stableHash(input)}.jpg`;
 }
 
+/** O que define o vídeo montado: o desenho, mais os trechos NA ORDEM. */
+export type VideoKeyInput = ArtKeyInput & {
+	clips: readonly {
+		mediaId: string;
+		startSeconds: number;
+		endSeconds: number;
+		muted: boolean;
+	}[];
+};
+
+/**
+ * A chave do vídeo montado (spec 12, D5). Mesma ideia da arte, e aqui ela vale
+ * muito mais: remontar um vídeo custa dezenas de segundos de processador, e
+ * reenviar um post que falhou no Instagram não pode pagar isso de novo.
+ *
+ * Os TRECHOS entram na chave junto com o desenho, na ordem. Sem eles, aparar
+ * meio segundo — ou trocar dois cortes de lugar — e reenviar devolveria o
+ * arquivo antigo, e o defeito seria invisível: um vídeo quase igual não chama a
+ * atenção de ninguém.
+ *
+ * `.mp4` e `.jpg` (a capa) saem da mesma chave, para as duas andarem juntas: a
+ * capa de um vídeo antigo sobre um vídeo novo é exatamente o tipo de mistura
+ * que um cache com duas chaves independentes produz.
+ */
+export function videoArtKey(input: VideoKeyInput): {
+	video: string;
+	cover: string;
+} {
+	const base = `social/video/${input.templateId}-v${input.templateVersion}-${stableHash(input)}`;
+	return { video: `${base}.mp4`, cover: `${base}.jpg` };
+}
+
 /**
  * Hash estável de um valor serializável: as chaves dos objetos são ordenadas,
  * então `{a, b}` e `{b, a}` dão o mesmo resultado.

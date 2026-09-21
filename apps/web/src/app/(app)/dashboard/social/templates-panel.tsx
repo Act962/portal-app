@@ -59,7 +59,7 @@ import { trpc } from "@/utils/trpc";
 const FORMAT_OPTIONS = [
 	{ value: "4:5", label: "4:5 — retrato (feed)" },
 	{ value: "1:1", label: "1:1 — quadrado (feed)" },
-	{ value: "9:16", label: "9:16 — tela cheia (Stories)" },
+	{ value: "9:16", label: "9:16 — tela cheia (Stories e Reels)" },
 ] satisfies { value: ArtFormat; label: string }[];
 
 const editorRoute = (id: string) => `/dashboard/social/padroes/${id}` as Route;
@@ -369,8 +369,8 @@ function NewTemplateDialog({
 				<DialogHeader>
 					<DialogTitle>Novo padrão</DialogTitle>
 					<DialogDescription>
-						O formato decide para onde ele serve: 9:16 para os Stories; 4:5 e
-						1:1 para o feed.
+						O formato decide para onde ele serve: 9:16 para os Stories e o Reels
+						— é o formato de VÍDEO —; 4:5 e 1:1 para o feed de fotos.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="flex flex-col gap-4 py-2">

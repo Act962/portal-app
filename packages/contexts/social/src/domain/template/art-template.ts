@@ -218,16 +218,34 @@ export class InvalidArtTemplate extends Error {
 }
 
 /**
- * Este formato serve a este destino? Story pede 9:16; feed pede 1:1 ou 4:5.
- * É a regra que impede um padrão 4:5 de virar o padrão dos Stories (09, D10).
+ * Os formatos que servem a um destino. Story e Reels pedem o quadro em pé
+ * (9:16); o feed pede 1:1 ou 4:5.
+ */
+export function formatsFor(
+	destination: SocialDestination,
+): readonly ArtFormat[] {
+	return DESTINATION_FORMAT[destination] === "FEED"
+		? (["1:1", "4:5"] as const)
+		: (["9:16"] as const);
+}
+
+/**
+ * Este formato serve a este destino? É a regra que impede um padrão 4:5 de
+ * virar o padrão dos Stories (09, D10) ou do Reels.
  */
 export function formatServes(
 	format: ArtFormat,
 	destination: SocialDestination,
 ): boolean {
-	return DESTINATION_FORMAT[destination] === "STORY"
-		? format === "9:16"
-		: format !== "9:16";
+	return formatsFor(destination).includes(format);
+}
+
+/** Os formatos do destino como a tela os escreve: `9:16`, `1:1 ou 4:5`. */
+export function formatsLabel(destination: SocialDestination): string {
+	const formats = formatsFor(destination);
+	return formats.length === 1
+		? (formats[0] as string)
+		: `${formats.slice(0, -1).join(", ")} ou ${formats.at(-1)}`;
 }
 
 /** Como o elemento se chama numa frase de problema. */

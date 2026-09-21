@@ -41,6 +41,7 @@ function assetDto(asset: MediaAsset) {
 		altText: asset.altText?.value ?? null,
 		width: asset.dimensions?.width ?? null,
 		height: asset.dimensions?.height ?? null,
+		durationSeconds: asset.durationSeconds,
 		focalPoint: asset.focalPoint
 			? { x: asset.focalPoint.x, y: asset.focalPoint.y }
 			: null,
@@ -156,6 +157,8 @@ export const mediaRouter = router({
 				dimensions: z
 					.object({ width: z.number().int(), height: z.number().int() })
 					.nullish(),
+				/** Duração de vídeo/áudio, medida no navegador antes do envio. */
+				durationSeconds: z.number().positive().nullish(),
 				focalPoint: z.object({ x: z.number(), y: z.number() }).nullish(),
 			}),
 		)

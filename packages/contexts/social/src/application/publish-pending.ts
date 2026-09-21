@@ -12,18 +12,26 @@ import type { SocialAccountRepository } from "../domain/ports/social-account-rep
 import type { SocialPostRepository } from "../domain/ports/social-post-repository";
 import type {
 	PublishableImage,
+	PublishableVideo,
 	SocialImageSource,
 	SocialPublisher,
+	SocialVideoSource,
 } from "../domain/ports/social-publisher";
 import { mediaUrlProblem } from "../domain/public-media-url";
 import type { SocialPost } from "../domain/social-post";
-import type { ArtSelection } from "../domain/template/art-selection";
+import {
+	type ArtSelection,
+	plainSelection,
+} from "../domain/template/art-selection";
+import { formatsFor } from "../domain/template/art-template";
 
 export type PublishPendingDeps = {
 	repo: SocialPostRepository;
 	accounts: SocialAccountRepository;
 	publisher: SocialPublisher;
 	images: SocialImageSource;
+	/** Monta o vídeo dentro do padrão (spec 12). */
+	videos: SocialVideoSource;
 	clock: Clock;
 };
 
@@ -43,6 +51,10 @@ type Outcome = "published" | "prepared" | "failed" | "retrying";
 /** A mensagem de quando a foto (ou outra imagem) não pode mais ser lida. */
 export const MISSING_IMAGE_REASON =
 	"Uma das imagens não está mais na biblioteca de mídia ou no armazenamento.";
+
+/** A mesma coisa, para vídeo — o arquivo sumiu, ou não é vídeo. */
+export const MISSING_VIDEO_REASON =
+	"O vídeo não está mais na biblioteca de mídia ou no armazenamento.";
 
 /**
  * Quantos posts uma rodada tenta.
@@ -122,21 +134,25 @@ async function deliver(
 		return "failed";
 	}
 
-	const images = await imagesFor(post, destination, deps);
-	if (images === null) {
-		post.recordFailure(destination, MISSING_IMAGE_REASON, now);
+	const media = await mediaFor(post, destination, deps);
+	if (media === null) {
+		post.recordFailure(
+			destination,
+			post.isVideo ? MISSING_VIDEO_REASON : MISSING_IMAGE_REASON,
+			now,
+		);
 		return "failed";
 	}
 
-	// A Meta BAIXA a imagem. Endereço interno (o MinIO de dev) morreria lá do
+	// A Meta BAIXA o arquivo. Endereço interno (o MinIO de dev) morreria lá do
 	// outro lado com um erro genérico; aqui a causa sai em português, antes de
 	// gastar a chamada.
-	for (const image of images) {
-		const problem = mediaUrlProblem(image.url);
+	for (const url of urlsOf(media)) {
+		const problem = mediaUrlProblem(url);
 		if (problem) {
 			post.recordFailure(
 				destination,
-				`O ${label} não consegue baixar a imagem: ${problem}.`,
+				`O ${label} não consegue baixar ${media.video ? "o vídeo" : "a imagem"}: ${problem}.`,
 				now,
 			);
 			return "failed";
@@ -150,7 +166,8 @@ async function deliver(
 		// A legenda como ela sai NESTE destino — o link entra só onde é clicável,
 		// e nos Stories não há legenda.
 		caption: post.captionFor(destination),
-		images,
+		images: media.images,
+		video: media.video,
 		linkUrl: post.linkUrl,
 	});
 
@@ -182,33 +199,71 @@ async function prepare(
 	deps: PublishPendingDeps,
 ): Promise<Outcome> {
 	const now = deps.clock.now();
-	const images = await imagesFor(post, destination, deps);
-	const image = images?.[0];
-	if (!image) {
-		post.recordFailure(destination, MISSING_IMAGE_REASON, now);
+	const media = await mediaFor(post, destination, deps);
+	// No story em vídeo, o que a pessoa baixa é o VÍDEO montado — o mesmo
+	// arquivo que a API publicaria, se a figurinha de link não exigisse o app.
+	const url = media?.video?.url ?? media?.images[0]?.url;
+	if (!url) {
+		post.recordFailure(
+			destination,
+			post.isVideo ? MISSING_VIDEO_REASON : MISSING_IMAGE_REASON,
+			now,
+		);
 		return "failed";
 	}
-	post.recordPrepared(destination, image.url, now);
+	post.recordPrepared(destination, url, now);
 	return "prepared";
 }
 
+/** O que vai para a rede: imagens, ou um vídeo. Nunca os dois. */
+type DeliveryMedia = {
+	images: readonly PublishableImage[];
+	video: PublishableVideo | null;
+};
+
+function urlsOf(media: DeliveryMedia): string[] {
+	return media.video
+		? [media.video.url, ...(media.video.coverUrl ? [media.video.coverUrl] : [])]
+		: media.images.map((image) => image.url);
+}
+
 /**
- * As imagens do destino. Com padrão escolhido, UMA: a arte. Sem padrão, a foto
- * cortada, como antes dos padrões (spec 09, F5). `null` quando alguma sumiu.
+ * O arquivo do destino. `null` quando ele sumiu, e a entrega falha dizendo isso.
+ *
+ * Num post de VÍDEO é sempre um só: o trecho escolhido montado dentro do
+ * padrão. Sem padrão para o destino, o quadro vazio (`plainSelection`) — o
+ * vídeo sai enquadrado no formato da rede, que é o que "publicar sem arte"
+ * quer dizer.
+ *
+ * Num post de FOTO, o de antes: com padrão, a arte; sem padrão, a foto cortada
+ * (spec 09, F5).
  */
-function imagesFor(
+async function mediaFor(
 	post: SocialPost,
 	destination: SocialDestination,
 	deps: PublishPendingDeps,
-): Promise<readonly PublishableImage[] | null> {
+): Promise<DeliveryMedia | null> {
 	const selection = post.artFor(destination);
-	return selection
-		? artworkImages(post, selection, deps)
-		: resolveImages(
+
+	if (post.isVideo) {
+		const video = await deps.videos.artwork({
+			selection:
+				selection ?? plainSelection(formatsFor(destination)[0] ?? "9:16"),
+			photoMediaId: post.mediaIds[0] ?? null,
+			content: post.artContentForDrawing(),
+			clips: post.clips,
+		});
+		return video ? { images: [], video } : null;
+	}
+
+	const images = selection
+		? await artworkImages(post, selection, deps)
+		: await resolveImages(
 				post.imagesFor(destination),
 				PLATFORM_LIMITS[destination].imageAspect,
 				deps,
 			);
+	return images ? { images, video: null } : null;
 }
 
 /**

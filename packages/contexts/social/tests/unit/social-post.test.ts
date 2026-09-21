@@ -883,3 +883,197 @@ describe("publicação manual dos Stories (spec 11)", () => {
 		expect(post.publishManually("INSTAGRAM").isErr()).toBe(true);
 	});
 });
+
+// ── vídeo (spec 12) ────────────────────────────────────────────────────────
+
+describe("SocialPost — vídeo", () => {
+	const CORTE = {
+		mediaId: "video-1",
+		sourceSeconds: 120,
+		startSeconds: 0,
+		endSeconds: 30,
+		muted: false,
+	};
+
+	const comVideo = (
+		platforms: readonly SocialDestination[] = ["INSTAGRAM_REELS"],
+		clips: readonly (typeof CORTE)[] = [CORTE],
+	) =>
+		SocialPost.draft({
+			id: "p-1",
+			origin: "MANUAL",
+			captionText: "Entrevista",
+			mediaIds: ["video-1"],
+			platforms,
+			clips,
+			createdAt: AGORA,
+		}).unwrap();
+
+	it("um post com trechos sabe que é de vídeo", () => {
+		expect(comVideo().isVideo).toBe(true);
+		expect(comVideo().clips).toEqual([CORTE]);
+	});
+
+	it("os trechos entram aparados — a alça além do arquivo para no fim dele", () => {
+		const post = comVideo(
+			["INSTAGRAM_REELS"],
+			[{ ...CORTE, endSeconds: 9999 }],
+		);
+		expect(post.clips[0]?.endSeconds).toBe(120);
+	});
+
+	it("depois de aprovado, o vídeo está congelado como o texto", () => {
+		const post = comVideo();
+		post.approve("editor-1", AGORA);
+		expect(post.setVideo([]).isErr()).toBe(true);
+		expect(post.isVideo).toBe(true);
+	});
+
+	it("o Reels exige vídeo, e diz isso antes do clique", () => {
+		const semVideo = SocialPost.draft({
+			id: "p-2",
+			origin: "MANUAL",
+			captionText: "Nota",
+			mediaIds: ["media-1"],
+			platforms: ["INSTAGRAM_REELS"],
+			createdAt: AGORA,
+		}).unwrap();
+		expect(semVideo.publicationBlockers()).toContain(
+			"O Reels do Instagram publica vídeo, e este post não tem um.",
+		);
+	});
+
+	it("o feed de fotos recusa vídeo, e diz isso antes do clique", () => {
+		expect(comVideo(["INSTAGRAM"]).publicationBlockers()).toContain(
+			"O Instagram não publica vídeo.",
+		);
+	});
+
+	it("os limites de duração da rede aparecem entre os impedimentos", () => {
+		const longo = comVideo(
+			["INSTAGRAM_STORIES"],
+			[{ ...CORTE, endSeconds: 80 }],
+		);
+		expect(longo.publicationBlockers()).toEqual([
+			expect.stringContaining("Stories do Instagram aceita até"),
+		]);
+	});
+
+	it("a régua mede a SOMA dos trechos, não cada um", () => {
+		const post = comVideo(
+			["INSTAGRAM_STORIES"],
+			[
+				{ ...CORTE, endSeconds: 40 },
+				{ ...CORTE, endSeconds: 40 },
+			],
+		);
+		expect(post.publicationBlockers()).toEqual([
+			expect.stringContaining("Stories do Instagram aceita até"),
+		]);
+	});
+
+	it("faltando arquivo, o Reels pede VÍDEO e o feed pede imagem", () => {
+		// A frase sai do DESTINO, não do que o post já tem: sem arquivo nenhum
+		// não há vídeo, e pedir "uma imagem" a quem escolheu o Reels mandaria a
+		// redação procurar a coisa errada.
+		const reels = comVideo();
+		reels.edit({ mediaIds: [] });
+		expect(reels.publicationBlockers()).toContain(
+			"A publicação precisa de um vídeo.",
+		);
+
+		const feed = comVideo(["INSTAGRAM"]);
+		feed.edit({ mediaIds: [] });
+		expect(feed.publicationBlockers()).toContain(
+			"A publicação precisa de ao menos uma imagem.",
+		);
+	});
+
+	it("vídeo bom no Reels e nos Stories não tem impedimento nenhum", () => {
+		expect(
+			comVideo(["INSTAGRAM_REELS", "INSTAGRAM_STORIES"]).publicationBlockers(),
+		).toEqual([]);
+	});
+});
+
+describe("SocialPost — montar o vídeo ANEXA os arquivos", () => {
+	const corte = (mediaId: string, over = {}) => ({
+		mediaId,
+		sourceSeconds: 120,
+		startSeconds: 0,
+		endSeconds: 30,
+		muted: false,
+		...over,
+	});
+
+	const rascunho = (mediaIds: readonly string[] = []) =>
+		SocialPost.draft({
+			id: "p-1",
+			origin: "MANUAL",
+			captionText: "Entrevista",
+			mediaIds,
+			platforms: ["INSTAGRAM_REELS"],
+			createdAt: AGORA,
+		}).unwrap();
+
+	it("montar num post VAZIO anexa o arquivo — senão a escolha some", () => {
+		// Foi o defeito da primeira versão: `setVideo` exigia que o arquivo já
+		// fosse a primeira mídia, e nada nunca o punha lá. O seletor fechava e
+		// o vídeo desaparecia sem erro nenhum.
+		const post = rascunho();
+
+		expect(post.setVideo([corte("video-1")]).isOk()).toBe(true);
+		expect(post.clips).toHaveLength(1);
+		expect(post.mediaIds).toEqual(["video-1"]);
+	});
+
+	it("o vídeo TROCA as imagens que estivessem lá — um post é de um ou de outro", () => {
+		const post = rascunho(["foto-1", "foto-2"]);
+
+		post.setVideo([corte("video-1")]);
+
+		expect(post.mediaIds).toEqual(["video-1"]);
+		expect(post.isVideo).toBe(true);
+	});
+
+	it("dois trechos do MESMO arquivo anexam o arquivo uma vez só", () => {
+		// Pegar dois momentos de uma entrevista é o caso normal; contar o arquivo
+		// duas vezes faria a biblioteca achar que há dois vídeos em uso.
+		const post = rascunho();
+
+		post.setVideo([
+			corte("video-1", { endSeconds: 10 }),
+			corte("video-1", { startSeconds: 40, endSeconds: 50 }),
+		]);
+
+		expect(post.clips).toHaveLength(2);
+		expect(post.mediaIds).toEqual(["video-1"]);
+	});
+
+	it("trechos de arquivos diferentes anexam os dois, na ordem em que aparecem", () => {
+		const post = rascunho();
+
+		post.setVideo([corte("video-2"), corte("video-1")]);
+
+		expect(post.mediaIds).toEqual(["video-2", "video-1"]);
+	});
+
+	it("lista vazia tira o vídeo e os arquivos junto", () => {
+		const post = rascunho();
+		post.setVideo([corte("video-1")]);
+
+		post.setVideo([]);
+
+		expect(post.isVideo).toBe(false);
+		expect(post.mediaIds).toEqual([]);
+	});
+
+	it("tirar um arquivo do post descarta os trechos dele, e só eles", () => {
+		const post = rascunho();
+		post.setVideo([corte("video-1"), corte("video-2")]);
+
+		post.edit({ mediaIds: ["video-1"] });
+
+		expect(post.clips.map((clip) => clip.mediaId)).toEqual(["video-1"]);
+	});
+});

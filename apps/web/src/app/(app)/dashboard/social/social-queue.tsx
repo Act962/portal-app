@@ -1,6 +1,11 @@
 "use client";
 
-import type { PostStatus } from "@portal-app/social";
+import {
+	formatSeconds,
+	type PostStatus,
+	sequenceDuration,
+	type VideoSequence,
+} from "@portal-app/social";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -28,6 +33,7 @@ import {
 	ExternalLink,
 	Hand,
 	Images,
+	Play,
 	Plus,
 	RotateCw,
 	Sparkles,
@@ -255,6 +261,7 @@ export function SocialQueue() {
 									mediaId={post.mediaIds[0] ?? null}
 									isCarousel={post.isCarousel}
 									count={post.mediaIds.length}
+									clips={post.clips}
 								/>
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2">
@@ -519,30 +526,65 @@ function EmptyState({ status }: { status: string }) {
 	);
 }
 
+/**
+ * A miniatura do post na fila.
+ *
+ * Num post de VÍDEO mostra um QUADRO do vídeo, não um ícone: o `#t=` leva o
+ * navegador a buscar o segundo em que o trecho começa, então o que aparece é o
+ * primeiro quadro que vai ao ar — a mesma informação que a miniatura de foto
+ * dá. Antes disto a URL do `.mp4` ia para um `<img>`, que naturalmente não a
+ * decodifica, e a fila mostrava o ícone de "imagem quebrada" em todo post de
+ * vídeo.
+ *
+ * O selo diz a duração e, com mais de um corte, quantos trechos — é o que
+ * distingue de relance um Reels de uma foto, sem abrir o post.
+ */
 function Thumbnail({
 	mediaId,
 	isCarousel,
 	count,
+	clips,
 }: {
 	mediaId: string | null;
 	isCarousel: boolean;
 	count: number;
+	clips: VideoSequence;
 }) {
 	const asset = useQuery({
 		...trpc.media.get.queryOptions({ id: mediaId ?? "" }),
 		enabled: mediaId !== null,
 	});
 
+	const isVideo = clips.length > 0;
+	const first = clips[0];
+
 	return (
 		<div className="relative size-24 shrink-0 overflow-hidden rounded-md bg-muted">
-			{asset.data ? (
+			{asset.data && isVideo && first ? (
+				<video
+					// `#t=` é fragmento de mídia: o navegador abre já no segundo
+					// pedido, e o quadro do cartaz passa a ser o do corte.
+					src={`${asset.data.url}#t=${first.startSeconds.toFixed(2)}`}
+					muted
+					playsInline
+					preload="metadata"
+					className="size-full bg-black object-cover"
+				/>
+			) : asset.data ? (
 				<AssetImage
 					src={asset.data.url}
 					alt={asset.data.altText ?? ""}
 					className="size-full object-cover"
 				/>
 			) : null}
-			{isCarousel ? (
+
+			{isVideo ? (
+				<span className="absolute right-1 bottom-1 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">
+					<Play className="size-3 fill-current" />
+					{formatSeconds(sequenceDuration(clips))}
+					{clips.length > 1 ? ` · ${clips.length}` : ""}
+				</span>
+			) : isCarousel ? (
 				<span className="absolute right-1 bottom-1 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">
 					<Images className="size-3" />
 					{count}

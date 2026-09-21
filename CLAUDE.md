@@ -69,6 +69,7 @@ To run a single workspace's script directly, use turbo's filter flag, e.g. `pnpm
 - `packages/db` (`@portal-app/db`) — Prisma 7 schema (`prisma/schema/*.prisma`, split into `schema.prisma` and `auth.prisma`) and generated client (output to `prisma/generated`, ESM module format). Exports a singleton `PrismaClient` as default export from `src/index.ts`. **Prisma 7 is Rust-free: the client requires a driver adapter** — `createPrismaClient()` builds it with `new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })` (`@prisma/adapter-pg` + `pg`). The datasource `url` no longer lives in `schema.prisma`; it moved to `prisma.config.ts` (`defineConfig({ datasource: { url } })`), which is what the CLIs (`migrate`/`generate`/`studio`) read. Regenerate with `pnpm db:generate` after any adapter/schema change.
 - `packages/env` (`@portal-app/env`) — typed env vars via `@t3-oss/env-core` (`./server`) and `@t3-oss/env-nextjs` (`./web`), validated with zod. Server env currently defines `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `NODE_ENV`.
 - `packages/ui` (`@portal-app/ui`) — shared shadcn/ui primitives and Tailwind v4 global styles, consumed by app(s) via subpath exports (`@portal-app/ui/components/*`, `@portal-app/ui/lib/*`, `@portal-app/ui/hooks/*`, `@portal-app/ui/globals.css`).
+- `packages/art-scene` (`@portal-app/art-scene`) — a cena Konva de um padrão de arte, como dado puro. **O Konva entra por parâmetro**, nunca por `import`: no servidor quem desenha é o Konva com o backend do `skia-canvas`, e uma segunda cópia do pacote sairia sem canvas. É o que mantém a prévia do editor e a arte publicada pixel a pixel iguais.
 - `packages/shared-kernel` (`@portal-app/shared-kernel`) — framework-agnostic DDD primitives: `Result`/`ok`/`err`, `Entity`, `ValueObject`, `AggregateRoot`, `DomainEvent`, and the `Clock`/`IdGenerator` ports (with `SystemClock`/`FixedClock` and `UuidGenerator`/`SequentialIdGenerator`). **Zero external runtime deps by rule** — keeps domain tests fast and immune to library churn; the test doubles ship in the package because they're part of each port's contract. No business concepts here (no `Article`, `Slug`); those live in bounded contexts.
 - `packages/config` (`@portal-app/config`) — shared `tsconfig.base.json` extended by every workspace's `tsconfig.json`.
 
@@ -81,6 +82,29 @@ None of the internal packages (`api`, `auth`, `db`, `env`, `ui`) have a build st
 - `(site)` — the **public news portal** (home, `[section]`, `[section]/[slug]`, busca, últimas, ao-vivo, menu, 404). All React Server Components: no `Providers`, no React Query, no TanStack devtools. Do not add client providers to this group — the devtools badge leaking onto the portal was a bug caused by exactly that.
 - `(app)` — the **authenticated area** (dashboard, login). `Providers` (`apps/web/src/components/providers.tsx` — tRPC `QueryClientProvider` + React Query devtools + `sonner` `Toaster`) wraps `(app)/layout.tsx` only, so client-side data fetching lives here, not in the portal.
 - The public portal currently renders from **static fixtures** in `apps/web/src/data/` (`articles.ts`, `authors.ts`, `sections.ts`, etc. — read through `data/queries.ts`), not from the database. The DB-backed domain arrives in later roadmap phases; treat `data/` as the temporary content source until then.
+
+### Vídeo no padrão (spec 12)
+
+Um post pode ser de vídeo, e aí o vídeo ocupa **o mesmo lugar de foto** que o padrão já tinha — não há elemento novo no editor de padrões. Destinos: `INSTAGRAM_REELS` (novo, 9:16, só vídeo) e `INSTAGRAM_STORIES` (aceita imagem ou vídeo).
+
+O post guarda uma **lista de trechos** (`SocialPost.clips`), não um só: a montagem é a soma deles, na ordem. A régua (duração mínima, teto da rede, teto do portal) mede a SOMA — o Instagram recebe um arquivo só. `setVideo(clips)` **anexa os arquivos** ao post (`mediaIds`), trocando o que estivesse lá: um post é de vídeo OU de imagens.
+
+A montagem é `Konva` + `ffmpeg`, em `packages/api/src/social-video.ts`: `videoFrameFor` (domínio, puro) parte o desenho em duas camadas — o que está **abaixo** do lugar da foto vira um PNG opaco, o que está **acima** vira um PNG com transparência —, o Konva rasteriza as duas, o ffmpeg emenda os trechos com `concat` e empilha `under → vídeo → over`. O grafo de filtros sai de `video-filters.ts`, que é **função pura e tem teste**: um `overlay` no lugar errado não lança exceção, produz um MP4 válido com a faixa fora do lugar.
+
+**Toda fonte do grafo precisa de fim.** Com o `concat` no meio, os quadros da emenda só saem depois de todos os trechos lidos, e qualquer fonte infinita empilha quadros até o ffmpeg cair com "Cannot allocate memory". Por isso as imagens do padrão levam `-t` (não só `-loop 1`) e cada trecho mudo ganha uma fonte de silêncio própria e finita — `anullsrc` + `asplit` foi a primeira tentativa e morreu assim.
+
+Cinco coisas que mordem:
+
+- **`RENDER_MAX_SECONDS` (90 s) é teto do PORTAL, não do Instagram** (que aceita 15 min). Ele existe porque a montagem roda numa função com tempo máximo. Subir esse número exige mover a montagem para fora da função, não trocar a constante.
+- **`maxDuration = 300`** em `/api/inngest` e `/api/cron/[task]` — exige Fluid Compute no projeto da Vercel, senão o **deploy falha**.
+- **O binário do ffmpeg** vem do `postinstall` do `ffmpeg-static`: ele está em `onlyBuiltDependencies` (`pnpm-workspace.yaml`) e em `outputFileTracingIncludes` + `serverExternalPackages` (`next.config.ts`). Sem isso o pacote instala vazio e a montagem quebra só em produção.
+
+- **`[i:a]` num arquivo mudo derruba o ffmpeg** com "stream not found", e num `filter_complex` não existe o `?` que salva o `-map`. Quem descobre se há trilha é `probeHasAudio` (uma invocação sem saída, lendo o `stderr`).
+- **A capa da matéria não entra em post de vídeo** (`prepare-article-post.ts`): forçá-la como primeira mídia descartaria a montagem inteira.
+
+A prévia do editor **não vai ao servidor**: `VideoArtPreview` empilha `ArtCanvas(under)` + um `<video>` recortado na caixa + `ArtCanvas(over)` em CSS, usando a mesma `videoFrameFor`. Com vários trechos, o mesmo `<video>` troca de arquivo na hora certa (`positionAt`) — a emenda é simulada, não montada.
+
+O editor mora em `/dashboard/social/videos/[id]`, em tela cheia. O diálogo do post só mostra o resumo e o botão que leva até lá.
 
 ### tRPC flow
 

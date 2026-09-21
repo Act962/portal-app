@@ -1,6 +1,6 @@
 # Pendências — o que falta para o produto ficar completo
 
-> **Atualizado:** 2026-09-08.
+> **Atualizado:** 2026-09-21.
 > Lista única e priorizada do que está em aberto, para a entrega em andamento.
 > Estado por fase em [`proximos-passos.md`](./proximos-passos.md); escopo em
 > [`specs/`](./specs/); operação em [`deploy.md`](./deploy.md).
@@ -12,6 +12,75 @@ agendamento e auditoria) e ver no portal público com SEO, sitemaps e RSS. Em
 volta disso: equipe e permissões com convite por e-mail e redefinição de senha,
 configurações do veículo, grade de programação, enquete com voto anônimo,
 "mais lidas" por audiência real e o painel de insights.
+
+---
+
+## 🎬 Vídeo no padrão (spec 12) — entregue em 21/09/2026, **não validado**
+
+O fluxo inteiro existe e passa nos testes, mas **nenhum Reels saiu de verdade**.
+Três coisas precisam de mundo real para se provar:
+
+1. **Publicar um Reels e um story em vídeo.** Subir um vídeo de verdade da
+   redação (celular, `.mov` do iPhone inclusive), montar e aprovar. É o que vai
+   dizer se a espera do container (30 × 5 s) basta e se a Meta aceita o arquivo
+   que o nosso ffmpeg produz.
+
+2. **Conferir `maxDuration` no deploy.** As rotas `/api/inngest` e
+   `/api/cron/[task]` declaram 300 s, o que **exige Fluid Compute ligado** no
+   projeto da Vercel. Se o plano não permitir, o deploy FALHA dizendo qual é o
+   máximo — não é falha silenciosa, mas é falha.
+
+3. **Medir quanto tempo a montagem leva na Vercel.** Aqui, um trecho de 6 s em
+   1080×1920 montou em segundos; noventa segundos de vídeo numa função é outra
+   conversa. Se não couber, o próximo passo não é baixar o teto: é mover a
+   montagem para fora da função (spec 12, D6).
+
+**Dívida de teste conhecida:** as telas de vídeo (editor, linha do tempo, barra
+de corte, escolha do arquivo) não têm teste de componente nem E2E — só os
+módulos puros atrás delas (`video-trim-model`, `video-editor-model`,
+`video-frame-style`, `video-filters`) têm, e esses têm de verdade. O caminho
+ffmpeg foi provado à mão, com vídeos gerados pelo próprio ffmpeg — inclusive a
+emenda de três trechos com um mudo no meio e um arquivo sem trilha; não há teste
+automatizado que rode o binário.
+
+**Vários posts por matéria** (a trava do `autoKey`) continua de pé, e é o que
+limita o atalho "Montar vídeo desta matéria": com post já criado, ele só abre o
+editor daquele post, em vez de criar um segundo. Derrubar a trava é trabalho
+próprio — migration, mais a fila passando a agrupar por matéria. Ver spec 12, F5.
+
+---
+
+## 🎲 Um teste intermitente (visto em 21/09/2026)
+
+`packages/art-scene/tests/unit/scene.test.ts` → **"repete a foto na direção
+%s preservando o ponto focal"** falhou UMA vez numa rodada de `pnpm test:unit`,
+e passou em todas as outras — sozinho, e no conjunto inteiro, oito rodadas
+seguidas depois disso. Não reproduziu.
+
+**Por que fica registrado mesmo sendo raro:** um teste que falha uma vez em dez
+é pior do que um que falha sempre. Ele treina quem vê o vermelho a mandar rodar
+de novo, e no dia em que a falha for de verdade ela vai ser tratada do mesmo
+jeito.
+
+**Onde olhar primeiro.** O teste tem duas metades bem diferentes:
+
+- as asserções de GEOMETRIA (`width`, `height`, `x`, `y`, `crop`) são aritmética
+  pura e não têm de onde flutuar;
+- as três últimas chamam `pixel(layer, …)`, que **rasteriza a camada num canvas**
+  (`layer.toCanvas()`) e lê `getImageData`. É essa metade que depende do
+  backend de canvas, e é por onde eu começaria.
+
+A suspeita — não confirmada — é a rasterização sob execução paralela do vitest:
+a falha apareceu logo depois de uma mudança em `apps/web`, num arquivo que não
+tem relação nenhuma com `art-scene`, o que aponta para ordem de execução e não
+para o código sob teste. `packages/art-scene` não foi tocado nesta rodada de
+trabalho (`git status` limpo).
+
+**Como caçar:** `npx vitest run --project unit --repeat=20
+packages/art-scene`, e depois com o resto do conjunto junto, que é a condição
+em que ela apareceu. Se for mesmo o canvas, o conserto é dar ao `pixel()` um
+backend determinístico em vez de afrouxar a asserção — as três comparações de
+cor são justamente o que prova que a foto repetida cai no lugar certo.
 
 ---
 

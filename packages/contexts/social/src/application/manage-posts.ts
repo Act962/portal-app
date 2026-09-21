@@ -31,6 +31,7 @@ import {
 	selectionFrom,
 } from "../domain/template/art-selection";
 import type { ArtContent, ArtInputs } from "../domain/template/variables";
+import type { VideoSequence } from "../domain/video";
 
 /**
  * Casos de uso da fila de publicação. Orquestram sem regra: a regra vive no
@@ -55,6 +56,8 @@ export type DraftInput = {
 	modes?: DeliveryModes;
 	linkUrl?: string | null;
 	articleId?: string | null;
+	/** Os trechos de vídeo, num post de vídeo (spec 12). */
+	clips?: VideoSequence;
 };
 
 type DraftError = Forbidden | CaptionRequired | InvalidMediaSelection;
@@ -436,6 +439,36 @@ export async function setPostArtInputs(
 	});
 	if (chosen.isErr()) {
 		return err(chosen.error);
+	}
+	await deps.repo.save(post);
+	return ok(post);
+}
+
+/**
+ * Monta o vídeo do post: os trechos, na ordem. Lista vazia tira o vídeo.
+ *
+ * Caso de uso próprio, e não mais um campo do `updatePost`, porque quem o chama
+ * é outra tela e em outro ritmo: o corte muda a cada arrasto do deslizador, e
+ * misturá-lo com a legenda faria cada ajuste de meio segundo regravar o texto
+ * inteiro do post.
+ */
+export async function setPostVideo(
+	actor: StaffMember,
+	input: { id: string; clips: VideoSequence },
+	deps: Pick<PostDeps, "repo">,
+): Promise<
+	Result<SocialPost, Forbidden | SocialPostNotFound | InvalidPostTransition>
+> {
+	if (!can(actor, "social:publish")) {
+		return err(new Forbidden());
+	}
+	const post = await deps.repo.findById(input.id);
+	if (!post) {
+		return err(new SocialPostNotFound(input.id));
+	}
+	const changed = post.setVideo(input.clips);
+	if (changed.isErr()) {
+		return err(changed.error);
 	}
 	await deps.repo.save(post);
 	return ok(post);

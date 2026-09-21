@@ -35,14 +35,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	AlertTriangle,
 	ExternalLink,
-	Eye,
 	RotateCw,
 	Share2,
 	Trash2,
+	Video,
 	X,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { templatesFor } from "@/app/(app)/dashboard/social/post-art-model";
@@ -459,12 +460,26 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 					);
 				})}
 
-				{destinations.length > 0 ? (
-					<Button variant="secondary" onClick={() => openPreview(null)}>
-						<Eye className="size-4" />
-						{state.editable ? "Visualizar e editar textos" : "Visualizar"}
-					</Button>
-				) : null}
+				{/*
+				  O caminho do VÍDEO (spec 12, F5). Fica aqui, e não como mais uma
+				  caixinha de destino, porque a matéria tem foto de CAPA, não vídeo:
+				  o arquivo é escolhido no editor, não herdado da matéria.
+
+				  Com post já criado, o botão só ABRE o editor daquele post. Não
+				  acrescenta o Reels aos destinos: a matéria aceita um post só
+				  (`autoKey`), e mexer nos destinos de um post de foto por este
+				  atalho transformaria calado uma publicação pronta numa quebrada.
+
+				  Tomou o lugar do botão "Visualizar e editar textos". A prévia não
+				  ficou órfã: ela continua abrindo ao clicar na arte de cada destino,
+				  logo acima — que é de onde quase todo mundo já a abria.
+				*/}
+				<VideoShortcut
+					articleId={articleId}
+					postId={post?.id ?? null}
+					clipCount={post?.clips.length ?? 0}
+					disabled={busy}
+				/>
 
 				{!coverMediaId && destinations.length > 0 ? (
 					<p className="text-amber-700 text-xs dark:text-amber-300">
@@ -557,5 +572,71 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 				</AlertDialogContent>
 			</AlertDialog>
 		</Card>
+	);
+}
+
+/**
+ * O atalho da matéria para o editor de vídeo (spec 12, F5).
+ *
+ * Duas situações, e a diferença entre elas é a trava de um post por matéria:
+ *
+ * - **Sem post ainda:** cria o post da matéria já mirando o Reels — legenda,
+ *   título e editoria vêm da matéria, como no post de foto — e abre o editor.
+ * - **Com post:** só ABRE o editor daquele post. Acrescentar o Reels aos
+ *   destinos de um post de foto o deixaria com um destino que recusa vídeo e
+ *   outro que o exige; quem quiser trocar os destinos faz isso na fila, vendo o
+ *   que está mudando.
+ */
+function VideoShortcut({
+	articleId,
+	postId,
+	clipCount,
+	disabled,
+}: {
+	articleId: string;
+	postId: string | null;
+	clipCount: number;
+	disabled: boolean;
+}) {
+	const router = useRouter();
+	const prepare = useMutation(
+		trpc.social.prepareFromArticle.mutationOptions({
+			onSuccess: (post) => {
+				router.push(`/dashboard/social/videos/${post.id}` as Route);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	if (postId) {
+		return (
+			<Button
+				variant="outline"
+				nativeButton={false}
+				render={<Link href={`/dashboard/social/videos/${postId}` as Route} />}
+			>
+				<Video className="size-4" />
+				{clipCount > 0
+					? `Editar vídeo (${clipCount} ${clipCount === 1 ? "trecho" : "trechos"})`
+					: "Montar vídeo desta matéria"}
+			</Button>
+		);
+	}
+
+	return (
+		<Button
+			variant="outline"
+			disabled={disabled || prepare.isPending}
+			onClick={() =>
+				prepare.mutate({
+					articleId,
+					destinations: ["INSTAGRAM_REELS"],
+					approve: false,
+				})
+			}
+		>
+			<Video className="size-4" />
+			Montar vídeo desta matéria
+		</Button>
 	);
 }

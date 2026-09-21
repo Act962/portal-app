@@ -40,6 +40,7 @@ export const PLATFORM_LABEL: Record<SocialPlatform, string> = {
  */
 export const SOCIAL_DESTINATIONS = [
 	"INSTAGRAM",
+	"INSTAGRAM_REELS",
 	"INSTAGRAM_STORIES",
 	"FACEBOOK",
 ] as const;
@@ -50,13 +51,21 @@ export function isSocialDestination(value: string): value is SocialDestination {
 	return (SOCIAL_DESTINATIONS as readonly string[]).includes(value);
 }
 
-/** Como o conteúdo aparece na rede. É o que o adapter precisa saber para
- * escolher a chamada — e só isso. */
-export type PublicationFormat = "FEED" | "STORY";
+/**
+ * Como o conteúdo aparece na rede. É o que o adapter precisa saber para
+ * escolher a chamada — e só isso.
+ *
+ * `REEL` é formato próprio, e não "o feed com um vídeo": a chamada da Meta é
+ * outra (`media_type=REELS`), o quadro é 9:16 e não 1:1, e o conteúdo é sempre
+ * vídeo. Tratá-lo como uma variação do feed obrigaria todo `if (format ===
+ * "FEED")` do sistema a perguntar depois "mas é vídeo?".
+ */
+export type PublicationFormat = "FEED" | "REEL" | "STORY";
 
 /** A conta que publica em cada destino. */
 export const DESTINATION_PLATFORM: Record<SocialDestination, SocialPlatform> = {
 	INSTAGRAM: "INSTAGRAM",
+	INSTAGRAM_REELS: "INSTAGRAM",
 	INSTAGRAM_STORIES: "INSTAGRAM",
 	FACEBOOK: "FACEBOOK",
 };
@@ -64,6 +73,7 @@ export const DESTINATION_PLATFORM: Record<SocialDestination, SocialPlatform> = {
 export const DESTINATION_FORMAT: Record<SocialDestination, PublicationFormat> =
 	{
 		INSTAGRAM: "FEED",
+		INSTAGRAM_REELS: "REEL",
 		INSTAGRAM_STORIES: "STORY",
 		FACEBOOK: "FEED",
 	};
@@ -71,6 +81,7 @@ export const DESTINATION_FORMAT: Record<SocialDestination, PublicationFormat> =
 /** Como o destino se chama na tela. */
 export const DESTINATION_LABEL: Record<SocialDestination, string> = {
 	INSTAGRAM: "Instagram",
+	INSTAGRAM_REELS: "Reels do Instagram",
 	INSTAGRAM_STORIES: "Stories do Instagram",
 	FACEBOOK: "Facebook",
 };
@@ -109,6 +120,7 @@ export type DeliveryMode = "AUTOMATICO" | "MANUAL";
  */
 export const DEFAULT_DELIVERY_MODE: Record<SocialDestination, DeliveryMode> = {
 	INSTAGRAM: "AUTOMATICO",
+	INSTAGRAM_REELS: "AUTOMATICO",
 	INSTAGRAM_STORIES: "MANUAL",
 	FACEBOOK: "AUTOMATICO",
 };
@@ -119,6 +131,9 @@ export const DEFAULT_DELIVERY_MODE: Record<SocialDestination, DeliveryMode> = {
  */
 export const ACCEPTS_MANUAL: Record<SocialDestination, boolean> = {
 	INSTAGRAM: false,
+	// O Reels publica pela API com legenda e tudo; publicar à mão só abriria um
+	// jeito de esquecer o vídeo na fila.
+	INSTAGRAM_REELS: false,
 	INSTAGRAM_STORIES: true,
 	FACEBOOK: false,
 };
@@ -183,6 +198,25 @@ export type PlatformLimits = {
 	images: "ALL" | "FIRST";
 	/** A proporção em que a imagem é gerada para este destino. */
 	imageAspect: "1:1" | "9:16";
+	/**
+	 * Que mídia este destino publica.
+	 *
+	 * É campo do destino, e não uma pergunta feita ao arquivo na hora do envio,
+	 * porque é o que deixa a tela recusar cedo: um vídeo escolhido para o feed
+	 * de fotos, ou uma foto escolhida para o Reels, é erro que aparece na
+	 * montagem do post — não depois de a Meta processar e devolver 400.
+	 */
+	media: "IMAGE" | "VIDEO" | "BOTH";
+	/**
+	 * A janela de duração que a rede aceita, em segundos, ou `null` num destino
+	 * que não publica vídeo.
+	 *
+	 * O teto aqui é o da REDE. O teto do PORTAL é outro e menor
+	 * (`RENDER_MAX_SECONDS`, em `video.ts`): quem o impõe é o nosso renderizador,
+	 * não a Meta, e misturar os dois faria a mensagem de erro mentir sobre de
+	 * quem é o limite.
+	 */
+	videoSeconds: { min: number; max: number } | null;
 };
 
 export const PLATFORM_LIMITS: Record<SocialDestination, PlatformLimits> = {
@@ -195,6 +229,27 @@ export const PLATFORM_LIMITS: Record<SocialDestination, PlatformLimits> = {
 		publishesCaption: true,
 		images: "ALL",
 		imageAspect: "1:1",
+		media: "IMAGE",
+		videoSeconds: null,
+	},
+	/**
+	 * O Reels é o vídeo do Instagram (v25.0, `media_type=REELS`). Sai no feed e
+	 * na aba de Reels com uma chamada só; é por isso que não existe aqui um
+	 * "feed em vídeo" separado dele.
+	 */
+	INSTAGRAM_REELS: {
+		captionMaxLength: 2200,
+		hashtagMaxCount: 30,
+		// Um Reels é UM vídeo. Não há carrossel de vídeo na API de publicação.
+		mediaMaxCount: 1,
+		carouselMinCount: 2,
+		captionLinksAreClickable: false,
+		publishesCaption: true,
+		images: "FIRST",
+		imageAspect: "9:16",
+		media: "VIDEO",
+		// 3 s é o mínimo da Meta; 15 min, o máximo dela.
+		videoSeconds: { min: 3, max: 900 },
 	},
 	INSTAGRAM_STORIES: {
 		// Sem legenda, não há o que medir. Infinito, e não zero: zero faria toda
@@ -207,6 +262,10 @@ export const PLATFORM_LIMITS: Record<SocialDestination, PlatformLimits> = {
 		publishesCaption: false,
 		images: "FIRST",
 		imageAspect: "9:16",
+		// O story aceita os dois, e é o único destino que aceita: a mesma
+		// notícia vira cartão parado ou vídeo, conforme a redação tiver.
+		media: "BOTH",
+		videoSeconds: { min: 3, max: 60 },
 	},
 	FACEBOOK: {
 		// O limite real da Página é ordens de grandeza maior que qualquer post de
@@ -222,5 +281,18 @@ export const PLATFORM_LIMITS: Record<SocialDestination, PlatformLimits> = {
 		publishesCaption: true,
 		images: "ALL",
 		imageAspect: "1:1",
+		// O vídeo na Página é outra chamada da API e ficou de fora desta entrega.
+		media: "IMAGE",
+		videoSeconds: null,
 	},
 };
+
+/** Este destino aceita vídeo? */
+export function acceptsVideo(destination: SocialDestination): boolean {
+	return PLATFORM_LIMITS[destination].media !== "IMAGE";
+}
+
+/** Este destino SÓ aceita vídeo — foto nele não existe. */
+export function requiresVideo(destination: SocialDestination): boolean {
+	return PLATFORM_LIMITS[destination].media === "VIDEO";
+}

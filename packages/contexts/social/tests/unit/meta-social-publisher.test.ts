@@ -779,3 +779,200 @@ describe("MetaSocialPublisher — cota do Instagram (D13)", () => {
 		);
 	});
 });
+
+// ── vídeo: Reels e story em vídeo (spec 12) ───────────────────────────────
+
+const video = {
+	url: "https://cdn.test/reel.mp4",
+	coverUrl: "https://cdn.test/reel.jpg",
+	altText: "",
+};
+
+const videoRequest = (
+	format: "REEL" | "STORY",
+	over: Record<string, unknown> = {},
+) => ({
+	platform: "INSTAGRAM" as const,
+	format,
+	accountRemoteId: "ig-1",
+	caption: "Entrevista com o prefeito",
+	images: [],
+	video,
+	linkUrl: null,
+	...over,
+});
+
+/** O roteiro feliz do container: cria, termina, publica, devolve o link. */
+function containerFeliz() {
+	return fakeGraph((call) => {
+		if (call.method === "POST" && call.path === "ig-1/media") {
+			return { body: { id: "c-video" } };
+		}
+		if (call.path === "c-video") {
+			return { body: { status_code: "FINISHED" } };
+		}
+		if (call.path === "ig-1/media_publish") {
+			return { body: { id: "reel-1" } };
+		}
+		return { body: { permalink: "https://instagram.com/reel/abc" } };
+	});
+}
+
+describe("MetaSocialPublisher — Reels", () => {
+	it("cria o container REELS com vídeo, legenda e capa", async () => {
+		const { calls, client } = containerFeliz();
+
+		const result = await publisher(client).publish(videoRequest("REEL"));
+
+		expect(result.unwrap().remoteId).toBe("reel-1");
+		const container = calls[0]?.params as URLSearchParams;
+		expect(container.get("media_type")).toBe("REELS");
+		expect(container.get("video_url")).toBe(video.url);
+		expect(container.get("caption")).toBe("Entrevista com o prefeito");
+		expect(container.get("cover_url")).toBe(video.coverUrl);
+	});
+
+	it("pede para aparecer TAMBÉM na grade do perfil", () => {
+		// Sem `share_to_feed`, o vídeo sai só na aba de Reels e a matéria some do
+		// lugar onde o leitor do portal costuma procurá-la.
+		const { calls, client } = containerFeliz();
+		return publisher(client)
+			.publish(videoRequest("REEL"))
+			.then(() => {
+				expect(calls[0]?.params.get("share_to_feed")).toBe("true");
+			});
+	});
+
+	it("sem capa, deixa a Meta escolher um quadro", async () => {
+		const { calls, client } = containerFeliz();
+
+		await publisher(client).publish(
+			videoRequest("REEL", { video: { ...video, coverUrl: null } }),
+		);
+
+		expect(calls[0]?.params.has("cover_url")).toBe(false);
+	});
+
+	it("espera o container terminar ANTES de publicar", async () => {
+		let perguntas = 0;
+		const { calls, client } = fakeGraph((call) => {
+			if (call.method === "POST" && call.path === "ig-1/media") {
+				return { body: { id: "c-video" } };
+			}
+			if (call.path === "c-video") {
+				perguntas += 1;
+				return {
+					body: { status_code: perguntas < 2 ? "IN_PROGRESS" : "FINISHED" },
+				};
+			}
+			if (call.path === "ig-1/media_publish") {
+				return { body: { id: "reel-1" } };
+			}
+			return { body: { permalink: null } };
+		});
+
+		await publisher(client, {
+			videoPollAttempts: 3,
+			videoPollIntervalMs: 1,
+		}).publish(videoRequest("REEL"));
+
+		expect(perguntas).toBe(2);
+		expect(calls.map((call) => call.path)).toEqual([
+			"ig-1/media",
+			"c-video",
+			"c-video",
+			"ig-1/media_publish",
+			"reel-1",
+		]);
+	});
+
+	it("processamento que não termina é falha REPETÍVEL, e fala de vídeo", async () => {
+		const { client } = fakeGraph((call) =>
+			call.method === "POST"
+				? { body: { id: "c-video" } }
+				: { body: { status_code: "IN_PROGRESS" } },
+		);
+
+		const failure = await publisher(client, {
+			videoPollAttempts: 2,
+			videoPollIntervalMs: 1,
+		})
+			.publish(videoRequest("REEL"))
+			.then((result) => result.unwrapErr());
+
+		expect(failure.retryable).toBe(true);
+		expect(failure.reason).toContain("o vídeo");
+	});
+
+	it("container com ERRO fala de duração e formato, não de JPEG", async () => {
+		const { client } = fakeGraph((call) =>
+			call.method === "POST"
+				? { body: { id: "c-video" } }
+				: { body: { status_code: "ERROR" } },
+		);
+
+		const failure = await publisher(client)
+			.publish(videoRequest("REEL"))
+			.then((result) => result.unwrapErr());
+
+		expect(failure.retryable).toBe(false);
+		expect(failure.reason).toContain("duração");
+	});
+
+	it("Reels sem vídeo é recusado sem chamar a Meta", async () => {
+		const { calls, client } = containerFeliz();
+
+		const failure = await publisher(client)
+			.publish(videoRequest("REEL", { video: null, images: [] }))
+			.then((result) => result.unwrapErr());
+
+		expect(failure.providerCode).toBe("VIDEO_REQUIRED");
+		expect(calls).toHaveLength(0);
+	});
+
+	it("Reels no Facebook é recusado sem chamar a Meta", async () => {
+		const { calls, client } = containerFeliz();
+
+		const failure = await publisher(client)
+			.publish(videoRequest("REEL", { platform: "FACEBOOK" }))
+			.then((result) => result.unwrapErr());
+
+		expect(failure.providerCode).toBe("REEL_UNSUPPORTED");
+		expect(calls).toHaveLength(0);
+	});
+
+	it("vídeo para o Facebook é recusado sem chamar a Meta", async () => {
+		const { calls, client } = containerFeliz();
+
+		const failure = await publisher(client)
+			.publish(videoRequest("REEL", { platform: "FACEBOOK", format: "FEED" }))
+			.then((result) => result.unwrapErr());
+
+		expect(failure.providerCode).toBe("VIDEO_UNSUPPORTED");
+		expect(calls).toHaveLength(0);
+	});
+});
+
+describe("MetaSocialPublisher — story em vídeo", () => {
+	it("cria o container STORIES com o vídeo, sem legenda", async () => {
+		const { calls, client } = containerFeliz();
+
+		const result = await publisher(client).publish(videoRequest("STORY"));
+
+		expect(result.unwrap().remoteId).toBe("reel-1");
+		expect(calls[0]?.params.get("media_type")).toBe("STORIES");
+		expect(calls[0]?.params.get("video_url")).toBe(video.url);
+		expect(calls[0]?.params.has("caption")).toBe(false);
+	});
+
+	it("story com imagem continua sendo story de imagem", async () => {
+		const { calls, client } = containerFeliz();
+
+		await publisher(client).publish(
+			videoRequest("STORY", { video: null, images: [imagem("m1")] }),
+		);
+
+		expect(calls[0]?.params.get("image_url")).toBe("https://cdn.test/m1.jpg");
+		expect(calls[0]?.params.has("video_url")).toBe(false);
+	});
+});

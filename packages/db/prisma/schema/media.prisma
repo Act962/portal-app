@@ -19,6 +19,14 @@ model MediaAsset {
   focalX     Float?
   focalY     Float?
 
+  // Duração em segundos — só VIDEO e AUDIO a têm.
+  //
+  // Medida no NAVEGADOR, antes do envio, e gravada aqui: o servidor nunca abre
+  // o arquivo. É o que permite a tela de corte desenhar a régua do vídeo sem
+  // baixar dezenas de megabytes, e o post guardar uma cópia dela para saber
+  // sozinho se o trecho escolhido cabe no limite da rede.
+  durationSeconds Float?
+
   // Pasta onde o arquivo está. Nulo é estado VÁLIDO: "sem pasta" (D2).
   //
   // `Restrict` é a SEGUNDA linha de defesa do invariante "pasta com arquivo não

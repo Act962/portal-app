@@ -313,6 +313,14 @@ rich-text de verdade.
 > **Em execução:** [`specs/09-padroes-de-arte.md`](./specs/09-padroes-de-arte.md) — padrões de
 > arte com camadas (moldura, foto, textos) desenhados no servidor, aplicados ao post e à
 > matéria. Pedido do cliente em 14/09/2026: a arte de cada post era refeita à mão.
+>
+> **Em validação:** [`specs/12-videos-em-padrao.md`](./specs/12-videos-em-padrao.md) — o MESMO
+> padrão vestindo um VÍDEO, para o Reels e os Stories. Pedido do cliente em 21/09/2026, com o
+> mesmo argumento da spec 09: o vídeo da entrevista saía do celular, passava pelo Canva e
+> voltava — três programas para uma faixa vermelha. Não custou um editor novo porque o vídeo
+> ocupa o lugar da foto que o padrão já tinha (D1); o que entrou foi o ffmpeg empilhando duas
+> camadas que o Konva já sabia desenhar. **Nenhum Reels saiu de verdade ainda** — ver
+> `pendencias.md`.
 
 Sem data definida; entram por prioridade de negócio: cobertura ao vivo, especiais e séries,
 editoria de vídeo, PWA, enquetes, relatórios de produção. Cada um com sua spec.

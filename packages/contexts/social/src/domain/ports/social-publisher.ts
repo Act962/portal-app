@@ -4,6 +4,7 @@ import type { CropAspect } from "../focal-crop";
 import type { PublicationFormat, SocialPlatform } from "../platform";
 import type { ArtSelection } from "../template/art-selection";
 import type { ArtContent } from "../template/variables";
+import type { VideoSequence } from "../video";
 
 /** O que o desenhista precisa para a arte de um destino (spec 09, F5). */
 export type ArtworkRequest = {
@@ -32,6 +33,25 @@ export type PublishableImage = {
 	altText: string;
 };
 
+/**
+ * Um vídeo pronto para a Meta — o padrão já queimado sobre ele.
+ *
+ * Mesma razão da `PublishableImage` para a URL pública: a API de publicação
+ * **não aceita upload de arquivo**, ela BAIXA de `video_url`. A diferença é o
+ * peso: um Reels de 90 s tem dezenas de megabytes, e os servidores da Meta
+ * levam minutos processando — é por isso que a espera pelo container tem um
+ * teto próprio no adapter, e não o mesmo da foto.
+ *
+ * `coverUrl` é a capa. Opcional porque a Meta escolhe um quadro sozinha quando
+ * ela falta; quando vem, é o primeiro quadro do vídeo já com o padrão — que é o
+ * que a redação viu na prévia e espera ver na grade do perfil.
+ */
+export type PublishableVideo = {
+	url: string;
+	coverUrl: string | null;
+	altText: string;
+};
+
 export type PublishRequest = {
 	/** A rede — é ela que decide a conta e o token. */
 	platform: SocialPlatform;
@@ -40,8 +60,10 @@ export type PublishRequest = {
 	/** O id da conta NA META (`ig-user-id` ou `page-id`). */
 	accountRemoteId: string;
 	caption: string;
-	/** Uma imagem é foto; duas ou mais, carrossel. */
+	/** Uma imagem é foto; duas ou mais, carrossel. Vazio num post de vídeo. */
 	images: readonly PublishableImage[];
+	/** O vídeo, quando o post é de vídeo. Nesse caso `images` vem vazio. */
+	video?: PublishableVideo | null;
 	/** Só o Facebook usa: no Instagram o link da legenda não é clicável. */
 	linkUrl: string | null;
 };
@@ -99,6 +121,30 @@ export interface SocialPublisher {
  * quando o armazenamento ou o formato mudam (R2, JPEG, corte quadrado), aquela
  * quando a rede social muda.
  */
+/** O que o renderizador precisa para montar o vídeo de um destino (spec 12). */
+export type VideoArtworkRequest = ArtworkRequest & {
+	/** Os trechos escolhidos, na ordem em que vão ao ar. */
+	clips: VideoSequence;
+};
+
+/**
+ * Monta o vídeo que a Meta vai baixar: o trecho escolhido dentro do padrão.
+ *
+ * Porta separada da `SocialImageSource`, e não um método a mais nela, porque as
+ * duas mudam por motivos diferentes e têm custos de outra ordem — esta depende
+ * de um transcodificador, leva dezenas de segundos e tem teto de duração; a
+ * outra desenha um JPEG em milissegundos. Juntá-las obrigaria todo dublê de
+ * teste de imagem a fingir que sabe transcodificar.
+ */
+export interface SocialVideoSource {
+	/**
+	 * Mesmo contrato do `artwork`: `null` quando o arquivo não existe mais —
+	 * erro definitivo para a entrega —, e falha passageira LANÇA, para a entrega
+	 * ficar pendente e a próxima rodada tentar de novo.
+	 */
+	artwork(request: VideoArtworkRequest): Promise<PublishableVideo | null>;
+}
+
 export interface SocialImageSource {
 	/**
 	 * @param mediaId id na biblioteca de mídia

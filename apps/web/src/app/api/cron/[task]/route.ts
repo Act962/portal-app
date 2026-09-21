@@ -19,6 +19,13 @@ import { env } from "@portal-app/env/server";
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * O mesmo teto da rota do Inngest, e pela mesma razão: esta rota roda as MESMAS
+ * tarefas, e a `publish-social` monta vídeo (spec 12). Ver a rota do Inngest
+ * para a exigência de Fluid Compute.
+ */
+export const maxDuration = 300;
+
 export async function GET(
 	request: Request,
 	{ params }: { params: Promise<{ task: string }> },

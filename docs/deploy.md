@@ -340,6 +340,39 @@ O botão **"Publicar agendadas vencidas"**, no menu da lista de matérias,
 continua existindo — é o disparo manual, útil para testar e para não ficar
 refém do cron.
 
+### 3.1 · Vídeo: o que o deploy precisa ter (spec 12)
+
+A tarefa `publish-social` monta vídeo desde a spec 12, e isso põe duas
+exigências no ambiente. As duas falham de forma BARULHENTA (deploy vermelho,
+entrega com erro na fila), não em silêncio — mas nenhuma das duas se resolve
+sozinha.
+
+**1 · Fluid Compute ligado no projeto da Vercel.** As rotas `/api/inngest` e
+`/api/cron/[task]` declaram `maxDuration = 300`. Transcodificar um Reels leva
+dezenas de segundos; com o teto padrão a entrega morreria no meio, voltaria
+para a fila e tentaria de novo — para morrer no mesmo lugar, sempre. Se o plano
+não permitir 300 s, **o build falha dizendo qual é o máximo**; nesse caso, o
+caminho é mover a montagem para fora da função, não baixar o teto do vídeo.
+
+Fluid Compute é o padrão em projetos criados de 2025 em diante. Em projeto
+antigo: *Settings → Functions → Fluid Compute*.
+
+**2 · O binário do ffmpeg precisa chegar ao deploy.** Ele não vem no pacote npm:
+o `postinstall` do `ffmpeg-static` o baixa para o sistema em que instala. Três
+lugares já cuidam disso e nenhum pode ser removido:
+
+| Onde | O quê | Se faltar |
+|---|---|---|
+| `pnpm-workspace.yaml` → `onlyBuiltDependencies` | deixa o `postinstall` rodar | o pacote instala VAZIO |
+| `next.config.ts` → `serverExternalPackages` | não empacota o módulo | o caminho aponta para dentro do bundle, e dá `ENOENT` |
+| `next.config.ts` → `outputFileTracingIncludes` | copia o binário para o deploy | o arquivo não existe em produção |
+
+É a mesma trinca que o `sharp` e o `skia-canvas` já exigiam, pelo mesmo motivo.
+
+Para conferir depois do deploy, sem publicar nada: aprove um post de vídeo e
+acompanhe a entrega na fila. "O ffmpeg não está instalado neste ambiente" é o
+item 2; tempo esgotado na montagem é o item 1.
+
 ---
 
 ## 4. Conteúdo inicial (seed)
