@@ -58,6 +58,7 @@ import {
 	AlertTriangle,
 	Archive,
 	Check,
+	ExternalLink,
 	ImageIcon,
 	Loader2,
 	Pencil,
@@ -379,6 +380,11 @@ export function ArticleEditor({
 	// "No ar" abarca PUBLICADA e ATUALIZADA (esta última é só o sinal interno de
 	// SEO — o painel trata as duas como publicada).
 	const isPublished = status === "PUBLICADA" || status === "ATUALIZADA";
+	// O endereço da matéria no portal: /{editoria}/{slug}. "geral" é o mesmo
+	// fallback que a lista usa para matéria sem editoria (raro numa publicada).
+	const sectionSlug =
+		sections.data?.find((section) => section.id === sectionId)?.slug ?? "geral";
+	const portalHref = `/${sectionSlug}/${article.data.slug}`;
 	const cover = coverId ? mediaById.get(coverId) : undefined;
 
 	const publishButton = (
@@ -620,6 +626,23 @@ export function ArticleEditor({
 									<p className="text-muted-foreground text-sm">
 										No ar em <strong>/{article.data.slug}</strong>.
 									</p>
+									{/* Abre a matéria no portal, em outra aba — quem publicou
+									    quer conferir como ela ficou no ar sem perder o editor. */}
+									<Button
+										variant="outline"
+										className="w-full"
+										nativeButton={false}
+										render={
+											<a
+												href={portalHref}
+												target="_blank"
+												rel="noopener noreferrer"
+											/>
+										}
+									>
+										<ExternalLink className="size-4" />
+										Ver no portal
+									</Button>
 									{canPublishArticle ? (
 										<Button
 											variant="outline"
