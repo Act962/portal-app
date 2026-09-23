@@ -1,6 +1,5 @@
 import type { AdSlot as AdSlotName } from "@portal-app/advertising";
 import { AD_FORMATS } from "@portal-app/ui/components/ad-slot";
-import { cn } from "@portal-app/ui/lib/utils";
 
 import { AdSenseUnit } from "@/components/ads/adsense-unit";
 import { HouseAd } from "@/components/ads/house-ad";
@@ -49,7 +48,12 @@ export async function AdPlacement({
 		return null;
 	}
 
-	const maxWidth = "maxWidth" in format ? format.maxWidth : undefined;
+	// Slots de largura cheia reservam o espaço por proporção, e não por altura
+	// fixa: a caixa acompanha a largura do contêiner mantendo a proporção do
+	// criativo, então o banner preenche a linha inteira. Aí o criativo estica
+	// para a largura toda (`fill`), em vez de ficar no seu tamanho natural
+	// centralizado.
+	const aspectRatio = "aspectRatio" in format ? format.aspectRatio : undefined;
 
 	return (
 		<aside aria-label="Publicidade" className={className}>
@@ -59,11 +63,19 @@ export async function AdPlacement({
 			<div
 				className="flex w-full items-center justify-center overflow-hidden"
 				// A altura é reservada ANTES de o criativo carregar — é o que mantém
-				// o CLS em zero (ui-ux.md §110).
-				style={{ height: format.height, maxWidth }}
+				// o CLS em zero (ui-ux.md §110). Com `aspectRatio`, ela é derivada da
+				// largura (já conhecida), o que preserva a mesma garantia.
+				style={{
+					height: aspectRatio ? undefined : format.height,
+					aspectRatio,
+				}}
 			>
 				{campaigns.length > 0 ? (
-					<HouseAd campaigns={campaigns} className="w-full" />
+					<HouseAd
+						campaigns={campaigns}
+						className="w-full"
+						fill={Boolean(aspectRatio)}
+					/>
 				) : adsense ? (
 					<AdSenseUnit
 						publisherId={adsense.publisherId}
