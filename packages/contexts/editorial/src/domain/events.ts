@@ -5,28 +5,11 @@ import { DomainEvent } from "@portal-app/shared-kernel";
  * `record()`; o outbox os grava na mesma transação e o despachante (síncrono,
  * node-cron ou Inngest — §5.1 da spec) os entrega. `eventName` é explícito e
  * estável (não deriva de `constructor.name`, que quebra sob minificação).
+ *
+ * Não há mais `ArticleSubmittedForReview` nem `ArticleRejected`: o fluxo
+ * simplificado tirou a revisão. Linhas antigas do outbox com esses nomes seguem
+ * legíveis — o painel de auditoria os rotula por STRING, não pela classe.
  */
-
-export class ArticleSubmittedForReview extends DomainEvent {
-	readonly eventName = "ArticleSubmittedForReview";
-	constructor(
-		readonly articleId: string,
-		occurredAt: Date,
-	) {
-		super(occurredAt);
-	}
-}
-
-export class ArticleRejected extends DomainEvent {
-	readonly eventName = "ArticleRejected";
-	constructor(
-		readonly articleId: string,
-		readonly reason: string,
-		occurredAt: Date,
-	) {
-		super(occurredAt);
-	}
-}
 
 export class ArticleScheduled extends DomainEvent {
 	readonly eventName = "ArticleScheduled";

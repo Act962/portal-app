@@ -62,13 +62,7 @@ describe("canDelete", () => {
 	});
 
 	it("o que nunca chegou ao público, e o arquivo, podem", () => {
-		for (const status of [
-			"RASCUNHO",
-			"EM_REVISAO",
-			"APROVADA",
-			"AGENDADA",
-			"ARQUIVADA",
-		] as const) {
+		for (const status of ["RASCUNHO", "AGENDADA", "ARQUIVADA"] as const) {
 			expect(canDelete(status)).toBe(true);
 		}
 	});

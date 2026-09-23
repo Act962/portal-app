@@ -5,16 +5,13 @@ import {
 	ArticleDiscarded,
 	ArticleOnAir,
 	ArticlePublished,
-	ArticleRejected,
 	ArticleScheduled,
-	ArticleSubmittedForReview,
 	ArticleUnpublished,
 	ArticleUpdated,
 	BodyRequired,
 	CoverImageRequired,
 	HeadlineRequired,
 	InvalidTransition,
-	RejectionReasonRequired,
 	ScheduleInPast,
 	SectionRequired,
 	SlugImmutable,
@@ -33,7 +30,10 @@ function draft(overrides: Record<string, unknown> = {}): Article {
 	}).unwrap();
 }
 
-/** Rascunho já com tudo que a publicação exige. */
+/**
+ * Rascunho já com tudo que a publicação exige. No fluxo simplificado ele publica
+ * direto — não há mais o passo de revisão/aprovação entre o rascunho e o ar.
+ */
 function publishable(): Article {
 	return draft({
 		sectionId: "cidades",
@@ -42,12 +42,11 @@ function publishable(): Article {
 	});
 }
 
-/** Rascunho publicável já levado até APROVADA. */
-function approved(): Article {
+/** Rascunho publicável já levado ao ar, com os eventos do caminho limpos. */
+function published(): Article {
 	const article = publishable();
-	article.submitForReview(NOW);
-	article.approve();
-	article.pullEvents(); // limpa os eventos do caminho até aqui
+	article.publish(NOW);
+	article.pullEvents();
 	return article;
 }
 
@@ -126,15 +125,8 @@ describe("Article — pendências de publicação (A04/E02)", () => {
 });
 
 describe("Article — caminho feliz e eventos", () => {
-	it("submete, aprova e publica, emitindo os eventos", () => {
+	it("publica direto do rascunho, emitindo o evento", () => {
 		const article = publishable();
-
-		expect(article.submitForReview(NOW).isOk()).toBe(true);
-		expect(article.status).toBe("EM_REVISAO");
-		expect(article.pullEvents()[0]).toBeInstanceOf(ArticleSubmittedForReview);
-
-		expect(article.approve().isOk()).toBe(true);
-		expect(article.status).toBe("APROVADA");
 
 		expect(article.publish(NOW).isOk()).toBe(true);
 		expect(article.status).toBe("PUBLICADA");
@@ -154,46 +146,41 @@ describe("Article — caminho feliz e eventos", () => {
 
 describe("Article — transições inválidas (E01)", () => {
 	it("cada transição fora de ordem é rejeitada", () => {
-		expect(draft().publish(NOW).unwrapErr()).toBeInstanceOf(InvalidTransition);
-		expect(draft().approve().unwrapErr()).toBeInstanceOf(InvalidTransition);
-		expect(draft().schedule(LATER, NOW).unwrapErr()).toBeInstanceOf(
-			InvalidTransition,
-		);
+		// Agendar/cancelar e despublicar só valem do estado certo.
 		expect(draft().cancelSchedule().unwrapErr()).toBeInstanceOf(
 			InvalidTransition,
 		);
-		// `archive` saiu desta lista de propósito: arquivar um rascunho passou a
-		// ser válido. A ÚNICA transição de arquivamento que continua proibida é
-		// ARQUIVADA → ARQUIVADA, e ela está coberta em "Article — arquivar de
-		// qualquer estado".
+		// `archive` saiu desta lista de propósito: arquivar um rascunho é válido.
 		expect(draft().markUpdated(NOW).unwrapErr()).toBeInstanceOf(
 			InvalidTransition,
 		);
-
-		const inReview = publishable();
-		inReview.submitForReview(NOW);
-		expect(inReview.submitForReview(NOW).unwrapErr()).toBeInstanceOf(
+		// Despublicar um rascunho não faz sentido: ele nunca esteve no ar.
+		expect(draft().unpublish(NOW).unwrapErr()).toBeInstanceOf(
 			InvalidTransition,
 		);
+
+		// Publicar o que já está publicado, ou o arquivo, é recusado.
+		const onAir = published();
+		expect(onAir.publish(LATER).unwrapErr()).toBeInstanceOf(InvalidTransition);
+
+		const archived = draft();
+		archived.archive(NOW);
+		expect(archived.publish(NOW).unwrapErr()).toBeInstanceOf(InvalidTransition);
 	});
 });
 
 describe("Article — publicação bloqueada por pendência (E02)", () => {
-	it("publish devolve a pendência que falta", () => {
+	it("publish do rascunho devolve a pendência que falta", () => {
 		const semCorpo = draft({
 			sectionId: "c",
 			cover: { mediaId: "m", altText: "a" },
 		});
-		semCorpo.submitForReview(NOW);
-		semCorpo.approve();
 		expect(semCorpo.publish(NOW).unwrapErr()).toBeInstanceOf(BodyRequired);
 
 		const semEditoria = draft({
 			body: [{ type: "paragraph", text: "x" }],
 			cover: { mediaId: "m", altText: "a" },
 		});
-		semEditoria.submitForReview(NOW);
-		semEditoria.approve();
 		expect(semEditoria.publish(NOW).unwrapErr()).toBeInstanceOf(
 			SectionRequired,
 		);
@@ -202,8 +189,6 @@ describe("Article — publicação bloqueada por pendência (E02)", () => {
 			sectionId: "c",
 			body: [{ type: "paragraph", text: "x" }],
 		});
-		semCapa.submitForReview(NOW);
-		semCapa.approve();
 		expect(semCapa.publish(NOW).unwrapErr()).toBeInstanceOf(CoverImageRequired);
 
 		const semAlt = draft({
@@ -211,48 +196,13 @@ describe("Article — publicação bloqueada por pendência (E02)", () => {
 			body: [{ type: "paragraph", text: "x" }],
 			cover: { mediaId: "m" },
 		});
-		semAlt.submitForReview(NOW);
-		semAlt.approve();
 		expect(semAlt.publish(NOW).unwrapErr()).toBeInstanceOf(AltTextRequired);
 	});
 });
 
-describe("Article — devolução com motivo (E04)", () => {
-	it("devolve para RASCUNHO com motivo e evento", () => {
-		const article = publishable();
-		article.submitForReview(NOW);
-		article.pullEvents();
-
-		expect(article.reject("Faltam fontes", NOW).isOk()).toBe(true);
-		expect(article.status).toBe("RASCUNHO");
-		expect(article.rejectionReason).toBe("Faltam fontes");
-		expect(article.pullEvents()[0]).toBeInstanceOf(ArticleRejected);
-	});
-
-	it("exige motivo e só devolve da revisão", () => {
-		const inReview = publishable();
-		inReview.submitForReview(NOW);
-		expect(inReview.reject("  ", NOW).unwrapErr()).toBeInstanceOf(
-			RejectionReasonRequired,
-		);
-		expect(draft().reject("x", NOW).unwrapErr()).toBeInstanceOf(
-			InvalidTransition,
-		);
-	});
-
-	it("aprovar limpa o motivo de devolução anterior", () => {
-		const article = publishable();
-		article.submitForReview(NOW);
-		article.reject("revisar", NOW);
-		article.submitForReview(NOW);
-		article.approve();
-		expect(article.rejectionReason).toBeNull();
-	});
-});
-
 describe("Article — agendamento", () => {
-	it("agenda para o futuro e publica a partir de AGENDADA", () => {
-		const article = approved();
+	it("agenda do rascunho para o futuro e publica a partir de AGENDADA", () => {
+		const article = publishable();
 
 		expect(article.schedule(LATER, NOW).isOk()).toBe(true);
 		expect(article.status).toBe("AGENDADA");
@@ -266,7 +216,7 @@ describe("Article — agendamento", () => {
 
 	it("rejeita agendamento no passado", () => {
 		expect(
-			approved().schedule(new Date("2026-08-05T06:00:00Z"), NOW).unwrapErr(),
+			publishable().schedule(new Date("2026-08-05T06:00:00Z"), NOW).unwrapErr(),
 		).toBeInstanceOf(ScheduleInPast);
 	});
 
@@ -275,19 +225,69 @@ describe("Article — agendamento", () => {
 			sectionId: "c",
 			cover: { mediaId: "m", altText: "a" },
 		});
-		article.submitForReview(NOW);
-		article.approve();
 		expect(article.schedule(LATER, NOW).unwrapErr()).toBeInstanceOf(
 			BodyRequired,
 		);
 	});
 
-	it("cancela o agendamento voltando para APROVADA", () => {
-		const article = approved();
+	it("só agenda do rascunho — não do que já está no ar", () => {
+		expect(published().schedule(LATER, NOW).unwrapErr()).toBeInstanceOf(
+			InvalidTransition,
+		);
+	});
+
+	it("cancela o agendamento voltando para RASCUNHO", () => {
+		const article = publishable();
 		article.schedule(LATER, NOW);
 		expect(article.cancelSchedule().isOk()).toBe(true);
-		expect(article.status).toBe("APROVADA");
+		expect(article.status).toBe("RASCUNHO");
 		expect(article.scheduledAt).toBeNull();
+	});
+});
+
+describe("Article — despublicar (voltar ao rascunho)", () => {
+	it("tira do ar, volta a RASCUNHO e emite ArticleUnpublished", () => {
+		const article = published();
+
+		expect(article.unpublish(LATER).isOk()).toBe(true);
+		expect(article.status).toBe("RASCUNHO");
+		expect(article.isPublished()).toBe(false);
+		expect(article.pullEvents()[0]).toBeInstanceOf(ArticleUnpublished);
+	});
+
+	it("mantém o endereço reservado — slug segue imutável e republicável", () => {
+		const article = published();
+		article.unpublish(LATER);
+
+		// O endereço não volta a ser editável mesmo fora do ar.
+		expect(article.wasEverPublished()).toBe(true);
+		expect(article.firstPublishedAt?.toISOString()).toBe(NOW.toISOString());
+		expect(article.changeSlug("outro").unwrapErr()).toBeInstanceOf(
+			SlugImmutable,
+		);
+
+		// E pode ir ao ar de novo.
+		expect(article.publish(LATER).isOk()).toBe(true);
+		expect(article.status).toBe("PUBLICADA");
+	});
+
+	it("também despublica a ATUALIZADA", () => {
+		const article = published();
+		article.markUpdated(LATER);
+		expect(article.status).toBe("ATUALIZADA");
+		expect(article.unpublish(LATER).isOk()).toBe(true);
+		expect(article.status).toBe("RASCUNHO");
+	});
+
+	it("recusa despublicar o que não está no ar", () => {
+		expect(draft().unpublish(NOW).unwrapErr()).toBeInstanceOf(
+			InvalidTransition,
+		);
+		const agendada = publishable();
+		agendada.schedule(LATER, NOW);
+		expect(agendada.unpublish(NOW).unwrapErr()).toBeInstanceOf(
+			InvalidTransition,
+		);
 	});
 });
 
@@ -298,8 +298,6 @@ describe("Article — slug imutável após publicar (E03)", () => {
 		expect(article.slug).toBe("novo-slug");
 		expect(article.changeSlug("!!!").unwrapErr().name).toBe("InvalidSlug");
 
-		article.submitForReview(NOW);
-		article.approve();
 		article.publish(NOW);
 
 		expect(article.changeSlug("outro").unwrapErr()).toBeInstanceOf(
@@ -310,9 +308,7 @@ describe("Article — slug imutável após publicar (E03)", () => {
 
 describe("Article — atualização e arquivamento", () => {
 	it("editar publicada vira ATUALIZADA; arquivar encerra", () => {
-		const article = approved();
-		article.publish(NOW);
-		article.pullEvents();
+		const article = published();
 
 		expect(article.markUpdated(NOW).isOk()).toBe(true);
 		expect(article.status).toBe("ATUALIZADA");
@@ -366,8 +362,7 @@ describe("Article — edição de conteúdo", () => {
 	});
 
 	it("não edita matéria arquivada", () => {
-		const article = approved();
-		article.publish(NOW);
+		const article = published();
 		article.archive(NOW);
 		expect(article.editContent({ headline: "x" }).unwrapErr()).toBeInstanceOf(
 			InvalidTransition,
@@ -397,7 +392,7 @@ describe("Article — reidratação", () => {
 		expect(scheduled.cover?.mediaId).toBe("m");
 		expect(scheduled.body.blocks).toHaveLength(1);
 
-		const published = Article.restore({
+		const onAir = Article.restore({
 			id: "art-2",
 			headline: "T2",
 			slug: "t2",
@@ -406,9 +401,9 @@ describe("Article — reidratação", () => {
 			publishedAt: NOW,
 			firstPublishedAt: NOW,
 		});
-		expect(published.isPublished()).toBe(true);
+		expect(onAir.isPublished()).toBe(true);
 		// slug imutável porque já foi publicado
-		expect(published.changeSlug("z").unwrapErr()).toBeInstanceOf(SlugImmutable);
+		expect(onAir.changeSlug("z").unwrapErr()).toBeInstanceOf(SlugImmutable);
 	});
 
 	it("estoura ao restaurar dados inválidos", () => {
@@ -425,10 +420,10 @@ describe("Article — reidratação", () => {
 });
 
 /**
- * Arquivar deixou de ser exclusividade do que está no ar. A regra nova é uma
- * só — de qualquer estado, menos do próprio arquivo —, mas ela tem duas bordas
- * que só aparecem em teste: o EVENTO muda conforme a matéria já tenha ido ao
- * público ou não, e a AGENDADA precisa perder a hora marcada ao ser arquivada.
+ * Arquivar não é exclusividade do que está no ar: vale de qualquer estado, menos
+ * do próprio arquivo. Duas bordas só aparecem em teste — o EVENTO muda conforme a
+ * matéria já tenha ido ao público ou não, e a AGENDADA precisa perder a hora
+ * marcada ao ser arquivada.
  */
 describe("Article — arquivar de qualquer estado", () => {
 	it("arquiva o rascunho abandonado, sem passar pelo fluxo", () => {
@@ -449,12 +444,7 @@ describe("Article — arquivar de qualquer estado", () => {
 	});
 
 	it("publicada arquivada continua emitindo ArticleUnpublished", () => {
-		const article = publishable();
-		article.submitForReview(NOW);
-		article.approve();
-		article.publish(NOW);
-		article.pullEvents();
-
+		const article = published();
 		article.archive(LATER);
 		expect(article.pullEvents()[0]).toBeInstanceOf(ArticleUnpublished);
 	});
@@ -463,25 +453,12 @@ describe("Article — arquivar de qualquer estado", () => {
 		// Sem isto sobraria no banco uma matéria arquivada com hora marcada para
 		// ir ao ar — um estado que não quer dizer nada.
 		const article = publishable();
-		article.submitForReview(NOW);
-		article.approve();
 		article.schedule(LATER, NOW);
 		expect(article.scheduledAt).not.toBeNull();
 
 		article.archive(NOW);
 		expect(article.status).toBe("ARQUIVADA");
 		expect(article.scheduledAt).toBeNull();
-	});
-
-	it("de EM_REVISAO e de APROVADA também sai", () => {
-		const emRevisao = publishable();
-		emRevisao.submitForReview(NOW);
-		expect(emRevisao.archive(NOW).isOk()).toBe(true);
-
-		const aprovada = publishable();
-		aprovada.submitForReview(NOW);
-		aprovada.approve();
-		expect(aprovada.archive(NOW).isOk()).toBe(true);
 	});
 
 	it("já arquivada não se arquiva de novo", () => {
@@ -494,40 +471,22 @@ describe("Article — arquivar de qualquer estado", () => {
 
 describe("Article — apagar", () => {
 	it("recusa apagar o que está NO AR", () => {
-		const article = publishable();
-		article.submitForReview(NOW);
-		article.approve();
-		article.publish(NOW);
-
-		expect(article.markDeleted(NOW).unwrapErr()).toBeInstanceOf(ArticleOnAir);
+		expect(published().markDeleted(NOW).unwrapErr()).toBeInstanceOf(
+			ArticleOnAir,
+		);
 	});
 
 	it("recusa também a ATUALIZADA", () => {
-		const article = publishable();
-		article.submitForReview(NOW);
-		article.approve();
-		article.publish(NOW);
+		const article = published();
 		article.markUpdated(LATER);
-
 		expect(article.markDeleted(LATER).unwrapErr()).toBeInstanceOf(ArticleOnAir);
 	});
 
-	it("aceita rascunho, revisão, aprovada, agendada e arquivada", () => {
+	it("aceita rascunho, agendada e arquivada", () => {
 		const rascunho = draft();
 		expect(rascunho.markDeleted(NOW).isOk()).toBe(true);
 
-		const emRevisao = publishable();
-		emRevisao.submitForReview(NOW);
-		expect(emRevisao.markDeleted(NOW).isOk()).toBe(true);
-
-		const aprovada = publishable();
-		aprovada.submitForReview(NOW);
-		aprovada.approve();
-		expect(aprovada.markDeleted(NOW).isOk()).toBe(true);
-
 		const agendada = publishable();
-		agendada.submitForReview(NOW);
-		agendada.approve();
 		agendada.schedule(LATER, NOW);
 		expect(agendada.markDeleted(NOW).isOk()).toBe(true);
 
@@ -551,10 +510,7 @@ describe("Article — apagar", () => {
 	});
 
 	it("marca wasPublished quando a matéria já esteve no ar", () => {
-		const article = publishable();
-		article.submitForReview(NOW);
-		article.approve();
-		article.publish(NOW);
+		const article = published();
 		article.archive(LATER);
 		article.pullEvents();
 
@@ -563,12 +519,9 @@ describe("Article — apagar", () => {
 	});
 
 	it("wasEverPublished não é o mesmo que estar publicada agora", () => {
-		const article = publishable();
-		expect(article.wasEverPublished()).toBe(false);
+		const article = published();
+		expect(article.wasEverPublished()).toBe(true);
 
-		article.submitForReview(NOW);
-		article.approve();
-		article.publish(NOW);
 		article.archive(LATER);
 
 		expect(article.isPublished()).toBe(false);

@@ -25,7 +25,6 @@ import {
 	type InvalidSlug,
 	type InvalidTransition,
 	type PublishBlocker,
-	type RejectionReasonRequired,
 	type ScheduleInPast,
 	type SlugImmutable,
 } from "../domain/errors";
@@ -170,41 +169,6 @@ export async function changeSlug(
 	return ok(article);
 }
 
-export function submitForReview(
-	actor: StaffMember,
-	input: { id: string },
-	deps: Deps,
-): Promise<Result<Article, Forbidden | ArticleNotFound | InvalidTransition>> {
-	return guarded(actor, input.id, deps, "article:submit", (article) =>
-		article.submitForReview(deps.clock.now()),
-	);
-}
-
-export function approve(
-	actor: StaffMember,
-	input: { id: string },
-	deps: Deps,
-): Promise<Result<Article, Forbidden | ArticleNotFound | InvalidTransition>> {
-	return guarded(actor, input.id, deps, "article:approve", (article) =>
-		article.approve(),
-	);
-}
-
-export function reject(
-	actor: StaffMember,
-	input: { id: string; reason: string },
-	deps: Deps,
-): Promise<
-	Result<
-		Article,
-		Forbidden | ArticleNotFound | InvalidTransition | RejectionReasonRequired
-	>
-> {
-	return guarded(actor, input.id, deps, "article:approve", (article) =>
-		article.reject(input.reason, deps.clock.now()),
-	);
-}
-
 export function publish(
 	actor: StaffMember,
 	input: { id: string },
@@ -246,6 +210,21 @@ export function cancelSchedule(
 ): Promise<Result<Article, Forbidden | ArticleNotFound | InvalidTransition>> {
 	return guarded(actor, input.id, deps, "article:publish", (article) =>
 		article.cancelSchedule(),
+	);
+}
+
+/**
+ * Despublica: tira do ar e volta ao rascunho. Exige `article:unpublish` — derrubar
+ * do portal algo que o público lê é decisão de quem responde pela editoria, a mesma
+ * permissão que o arquivamento de uma matéria no ar cobra.
+ */
+export function unpublish(
+	actor: StaffMember,
+	input: { id: string },
+	deps: Deps,
+): Promise<Result<Article, Forbidden | ArticleNotFound | InvalidTransition>> {
+	return guarded(actor, input.id, deps, "article:unpublish", (article) =>
+		article.unpublish(deps.clock.now()),
 	);
 }
 

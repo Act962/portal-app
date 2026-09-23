@@ -1,6 +1,5 @@
 import {
 	type Article,
-	approve,
 	archive,
 	archiveMany,
 	BLOCK_ALIGNMENTS,
@@ -17,9 +16,8 @@ import {
 	listScheduled,
 	publish,
 	publishDueScheduled,
-	reject,
 	schedule,
-	submitForReview,
+	unpublish,
 	updateArticle,
 } from "@portal-app/editorial";
 import { getAsset } from "@portal-app/media";
@@ -171,7 +169,6 @@ function articleDto(article: Article) {
 		// banco — a lista sempre lê do banco, então lá eles nunca faltam.
 		createdAt: article.createdAt,
 		updatedAt: article.updatedAt,
-		rejectionReason: article.rejectionReason,
 		// A04: pendências que impedem publicar, para a UI listar antes do clique.
 		pendencias: article.publishPreflight().map((blocker) => blocker.message),
 	};
@@ -384,28 +381,16 @@ export const editorialRouter = router({
 				);
 			}),
 
-		submit: staffProcedure
-			.input(z.object({ id: z.string() }))
-			.mutation(async ({ ctx, input }) =>
-				commit(await submitForReview(ctx.staff, input, articleDeps)),
-			),
-
-		approve: staffProcedure
-			.input(z.object({ id: z.string() }))
-			.mutation(async ({ ctx, input }) =>
-				commit(await approve(ctx.staff, input, articleDeps)),
-			),
-
-		reject: staffProcedure
-			.input(z.object({ id: z.string(), reason: z.string() }))
-			.mutation(async ({ ctx, input }) =>
-				commit(await reject(ctx.staff, input, articleDeps)),
-			),
-
 		publish: staffProcedure
 			.input(z.object({ id: z.string() }))
 			.mutation(async ({ ctx, input }) =>
 				commit(await publish(ctx.staff, input, articleDeps)),
+			),
+
+		unpublish: staffProcedure
+			.input(z.object({ id: z.string() }))
+			.mutation(async ({ ctx, input }) =>
+				commit(await unpublish(ctx.staff, input, articleDeps)),
 			),
 
 		schedule: staffProcedure

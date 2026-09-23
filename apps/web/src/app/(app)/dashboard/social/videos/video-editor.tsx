@@ -62,9 +62,17 @@ import { VideoTimeline } from "./video-timeline";
 export function VideoEditor({
 	id,
 	canDesign,
+	embedded = false,
 }: {
 	id: string;
 	canDesign: boolean;
+	/**
+	 * Aberto dentro do diálogo da matéria (spec 12, F5): o próprio diálogo já dá
+	 * título e o "x", então o cabeçalho de página — "Voltar à fila" e "Concluir" —
+	 * sai, e no lugar fica só o aviso de gravação. Fora do diálogo (a página em
+	 * tela cheia) segue igual.
+	 */
+	embedded?: boolean;
 }) {
 	const post = useQuery(trpc.social.get.queryOptions({ id }));
 
@@ -174,41 +182,49 @@ export function VideoEditor({
 			  botão de voltar. O `truncate` só funciona depois que a caixa pode
 			  encolher.
 			*/}
-			<header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-				<div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-					<Link
-						href="/dashboard/social?tab=fila"
-						className={cn(
-							buttonVariants({ variant: "ghost", size: "sm" }),
-							"shrink-0",
-						)}
-					>
-						<ArrowLeft className="size-4" />
-						<span className="hidden sm:inline">Voltar à fila</span>
-						<span className="sr-only sm:hidden">Voltar à fila</span>
-					</Link>
-					<div className="min-w-0">
-						<h1 className="truncate font-semibold text-base sm:text-lg">
-							Editor de vídeo
-						</h1>
-						<p className="truncate text-muted-foreground text-xs">
-							{post.data.caption || "Sem legenda"}
-						</p>
-					</div>
-				</div>
-				<div className="flex shrink-0 items-center gap-2">
+			{embedded ? (
+				<div className="flex items-center justify-end">
 					<span className="text-muted-foreground text-xs tabular-nums">
 						{save.isPending ? "gravando…" : "salvo"}
 					</span>
-					<Link
-						href="/dashboard/social?tab=fila"
-						className={cn(buttonVariants({ size: "sm" }))}
-					>
-						<Check className="size-4" />
-						Concluir
-					</Link>
 				</div>
-			</header>
+			) : (
+				<header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+					<div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+						<Link
+							href="/dashboard/social?tab=fila"
+							className={cn(
+								buttonVariants({ variant: "ghost", size: "sm" }),
+								"shrink-0",
+							)}
+						>
+							<ArrowLeft className="size-4" />
+							<span className="hidden sm:inline">Voltar à fila</span>
+							<span className="sr-only sm:hidden">Voltar à fila</span>
+						</Link>
+						<div className="min-w-0">
+							<h1 className="truncate font-semibold text-base sm:text-lg">
+								Editor de vídeo
+							</h1>
+							<p className="truncate text-muted-foreground text-xs">
+								{post.data.caption || "Sem legenda"}
+							</p>
+						</div>
+					</div>
+					<div className="flex shrink-0 items-center gap-2">
+						<span className="text-muted-foreground text-xs tabular-nums">
+							{save.isPending ? "gravando…" : "salvo"}
+						</span>
+						<Link
+							href="/dashboard/social?tab=fila"
+							className={cn(buttonVariants({ size: "sm" }))}
+						>
+							<Check className="size-4" />
+							Concluir
+						</Link>
+					</div>
+				</header>
+			)}
 
 			{!editable ? (
 				<p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900 text-sm dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">

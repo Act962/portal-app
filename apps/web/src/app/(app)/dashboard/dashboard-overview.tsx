@@ -11,7 +11,7 @@ import {
 } from "@portal-app/ui/components/card";
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Clock, FileText, PenLine } from "lucide-react";
+import { Archive, CheckCircle2, FileText, PenLine } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -29,22 +29,22 @@ const CARDS = [
 		hint: "matérias publicadas",
 	},
 	{
-		key: "EM_REVISAO" as const,
-		label: "Aguardando revisão",
-		icon: Clock,
-		hint: "esperando um editor",
-	},
-	{
 		key: "RASCUNHO" as const,
 		label: "Rascunhos",
 		icon: PenLine,
-		hint: "em produção",
+		hint: "não publicados",
 	},
 	{
 		key: "AGENDADA" as const,
 		label: "Agendadas",
 		icon: FileText,
 		hint: "com data marcada",
+	},
+	{
+		key: "ARQUIVADA" as const,
+		label: "Arquivadas",
+		icon: Archive,
+		hint: "fora de circulação",
 	},
 ];
 

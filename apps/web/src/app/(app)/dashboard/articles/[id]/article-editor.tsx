@@ -25,13 +25,7 @@ import {
 	ComboboxItem,
 	ComboboxList,
 } from "@portal-app/ui/components/combobox";
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@portal-app/ui/components/dialog";
+import { DateTimePicker } from "@portal-app/ui/components/date-picker";
 import { Input } from "@portal-app/ui/components/input";
 import { Label } from "@portal-app/ui/components/label";
 import {
@@ -64,6 +58,7 @@ import {
 	AlertTriangle,
 	Archive,
 	Check,
+	ExternalLink,
 	ImageIcon,
 	Loader2,
 	Pencil,
@@ -126,10 +121,21 @@ function countHint(value: number, min: number, max: number) {
 export function ArticleEditor({
 	id,
 	canPublishSocial = false,
+	canDesignSocial = false,
+	canPublishArticle = false,
 }: {
 	id: string;
 	/** Mostra o cartão "Redes sociais" (spec 09, F6). */
 	canPublishSocial?: boolean;
+	/** Deixa criar padrão no editor de vídeo em diálogo (`social:manage`). */
+	canDesignSocial?: boolean;
+	/**
+	 * Pode publicar/despublicar a matéria (`article:publish`). É a governança que
+	 * sobrou da revisão: o redator deixa o rascunho pronto, o editor/admin vira a
+	 * chave. Sem isto, o botão de publicar não aparece — só a nota de que falta um
+	 * editor.
+	 */
+	canPublishArticle?: boolean;
 }) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
@@ -156,17 +162,11 @@ export function ArticleEditor({
 		onSuccess: applyResult,
 		onError: onWorkflowError,
 	};
-	const submit = useMutation(
-		trpc.editorial.articles.submit.mutationOptions(workflowOptions),
-	);
-	const approve = useMutation(
-		trpc.editorial.articles.approve.mutationOptions(workflowOptions),
-	);
-	const reject = useMutation(
-		trpc.editorial.articles.reject.mutationOptions(workflowOptions),
-	);
 	const publish = useMutation(
 		trpc.editorial.articles.publish.mutationOptions(workflowOptions),
+	);
+	const unpublish = useMutation(
+		trpc.editorial.articles.unpublish.mutationOptions(workflowOptions),
 	);
 	const schedule = useMutation(
 		trpc.editorial.articles.schedule.mutationOptions(workflowOptions),
@@ -197,8 +197,6 @@ export function ArticleEditor({
 	const [tagIds, setTagIds] = useState<string[]>([]);
 	const [coverId, setCoverId] = useState("");
 	const [blocks, setBlocks] = useState<Block[]>([]);
-	const [reason, setReason] = useState("");
-	const [rejecting, setRejecting] = useState(false);
 	const [at, setAt] = useState("");
 	const [savedAt, setSavedAt] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState(false);
@@ -379,6 +377,14 @@ export function ArticleEditor({
 
 	const pendencias = article.data.pendencias;
 	const canPublish = pendencias.length === 0;
+	// "No ar" abarca PUBLICADA e ATUALIZADA (esta última é só o sinal interno de
+	// SEO — o painel trata as duas como publicada).
+	const isPublished = status === "PUBLICADA" || status === "ATUALIZADA";
+	// O endereço da matéria no portal: /{editoria}/{slug}. "geral" é o mesmo
+	// fallback que a lista usa para matéria sem editoria (raro numa publicada).
+	const sectionSlug =
+		sections.data?.find((section) => section.id === sectionId)?.slug ?? "geral";
+	const portalHref = `/${sectionSlug}/${article.data.slug}`;
 	const cover = coverId ? mediaById.get(coverId) : undefined;
 
 	const publishButton = (
@@ -527,78 +533,71 @@ export function ArticleEditor({
 								</Alert>
 							) : null}
 
+							{/*
+							  Fluxo simplificado (a pedido dos clientes): o usuário vê só
+							  duas posições — Não publicado (RASCUNHO/AGENDADA) e Publicado.
+							  Saíram "Enviar para revisão" e "Aprovar". Publicar exige
+							  `article:publish` (editor/admin): o redator deixa o rascunho
+							  pronto e vê a nota, quem tem a permissão vira a chave.
+							*/}
 							{status === "RASCUNHO" ? (
-								<Button
-									className="w-full"
-									disabled={submit.isPending}
-									onClick={() => submit.mutate({ id })}
-								>
-									Enviar para revisão
-								</Button>
-							) : null}
+								canPublishArticle ? (
+									<>
+										{canPublish ? (
+											publishButton
+										) : (
+											<Tooltip>
+												<TooltipTrigger render={<span className="block" />}>
+													{publishButton}
+												</TooltipTrigger>
+												<TooltipContent>
+													Resolva as pendências acima primeiro
+												</TooltipContent>
+											</Tooltip>
+										)}
 
-							{status === "EM_REVISAO" ? (
-								<>
-									<Button
-										className="w-full"
-										disabled={approve.isPending}
-										onClick={() => approve.mutate({ id })}
-									>
-										Aprovar
-									</Button>
-									<Button
-										variant="outline"
-										className="w-full"
-										onClick={() => setRejecting(true)}
-									>
-										Devolver ao redator
-									</Button>
-								</>
-							) : null}
-
-							{status === "APROVADA" ? (
-								<>
-									{canPublish ? (
-										publishButton
-									) : (
-										<Tooltip>
-											<TooltipTrigger render={<span className="block" />}>
-												{publishButton}
-											</TooltipTrigger>
-											<TooltipContent>
-												Resolva as pendências acima primeiro
-											</TooltipContent>
-										</Tooltip>
-									)}
-
-									<div className="rounded-md border p-3">
-										<Label htmlFor="agendar" className="text-xs">
-											Ou agende (horário de Brasília)
-										</Label>
-										<Input
-											id="agendar"
-											type="datetime-local"
-											value={at}
-											onChange={(e) => setAt(e.target.value)}
-											className="mt-1.5"
-										/>
-										<Button
-											variant="outline"
-											size="sm"
-											className="mt-2 w-full"
-											disabled={!at || !canPublish}
-											onClick={() => schedule.mutate({ id, at: new Date(at) })}
-										>
-											Agendar publicação
-										</Button>
-									</div>
-								</>
+										<div className="rounded-md border p-3">
+											<Label htmlFor="agendar" className="text-xs">
+												Ou agende (horário de Brasília)
+											</Label>
+											<div className="mt-1.5">
+												<DateTimePicker
+													id="agendar"
+													value={at}
+													onChange={setAt}
+													minDate={new Date()}
+													placeholder="Escolha data e hora"
+												/>
+											</div>
+											<Button
+												variant="outline"
+												size="sm"
+												className="mt-2 w-full"
+												disabled={!at || !canPublish}
+												onClick={() =>
+													schedule.mutate({ id, at: new Date(at) })
+												}
+											>
+												Agendar publicação
+											</Button>
+										</div>
+									</>
+								) : (
+									<Alert>
+										<AlertTitle>Rascunho — ainda não publicado</AlertTitle>
+										<AlertDescription>
+											{canPublish
+												? "Está pronto. Um editor publica pelo painel."
+												: "Resolva as pendências acima; depois um editor publica."}
+										</AlertDescription>
+									</Alert>
+								)
 							) : null}
 
 							{status === "AGENDADA" ? (
 								<>
 									<p className="text-muted-foreground text-sm">
-										Agendada para{" "}
+										Não publicado — agendado para{" "}
 										<strong>
 											{article.data.scheduledAt
 												? new Date(article.data.scheduledAt).toLocaleString(
@@ -607,24 +606,56 @@ export function ArticleEditor({
 												: "—"}
 										</strong>
 									</p>
-									{publishButton}
-									<Button
-										variant="outline"
-										className="w-full"
-										onClick={() => cancelSchedule.mutate({ id })}
-									>
-										Cancelar agendamento
-									</Button>
+									{canPublishArticle ? (
+										<>
+											{publishButton}
+											<Button
+												variant="outline"
+												className="w-full"
+												onClick={() => cancelSchedule.mutate({ id })}
+											>
+												Cancelar agendamento
+											</Button>
+										</>
+									) : null}
 								</>
 							) : null}
 
-							{article.data.rejectionReason ? (
-								<Alert>
-									<AlertTitle>Devolvida</AlertTitle>
-									<AlertDescription>
-										{article.data.rejectionReason}
-									</AlertDescription>
-								</Alert>
+							{isPublished ? (
+								<>
+									<p className="text-muted-foreground text-sm">
+										No ar em <strong>/{article.data.slug}</strong>.
+									</p>
+									{/* Abre a matéria no portal, em outra aba — quem publicou
+									    quer conferir como ela ficou no ar sem perder o editor. */}
+									<Button
+										variant="outline"
+										className="w-full"
+										nativeButton={false}
+										render={
+											<a
+												href={portalHref}
+												target="_blank"
+												rel="noopener noreferrer"
+											/>
+										}
+									>
+										<ExternalLink className="size-4" />
+										Ver no portal
+									</Button>
+									{canPublishArticle ? (
+										<Button
+											variant="outline"
+											className="w-full"
+											disabled={unpublish.isPending}
+											onClick={() => unpublish.mutate({ id })}
+										>
+											{unpublish.isPending
+												? "Despublicando…"
+												: "Despublicar (voltar a rascunho)"}
+										</Button>
+									) : null}
+								</>
 							) : null}
 
 							{/*
@@ -908,7 +939,9 @@ export function ArticleEditor({
 					  A publicação desta matéria nas redes (spec 09, F6), logo abaixo da
 					  capa — é com ela que a arte é desenhada.
 					*/}
-					{canPublishSocial ? <ArticleSocialCard articleId={id} /> : null}
+					{canPublishSocial ? (
+						<ArticleSocialCard articleId={id} canDesign={canDesignSocial} />
+					) : null}
 
 					<p className="text-muted-foreground text-xs">
 						Assinada por {article.data.byline.name}
@@ -973,40 +1006,6 @@ export function ArticleEditor({
 					setConfirming(null);
 				}}
 			/>
-
-			<Dialog open={rejecting} onOpenChange={setRejecting}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Devolver ao redator</DialogTitle>
-					</DialogHeader>
-					<div className="py-2">
-						<Label htmlFor="motivo">O que precisa ser ajustado?</Label>
-						<Textarea
-							id="motivo"
-							value={reason}
-							onChange={(e) => setReason(e.target.value)}
-							rows={4}
-							className="mt-1.5"
-							placeholder="Ex.: falta ouvir a prefeitura sobre o prazo das obras."
-						/>
-					</div>
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setRejecting(false)}>
-							Cancelar
-						</Button>
-						<Button
-							disabled={!reason.trim()}
-							onClick={() => {
-								reject.mutate({ id, reason: reason.trim() });
-								setRejecting(false);
-								setReason("");
-							}}
-						>
-							Devolver
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 		</>
 	);
 }

@@ -28,15 +28,13 @@ function publishedArticle(id: string, slug: string): Article {
 		body: [{ type: "paragraph", text: "corpo" }],
 		cover: { mediaId: "m-1", altText: "alt" },
 	}).unwrap();
-	article.submitForReview(NOW);
-	article.approve();
 	article.publish(NOW);
 	return article;
 }
 
 describe("Outbox transacional (ADR 0005)", () => {
 	it("E07: grava o agregado e os eventos na mesma transação", async () => {
-		// O agregado acumulou 2 eventos (submeter + publicar) antes do save.
+		// O agregado acumulou o evento de publicação antes do save.
 		await repo.save(publishedArticle("art-1", "enchente"));
 
 		const rows = await prisma.outboxEvent.findMany({

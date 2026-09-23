@@ -165,6 +165,13 @@ const articleHref = (id: string) => `/dashboard/articles/${id}` as Route;
 
 const ALL = "__all__";
 
+/**
+ * Os status que o filtro oferece. `ATUALIZADA` fica de fora: é o sinal interno de
+ * "publicada e editada" (SEO), e no painel toda matéria no ar é "Publicada" — uma
+ * segunda opção com o mesmo rótulo só confundiria.
+ */
+const FILTER_STATUSES = EDITORIAL_STATUSES.filter((s) => s !== "ATUALIZADA");
+
 /** Uma linha da lista, reduzida ao que as regras do seletor precisam saber. */
 type Target = {
 	id: string;
@@ -189,7 +196,7 @@ function confirmCopy(action: BulkAction, targets: readonly Target[]) {
 	if (action === "archive") {
 		return {
 			title: `Arquivar ${name}?`,
-			// ARQUIVADA é estado terminal no agregado: `publish` só aceita APROVADA
+			// ARQUIVADA é estado terminal no agregado: `publish` só aceita RASCUNHO
 			// ou AGENDADA, e `editContent` recusa matéria arquivada.
 			description: one
 				? "Ela sai do portal — some da home, da editoria e da busca. O texto e o endereço continuam guardados no arquivo, mas ARQUIVAR NÃO TEM VOLTA pelo painel: matéria arquivada não volta ao ar nem pode ser editada."
@@ -529,7 +536,7 @@ export function ArticlesList() {
 				<Select
 					items={[
 						{ value: ALL, label: "Todos os status" },
-						...EDITORIAL_STATUSES.map((s) => ({
+						...FILTER_STATUSES.map((s) => ({
 							value: s,
 							label: STATUS_LABELS[s],
 						})),
@@ -545,7 +552,7 @@ export function ArticlesList() {
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value={ALL}>Todos os status</SelectItem>
-						{EDITORIAL_STATUSES.map((s) => (
+						{FILTER_STATUSES.map((s) => (
 							<SelectItem key={s} value={s}>
 								{STATUS_LABELS[s]}
 							</SelectItem>
