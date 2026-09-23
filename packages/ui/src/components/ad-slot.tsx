@@ -28,8 +28,15 @@ const AD_FORMATS = {
 	 */
 	billboard: {
 		height: 90,
-		maxWidth: 970,
-		caption: "banner 970×90 — topo",
+		// LARGURA CHEIA: sem `maxWidth`, a faixa ocupa toda a largura do
+		// `Container` (até a borda da coluna "Mais lidas"), e não os 970px
+		// centralizados de antes. A reserva de espaço passa a ser por
+		// `aspectRatio` em vez de altura fixa — a caixa acompanha a largura
+		// mantendo a proporção 970×90 do criativo, então o banner preenche a
+		// linha inteira sem cortar nem distorcer, e o CLS continua zero (a
+		// altura é derivada da largura, que já é conhecida).
+		aspectRatio: "970 / 90",
+		caption: "banner 970×90 — topo, largura cheia",
 	},
 	"in-content": { height: 90, caption: "banner 728×90 — meio do conteúdo" },
 	sidebar: { height: 250, caption: "banner 300×250" },
@@ -44,7 +51,7 @@ const AD_FORMATS = {
 	"anchor-mobile": { height: 50, caption: "âncora 320×50 — rodapé no celular" },
 } as const satisfies Record<
 	string,
-	{ height: number; maxWidth?: number; caption: string }
+	{ height: number; aspectRatio?: string; caption: string }
 >;
 
 type AdFormat = keyof typeof AD_FORMATS;

@@ -623,9 +623,6 @@ export function ArticleEditor({
 
 							{isPublished ? (
 								<>
-									<p className="text-muted-foreground text-sm">
-										No ar em <strong>/{article.data.slug}</strong>.
-									</p>
 									{/* Abre a matéria no portal, em outra aba — quem publicou
 									    quer conferir como ela ficou no ar sem perder o editor. */}
 									<Button

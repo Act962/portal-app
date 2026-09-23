@@ -20,9 +20,14 @@ import { pickByWeight } from "@/lib/ad-rotation";
 export function HouseAd({
 	campaigns,
 	className,
+	fill = false,
 }: {
 	campaigns: ServableAd[];
 	className?: string;
+	/** Estica o criativo para a largura toda da caixa (slots de largura cheia,
+	 * como o billboard do topo). Sem isto a arte fica no seu tamanho natural,
+	 * centralizada. */
+	fill?: boolean;
 }) {
 	// `null` até o efeito rodar: sortear durante o render faria o HTML do
 	// servidor e o do cliente discordarem, e a hidratação do React reclama —
@@ -87,7 +92,7 @@ export function HouseAd({
 					{...(chosen.width && chosen.height
 						? { width: chosen.width, height: chosen.height }
 						: {})}
-					className="mx-auto h-auto max-w-full"
+					className={fill ? "h-auto w-full" : "mx-auto h-auto max-w-full"}
 					loading="lazy"
 				/>
 			</a>
