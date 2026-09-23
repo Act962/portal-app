@@ -8,6 +8,7 @@ import {
 } from "@portal-app/advertising";
 import { Button } from "@portal-app/ui/components/button";
 import { Checkbox } from "@portal-app/ui/components/checkbox";
+import { DatePicker } from "@portal-app/ui/components/date-picker";
 import {
 	Dialog,
 	DialogContent,
@@ -306,27 +307,25 @@ export function CampaignDialog({
 						</div>
 						<div>
 							<Label htmlFor={startId}>Início *</Label>
-							<Input
-								id={startId}
-								type="date"
-								value={form.startsAt}
-								onChange={(event) =>
-									setForm({ ...form, startsAt: event.target.value })
-								}
-								className="mt-1.5"
-							/>
+							<div className="mt-1.5">
+								<DatePicker
+									id={startId}
+									value={form.startsAt}
+									onChange={(value) => setForm({ ...form, startsAt: value })}
+									placeholder="Escolha a data de início"
+								/>
+							</div>
 						</div>
 						<div>
 							<Label htmlFor={endId}>Término</Label>
-							<Input
-								id={endId}
-								type="date"
-								value={form.endsAt}
-								onChange={(event) =>
-									setForm({ ...form, endsAt: event.target.value })
-								}
-								className="mt-1.5"
-							/>
+							<div className="mt-1.5">
+								<DatePicker
+									id={endId}
+									value={form.endsAt}
+									onChange={(value) => setForm({ ...form, endsAt: value })}
+									placeholder="Sem fim combinado"
+								/>
+							</div>
 							<p className="mt-1 text-muted-foreground text-xs">
 								Em branco = sem fim combinado.
 							</p>

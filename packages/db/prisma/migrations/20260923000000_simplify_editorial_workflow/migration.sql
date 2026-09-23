@@ -1,0 +1,11 @@
+-- Fluxo editorial simplificado: some a revisão/aprovação.
+--
+-- O usuário passa a ver só "Não publicado" e "Publicado"; publicar exige a
+-- permissão `article:publish`, não mais os estados intermediários. As matérias
+-- que estavam EM_REVISAO ou APROVADA voltam a ser rascunho (não publicado) — é
+-- exatamente onde elas ficam no fluxo novo, antes de alguém virar a chave.
+--
+-- AGENDADA, PUBLICADA, ATUALIZADA e ARQUIVADA seguem como estão. `status` é uma
+-- coluna de texto (sem enum no banco), então nenhuma mudança de schema é
+-- necessária — só esta reclassificação de dados.
+UPDATE "article" SET "status" = 'RASCUNHO' WHERE "status" IN ('EM_REVISAO', 'APROVADA');

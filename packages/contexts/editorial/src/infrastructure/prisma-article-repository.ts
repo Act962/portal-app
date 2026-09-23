@@ -136,7 +136,6 @@ type ArticleRow = {
 	scheduledAt: Date | null;
 	publishedAt: Date | null;
 	firstPublishedAt: Date | null;
-	rejectionReason: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 };
@@ -160,7 +159,6 @@ function toPersistence(article: Article) {
 		scheduledAt: article.scheduledAt,
 		publishedAt: article.publishedAt,
 		firstPublishedAt: article.firstPublishedAt,
-		rejectionReason: article.rejectionReason,
 	};
 }
 
@@ -184,7 +182,6 @@ function toDomain(row: ArticleRow): Article {
 		scheduledAt: row.scheduledAt,
 		publishedAt: row.publishedAt,
 		firstPublishedAt: row.firstPublishedAt,
-		rejectionReason: row.rejectionReason,
 		// Só de VOLTA: `toPersistence` não os manda. Quem os escreve é o Postgres
 		// (`@default(now())` / `@updatedAt`) — enviá-los daqui deixaria a
 		// "última alteração" congelada no que o agregado carregava em memória.

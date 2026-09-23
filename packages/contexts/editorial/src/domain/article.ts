@@ -15,7 +15,6 @@ import {
 	type InvalidSlug,
 	InvalidTransition,
 	type PublishBlocker,
-	RejectionReasonRequired,
 	type ScheduleInPast,
 	SectionRequired,
 	SlugImmutable,
@@ -24,9 +23,7 @@ import {
 	ArticleDeleted,
 	ArticleDiscarded,
 	ArticlePublished,
-	ArticleRejected,
 	ArticleScheduled,
-	ArticleSubmittedForReview,
 	ArticleUnpublished,
 	ArticleUpdated,
 } from "./events";
@@ -49,7 +46,6 @@ type ArticleState = {
 	schedule: PublicationSchedule | null;
 	publishedAt: Date | null;
 	firstPublishedAt: Date | null;
-	rejectionReason: string | null;
 
 	/**
 	 * Carimbos da LINHA, não do agregado.
@@ -137,7 +133,6 @@ export class Article extends AggregateRoot<string> {
 				schedule: null,
 				publishedAt: null,
 				firstPublishedAt: null,
-				rejectionReason: null,
 				// Ainda não houve banco: quem preenche é o `restore` da próxima
 				// leitura. Inventar `new Date()` aqui seria fabricar um carimbo que
 				// o Postgres vai contradizer no mesmo segundo.
@@ -163,7 +158,6 @@ export class Article extends AggregateRoot<string> {
 		scheduledAt?: Date | null;
 		publishedAt?: Date | null;
 		firstPublishedAt?: Date | null;
-		rejectionReason?: string | null;
 		createdAt?: Date | null;
 		updatedAt?: Date | null;
 	}): Article {
@@ -191,7 +185,6 @@ export class Article extends AggregateRoot<string> {
 					: null,
 			publishedAt: props.publishedAt ?? null,
 			firstPublishedAt: props.firstPublishedAt ?? null,
-			rejectionReason: props.rejectionReason ?? null,
 			createdAt: props.createdAt ?? null,
 			updatedAt: props.updatedAt ?? null,
 		});
@@ -266,10 +259,6 @@ export class Article extends AggregateRoot<string> {
 	 */
 	get updatedAt(): Date | null {
 		return this.state.updatedAt;
-	}
-
-	get rejectionReason(): string | null {
-		return this.state.rejectionReason;
 	}
 
 	isPublished(): boolean {
@@ -379,46 +368,16 @@ export class Article extends AggregateRoot<string> {
 
 	// --- Transições do workflow ----------------------------------------------
 
-	submitForReview(now: Date): Result<void, InvalidTransition> {
-		if (this.state.status !== "RASCUNHO") {
-			return err(new InvalidTransition(this.state.status, "EM_REVISAO"));
-		}
-		this.state.status = "EM_REVISAO";
-		this.record(new ArticleSubmittedForReview(this.id, now));
-		return ok(undefined);
-	}
-
-	reject(
-		reason: string,
-		now: Date,
-	): Result<void, InvalidTransition | RejectionReasonRequired> {
-		if (this.state.status !== "EM_REVISAO") {
-			return err(new InvalidTransition(this.state.status, "RASCUNHO"));
-		}
-		const trimmed = reason.trim();
-		if (!trimmed) {
-			return err(new RejectionReasonRequired());
-		}
-		this.state.status = "RASCUNHO";
-		this.state.rejectionReason = trimmed;
-		this.record(new ArticleRejected(this.id, trimmed, now));
-		return ok(undefined);
-	}
-
-	approve(): Result<void, InvalidTransition> {
-		if (this.state.status !== "EM_REVISAO") {
-			return err(new InvalidTransition(this.state.status, "APROVADA"));
-		}
-		this.state.status = "APROVADA";
-		this.state.rejectionReason = null;
-		return ok(undefined);
-	}
-
+	/**
+	 * Agenda a publicação a partir do RASCUNHO (antes era só da APROVADA, estado
+	 * que deixou de existir). A matéria segue **não publicada** — `AGENDADA` é só
+	 * "rascunho com hora marcada" —, e o poller a publica quando o horário chega.
+	 */
 	schedule(
 		at: Date,
 		now: Date,
 	): Result<void, InvalidTransition | ScheduleInPast | PublishBlocker> {
-		if (this.state.status !== "APROVADA") {
+		if (this.state.status !== "RASCUNHO") {
 			return err(new InvalidTransition(this.state.status, "AGENDADA"));
 		}
 		const blockers = this.publishPreflight();
@@ -435,17 +394,24 @@ export class Article extends AggregateRoot<string> {
 		return ok(undefined);
 	}
 
+	/** Desmarca o agendamento e volta ao RASCUNHO (não publicado). */
 	cancelSchedule(): Result<void, InvalidTransition> {
 		if (this.state.status !== "AGENDADA") {
-			return err(new InvalidTransition(this.state.status, "APROVADA"));
+			return err(new InvalidTransition(this.state.status, "RASCUNHO"));
 		}
-		this.state.status = "APROVADA";
+		this.state.status = "RASCUNHO";
 		this.state.schedule = null;
 		return ok(undefined);
 	}
 
+	/**
+	 * Publica. Vale direto do RASCUNHO (o fluxo novo não tem passo de aprovação) e
+	 * também da AGENDADA (o poller, quando a hora chega). Quem pode chamar isto é
+	 * barrado no caso de uso pela permissão `article:publish` (editor/admin) — a
+	 * governança que sobrou da revisão.
+	 */
 	publish(now: Date): Result<void, InvalidTransition | PublishBlocker> {
-		if (this.state.status !== "APROVADA" && this.state.status !== "AGENDADA") {
+		if (this.state.status !== "RASCUNHO" && this.state.status !== "AGENDADA") {
 			return err(new InvalidTransition(this.state.status, "PUBLICADA"));
 		}
 		const blockers = this.publishPreflight();
@@ -481,6 +447,27 @@ export class Article extends AggregateRoot<string> {
 		}
 		this.state.status = "ATUALIZADA";
 		this.record(new ArticleUpdated(this.id, now));
+		return ok(undefined);
+	}
+
+	/**
+	 * Despublica: tira a matéria do ar e a devolve ao RASCUNHO (o oposto exato de
+	 * publicar, no fluxo simplificado). Diferente de `archive`, que é terminal: a
+	 * matéria volta a ser editável e pode ir ao ar de novo.
+	 *
+	 * O ENDEREÇO fica reservado — `firstPublishedAt` e o `slug` permanecem, então
+	 * o `changeSlug` continua barrado e uma republicação reaproveita a mesma URL.
+	 * Desmarca qualquer agendamento (não há como estar publicada e agendada, mas
+	 * o zero é defensivo) e grava `ArticleUnpublished`, o mesmo evento que o
+	 * portal e a busca já tratam como "saiu do ar".
+	 */
+	unpublish(now: Date): Result<void, InvalidTransition> {
+		if (!this.isPublished()) {
+			return err(new InvalidTransition(this.state.status, "RASCUNHO"));
+		}
+		this.state.status = "RASCUNHO";
+		this.state.schedule = null;
+		this.record(new ArticleUnpublished(this.id, now));
 		return ok(undefined);
 	}
 

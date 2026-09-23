@@ -1,8 +1,12 @@
 "use client";
 
+import type { AppRouter } from "@portal-app/api/routers/index";
 import {
 	type ArtContent,
+	type ArtSelection,
+	acceptsVideo,
 	DESTINATION_LABEL,
+	formatsFor,
 	type SocialDestination,
 } from "@portal-app/social";
 import {
@@ -32,6 +36,7 @@ import {
 import { Skeleton } from "@portal-app/ui/components/skeleton";
 import { cn } from "@portal-app/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
 import {
 	AlertTriangle,
 	ExternalLink,
@@ -43,8 +48,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { templatesFor } from "@/app/(app)/dashboard/social/post-art-model";
 import {
@@ -52,8 +56,15 @@ import {
 	canRetry,
 	POST_STATUS_LABELS,
 } from "@/app/(app)/dashboard/social/social-labels";
+import { VideoEditorDialog } from "@/app/(app)/dashboard/social/videos/video-editor-dialog";
 import { ArtCanvas } from "@/components/art/art-canvas";
+import { VideoArtPreview } from "@/components/art/video-art-preview";
 import { trpc } from "@/utils/trpc";
+
+/** O post da matéria como o cartão o recebe — a fonte da prévia do vídeo. */
+type ArticlePostDto = NonNullable<
+	inferRouterOutputs<AppRouter>["social"]["articlePost"]["post"]
+>;
 
 import {
 	ARTICLE_SOCIAL_DESTINATIONS,
@@ -68,6 +79,7 @@ import {
 	type TemplatePicks,
 	templatesInput,
 } from "./article-social-model";
+
 import { ArticleSocialPreviewDialog } from "./article-social-preview-dialog";
 
 const NO_TEMPLATE = "__sem-padrao__";
@@ -81,7 +93,14 @@ const NO_TEMPLATE = "__sem-padrao__";
  * mostra e ajusta ESSE. A arte é desenhada com a capa da matéria. "Visualizar e
  * editar" abre a prévia grande, onde a redação ajusta os textos da publicação.
  */
-export function ArticleSocialCard({ articleId }: { articleId: string }) {
+export function ArticleSocialCard({
+	articleId,
+	canDesign,
+}: {
+	articleId: string;
+	/** Deixa criar padrão no editor de vídeo em diálogo (`social:manage`). */
+	canDesign: boolean;
+}) {
 	const queryClient = useQueryClient();
 	const info = useQuery(trpc.social.articlePost.queryOptions({ articleId }));
 	const templates = useQuery(trpc.social.templates.list.queryOptions());
@@ -476,9 +495,10 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 				*/}
 				<VideoShortcut
 					articleId={articleId}
-					postId={post?.id ?? null}
-					clipCount={post?.clips.length ?? 0}
+					post={post}
 					disabled={busy}
+					canDesign={canDesign}
+					onRefresh={refreshPost}
 				/>
 
 				{!coverMediaId && destinations.length > 0 ? (
@@ -575,8 +595,21 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
 	);
 }
 
+const EMPTY_DESIGN = { background: "#ffffff", elements: [], variables: [] };
+
 /**
  * O atalho da matéria para o editor de vídeo (spec 12, F5).
+ *
+ * Abre o editor num DIÁLOGO de ~80% da tela, sem largar a página da matéria —
+ * antes ele navegava para `/dashboard/social/videos/[id]` em tela cheia, e a
+ * pessoa perdia o que estava escrevendo de vista. A página em tela cheia
+ * continua existindo (o link da fila leva a ela); aqui, quem está escrevendo
+ * monta o vídeo e ao fechar volta exatamente para onde estava.
+ *
+ * Com trechos já montados, mostra uma PRÉVIA do vídeo — o mesmo desenho que sai
+ * ao ar, montado pela `VideoArtPreview`, como a arte de cada destino de foto
+ * logo acima — e clicar nela abre o editor. Antes ali só havia um texto
+ * "Editar vídeo (1 trecho)", que dizia que existe um vídeo sem mostrar qual.
  *
  * Duas situações, e a diferença entre elas é a trava de um post por matéria:
  *
@@ -586,57 +619,138 @@ export function ArticleSocialCard({ articleId }: { articleId: string }) {
  *   destinos de um post de foto o deixaria com um destino que recusa vídeo e
  *   outro que o exige; quem quiser trocar os destinos faz isso na fila, vendo o
  *   que está mudando.
+ *
+ * Ao fechar o diálogo, `onRefresh` recarrega o post da matéria: o editor salva
+ * a cada gesto, então a prévia e a fila já saem certas.
  */
 function VideoShortcut({
 	articleId,
-	postId,
-	clipCount,
+	post,
 	disabled,
+	canDesign,
+	onRefresh,
 }: {
 	articleId: string;
-	postId: string | null;
-	clipCount: number;
+	post: ArticlePostDto | null;
 	disabled: boolean;
+	canDesign: boolean;
+	onRefresh: () => Promise<void>;
 }) {
-	const router = useRouter();
+	const [open, setOpen] = useState(false);
+	// Post recém-criado pelo gatilho: o `info` do cartão só o conhece depois do
+	// refresh, então o id fica aqui para o diálogo abrir já no post certo.
+	const [createdId, setCreatedId] = useState<string | null>(null);
 	const prepare = useMutation(
 		trpc.social.prepareFromArticle.mutationOptions({
-			onSuccess: (post) => {
-				router.push(`/dashboard/social/videos/${post.id}` as Route);
+			onSuccess: async (created) => {
+				setCreatedId(created.id);
+				setOpen(true);
+				await onRefresh();
 			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
 
-	if (postId) {
-		return (
-			<Button
-				variant="outline"
-				nativeButton={false}
-				render={<Link href={`/dashboard/social/videos/${postId}` as Route} />}
-			>
-				<Video className="size-4" />
-				{clipCount > 0
-					? `Editar vídeo (${clipCount} ${clipCount === 1 ? "trecho" : "trechos"})`
-					: "Montar vídeo desta matéria"}
-			</Button>
-		);
-	}
+	const postId = post?.id ?? null;
+	const clips = post?.clips ?? [];
+	// O destino de vídeo (Reels/Stories) e a arte guardada nele — a mesma escolha
+	// que o editor faz para desenhar a prévia grande.
+	const videoTarget =
+		(post?.deliveries ?? [])
+			.map((item) => item.destination)
+			.find(acceptsVideo) ?? null;
+	const selection =
+		post && videoTarget
+			? ((post.art as Record<string, ArtSelection>)[videoTarget] ?? null)
+			: null;
+	const format = videoTarget ? (formatsFor(videoTarget)[0] ?? "9:16") : "9:16";
+
+	// Os arquivos dos trechos, para a prévia desenhar o primeiro quadro. Uma
+	// consulta só, com todos os ids — como faz o editor.
+	const mediaIds = useMemo(
+		() => [...new Set(clips.map((clip) => clip.mediaId))],
+		[clips],
+	);
+	const media = useQuery({
+		...trpc.media.library.queryOptions({ ids: mediaIds }),
+		enabled: mediaIds.length > 0,
+	});
+	const urlFor = (mediaId: string) =>
+		media.data?.items.find((item) => item.id === mediaId)?.url ?? null;
+
+	const dialogPostId = postId ?? createdId;
+	const hasVideo = clips.length > 0 && videoTarget !== null;
 
 	return (
-		<Button
-			variant="outline"
-			disabled={disabled || prepare.isPending}
-			onClick={() =>
-				prepare.mutate({
-					articleId,
-					destinations: ["INSTAGRAM_REELS"],
-					approve: false,
-				})
-			}
-		>
-			<Video className="size-4" />
-			Montar vídeo desta matéria
-		</Button>
+		<>
+			{hasVideo && post ? (
+				<button
+					type="button"
+					disabled={disabled}
+					onClick={() => setOpen(true)}
+					className="flex items-center gap-3 rounded-md border p-2 text-left transition-colors hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
+					aria-label="Editar o vídeo desta matéria"
+				>
+					<div className="w-16 shrink-0">
+						<VideoArtPreview
+							format={format}
+							design={selection?.design ?? EMPTY_DESIGN}
+							content={post.artContentForDrawing as ArtContent}
+							inputs={{
+								values: selection?.values ?? {},
+								texts: selection?.texts ?? {},
+							}}
+							clips={clips}
+							urlFor={urlFor}
+							playing={false}
+							label="Prévia do vídeo"
+							className="rounded border"
+						/>
+					</div>
+					<div className="flex min-w-0 flex-col gap-0.5">
+						<span className="flex items-center gap-1.5 font-medium text-sm">
+							<Video className="size-4 shrink-0" />
+							{videoTarget ? DESTINATION_LABEL[videoTarget] : "Vídeo"}
+						</span>
+						<span className="text-muted-foreground text-xs">
+							{clips.length} {clips.length === 1 ? "trecho" : "trechos"} · toque
+							para editar
+						</span>
+					</div>
+				</button>
+			) : (
+				<Button
+					variant="outline"
+					disabled={disabled || prepare.isPending}
+					onClick={() => {
+						if (postId) {
+							setOpen(true);
+							return;
+						}
+						prepare.mutate({
+							articleId,
+							destinations: ["INSTAGRAM_REELS"],
+							approve: false,
+						});
+					}}
+				>
+					<Video className="size-4" />
+					Montar vídeo desta matéria
+				</Button>
+			)}
+
+			<VideoEditorDialog
+				postId={dialogPostId}
+				canDesign={canDesign}
+				open={open}
+				onOpenChange={async (next) => {
+					setOpen(next);
+					// Fechou: a montagem pode ter mudado os trechos e a fila.
+					if (!next) {
+						await onRefresh();
+					}
+				}}
+			/>
+		</>
 	);
 }

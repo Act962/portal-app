@@ -1,7 +1,6 @@
 import {
 	ArticleNotFound,
 	ArticleOnAir,
-	approve,
 	archive,
 	archiveMany,
 	createDraft,
@@ -13,9 +12,8 @@ import {
 	listScheduled,
 	publish,
 	publishDueScheduled,
-	reject,
 	schedule,
-	submitForReview,
+	unpublish,
 	updateArticle,
 } from "@portal-app/editorial";
 import { Forbidden, StaffMember } from "@portal-app/identity";
@@ -84,50 +82,57 @@ describe("createDraft", () => {
 	});
 });
 
-describe("fluxo redator → editor", () => {
-	it("redator submete, editor da editoria aprova e publica", async () => {
+/**
+ * O fluxo simplificado (a pedido dos clientes) tirou os passos de revisão e
+ * aprovação: o redator deixa o rascunho pronto e quem PUBLICA é o editor/admin
+ * (`article:publish`). É a governança que sobrou — não há mais vai-e-volta, mas o
+ * portal continua não sendo terreno livre para o redator.
+ */
+describe("publicação e governança de papéis", () => {
+	it("o editor da editoria publica direto do rascunho", async () => {
 		const red = staff("REDATOR", "red");
 		const ed = staff("EDITOR", "ed", ["cidades"]);
 		const article = await draftBy(red);
 
-		expect((await submitForReview(red, { id: article.id }, deps)).isOk()).toBe(
-			true,
-		);
-		expect((await approve(ed, { id: article.id }, deps)).isOk()).toBe(true);
 		const published = (await publish(ed, { id: article.id }, deps)).unwrap();
 		expect(published.status).toBe("PUBLICADA");
 	});
 
-	it("redator não pode aprovar (Forbidden)", async () => {
+	it("o redator não publica (Forbidden) — o rascunho fica no lugar", async () => {
 		const red = staff("REDATOR", "red");
 		const article = await draftBy(red);
-		await submitForReview(red, { id: article.id }, deps);
+
 		expect(
-			(await approve(red, { id: article.id }, deps)).unwrapErr(),
+			(await publish(red, { id: article.id }, deps)).unwrapErr(),
 		).toBeInstanceOf(Forbidden);
+		expect((await getArticle(article.id, { repo }))?.status).toBe("RASCUNHO");
 	});
 
-	it("editor de outra editoria não pode aprovar", async () => {
+	it("o editor de outra editoria não publica", async () => {
 		const red = staff("REDATOR", "red");
 		const outro = staff("EDITOR", "ed2", ["esportes"]);
 		const article = await draftBy(red);
-		await submitForReview(red, { id: article.id }, deps);
+
 		expect(
-			(await approve(outro, { id: article.id }, deps)).unwrapErr(),
+			(await publish(outro, { id: article.id }, deps)).unwrapErr(),
 		).toBeInstanceOf(Forbidden);
 	});
 
-	it("devolução exige motivo e volta para RASCUNHO", async () => {
-		const red = staff("REDATOR", "red");
+	it("despublicar volta ao rascunho — e exige a permissão de despublicar", async () => {
 		const ed = staff("EDITOR", "ed", ["cidades"]);
+		const red = staff("REDATOR", "red");
 		const article = await draftBy(red);
-		await submitForReview(red, { id: article.id }, deps);
+		await publish(ed, { id: article.id }, deps);
 
-		const back = (
-			await reject(ed, { id: article.id, reason: "faltam fontes" }, deps)
-		).unwrap();
+		// O redator não derruba do ar o que o público está lendo.
+		expect(
+			(await unpublish(red, { id: article.id }, deps)).unwrapErr(),
+		).toBeInstanceOf(Forbidden);
+		expect((await getArticle(article.id, { repo }))?.status).toBe("PUBLICADA");
+
+		// O editor da editoria sim — e a matéria volta editável.
+		const back = (await unpublish(ed, { id: article.id }, deps)).unwrap();
 		expect(back.status).toBe("RASCUNHO");
-		expect(back.rejectionReason).toBe("faltam fontes");
 	});
 });
 
@@ -152,8 +157,6 @@ describe("edição", () => {
 	it("admin publica e ao editar vira ATUALIZADA", async () => {
 		const admin = staff("ADMIN", "adm");
 		const article = await draftBy(admin);
-		await submitForReview(admin, { id: article.id }, deps);
-		await approve(admin, { id: article.id }, deps);
 		await publish(admin, { id: article.id }, deps);
 
 		const updated = (
@@ -173,8 +176,6 @@ describe("agendamento (poller síncrono / node-cron-friendly)", () => {
 	async function scheduleOne() {
 		const admin = staff("ADMIN", "adm");
 		const article = await draftBy(admin);
-		await submitForReview(admin, { id: article.id }, deps);
-		await approve(admin, { id: article.id }, deps);
 		(await schedule(admin, { id: article.id, at: LATER }, deps)).unwrap();
 		return article.id;
 	}
@@ -217,13 +218,11 @@ describe("erros de carga", () => {
 });
 
 describe("arquivo (o que a lista esconde)", () => {
-	/** Cria e leva ao ar — só matéria publicada pode ser arquivada. */
+	/** Cria e leva ao ar. */
 	async function publishedBy(actor: StaffMember, headline: string) {
 		const article = (
 			await createDraft(actor, { ...content, headline }, deps)
 		).unwrap();
-		await submitForReview(actor, { id: article.id }, deps);
-		await approve(actor, { id: article.id }, deps);
 		(await publish(actor, { id: article.id }, deps)).unwrap();
 		return article.id;
 	}
@@ -323,8 +322,7 @@ describe("descartar o próprio rascunho", () => {
 	 * O caso que motivou tudo isto: a matéria criada por engano, ainda sem corpo
 	 * e sem editoria. Antes, arquivar exigia `article:unpublish` — permissão que
 	 * o redator não tem e que o editor só tem DENTRO das editorias dele. Um
-	 * rascunho sem editoria não satisfaz nem uma coisa nem outra, então a única
-	 * ação oferecida era empurrá-lo para a revisão.
+	 * rascunho sem editoria não satisfaz nem uma coisa nem outra.
 	 */
 	it("o redator arquiva o rascunho que ele mesmo criou", async () => {
 		const redator = staff("REDATOR", "red");
@@ -352,8 +350,6 @@ describe("descartar o próprio rascunho", () => {
 		const admin = staff("ADMIN", "adm");
 		const redator = staff("REDATOR", "red");
 		const article = await draftBy(redator);
-		await submitForReview(redator, { id: article.id }, deps);
-		await approve(admin, { id: article.id }, deps);
 		(await publish(admin, { id: article.id }, deps)).unwrap();
 
 		expect(
@@ -366,8 +362,6 @@ describe("descartar o próprio rascunho", () => {
 describe("apagar de vez", () => {
 	async function published(actor: StaffMember) {
 		const article = await draftBy(actor);
-		await submitForReview(actor, { id: article.id }, deps);
-		await approve(actor, { id: article.id }, deps);
 		(await publish(actor, { id: article.id }, deps)).unwrap();
 		return article.id;
 	}
@@ -435,8 +429,6 @@ describe("apagar de vez", () => {
 		const admin = staff("ADMIN", "adm");
 		const redator = staff("REDATOR", "red");
 		const article = await draftBy(redator);
-		await submitForReview(redator, { id: article.id }, deps);
-		await approve(admin, { id: article.id }, deps);
 		(await publish(admin, { id: article.id }, deps)).unwrap();
 		(await archive(admin, { id: article.id }, deps)).unwrap();
 

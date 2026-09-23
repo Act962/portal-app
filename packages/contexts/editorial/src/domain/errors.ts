@@ -61,14 +61,6 @@ export class InvalidTransition extends Error {
 	}
 }
 
-/** Devolver da revisão exige motivo (A03). */
-export class RejectionReasonRequired extends Error {
-	constructor() {
-		super("A devolução para o autor exige um motivo.");
-		this.name = "RejectionReasonRequired";
-	}
-}
-
 /**
  * Matéria no ar não se apaga.
  *
