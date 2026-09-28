@@ -2,6 +2,13 @@ import "@portal-app/env/web";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+	/*
+	 * O deploy no Coolify (Dockerfile) sobe só `.next/standalone`: o servidor e
+	 * os arquivos que o rastreador achou, sem o `node_modules` inteiro. É o MESMO
+	 * rastreamento que a Vercel usa — por isso as listas abaixo valem para os
+	 * dois.
+	 */
+	output: "standalone",
 	typedRoutes: true,
 	reactCompiler: true,
 	/*

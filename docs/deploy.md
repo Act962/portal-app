@@ -5,6 +5,115 @@
 >
 > **Stack de produção:** aplicação na **Vercel**, banco no **Neon**, mídia no
 > **Cloudflare R2**.
+>
+> **Em migração para uma VPS com Coolify** (build por `Dockerfile`) — ver
+> §0-C. O `vercel.json` continua valendo até a virada do DNS; os §0–§5 abaixo
+> seguem descrevendo a Vercel.
+
+---
+
+## 0-C. Coolify (VPS) — Dockerfile
+
+O Coolify constrói a imagem pelo `Dockerfile` da raiz. Ele tem quatro
+estágios, ordenados do que menos muda para o que mais muda, para o cache do
+Docker fazer o trabalho:
+
+| Estágio | O quê | Quando refaz |
+|---|---|---|
+| `pruner` | `turbo prune web --docker` — recorta o monorepo no que o `web` usa | todo deploy (segundos) |
+| `deps` | `pnpm install` + os binários que se baixam na instalação (Prisma, skia-canvas, ffmpeg, sharp) | **só quando muda um `package.json` ou o `pnpm-lock.yaml`** |
+| `builder` | `prisma generate` → `pnpm db:deploy` (migração) → `next build` | todo deploy com código novo |
+| `runner` | só o `.next/standalone` + estáticos: sem pnpm, sem código-fonte, sem devDependencies | — é a imagem que roda |
+
+Dois caches ficam no servidor **entre** deploys (cache mounts do BuildKit): o
+store do pnpm — quando o lockfile muda, só o pacote novo baixa — e o
+`.next/cache` (imagens otimizadas e fetch cache; a compilação do Turbopack
+ainda não é reaproveitada entre builds).
+
+Medido localmente: build fria **3 min**; deploy só de código **1m30**, com o
+`pnpm install` inteiro `CACHED`. O que sobra é o `next build` (≈30 s
+compilando, ≈25 s no TypeScript). Mudar o schema do Prisma também reinstala: o
+`postinstall` do `@portal-app/db` gera o client na camada de dependências.
+
+Ao fim do build há uma **trava**: se o ffmpeg, o `skia.node` ou o `sharp` não
+estiverem no standalone, o deploy falha dizendo qual — em vez de a imagem subir
+saudável e quebrar na primeira arte ou no primeiro vídeo.
+
+### Configuração do app no Coolify
+
+| Campo | Valor |
+|---|---|
+| Build Pack | **Dockerfile** |
+| Base Directory | `/` (raiz do repositório — **não** `apps/web`) |
+| Dockerfile Location | `/Dockerfile` |
+| Ports Exposes | `3000` |
+| Branch | `main` |
+| Healthcheck (na UI) | **desligado** — o `HEALTHCHECK` do Dockerfile (`/api/health`) é o que vale; o da UI roda `curl`, que a imagem slim não tem |
+
+Em *Advanced*, **não** marque "Disable Build Cache": é ele que faz os deploys
+rápidos.
+
+### Variáveis
+
+As mesmas da tabela do §0 passo 4, com estas diferenças:
+
+- **Todas marcadas como disponíveis no build** (*Build Variable* /
+  *Available at Buildtime*). O build migra o banco e pré-renderiza as páginas
+  do portal, e o HTML sai com o prefixo das imagens (`S3_PUBLIC_URL`), a tag do
+  Search Console etc. O Dockerfile declara um `ARG` para cada uma que o build
+  lê — **variável nova que o build precise ler tem de ganhar o seu `ARG`**, senão
+  o Coolify a passa e o Docker a descarta. Os `ARG` ficam só no estágio
+  `builder`; nenhum segredo vai para a imagem final.
+- **`DATABASE_URL` vai para o Postgres do próprio Coolify**, pela URL interna
+  (sem pooler, então **não** cadastre `DIRECT_URL` — o `prisma.config.ts` cai
+  na `DATABASE_URL`). O build do Coolify roda com acesso à rede dos recursos
+  dele; erro de conexão no passo `pnpm db:deploy` do log é esse acesso
+  faltando.
+- **`REDIS_URL`** também pode ser um Redis do próprio Coolify.
+- `BETTER_AUTH_URL` e `CORS_ORIGIN` com o domínio servido pelo Coolify; e esse
+  domínio entra no CORS do bucket R2 (§2) e no *sync* do Inngest (§3.1).
+
+### O que muda em relação à Vercel
+
+- **`maxDuration = 300` deixa de importar.** Em `/api/inngest` e
+  `/api/cron/[task]` ele só é lido pela Vercel; num processo Node de longa
+  duração a montagem de vídeo (spec 12) não tem teto de função. O
+  `RENDER_MAX_SECONDS` continua valendo — é teto do portal.
+- **O `output: "standalone"` usa o mesmo rastreamento de arquivos da Vercel**,
+  então as listas do `next.config.ts` (`serverExternalPackages`,
+  `outputFileTracingIncludes`) continuam sendo o que leva `skia-canvas`,
+  `sharp`, o ffmpeg e as fontes para a imagem. Não remova nenhuma.
+- **O IP de saída passa a ser só nosso**, então o limite anônimo da AwesomeAPI
+  deixa de ser compartilhado. Mantenha o `AWESOMEAPI_TOKEN` mesmo assim.
+- **Fuso:** o container roda em UTC, como a Vercel; o código já converte para o
+  fuso de São Paulo explicitamente.
+
+### Testar a imagem localmente
+
+```bash
+docker build -t portal-web --build-arg DATABASE_URL="postgresql://…" --build-arg BETTER_AUTH_SECRET="…" --build-arg BETTER_AUTH_URL="http://localhost:3000" --build-arg CORS_ORIGIN="http://localhost:3000" .
+```
+
+Use um banco descartável: o build **aplica as migrations** nele.
+
+### Primeiro deploy — conferir
+
+1. No log, o passo `pnpm db:deploy` com a linha das migrations.
+2. Container `healthy` e o portal abrindo.
+3. Uma **arte de padrão** gerada no painel — prova que o `skia-canvas` chegou.
+4. Um post de vídeo aprovado saindo da fila — prova o ffmpeg.
+5. Inngest re-sincronizado para `https://NOVO-DOMINIO/api/inngest`, com
+   `publish-scheduled` no gatilho `*/5 * * * *`.
+6. Um segundo deploy só com mudança de código: no log, o estágio `deps` aparece
+   como `CACHED`.
+
+Se o `next build` morrer sem erro logo depois de "Compiled successfully", é
+heap do V8 numa VPS pequena — o nerp-2 resolveu com
+`apps/web/scripts/next-build.mjs` (`--max-old-space-size`), chamado pelo script
+`build` do app. Só traga se acontecer aqui.
+
+**Depois da virada**, apague o `vercel.json` e o projeto da Vercel, para não
+haver dois deploys migrando o mesmo banco.
 
 ---
 

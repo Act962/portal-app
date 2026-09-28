@@ -1,0 +1,29 @@
+# Contexto do `docker build` (ver Dockerfile). Tudo que é gerado, instalado ou
+# local fica fora: além de deixar o upload do contexto rápido, um `node_modules`
+# do Windows copiado por cima do instalado no Linux quebraria os binários
+# nativos (skia-canvas, sharp, ffmpeg).
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/coverage
+**/*.tsbuildinfo
+packages/db/prisma/generated
+
+# Segredos e ambiente local — no deploy as variáveis vêm do Coolify.
+**/.env
+**/.env*.local
+**/.env.test
+
+# Nada disso entra na imagem.
+.git
+.github
+.claude
+.vercel
+docs
+design
+test-results
+playwright-report
+**/*.log
+Dockerfile
+.dockerignore
