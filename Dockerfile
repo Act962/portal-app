@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Imagem de produção do portal (Coolify, numa VPS) — ver docs/deploy.md §0-C.
+# Imagem de produção do portal (Coolify, numa VPS) — ver docs/deploy.md §1.
 #
 # Quatro estágios, ordenados do que MENOS muda para o que MAIS muda, para o
 # cache do Docker fazer o trabalho:

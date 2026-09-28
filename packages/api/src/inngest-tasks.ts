@@ -29,7 +29,7 @@ export type InngestFunctionFactory<TFunction> = {
  * gatilho é o `cron` que ela declara e, se ela tiver `wakeOn`, também o evento
  * de mesmo nome. Nada é redigitado — mudar a periodicidade no registro muda o
  * agendamento no Inngest, sem um segundo lugar para esquecer (ao contrário do
- * cron da Vercel, que lê o `vercel.json`).
+ * cron da Vercel, usado antes, que lia o `vercel.json`).
  *
  * `exclusive` vira `concurrency: { limit: 1 }`. O limite é da FUNÇÃO, e vale
  * para as execuções dos dois gatilhos juntos: a do cron e a do evento entram na
@@ -42,7 +42,7 @@ export type InngestFunctionFactory<TFunction> = {
  * `Result` do `scheduler.run` viraria ruído no log do Inngest.
  *
  * **A exceção sobe de propósito.** É ela que dispara o retry com backoff — a
- * única coisa que o Inngest traz e o cron da Vercel não. Engolir o erro aqui
+ * única coisa que o Inngest traz e um cron simples não. Engolir o erro aqui
  * transformaria a adoção do Inngest num placebo caro.
  */
 export function createTaskFunctions<TFunction>(

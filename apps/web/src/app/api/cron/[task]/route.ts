@@ -7,24 +7,18 @@ import { env } from "@portal-app/env/server";
  *
  * Um endpoint burro, autenticado por segredo no header, que resolve a tarefa
  * pelo nome no registro (`packages/api/src/scheduler.ts`) e a executa. Quem o
- * chama é irrelevante para o código: hoje é o cron da Vercel, amanhã pode ser
- * um `node-cron`, um `curl` no crontab do VPS ou uma função Inngest.
+ * chama é irrelevante para o código: hoje, ninguém (o agendador é o Inngest,
+ * pela rota `/api/inngest`); se precisar, um `curl` no crontab da VPS ou
+ * qualquer serviço de cron externo.
  *
- * O segmento é dinâmico de propósito: registrar uma tarefa nova passa a ser uma
- * linha na raiz de composição mais uma entrada no `vercel.json` — nenhuma rota
- * nova, nenhuma duplicação desta autenticação. Antes disto havia uma rota fixa
- * por tarefa, e a segunda tarefa teria copiado este arquivo inteiro.
+ * O segmento é dinâmico de propósito: registrar uma tarefa nova é uma linha na
+ * raiz de composição — nenhuma rota nova, nenhuma duplicação desta
+ * autenticação. Antes disto havia uma rota fixa por tarefa, e a segunda tarefa
+ * teria copiado este arquivo inteiro.
  *
  * Dinâmica e sem cache: cada chamada consulta o banco.
  */
 export const dynamic = "force-dynamic";
-
-/**
- * O mesmo teto da rota do Inngest, e pela mesma razão: esta rota roda as MESMAS
- * tarefas, e a `publish-social` monta vídeo (spec 12). Ver a rota do Inngest
- * para a exigência de Fluid Compute.
- */
-export const maxDuration = 300;
 
 export async function GET(
 	request: Request,

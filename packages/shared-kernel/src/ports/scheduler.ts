@@ -28,9 +28,9 @@ export type ScheduledTask = {
 	 * Periodicidade em expressão cron de 5 campos, interpretada em **UTC**.
 	 *
 	 * Esta é a fonte da verdade da periodicidade para os adapters que a leem
-	 * (`node-cron`, Inngest). O cron da Vercel é a exceção: ele lê o
-	 * `vercel.json`, então lá a expressão precisa ser espelhada à mão — ver
-	 * `docs/deploy.md` §3.
+	 * (`node-cron`, Inngest). Um cron externo (crontab, serviço de cron) é a
+	 * exceção: ele tem a própria agenda, e lá a expressão precisa ser espelhada
+	 * à mão — ver `docs/deploy.md` §4.
 	 */
 	cron: string;
 

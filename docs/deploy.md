@@ -1,139 +1,38 @@
-# Deploy — banco, storage e conteúdo inicial
+# Deploy — servidor, banco, storage e conteúdo inicial
 
 > Guia operacional para colocar e manter o portal no ar. Para o estado do
 > desenvolvimento, ver [`pendencias.md`](./pendencias.md).
 >
-> **Stack de produção:** aplicação na **Vercel**, banco no **Neon**, mídia no
-> **Cloudflare R2**.
+> **Stack de produção:** aplicação numa **VPS com Coolify** (imagem pelo
+> `Dockerfile` da raiz), **PostgreSQL 18** e **Redis** como recursos do próprio
+> Coolify, mídia no **Cloudflare R2**, agendamento pelo **Inngest**. Domínio:
+> `portal.7cidades.com`.
 >
-> **Em migração para uma VPS com Coolify** (build por `Dockerfile`) — ver
-> §0-C. O `vercel.json` continua valendo até a virada do DNS; os §0–§5 abaixo
-> seguem descrevendo a Vercel.
-
----
-
-## 0-C. Coolify (VPS) — Dockerfile
-
-O Coolify constrói a imagem pelo `Dockerfile` da raiz. Ele tem quatro
-estágios, ordenados do que menos muda para o que mais muda, para o cache do
-Docker fazer o trabalho:
-
-| Estágio | O quê | Quando refaz |
-|---|---|---|
-| `pruner` | `turbo prune web --docker` — recorta o monorepo no que o `web` usa | todo deploy (segundos) |
-| `deps` | `pnpm install` + os binários que se baixam na instalação (Prisma, skia-canvas, ffmpeg, sharp) | **só quando muda um `package.json` ou o `pnpm-lock.yaml`** |
-| `builder` | `prisma generate` → `pnpm db:deploy` (migração) → `next build` | todo deploy com código novo |
-| `runner` | só o `.next/standalone` + estáticos: sem pnpm, sem código-fonte, sem devDependencies | — é a imagem que roda |
-
-Dois caches ficam no servidor **entre** deploys (cache mounts do BuildKit): o
-store do pnpm — quando o lockfile muda, só o pacote novo baixa — e o
-`.next/cache` (imagens otimizadas e fetch cache; a compilação do Turbopack
-ainda não é reaproveitada entre builds).
-
-Medido localmente: build fria **3 min**; deploy só de código **1m30**, com o
-`pnpm install` inteiro `CACHED`. O que sobra é o `next build` (≈30 s
-compilando, ≈25 s no TypeScript). Mudar o schema do Prisma também reinstala: o
-`postinstall` do `@portal-app/db` gera o client na camada de dependências.
-
-Ao fim do build há uma **trava**: se o ffmpeg, o `skia.node` ou o `sharp` não
-estiverem no standalone, o deploy falha dizendo qual — em vez de a imagem subir
-saudável e quebrar na primeira arte ou no primeiro vídeo.
-
-### Configuração do app no Coolify
-
-| Campo | Valor |
-|---|---|
-| Build Pack | **Dockerfile** |
-| Base Directory | `/` (raiz do repositório — **não** `apps/web`) |
-| Dockerfile Location | `/Dockerfile` |
-| Ports Exposes | `3000` |
-| Branch | `main` |
-| Healthcheck (na UI) | **desligado** — o `HEALTHCHECK` do Dockerfile (`/api/health`) é o que vale; o da UI roda `curl`, que a imagem slim não tem |
-
-Em *Advanced*, **não** marque "Disable Build Cache": é ele que faz os deploys
-rápidos.
-
-### Variáveis
-
-As mesmas da tabela do §0 passo 4, com estas diferenças:
-
-- **Todas marcadas como disponíveis no build** (*Build Variable* /
-  *Available at Buildtime*). O build migra o banco e pré-renderiza as páginas
-  do portal, e o HTML sai com o prefixo das imagens (`S3_PUBLIC_URL`), a tag do
-  Search Console etc. O Dockerfile declara um `ARG` para cada uma que o build
-  lê — **variável nova que o build precise ler tem de ganhar o seu `ARG`**, senão
-  o Coolify a passa e o Docker a descarta. Os `ARG` ficam só no estágio
-  `builder`; nenhum segredo vai para a imagem final.
-- **`DATABASE_URL` vai para o Postgres do próprio Coolify**, pela URL interna
-  (sem pooler, então **não** cadastre `DIRECT_URL` — o `prisma.config.ts` cai
-  na `DATABASE_URL`). O build do Coolify roda com acesso à rede dos recursos
-  dele; erro de conexão no passo `pnpm db:deploy` do log é esse acesso
-  faltando.
-- **`REDIS_URL`** também pode ser um Redis do próprio Coolify.
-- `BETTER_AUTH_URL` e `CORS_ORIGIN` com o domínio servido pelo Coolify; e esse
-  domínio entra no CORS do bucket R2 (§2) e no *sync* do Inngest (§3.1).
-
-### O que muda em relação à Vercel
-
-- **`maxDuration = 300` deixa de importar.** Em `/api/inngest` e
-  `/api/cron/[task]` ele só é lido pela Vercel; num processo Node de longa
-  duração a montagem de vídeo (spec 12) não tem teto de função. O
-  `RENDER_MAX_SECONDS` continua valendo — é teto do portal.
-- **O `output: "standalone"` usa o mesmo rastreamento de arquivos da Vercel**,
-  então as listas do `next.config.ts` (`serverExternalPackages`,
-  `outputFileTracingIncludes`) continuam sendo o que leva `skia-canvas`,
-  `sharp`, o ffmpeg e as fontes para a imagem. Não remova nenhuma.
-- **O IP de saída passa a ser só nosso**, então o limite anônimo da AwesomeAPI
-  deixa de ser compartilhado. Mantenha o `AWESOMEAPI_TOKEN` mesmo assim.
-- **Fuso:** o container roda em UTC, como a Vercel; o código já converte para o
-  fuso de São Paulo explicitamente.
-
-### Testar a imagem localmente
-
-```bash
-docker build -t portal-web --build-arg DATABASE_URL="postgresql://…" --build-arg BETTER_AUTH_SECRET="…" --build-arg BETTER_AUTH_URL="http://localhost:3000" --build-arg CORS_ORIGIN="http://localhost:3000" .
-```
-
-Use um banco descartável: o build **aplica as migrations** nele.
-
-### Primeiro deploy — conferir
-
-1. No log, o passo `pnpm db:deploy` com a linha das migrations.
-2. Container `healthy` e o portal abrindo.
-3. Uma **arte de padrão** gerada no painel — prova que o `skia-canvas` chegou.
-4. Um post de vídeo aprovado saindo da fila — prova o ffmpeg.
-5. Inngest re-sincronizado para `https://NOVO-DOMINIO/api/inngest`, com
-   `publish-scheduled` no gatilho `*/5 * * * *`.
-6. Um segundo deploy só com mudança de código: no log, o estágio `deps` aparece
-   como `CACHED`.
-
-Se o `next build` morrer sem erro logo depois de "Compiled successfully", é
-heap do V8 numa VPS pequena — o nerp-2 resolveu com
-`apps/web/scripts/next-build.mjs` (`--max-old-space-size`), chamado pelo script
-`build` do app. Só traga se acontecer aqui.
-
-**Depois da virada**, apague o `vercel.json` e o projeto da Vercel, para não
-haver dois deploys migrando o mesmo banco.
+> Até setembro de 2026 o portal rodou na Vercel, com o banco no Neon. A imagem
+> Docker entrou no PR #24, a cópia do banco seguiu o §6, e o `vercel.json` foi
+> removido depois da virada do DNS.
 
 ---
 
 ## 0. Passo a passo — do zero ao portal no ar
 
-Sete passos. O detalhe de cada um está nas seções seguintes.
+O detalhe de cada passo está nas seções seguintes.
 
-### 1 · Neon — pegue as DUAS strings de conexão
+### 1 · Banco e Redis no Coolify
 
-No painel do Neon, em *Connection string*, copie **duas vezes**:
+No mesmo projeto e ambiente do app, em *New Resource*:
 
-- com o botão **“Pooled connection” LIGADO** → vai ser a `DATABASE_URL`
-- com o botão **DESLIGADO** → vai ser a `DIRECT_URL`
+1. **PostgreSQL**: imagem `postgres:18-alpine`. A versão importa: um dump só
+   restaura com garantia num servidor da mesma versão ou mais nova (§6).
+   Copie a **Postgres URL (internal)**; ela é a `DATABASE_URL`.
+2. **Redis**: copie a URL interna; ela é a `REDIS_URL`.
 
-A diferença é o `-pooler` no host. As duas são necessárias: a aplicação usa o
-pooler, a migração usa a direta. É o passo que mais dá problema quando pulado.
+Deixe o "Make it publicly available" **desligado**. Ligue só pelo tempo de uma
+cópia de banco feita de fora (§6), e desligue logo depois.
 
 ### 2 · R2 — bucket, token e CORS
 
-1. O bucket já existe e já tem URL pública (`pub-….r2.dev`).
+1. O bucket já existe e já tem URL pública.
 2. Em *Manage R2 API Tokens*, crie um token com permissão de **leitura e
    escrita** nesse bucket. Guarde as duas chaves.
 3. Em *Settings → CORS policy* do bucket, cole (trocando pelo seu domínio):
@@ -145,7 +44,7 @@ pooler, a migração usa a direta. É o passo que mais dá problema quando pulad
       "MaxAgeSeconds": 3600 }]
    ```
 
-   Sem isso o envio de imagem trava em 0% — o upload vai do navegador direto
+   Sem isso o envio de imagem trava em 0%: o upload vai do navegador direto
    para o R2.
 
 4. **Ligue um domínio próprio no bucket** (*Settings → Custom Domains*, algo como
@@ -157,11 +56,12 @@ pooler, a migração usa a direta. É o passo que mais dá problema quando pulad
    estrangulada, e ele **não passa por cache nem por WAF** — os dois só existem
    atrás de domínio próprio.
 
-   Isto pesa mais desde a spec 07: além do leitor com a página aberta, agora
-   buscam essas imagens o **Googlebot-Image** (elas entram no sitemap com a
-   extensão de imagem), o fetcher do **WhatsApp/Facebook** (`og:image`) e os
-   leitores de **RSS** (`<enclosure>`). Imagem que responde 429 vira prévia sem
-   foto e matéria fora do Google Imagens — sem erro nenhum aparecer no portal.
+   Isto pesa mais desde a spec 07: além do leitor com a página aberta, buscam
+   essas imagens o **Googlebot-Image** (elas entram no sitemap com a extensão de
+   imagem), o fetcher do **WhatsApp/Facebook** (`og:image`), o **Instagram**
+   (a publicação social manda a URL da mídia) e os leitores de **RSS**
+   (`<enclosure>`). Imagem que responde 429 vira prévia sem foto e matéria fora
+   do Google Imagens — sem erro nenhum aparecer no portal.
 
    Trocar depois é barato: só o prefixo muda, e as capas já gravadas continuam
    válidas, porque o banco guarda a CHAVE do objeto, não a URL.
@@ -172,147 +72,201 @@ pooler, a migração usa a direta. É o passo que mais dá problema quando pulad
 openssl rand -base64 32   # BETTER_AUTH_SECRET
 ```
 
-> `CRON_SECRET` **não é mais necessária** — o agendamento é do Inngest, e o
-> `crons` do `vercel.json` foi removido. Ela só volta a fazer falta se você
-> trocar de agendador (§3).
+> `CRON_SECRET` **não é necessária** — o agendamento é do Inngest. Ela só volta
+> a fazer falta se você trocar de agendador (§3).
 
-### 4 · Vercel — variáveis de ambiente
+### 4 · O app no Coolify
 
-Em *Settings → Environment Variables*, ambiente **Production**:
+*New Resource → Private Repository (with GitHub App)*, repositório
+`portal-app`:
+
+| Campo | Valor |
+|---|---|
+| Branch | `main` |
+| Build Pack | **Dockerfile** |
+| Base Directory | `/` (raiz do repositório — **não** `apps/web`) |
+| Ports Exposes | `3000` |
+| Domains | `https://SEU-DOMINIO` |
+| Healthcheck (na UI) | **desligado** — o `HEALTHCHECK` do Dockerfile (`/api/health`) é o que vale; o da UI roda `curl`, que a imagem slim não tem |
+
+Em *Advanced*:
+
+| Opção | Valor | Por quê |
+|---|---|---|
+| Disable Build Cache | **desmarcado** | é o cache que faz os deploys rápidos (§1) |
+| Include Source Commit in Build | **desmarcado** | marcado, o hash do commit vira `ARG` em todo estágio e **todo** deploy reinstala as dependências |
+| Inject Build Args to Dockerfile | marcado (escolha atual) | ver abaixo |
+| Use Build Secrets (se aparecer) | **desligado** | com ele as variáveis chegam por `--secret`, e os `ARG` do Dockerfile ficam vazios |
+
+**Inject Build Args to Dockerfile.** Marcado, o Coolify reescreve o Dockerfile
+antes do build e põe um `ARG` para cada variável de build logo depois de
+**cada** `FROM` — inclusive no estágio de dependências —, junto com um
+`COOLIFY_BUILD_SECRETS_HASH` calculado sobre todas elas. Consequência: **mudar
+qualquer variável, ou o domínio, reinstala as dependências** no deploy
+seguinte. Deploy só de código não é afetado. Ficou marcado por escolha: variável
+muda pouco depois que o ambiente estabiliza. Desmarcado, o install só refaz com
+mudança de `package.json`, lockfile ou schema — e o Coolify continua passando
+os valores por `--build-arg`, que os `ARG` do estágio `builder` recebem.
+
+### 5 · Variáveis de ambiente
+
+Em *Environment Variables* (o *Developer view* aceita colar tudo de uma vez).
+**Todas marcadas como disponíveis no build** (*Build Variable* / *Available at
+Buildtime*) — ver §1 para o porquê.
 
 | Variável | Valor |
 |---|---|
-| `DATABASE_URL` | string do Neon **com** `-pooler` |
-| `DIRECT_URL` | string do Neon **sem** `-pooler` |
+| `DATABASE_URL` | Postgres URL (internal) do passo 1 |
+| `REDIS_URL` | URL interna do Redis do passo 1 (sem ela, "mais lidas" cai para recência) |
 | `BETTER_AUTH_SECRET` | o que saiu do passo 3 |
-| `BETTER_AUTH_URL` | `https://seu-dominio` |
-| `CORS_ORIGIN` | `https://seu-dominio` |
+| `BETTER_AUTH_URL` | `https://SEU-DOMINIO` |
+| `CORS_ORIGIN` | `https://SEU-DOMINIO` |
 | `S3_ENDPOINT` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
 | `S3_REGION` | `auto` |
 | `S3_ACCESS_KEY_ID` | do token do passo 2 |
 | `S3_SECRET_ACCESS_KEY` | do token do passo 2 |
 | `S3_BUCKET` | nome do bucket |
-| `S3_PUBLIC_URL` | o domínio próprio do bucket, ex.: `https://midia.SEU-DOMINIO` (sem barra no fim). Não use o `pub-….r2.dev` — ver §2, passo 4 |
+| `S3_PUBLIC_URL` | o domínio próprio do bucket, **com** `https://` e **sem** barra no fim, ex.: `https://midia.SEU-DOMINIO` |
 | `S3_FORCE_PATH_STYLE` | `false` |
 | `INNGEST_SIGNING_KEY` | Settings → Keys, no painel do Inngest — ver §3.1 |
 | `INNGEST_EVENT_KEY` | idem |
-| `REDIS_URL` | URL de um Redis gerenciado (necessária para o ranking de “mais lidas”; sem ela, o portal usa recência) |
-| `AWESOMEAPI_TOKEN` | Token da AwesomeAPI (evita o limite anônimo compartilhado da Vercel na faixa de cotações) |
+| `AWESOMEAPI_TOKEN` | token da AwesomeAPI (faixa de cotações) |
+| `META_APP_ID`, `META_APP_SECRET` | App da Meta — login do botão "Conectar" (spec 08) |
+| `META_INSTAGRAM_ACCESS_TOKEN`, `META_INSTAGRAM_USER_ID`, `META_INSTAGRAM_USERNAME`, `META_INSTAGRAM_TOKEN_EXPIRES_AT` | Instagram configurado pelo ambiente (spec 08, §15) |
+| `RESEND_API_KEY`, `GOOGLE_SITE_VERIFICATION` | se usados |
 
-Ainda em *Settings*, confira em **General**:
+**Não** cadastre `DIRECT_URL` (o Postgres do Coolify não tem pooler; o
+`prisma.config.ts` cai na `DATABASE_URL`) nem `INNGEST_DEV`.
 
-- **Root Directory = a raiz do repositório** (vazio), **não** `apps/web`
-- **Build** e **Install Command**: deixe vazios (vêm do `vercel.json`)
+### 6 · Deploy
 
-### 5 · Deploy
+No log, confira:
 
-Faça o deploy. O `vercel.json` roda `pnpm db:deploy` antes do build **e as
-tabelas são criadas nesse momento**.
+1. O passo `pnpm db:deploy` terminando em "All migrations have been
+   successfully applied" (ou "No pending migrations"). Erro de conexão aqui é o
+   build sem acesso à rede interna do Postgres.
+2. Nenhum "standalone sem o binário" depois do `next build` (§1).
+3. O container `healthy`.
 
-Confira no log do build a linha das migrations. Se aparecer erro de conexão, é
-quase sempre a `DIRECT_URL` faltando ou apontando para o pooler.
+### 7 · Conteúdo
 
-### 6 · Popule o portal (uma vez só)
+- **Portal novo:** rode o seed uma vez (§4).
+- **Vindo de outro banco:** copie com `pg_dump`/`pg_restore` (§6) e faça um
+  *Redeploy* depois — as páginas pré-renderizadas no build com o banco vazio só
+  se corrigiriam na primeira revalidação.
 
-Da sua máquina, com o repositório atualizado:
+### 8 · Crie a sua conta
 
-```bash
-DATABASE_URL="<a string do Neon>" pnpm db:seed
-```
-
-Cria 5 editorias, 8 assuntos e 24 matérias publicadas com capa.
-**Rode uma vez.** Rodar de novo sobrescreve o conteúdo semeado.
-
-### 7 · Crie a sua conta
-
-Abra `https://seu-dominio/login` e cadastre-se. **O primeiro usuário do sistema
+Abra `https://SEU-DOMINIO/login` e cadastre-se. **O primeiro usuário do sistema
 nasce ADMIN.** Faça isso antes de divulgar o endereço — enquanto o convite não
 existe (Bloco B), qualquer pessoa que acesse o `/login` consegue criar conta.
 
+### Integrações que apontam para o domínio
+
+Quando o domínio muda, três lugares fora do Coolify precisam acompanhar:
+
+| Onde | O quê |
+|---|---|
+| **Inngest** | *sync* da app em `https://SEU-DOMINIO/api/inngest` (§3.1) |
+| **R2** | CORS do bucket liberando `PUT` para o domínio (passo 2) |
+| **App da Meta** | URI de redirecionamento `…/api/social/meta/callback`, callback de desautorização `…/api/social/meta/deauthorize`, callback de exclusão de dados `…/api/social/meta/data-deletion`, domínio do app e `…/privacidade` (spec 08, §14.3) |
+
 ---
 
-## 1. Por que as tabelas não foram criadas
+## 1. Como a imagem é construída
 
-**As migrations existem** — são 7, em `packages/db/prisma/migrations/`. O que
-faltava era um passo que as **aplicasse** no deploy:
+O `Dockerfile` tem quatro estágios, ordenados do que menos muda para o que mais
+muda, para o cache do Docker fazer o trabalho:
 
-- não há `prisma migrate deploy` em nenhum lugar do processo de publicação (ele
-  só aparecia no CI, para o job de e2e);
-- `next build` não toca no banco;
-- `pnpm db:migrate` é `prisma migrate dev` — **interativo e para
-  desenvolvimento**. Ele compara o schema com o banco, pode pedir confirmação e
-  chega a propor apagar dados. **Nunca rode `db:migrate` contra produção.**
+| Estágio | O quê | Quando refaz |
+|---|---|---|
+| `pruner` | `turbo prune web --docker` — recorta o monorepo no que o `web` usa | todo deploy (segundos) |
+| `deps` | `pnpm install`, com os binários que se baixam na instalação (Prisma, skia-canvas, ffmpeg, sharp) e o `prisma generate` | quando muda um `package.json`, o `pnpm-lock.yaml` ou o schema do Prisma (e, com o *Inject Build Args* marcado, uma variável — §0 passo 4) |
+| `builder` | `pnpm db:deploy` (migração) → `next build` | todo deploy com código novo |
+| `runner` | só o `.next/standalone` + estáticos: sem pnpm, sem código-fonte do build, sem devDependencies | — é a imagem que roda |
 
-O comando de produção é outro:
+Dois caches ficam no servidor **entre** deploys (cache mounts do BuildKit): o
+store do pnpm — quando o lockfile muda, só o pacote novo baixa — e o
+`.next/cache` (imagens otimizadas e fetch cache; a compilação do Turbopack
+ainda não é reaproveitada entre builds). A limpeza agendada do Docker no
+Coolify (*Servers → Docker Cleanup*), quando roda `docker builder prune`, apaga
+os dois: o deploy seguinte é uma build fria.
+
+Medido localmente: build fria **3 min**; deploy só de código **1m30**, com o
+`pnpm install` inteiro `CACHED`. O que sobra é o `next build` (≈30 s
+compilando, ≈25 s no TypeScript).
+
+**A trava.** Ao fim do build, se o ffmpeg, o `skia.node` ou o `sharp` não
+estiverem no standalone, o deploy falha dizendo qual — em vez de a imagem subir
+saudável e quebrar na primeira arte ou no primeiro vídeo. A lista do
+`next.config.ts` (`serverExternalPackages`, `outputFileTracingIncludes`) é o
+que os leva até lá; não remova nenhuma entrada.
+
+**Por que as variáveis precisam estar no build.** O build migra o banco e
+pré-renderiza as páginas do portal, e o HTML sai com o prefixo das imagens
+(`S3_PUBLIC_URL`), a tag do Search Console etc. O Dockerfile declara um `ARG`
+para cada variável que o build lê, só no estágio `builder` — nenhum segredo
+vai para a imagem final. **Variável nova que o build precise ler ganha o seu
+`ARG`**: com o *Inject Build Args* marcado ela até chegaria sem isso, mas o
+build não deve depender dessa opção.
+
+**Fuso.** O container roda em UTC; o código converte para o fuso de São Paulo
+explicitamente (`lib/format.ts`, `lib/admin-dates.ts`). Não defina `TZ`.
+
+Se o `next build` morrer sem erro logo depois de "Compiled successfully", é
+heap do V8 numa VPS pequena — o nerp-2 resolveu com
+`apps/web/scripts/next-build.mjs` (`--max-old-space-size`), chamado pelo script
+`build` do app. Só traga se acontecer aqui.
+
+### Testar a imagem localmente
+
+```bash
+docker build -t portal-web --build-arg DATABASE_URL="postgresql://…" --build-arg BETTER_AUTH_SECRET="…" --build-arg BETTER_AUTH_URL="http://localhost:3000" --build-arg CORS_ORIGIN="http://localhost:3000" .
+```
+
+Use um banco descartável: o build **aplica as migrations** nele. Rodando o
+container, os pacotes nativos são resolvidos por `apps/web/.next/node_modules`
+(links do Turbopack), não por `apps/web/node_modules`.
+
+---
+
+## 2. Migrations
+
+O comando de produção é:
 
 ```bash
 pnpm db:deploy
 ```
 
 `prisma migrate deploy` só aplica as migrations pendentes, em ordem, sem
-interação e sem nunca destruir dados. É o comando que pode rodar em pipeline.
+interação e sem nunca destruir dados. Ele roda no estágio `builder` do
+Dockerfile, **antes** do `next build`: se falhar, o deploy para ali e o
+container antigo continua no ar.
 
-### Como ligar na Vercel
+- É um passo à parte do build de propósito: build cacheado não pode pular
+  migração.
+- **Nunca rode `db:migrate` contra produção.** É `prisma migrate dev` —
+  interativo, para desenvolvimento, e chega a propor apagar dados.
 
-Já está versionado em **`vercel.json`**, na raiz:
-
-```json
-"buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm db:deploy; fi && pnpm turbo run build -F web"
-```
-
-Duas coisas nesse comando merecem explicação:
-
-- **O `if` não é frescura.** Sem ele, **todo deploy de preview migraria o banco
-  de produção** — que é o único banco configurado. Um PR com migração
-  incompleta alteraria o schema de produção antes de qualquer revisão. O guarda
-  restringe a migração ao ambiente de produção.
-- **`pnpm db:deploy`, não `db:migrate`.** `migrate dev` é interativo e pode
-  propor apagar dados.
-
-Na configuração do projeto na Vercel:
-
-| Campo | Valor |
-|---|---|
-| Root Directory | **raiz do repositório** (não `apps/web`) |
-| Framework Preset | Next.js |
-| Build/Install Command | deixe **vazio** — vêm do `vercel.json` |
-
-> Se o *Root Directory* estiver como `apps/web`, o `vercel.json` da raiz é
-> ignorado e a migração não roda. É o erro mais fácil de cometer aqui.
-
-### Neon — a conexão da migração é outra
-
-O Neon entrega **duas** connection strings, e a diferença importa:
-
-| Variável | String | Para quê |
-|---|---|---|
-| `DATABASE_URL` | a **com `-pooler`** | runtime da aplicação |
-| `DIRECT_URL` | a **sem `-pooler`** | migrações (`prisma migrate deploy`) |
-
-O `prisma.config.ts` já usa `DIRECT_URL` quando ela existe. **Cadastre as duas
-na Vercel.** Migração através do pooler falha ou trava: o pooler em modo
-transaction não sustenta advisory lock nem DDL na mesma sessão — e o sintoma é
-justamente "as tabelas não foram criadas", sem erro claro.
-
-O runtime fica no pooler porque a Vercel é serverless: sem ele, cada função
-abriria a própria conexão e o limite do Neon estoura rápido.
-
-### Conferir o que foi aplicado
+Conferir o que foi aplicado:
 
 ```bash
-DIRECT_URL="postgresql://…" pnpm --filter @portal-app/db exec prisma migrate status
+DATABASE_URL="postgresql://…" pnpm --filter @portal-app/db exec prisma migrate status
 ```
+
+> **Postgres com pooler** (Neon, Supabase): a migração não pode passar pelo
+> pooler — em modo transaction ele não sustenta advisory lock nem DDL na mesma
+> sessão, e o sintoma é "as tabelas não foram criadas", sem erro claro. Por
+> isso o `prisma.config.ts` usa `DIRECT_URL` quando ela existe. No Postgres do
+> Coolify não há pooler, e a variável não se cadastra.
 
 ---
 
-## 2. Storage de mídia em produção — Cloudflare R2
+## 3. Storage de mídia em produção — Cloudflare R2
 
-O código **já está pronto para o R2**: o adapter `S3MediaStorage`
-(`packages/contexts/media/src/infrastructure/`) fala S3 e serve tanto o MinIO
-local quanto o R2, atrás da porta `MediaStorage` (ADR 0009). **Não há código a
-mudar — só configuração.**
-
-### Variáveis de ambiente
+O adapter `S3MediaStorage` (`packages/contexts/media/src/infrastructure/`) fala
+S3 e serve tanto o MinIO local quanto o R2, atrás da porta `MediaStorage`
+(ADR 0009). **Não há código a mudar — só configuração** (§0 passos 2 e 5).
 
 | Variável | Valor em produção (R2) |
 |---|---|
@@ -321,89 +275,65 @@ mudar — só configuração.**
 | `S3_ACCESS_KEY_ID` | *Access Key ID* do token R2 |
 | `S3_SECRET_ACCESS_KEY` | *Secret Access Key* do token R2 |
 | `S3_BUCKET` | nome do bucket (ex.: `portal-media`) |
-| `S3_PUBLIC_URL` | URL pública do bucket — **domínio próprio**; o `r2.dev` é só para desenvolvimento (§2, passo 4) |
+| `S3_PUBLIC_URL` | URL pública do bucket — **domínio próprio**, com `https://` e sem barra no fim |
 | `S3_FORCE_PATH_STYLE` | **`false`** — o R2 usa *virtual-hosted style* |
 
 > 🔐 **As credenciais não entram no repositório.** Cadastre-as no painel de
-> variáveis de ambiente da hospedagem, onde ficam cifradas. Nada de commit em
-> `.env`, nada de colar em chat ou ticket — uma chave que vaza dá escrita no
-> bucket inteiro. Se uma chave for exposta, revogue no painel da Cloudflare e
-> gere outra; não adianta só apagar a mensagem.
+> variáveis de ambiente do Coolify. Nada de commit em `.env`, nada de colar em
+> chat ou ticket — uma chave que vaza dá escrita no bucket inteiro. Se uma chave
+> for exposta, revogue no painel da Cloudflare e gere outra; não adianta só
+> apagar a mensagem.
 
-### O que configurar no bucket
+No bucket: **leitura pública** no domínio de `S3_PUBLIC_URL`; **CORS liberando
+`PUT`** do domínio do painel (o upload vai do navegador direto para o R2, por
+URL pré-assinada — A28); token com **leitura e escrita**.
 
-1. **Acesso público de leitura** no domínio de `S3_PUBLIC_URL` — o portal serve
-   as imagens direto de lá.
-2. **CORS liberando `PUT` a partir do domínio do painel.** O upload é feito
-   **direto do navegador** para o R2, por URL pré-assinada (A28) — o arquivo
-   nunca passa pelo nosso servidor. Sem esse CORS, o envio de imagem falha:
-
-   ```json
-   [
-     {
-       "AllowedOrigins": ["https://SEU-DOMINIO"],
-       "AllowedMethods": ["PUT"],
-       "AllowedHeaders": ["content-type"],
-       "MaxAgeSeconds": 3600
-     }
-   ]
-   ```
-
-3. O token de API precisa de permissão de **leitura e escrita** no bucket.
-
-### Como validar
-
-Suba uma imagem pela Biblioteca de mídia do painel. Se aparecer na grade e
-carregar no portal, está certo. Se o envio travar em 0%, é CORS.
+**Como validar:** suba uma imagem pela Biblioteca de mídia do painel. Se
+aparecer na grade e carregar no portal, está certo. Se o envio travar em 0%, é
+CORS.
 
 ---
 
-## 3. Publicação automática das matérias agendadas
+## 4. Publicação automática das matérias agendadas
 
 O painel deixa marcar uma matéria para sair às 6h. Quem publica de fato é o
-**Inngest** (§3.1), que executa a tarefa `publish-scheduled` a cada 5 minutos.
+**Inngest** (§4.1), que executa a tarefa `publish-scheduled` a cada 5 minutos.
 
 A tarefa publica tudo que venceu, despacha os eventos (auditoria inclusa) e
 devolve `{"published": N, "ids": [...]}`. É idempotente: rodar de novo sem nada
 vencido devolve `0`.
 
-**Há ainda um terceiro gatilho, sempre ativo:** a primeira renderização de
-página depois do horário publica as vencidas
-(`publishDueScheduledOnRead`, em `apps/web/src/data/read-model.ts`). Ou seja, o
-agendador cobre o caso do portal sem visitante — com tráfego, a matéria sai de
-qualquer jeito.
+**Há ainda um gatilho sempre ativo:** a primeira renderização de página depois
+do horário publica as vencidas (`publishDueScheduledOnRead`, em
+`apps/web/src/data/read-model.ts`). O agendador cobre o caso do portal sem
+visitante — com tráfego, a matéria sai de qualquer jeito.
 
-> **O `crons` do `vercel.json` foi REMOVIDO** (2026-08-07), por decisão: um
-> agendador só, uma fonte de periodicidade só, e nada de 503 no log. Com isso
-> `CRON_SECRET` deixou de ser necessária em produção — ela só protege a rota
-> `/api/cron/[task]`, que ninguém dispara hoje. Ela continua existindo para quem
-> quiser trocar de agendador sem mexer em código (ver abaixo).
+O botão **"Publicar agendadas vencidas"**, no menu da lista de matérias, é o
+disparo manual, útil para testar e para não ficar refém do agendador.
 
 ### Trocar de agendador, ou adicionar uma tarefa
 
-A rota é `/api/cron/[task]`: o último segmento é o **nome** de uma tarefa
-registrada em `packages/api/src/scheduler.ts`. Registrar uma tarefa nova é uma
-linha lá; a rota, a autenticação e o formato da resposta vêm de graça.
-
-O cron da Vercel é só o motorista de hoje. A porta `Scheduler`
-([ADR 0007](./adr/0007-eventos-e-agendamento-atras-de-portas.md)) deixa trocar
-sem tocar em código de negócio:
+Registrar uma tarefa nova é uma linha em `packages/api/src/scheduler.ts`. A
+porta `Scheduler` ([ADR 0007](./adr/0007-eventos-e-agendamento-atras-de-portas.md))
+deixa trocar o motorista sem tocar em código de negócio:
 
 | Agendador | Como ligar |
 |---|---|
-| **Inngest** (adotado) | já escrito — `packages/api/src/inngest.ts` + a rota `/api/inngest`. Ver §3.1 |
-| **Cron da Vercel** | reponha o bloco `crons` no `vercel.json` (uma entrada por tarefa) **e** cadastre `CRON_SECRET` |
-| **`node-cron`** / VPS | no boot: `for (const t of scheduler.tasks()) cron.schedule(t.cron, () => scheduler.run(t.name))` |
-| **crontab do sistema** | `curl -H "Authorization: Bearer $CRON_SECRET" https://dominio/api/cron/<tarefa>` |
+| **Inngest** (adotado) | `packages/api/src/inngest.ts` + a rota `/api/inngest`. Ver §4.1 |
+| **crontab da VPS** / cron externo | cadastre `CRON_SECRET` e chame `curl -H "Authorization: Bearer $CRON_SECRET" https://SEU-DOMINIO/api/cron/<tarefa>` |
+| **`node-cron`** | no boot: `for (const t of scheduler.tasks()) cron.schedule(t.cron, () => scheduler.run(t.name))` |
 
-### 3.1 · Inngest — o agendador de produção
+A rota `/api/cron/[task]` resolve o nome no registro e **recusa** se
+`CRON_SECRET` não estiver definida — é um endpoint que muda o estado do portal.
 
-Adotado pela facilidade de operação e pelo **retry com backoff**, que o cron da
-Vercel não tem: uma tarefa que falhe por banco indisponível é reprocessada
-sozinha, em vez de esperar a próxima janela.
+### 4.1 · Inngest — o agendador de produção
+
+Adotado pela facilidade de operação e pelo **retry com backoff**: uma tarefa
+que falhe por banco indisponível é reprocessada sozinha, em vez de esperar a
+próxima janela.
 
 O adapter percorre `scheduler.tasks()` e cria uma função por tarefa, usando o
-`cron` que a própria tarefa declara — **não há periodicidade redigitada**.
+`cron` que a própria tarefa declara — **a periodicidade tem uma fonte só**.
 Registrar tarefa nova em `packages/api/src/scheduler.ts` basta; ela aparece no
 Inngest no deploy seguinte.
 
@@ -420,77 +350,50 @@ assume nuvem e a rota responde 500 pedindo chave de assinatura.
 
 **Em produção:**
 
-1. Crie a app no painel do Inngest e aponte o *sync* para
+1. No painel do Inngest, aponte o *sync* da app para
    `https://SEU-DOMINIO/api/inngest`.
 2. Em *Settings → Keys*, copie a **Signing Key** e a **Event Key**.
-3. Cadastre na Vercel `INNGEST_SIGNING_KEY` e `INNGEST_EVENT_KEY`. **Não**
+3. Cadastre no Coolify `INNGEST_SIGNING_KEY` e `INNGEST_EVENT_KEY`. **Não**
    defina `INNGEST_DEV`.
 4. Faça o deploy e confirme no painel do Inngest que a função
    `publish-scheduled` aparece com o gatilho `*/5 * * * *`.
 
-> **A periodicidade tem uma fonte só:** o `cron` declarado na tarefa, em
-> `packages/api/src/scheduler.ts`. O Inngest lê dali. Isto deixou de ser
-> verdade se você repuser o `crons` do `vercel.json` — a Vercel lê o arquivo,
-> não o registro, e nada avisa quando os dois divergem.
+Chamada à rota sem assinatura responde `401` — é o esperado com a chave
+configurada.
 
-### Se um dia voltar para o cron da Vercel
+### 4.2 · Vídeo: o que o deploy precisa ter (spec 12)
 
-O plano **Hobby só aceita cron uma vez por dia** — o deploy recusa o `*/5`. Foi
-uma das razões para o Inngest. Se ainda assim quiser voltar, além de repor o
-`crons` e a `CRON_SECRET`, ou você aceita um horário só (`"0 9 * * *"`) ou
-dirige de fora — cron-job.org, `curl` no crontab de um VPS, `node-cron`. A rota
-`/api/cron/[task]` é burra de propósito para isso:
-
-```bash
-curl -H "Authorization: Bearer $CRON_SECRET" https://seu-dominio/api/cron/publish-scheduled
-```
-
-O botão **"Publicar agendadas vencidas"**, no menu da lista de matérias,
-continua existindo — é o disparo manual, útil para testar e para não ficar
-refém do cron.
-
-### 3.1 · Vídeo: o que o deploy precisa ter (spec 12)
-
-A tarefa `publish-social` monta vídeo desde a spec 12, e isso põe duas
-exigências no ambiente. As duas falham de forma BARULHENTA (deploy vermelho,
-entrega com erro na fila), não em silêncio — mas nenhuma das duas se resolve
-sozinha.
-
-**1 · Fluid Compute ligado no projeto da Vercel.** As rotas `/api/inngest` e
-`/api/cron/[task]` declaram `maxDuration = 300`. Transcodificar um Reels leva
-dezenas de segundos; com o teto padrão a entrega morreria no meio, voltaria
-para a fila e tentaria de novo — para morrer no mesmo lugar, sempre. Se o plano
-não permitir 300 s, **o build falha dizendo qual é o máximo**; nesse caso, o
-caminho é mover a montagem para fora da função, não baixar o teto do vídeo.
-
-Fluid Compute é o padrão em projetos criados de 2025 em diante. Em projeto
-antigo: *Settings → Functions → Fluid Compute*.
-
-**2 · O binário do ffmpeg precisa chegar ao deploy.** Ele não vem no pacote npm:
-o `postinstall` do `ffmpeg-static` o baixa para o sistema em que instala. Três
-lugares já cuidam disso e nenhum pode ser removido:
+A tarefa `publish-social` monta vídeo desde a spec 12. **O binário do ffmpeg
+precisa chegar à imagem.** Ele não vem no pacote npm: o script de instalação do
+`ffmpeg-static` o baixa para o sistema em que instala. Quatro lugares cuidam
+disso e nenhum pode ser removido:
 
 | Onde | O quê | Se faltar |
 |---|---|---|
-| `pnpm-workspace.yaml` → `onlyBuiltDependencies` | deixa o `postinstall` rodar | o pacote instala VAZIO |
+| `pnpm-workspace.yaml` → `onlyBuiltDependencies` | deixa o script de instalação rodar | o pacote instala VAZIO |
 | `next.config.ts` → `serverExternalPackages` | não empacota o módulo | o caminho aponta para dentro do bundle, e dá `ENOENT` |
-| `next.config.ts` → `outputFileTracingIncludes` | copia o binário para o deploy | o arquivo não existe em produção |
+| `next.config.ts` → `outputFileTracingIncludes` | copia o binário para o standalone | o arquivo não existe em produção |
+| `Dockerfile` → trava do `builder` | confere que o binário chegou | o deploy passaria, e o vídeo quebraria só em produção |
 
-É a mesma trinca que o `sharp` e o `skia-canvas` já exigiam, pelo mesmo motivo.
+É a mesma exigência do `sharp` e do `skia-canvas`, pelo mesmo motivo.
+
+A montagem roda no mesmo servidor que atende o portal, sem teto de tempo de
+função (o `maxDuration` existia só para a Vercel). Quem a limita é o
+`RENDER_MAX_SECONDS` (90 s de vídeo), no domínio.
 
 Para conferir depois do deploy, sem publicar nada: aprove um post de vídeo e
 acompanhe a entrega na fila. "O ffmpeg não está instalado neste ambiente" é o
-item 2; tempo esgotado na montagem é o item 1.
+binário faltando.
 
 ---
 
-## 4. Conteúdo inicial (seed)
+## 5. Conteúdo inicial (seed)
 
 Para o portal não nascer vazio:
 
 ```bash
 pnpm db:seed                                  # usa a DATABASE_URL do .env
-DATABASE_URL="postgresql://…" pnpm db:seed    # aponta para produção
+DATABASE_URL="postgresql://…" pnpm db:seed    # aponta para outro banco
 SEED_ARTICLES=40 pnpm db:seed                 # muda o volume (padrão: 24)
 ```
 
@@ -503,38 +406,76 @@ a home ficar com cara de portal em operação.
 - **Rodar de novo sobrescreve o conteúdo semeado.** Depois que a redação começar
   a editar, não rode mais.
 - Roda com `node` puro (`.mjs` sobre o `pg`), sem `tsx` e sem build — por isso
-  funciona apontado para qualquer banco, de qualquer máquina.
+  funciona apontado para qualquer banco, de qualquer máquina. O Postgres do
+  Coolify só é alcançável de fora com o acesso público ligado (§0 passo 1).
 
 **As matérias entram sem imagem de capa** — o seed não sobe arquivo para o
-storage. No portal elas aparecem com o espaço da imagem reservado (sem quebra de
-layout). Para completá-las, suba as fotos pela Biblioteca de mídia e defina a
+storage. Para completá-las, suba as fotos pela Biblioteca de mídia e defina a
 capa em cada matéria.
 
 ---
 
-## 5. Checklist de um deploy limpo
+## 6. Copiar o banco (`pg_dump` / `pg_restore`)
 
-1. [ ] Variáveis cadastradas na Vercel: `DATABASE_URL` (**com** `-pooler`),
-       `DIRECT_URL` (**sem** `-pooler`), `BETTER_AUTH_SECRET`,
-       `BETTER_AUTH_URL`, `CORS_ORIGIN`, `S3_*`, `REDIS_URL`.
-2. [ ] `BETTER_AUTH_SECRET` com no mínimo 32 caracteres, **gerado para produção**
-       (`openssl rand -base64 32`) — nunca o do `.env.example`.
-3. [ ] `BETTER_AUTH_URL` e `CORS_ORIGIN` apontando para o domínio real.
-4. [ ] *Root Directory* do projeto na Vercel = **raiz do repositório**.
-5. [ ] `prisma migrate status` sem migrations pendentes.
+Foi como o conteúdo saiu do Neon para o Coolify, e é o mesmo procedimento para
+backup manual ou para levar produção a outro servidor.
+
+1. **Versão:** o `pg_dump` precisa ser da mesma versão do servidor de origem ou
+   mais nova, e o destino, da mesma versão ou mais nova que a origem. Rodar pelo
+   Docker evita instalar cliente: `docker run --rm postgres:18 …`.
+2. **Origem com pooler** (Neon): use a conexão **direta**, sem `-pooler`.
+3. **Destino no Coolify:** ligue o "Make it publicly available" do Postgres só
+   durante a cópia e use a URL pública (IP da VPS + porta pública).
+
+```bash
+# dump — formato custom, sem dono nem permissões (os usuários não existem no destino)
+docker run --rm -v "$PWD:/out" postgres:18 pg_dump "$ORIGEM" --format=custom --no-owner --no-acl --file=/out/portal.dump
+
+# restore — uma transação só: se algo falhar, nada fica pela metade
+docker run --rm -v "$PWD:/out" postgres:18 pg_restore --dbname="$DESTINO" --clean --if-exists --no-owner --no-acl --single-transaction --exit-on-error /out/portal.dump
+```
+
+- **`--clean --if-exists` apaga as tabelas do destino** antes de recriá-las.
+  Confira antes que o destino não tem dado que importe — num Postgres recém
+  criado, o primeiro deploy já terá criado as tabelas, vazias.
+- O dump leva a `_prisma_migrations`: o deploy seguinte reconhece as migrations
+  como aplicadas.
+- **Confira** comparando a contagem de linhas por tabela na origem e no destino.
+- Depois: *Redeploy* do app (as páginas pré-renderizadas saem com o conteúdo),
+  **desligue o acesso público** e apague o arquivo `.dump` — ele tem o banco
+  inteiro, sessões incluídas.
+
+O que for publicado na origem depois do dump não vai junto: numa virada, congele
+a edição pelos minutos da cópia.
+
+---
+
+## 7. Checklist de um deploy limpo
+
+1. [ ] Postgres 18 e Redis criados no Coolify, sem acesso público.
+2. [ ] App com Build Pack **Dockerfile**, Base Directory `/`, porta `3000`,
+       healthcheck da UI desligado, "Disable Build Cache" e "Include Source
+       Commit in Build" desmarcados.
+3. [ ] Variáveis do §0 passo 5 cadastradas e marcadas como disponíveis no
+       build. `BETTER_AUTH_SECRET` com no mínimo 32 caracteres, **gerado para
+       produção** — nunca o do `.env.example`.
+4. [ ] `BETTER_AUTH_URL` e `CORS_ORIGIN` apontando para o domínio real.
+5. [ ] No log: migrations aplicadas, nenhuma falta de binário, container
+       `healthy`.
 6. [ ] CORS do bucket liberando `PUT` do domínio do painel.
 7. [ ] `S3_PUBLIC_URL` apontando para o **domínio próprio** do bucket (é o
        prefixo de toda imagem — inclusive do `og:image` e do sitemap de
        imagem). `pub-….r2.dev` em produção é limite de taxa esperando acontecer.
-8. [ ] Uma matéria agendada para daqui a poucos minutos publicou sozinha —
-       é o teste de que o Inngest está de fato dirigindo.
-9. [ ] `INNGEST_SIGNING_KEY` e `INNGEST_EVENT_KEY` cadastradas, e a app
-       sincronizada no painel do Inngest — confira que `publish-scheduled`
-       aparece lá com o gatilho `*/5 * * * *`. **Não** defina `INNGEST_DEV`
-       em produção.
-10. [ ] Seed rodado uma vez (se o portal estiver vazio).
-11. [ ] Primeiro acesso ao `/login` → criar a conta do dono. **O primeiro usuário
-       do sistema nasce ADMIN** (Decisão D2 da Fase 1).
+8. [ ] Inngest sincronizado no domínio, `publish-scheduled` com o gatilho
+       `*/5 * * * *`, e uma matéria agendada para daqui a poucos minutos
+       publicou sozinha. **Não** defina `INNGEST_DEV` em produção.
+9. [ ] App da Meta com as URLs de callback no domínio (§0, "Integrações").
+10. [ ] Uma arte de padrão gerada e um post de vídeo publicado (binários
+       nativos em produção).
+11. [ ] Conteúdo: seed (portal novo) ou cópia de banco (§6), seguida de
+       *Redeploy*.
+12. [ ] Primeiro acesso ao `/login` → criar a conta do dono. **O primeiro
+       usuário do sistema nasce ADMIN** (Decisão D2 da Fase 1).
 
 > ⚠️ Enquanto não existir convite (Bloco B da Fase 5), **qualquer pessoa que
 > acesse `/login` consegue criar conta** e vira REDATOR automaticamente. Se o
