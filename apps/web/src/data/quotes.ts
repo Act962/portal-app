@@ -120,7 +120,7 @@ const fetchQuotes = unstable_cache(
 				console.warn(
 					`[cotacoes] a API respondeu ${response.status}; portal segue sem a faixa.` +
 						(response.status === 429 && !token
-							? " Sem AWESOMEAPI_TOKEN: o limite anônimo é POR IP, e o da Vercel é compartilhado com outros clientes."
+							? " Sem AWESOMEAPI_TOKEN: o limite anônimo é POR IP, e um IP compartilhado com outros clientes esgota a cota."
 							: ""),
 				);
 				return [];

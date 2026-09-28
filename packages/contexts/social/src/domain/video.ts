@@ -52,16 +52,17 @@ export type VideoSequence = readonly VideoClip[];
  * O teto de duração do PORTAL, em segundos.
  *
  * Não é limite do Instagram (o Reels aceita 15 minutos): é limite do nosso
- * renderizador. Compor o padrão sobre o vídeo é transcodificação, roda numa
- * função com tempo máximo de execução, e um vídeo de dez minutos estoura esse
- * tempo — a entrega ficaria repetindo para sempre sem nunca terminar. Noventa
- * segundos é o dobro do Reels típico de portal e cabe com folga.
+ * renderizador. Compor o padrão sobre o vídeo é transcodificação, e roda no
+ * MESMO servidor que atende o portal, dentro da requisição do Inngest: um vídeo
+ * de dez minutos prenderia a CPU da VPS por minutos, disputando com os
+ * leitores. Noventa segundos é o dobro do Reels típico de portal e cabe com
+ * folga. (Nasceu, na Vercel, como teto de tempo de função.)
  *
  * Vale para a SOMA dos trechos: o que custa a montagem é o vídeo final, não
  * quantos pedaços o formaram.
  *
- * Subir este número exige mover a renderização para fora da função (uma fila
- * com máquina própria), não só trocar a constante.
+ * Subir muito este número pede mover a renderização para fora do servidor do
+ * portal (uma fila com máquina própria), não só trocar a constante.
  */
 export const RENDER_MAX_SECONDS = 90;
 

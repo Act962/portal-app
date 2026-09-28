@@ -12,26 +12,11 @@ import { serve } from "inngest/next";
  * a `INNGEST_SIGNING_KEY`. Em produção, **sem essa variável o endpoint recusa**
  * — é o mesmo princípio do `CRON_SECRET` na rota `/api/cron/[task]`.
  *
- * As duas rotas coexistem de propósito durante a transição: enquanto o Inngest
- * não estiver confirmado em produção, o cron da Vercel continua sendo a rede de
- * segurança. As tarefas são idempotentes, então disparar pelos dois caminhos
- * não duplica nada — ver docs/deploy.md §3.
+ * Sem `maxDuration`: ele só existia para a Vercel, que cortava a função no
+ * teto. No Coolify o Next roda como processo Node de longa duração, e a
+ * montagem de vídeo (spec 12) termina no tempo que levar — quem a limita é o
+ * `RENDER_MAX_SECONDS` do domínio.
  */
-/**
- * Quanto tempo a função pode rodar (spec 12).
- *
- * Os cinco minutos existem por causa do VÍDEO: montar o padrão sobre um Reels
- * é transcodificação, e leva dezenas de segundos. Com o teto padrão da Vercel,
- * a entrega morreria no meio, voltaria para a fila e tentaria de novo — para
- * morrer no mesmo lugar, para sempre.
- *
- * **Isto exige Fluid Compute ligado no projeto** (padrão nos projetos novos) ou
- * um plano que permita o valor; caso contrário o deploy falha dizendo qual é o
- * máximo. Ver docs/deploy.md §3. O teto do vídeo em si é outro e menor —
- * `RENDER_MAX_SECONDS`, 90 s de duração —, e é ele que garante que a montagem
- * caiba aqui com folga.
- */
-export const maxDuration = 300;
 
 export const { GET, POST, PUT } = serve({
 	client: inngest,
