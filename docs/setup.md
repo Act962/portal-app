@@ -12,7 +12,7 @@ Para **colocar em produção**, o documento é outro: [`deploy.md`](./deploy.md)
 |---|---|---|
 | **Node.js** | 22 | É a versão que o CI usa (`.github/actions/setup`); 20.9+ funciona, mas divergir do CI é procurar surpresa |
 | **pnpm** | `10.24.0` | Fixado em `packageManager`; outra versão resolve o lockfile diferente |
-| **Docker** | qualquer recente | Postgres, Redis e MinIO sobem em container |
+| **Docker** | qualquer recente | Postgres, Redis e RustFS sobem em container |
 | **Git** | — | — |
 
 O jeito curto de acertar o pnpm sem instalar nada global:
@@ -58,7 +58,7 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 ### 3.2 O bloco de storage (`S3_*`) — os sete valores vêm juntos
 
-Existem dois blocos no `.env.example`: um do **MinIO local** e um do **R2**. A
+Existem dois blocos no `.env.example`: um do **RustFS local** e um do **R2**. A
 regra que evita a armadilha: **não misture os dois.** O `S3_PUBLIC_URL` é o
 endereço de LEITURA e o resto define onde a ESCRITA acontece; se apontarem para
 lugares diferentes, o upload funciona, não dá erro nenhum, e o arquivo dá 404
@@ -66,14 +66,14 @@ quando alguém tenta abrir.
 
 | Escolha | O que ganha | O que perde |
 |---|---|---|
-| **MinIO** (bloco padrão) | Tudo offline, upload local funciona de ponta a ponta | As capas do seed não aparecem — elas moram no bucket do R2 (ver 5.1) |
+| **RustFS** (bloco padrão) | Tudo offline, upload local funciona de ponta a ponta | As capas do seed não aparecem — elas moram no bucket do R2 (ver 5.1) |
 | **R2** | As capas do seed aparecem | Precisa das credenciais do R2, e o que você subir testando vai para o bucket real |
 
-Se for só desenvolver, fique no **MinIO**. As capas ausentes não quebram nada: o
+Se for só desenvolver, fique no **RustFS**. As capas ausentes não quebram nada: o
 portal reserva o espaço da imagem e segue.
 
 > **Foi assim que a máquina antiga ficou:** `S3_PUBLIC_URL` do R2 e o resto no
-> MinIO — de propósito, para ver as capas do seed. Só saiba o efeito colateral:
+> RustFS — de propósito, para ver as capas do seed. Só saiba o efeito colateral:
 > arquivo enviado pelo painel some ao abrir.
 
 ---
@@ -90,7 +90,7 @@ padrão, e **pode ignorar**: nada aqui depende deles — o Prisma 7 não tem eng
 nativa, e o Next traz o seu próprio `sharp`. Não rode `pnpm approve-builds`
 achando que é obrigatório.
 
-Sobe três containers: **Postgres** (5432), **Redis** (6379) e **MinIO** (9000,
+Sobe três containers: **Postgres** (5432), **Redis** (6379) e **RustFS** (9000,
 console em 9001). O bucket `portal-media` é criado sozinho e já sai com leitura
 pública.
 
@@ -144,7 +144,7 @@ determinístico e idempotente (upsert por slug) — rodar duas vezes não duplic
 semeou.
 
 As capas do seed apontam para imagens que já existem no bucket do R2. Com o
-`S3_PUBLIC_URL` do MinIO elas não resolvem, e o portal mostra o espaço reservado
+`S3_PUBLIC_URL` do RustFS elas não resolvem, e o portal mostra o espaço reservado
 sem quebrar — é esperado, não é bug.
 
 ---
@@ -157,7 +157,7 @@ pnpm dev
 
 - Portal: <http://localhost:3001>
 - Painel: <http://localhost:3001/dashboard>
-- MinIO (ver os arquivos): <http://localhost:9001> — `minioadmin` / `minioadmin`
+- RustFS (ver os arquivos): <http://localhost:9001/rustfs/console/> — `minioadmin` / `minioadmin`
 
 ### 6.1 A primeira conta
 
