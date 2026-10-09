@@ -16,12 +16,19 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /**
- * Contrato de `MediaStorage`, rodado contra o fake in-memory E contra um MinIO
- * real (Testcontainers). É o que legitima usar o fake nos testes de aplicação:
- * se ambos honram getUploadUrl → upload → leitura → delete, o fake é fiel ao S3.
+ * Contrato de `MediaStorage`, rodado contra o fake in-memory E contra um
+ * servidor S3 real (Testcontainers). É o que legitima usar o fake nos testes de
+ * aplicação: se ambos honram getUploadUrl → upload → leitura → delete, o fake é
+ * fiel ao S3.
  *
- * O transporte difere (o MinIO usa HTTP de verdade; o fake simula em memória),
- * então cada harness abstrai o "upload" e o "download"; o contrato é o mesmo.
+ * O transporte difere (o servidor usa HTTP de verdade; o fake simula em
+ * memória), então cada harness abstrai o "upload" e o "download"; o contrato é
+ * o mesmo.
+ *
+ * O servidor é o RustFS, e não mais o MinIO: as imagens do MinIO saíram do
+ * Docker Hub e depois do quay.io, e o CI passou a falhar no `pull` com
+ * "unauthorized" antes de rodar qualquer teste. O RustFS fala a mesma API e
+ * sobe do mesmo jeito (um binário, chave e segredo por variável de ambiente).
  */
 
 type StorageHarness = {
@@ -30,48 +37,48 @@ type StorageHarness = {
 	download: (key: string) => Promise<Uint8Array | null>;
 };
 
-let minio: StartedTestContainer | undefined;
-let minioConfig: S3StorageConfig | undefined;
-let minioClient: S3Client | undefined;
+const ACCESS_KEY = "testaccesskey";
+const SECRET_KEY = "testsecretkey";
+const S3_PORT = 9000;
+
+let server: StartedTestContainer | undefined;
+let s3Config: S3StorageConfig | undefined;
+let s3Client: S3Client | undefined;
 
 beforeAll(async () => {
-	// Do quay.io e com versão fixa: a imagem `minio/minio` saiu do Docker Hub
-	// (setembro/2026), e o CI parou de conseguir baixá-la.
-	minio = await new GenericContainer(
-		"quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z",
-	)
+	// Versão fixa: `latest` muda sem aviso.
+	server = await new GenericContainer("rustfs/rustfs:1.0.1")
 		.withEnvironment({
-			MINIO_ROOT_USER: "minioadmin",
-			MINIO_ROOT_PASSWORD: "minioadmin",
+			RUSTFS_ACCESS_KEY: ACCESS_KEY,
+			RUSTFS_SECRET_KEY: SECRET_KEY,
 		})
-		.withCommand(["server", "/data"])
-		.withExposedPorts(9000)
-		.withWaitStrategy(Wait.forHttp("/minio/health/live", 9000))
+		.withCommand(["/data"])
+		.withExposedPorts(S3_PORT)
+		.withWaitStrategy(Wait.forHttp("/health", S3_PORT))
 		.start();
 
-	const endpoint = `http://${minio.getHost()}:${minio.getMappedPort(9000)}`;
-	minioConfig = {
+	const endpoint = `http://${server.getHost()}:${server.getMappedPort(S3_PORT)}`;
+	s3Config = {
 		endpoint,
 		region: "us-east-1",
-		accessKeyId: "minioadmin",
-		secretAccessKey: "minioadmin",
+		accessKeyId: ACCESS_KEY,
+		secretAccessKey: SECRET_KEY,
 		bucket: "test-bucket",
 		publicUrl: `${endpoint}/test-bucket`,
 		forcePathStyle: true,
 	};
-	minioClient = new S3Client({
+	s3Client = new S3Client({
 		endpoint,
-		region: minioConfig.region,
-		credentials: { accessKeyId: "minioadmin", secretAccessKey: "minioadmin" },
+		region: s3Config.region,
+		credentials: { accessKeyId: ACCESS_KEY, secretAccessKey: SECRET_KEY },
 		forcePathStyle: true,
 	});
-	await minioClient.send(
-		new CreateBucketCommand({ Bucket: minioConfig.bucket }),
-	);
+
+	await s3Client.send(new CreateBucketCommand({ Bucket: s3Config.bucket }));
 }, 180_000);
 
 afterAll(async () => {
-	await minio?.stop();
+	await server?.stop();
 });
 
 function fakeHarness(): StorageHarness {
@@ -87,9 +94,9 @@ function fakeHarness(): StorageHarness {
 	};
 }
 
-function minioHarness(): StorageHarness {
-	const config = minioConfig as S3StorageConfig;
-	const client = minioClient as S3Client;
+function s3Harness(): StorageHarness {
+	const config = s3Config as S3StorageConfig;
+	const client = s3Client as S3Client;
 	return {
 		storage: new S3MediaStorage(config),
 		upload: async (url, body, contentType) => {
@@ -147,4 +154,4 @@ function contract(label: string, makeHarness: () => StorageHarness): void {
 }
 
 contract("in-memory", fakeHarness);
-contract("minio", minioHarness);
+contract("s3", s3Harness);
