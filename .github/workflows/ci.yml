@@ -87,7 +87,10 @@ jobs:
     needs: check
     services:
       postgres:
-        image: postgres:17
+        # A mesma `postgres:17`, pelo espelho oficial no ECR público: o Docker
+        # Hub limita o `pull` anônimo por IP e derrubou este job com
+        # "toomanyrequests" antes de o banco subir.
+        image: public.ecr.aws/docker/library/postgres:17
         env:
           POSTGRES_USER: portal
           POSTGRES_PASSWORD: portal
