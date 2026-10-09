@@ -17,9 +17,7 @@ const site = siteIdentityFrom({
 	state: "PI",
 	logoUrl: null,
 	socialImage: null,
-	contactEmail: null,
-	contactNewsroom: null,
-	contactAddress: null,
+	contactLines: [],
 	social: [],
 });
 
@@ -38,9 +36,7 @@ const siteComArte = siteIdentityFrom({
 		height: 630,
 		alt: "Rádio 7 Cidades",
 	},
-	contactEmail: null,
-	contactNewsroom: null,
-	contactAddress: null,
+	contactLines: [],
 	social: [],
 });
 
@@ -133,9 +129,7 @@ describe("pageMetadata", () => {
 				height: null,
 				alt: "R",
 			},
-			contactEmail: null,
-			contactNewsroom: null,
-			contactAddress: null,
+			contactLines: [],
 			social: [],
 		});
 

@@ -12,6 +12,8 @@
  * permite testar a normalização de URL e o fallback do logo sem Postgres.
  */
 
+import { contactChannels } from "@portal-app/settings";
+
 /** A arte do compartilhamento cadastrada nas Configurações. */
 export type SocialImage = {
 	url: string;
@@ -30,9 +32,7 @@ export type SiteIdentitySource = {
 	state: string;
 	logoUrl: string | null;
 	socialImage: SocialImage | null;
-	contactEmail: string | null;
-	contactNewsroom: string | null;
-	contactAddress: string | null;
+	contactLines: string[];
 	social: { label: string; href: string }[];
 };
 
@@ -57,9 +57,9 @@ export type SiteIdentity = {
 	socialImage: SocialImage | null;
 	city: string;
 	state: string;
+	/** Tirados das linhas de contato, que são texto livre (`contactChannels`). */
 	email: string | null;
 	phone: string | null;
-	address: string | null;
 	/** Perfis oficiais, para o `sameAs` do schema.org. */
 	sameAs: string[];
 };
@@ -83,6 +83,7 @@ export function normalizeOrigin(url: string): string {
 export function siteIdentityFrom(source: SiteIdentitySource): SiteIdentity {
 	const url = normalizeOrigin(source.url);
 	const logoUrl = source.logoUrl ?? `${url}${FALLBACK_LOGO}`;
+	const { email, phone } = contactChannels(source.contactLines);
 
 	return {
 		name: source.name,
@@ -95,9 +96,8 @@ export function siteIdentityFrom(source: SiteIdentitySource): SiteIdentity {
 		socialImage: source.socialImage,
 		city: source.city,
 		state: source.state,
-		email: source.contactEmail,
-		phone: source.contactNewsroom,
-		address: source.contactAddress,
+		email,
+		phone,
 		// Só endereços absolutos: `sameAs` com caminho relativo é ignorado pelo
 		// Google, e um campo vazio no formulário não pode virar `https://` solto.
 		sameAs: source.social

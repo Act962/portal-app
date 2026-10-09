@@ -10,7 +10,7 @@ import { DEFAULT_SITE_SETTINGS } from "@portal-app/settings";
  * ponto de partida — editar em dois lugares seria como esperar que não
  * divergissem.
  *
- * O formato aninhado (`radio.*`, `contact.*`) permanece porque os geradores de
+ * O formato próprio (`social` com `name`, por exemplo) permanece porque os geradores de
  * SEO e de feed ainda consomem daqui; eles migram para o read model numa etapa
  * própria (registrada em `docs/pendencias.md`).
  */
@@ -33,12 +33,7 @@ export const siteConfig = {
 	// Sem bloco `radio`: o único leitor era a página /ao-vivo, que saiu com o
 	// player. A frequência e a faixa que o portal ainda mostra (cabeçalho,
 	// rodapé) vêm do read model — `loadSiteSettings()` —, não daqui.
-	contact: {
-		newsroom: d.contactNewsroom,
-		whatsapp: d.contactWhatsapp,
-		email: d.contactEmail,
-		address: d.contactAddress,
-	},
+	contactLines: d.contactLines,
 	social: d.social.map((link) => ({ name: link.label, href: link.href })),
 	institutional: d.institutional,
 	legal: d.legal,

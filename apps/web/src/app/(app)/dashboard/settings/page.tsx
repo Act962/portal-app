@@ -13,7 +13,7 @@ export default async function SettingsPage() {
 		<>
 			<PageHeader
 				title="Configurações do site"
-				description="A identidade do portal: nome, contatos, redes e rádio. O que você salvar aqui aparece no site em até um minuto."
+				description="A identidade do portal: nome, contatos e redes. O que você salvar aqui aparece no site em até um minuto."
 			/>
 			<SettingsForm />
 		</>

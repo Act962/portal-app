@@ -20,9 +20,7 @@ const site = siteIdentityFrom({
 	state: "PI",
 	logoUrl: null,
 	socialImage: null,
-	contactEmail: null,
-	contactNewsroom: null,
-	contactAddress: null,
+	contactLines: [],
 	social: [],
 });
 

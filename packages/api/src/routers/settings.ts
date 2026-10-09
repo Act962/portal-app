@@ -35,13 +35,7 @@ const updateSchema = z.object({
 	faviconMediaId: z.string().nullable().optional(),
 	ogImageMediaId: z.string().nullable().optional(),
 
-	radioFrequency: z.string().nullable().optional(),
-	radioBand: z.string().nullable().optional(),
-
-	contactNewsroom: z.string().nullable().optional(),
-	contactWhatsapp: z.string().nullable().optional(),
-	contactEmail: z.string().nullable().optional(),
-	contactAddress: z.string().nullable().optional(),
+	contactLines: z.array(z.string()).optional(),
 
 	social: z.array(linkSchema).optional(),
 	institutional: z.array(linkSchema).optional(),

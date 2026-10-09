@@ -1,3 +1,4 @@
+import { contactChannels } from "@portal-app/settings";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -32,7 +33,7 @@ export default async function TermsPage() {
 		loadSiteSettings(),
 		loadSiteIdentity(),
 	]);
-	const contact = site.contactEmail;
+	const contact = contactChannels(site.contactLines).email;
 
 	return (
 		<>

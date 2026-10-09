@@ -1,3 +1,4 @@
+import { contactChannels } from "@portal-app/settings";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 
@@ -50,7 +51,7 @@ export default async function PrivacyPage() {
 		loadSiteIdentity(),
 		getAdSenseScript(),
 	]);
-	const contact = site.contactEmail;
+	const contact = contactChannels(site.contactLines).email;
 
 	return (
 		<>

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	contactChannels,
 	DEFAULT_SITE_SETTINGS,
-	InvalidEmail,
 	InvalidLinkHref,
 	InvalidUrl,
 	RequiredField,
@@ -71,12 +71,7 @@ describe("SiteSettings.fromStored — porta de leitura, nunca falha", () => {
 			logoMediaId: "media-1",
 			faviconMediaId: "media-2",
 			ogImageMediaId: "media-3",
-			radioFrequency: "101,1 MHz",
-			radioBand: "101,1 FM",
-			contactNewsroom: "(86) 1111-1111",
-			contactWhatsapp: "(86) 9 2222-2222",
-			contactEmail: "oi@radionova.com",
-			contactAddress: "Centro, Teresina",
+			contactLines: ["Redação · (86) 1111-1111", "oi@radionova.com"],
 			social: [{ label: "Instagram", href: "https://instagram.com/nova" }],
 			institutional: [{ label: "Quem somos", href: "/quem-somos" }],
 			popularSearches: ["Eleições"],
@@ -139,16 +134,36 @@ describe("SiteSettings.update — porta de escrita, valida", () => {
 
 	it("campo opcional em branco vira null", () => {
 		const settings = current();
-		settings.update({ radioBand: "  ", legal: "" }, NOW);
+		settings.update({ footerTagline: "  ", legal: "" }, NOW);
 
-		expect(settings.data.radioBand).toBeNull();
 		expect(settings.data.legal).toBeNull();
 	});
 
-	it("recusa e-mail fora de formato", () => {
-		const result = current().update({ contactEmail: "contato@" }, NOW);
+	it("linha de contato é texto livre: apara e descarta as vazias", () => {
+		const settings = current();
+		settings.update(
+			{ contactLines: ["  Plantão · 24h  ", "", "   ", "contato@"] },
+			NOW,
+		);
 
-		expect(result.unwrapErr()).toBeInstanceOf(InvalidEmail);
+		expect(settings.data.contactLines).toEqual(["Plantão · 24h", "contato@"]);
+	});
+
+	it("contato VAZIO fica vazio — não volta ao e-mail de exemplo", () => {
+		// O defeito que motivou a lista: apagar o e-mail na tela gravava nulo, e
+		// a leitura trocava nulo pelo default. Em produção não havia como tirá-lo.
+		const settings = current();
+		settings.update({ contactLines: [] }, NOW);
+
+		const reread = SiteSettings.fromStored(settings.data);
+
+		expect(reread.data.contactLines).toEqual([]);
+	});
+
+	it("sem lista no banco, o contato cai no default", () => {
+		expect(SiteSettings.fromStored({}).data.contactLines).toEqual(
+			DEFAULT_SITE_SETTINGS.contactLines,
+		);
 	});
 
 	it("limpa termos de busca vazios", () => {
@@ -238,26 +253,26 @@ describe("destinos de link (D9)", () => {
 describe("auditoria (D10)", () => {
 	it("registra o evento com os campos alterados", () => {
 		const settings = current();
-		settings.update({ city: "Teresina", contactEmail: "novo@r7.com" }, NOW);
+		settings.update({ city: "Teresina", contactLines: ["novo@r7.com"] }, NOW);
 
 		const [event] = settings.pullEvents();
 
 		expect(event).toBeInstanceOf(SiteSettingsChanged);
 		expect((event as SiteSettingsChanged).fields).toEqual([
 			"city",
-			"contactEmail",
+			"contactLines",
 		]);
 		expect(event?.occurredAt).toEqual(NOW);
 	});
 
 	it("não carrega os VALORES — telefone e e-mail não vão para o log", () => {
 		const settings = current();
-		settings.update({ contactWhatsapp: "(86) 9 1234-5678" }, NOW);
+		settings.update({ contactLines: ["WhatsApp · (86) 9 1234-5678"] }, NOW);
 
 		const serialized = JSON.stringify(settings.pullEvents());
 
 		expect(serialized).not.toContain("1234-5678");
-		expect(serialized).toContain("contactWhatsapp");
+		expect(serialized).toContain("contactLines");
 	});
 
 	it("salvar sem mudar nada não polui a auditoria", () => {
@@ -337,5 +352,33 @@ describe("imagem de compartilhamento", () => {
 		settings.update({ ogImageMediaId: "" }, NOW).unwrap();
 
 		expect(settings.data.ogImageMediaId).toBeNull();
+	});
+});
+
+describe("contactChannels — o dado dentro da linha livre", () => {
+	it("tira o e-mail e o telefone das linhas, com ou sem rótulo", () => {
+		expect(
+			contactChannels([
+				"Redação · (86) 3343-1107",
+				"WhatsApp · (86) 9 9999-0000",
+				"E-mail: contato@fm7cidades.com",
+			]),
+		).toEqual({ email: "contato@fm7cidades.com", phone: "(86) 3343-1107" });
+	});
+
+	it("vale o primeiro de cada tipo, na ordem das linhas", () => {
+		expect(
+			contactChannels(["a@r7.com", "b@r7.com", "+55 86 99999-0000"]),
+		).toEqual({ email: "a@r7.com", phone: "+55 86 99999-0000" });
+	});
+
+	it("endereço com CEP e quilômetro não vira telefone", () => {
+		expect(
+			contactChannels(["BR-343, km 140 · Piracuruca · CEP 64240-000"]),
+		).toEqual({ email: null, phone: null });
+	});
+
+	it("sem linha nenhuma, não há canal", () => {
+		expect(contactChannels([])).toEqual({ email: null, phone: null });
 	});
 });

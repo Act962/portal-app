@@ -1,3 +1,4 @@
+import { contactChannels } from "@portal-app/settings";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -47,7 +48,7 @@ export default async function DataDeletionPage({
 	]);
 	const code =
 		typeof codigo === "string" && /^[a-f0-9]{16}$/.test(codigo) ? codigo : null;
-	const contact = site.contactEmail;
+	const contact = contactChannels(site.contactLines).email;
 
 	return (
 		<LegalPage
