@@ -15,7 +15,7 @@ ganhou contextos próprios em `packages/contexts/`.
 | API | tRPC, tipada ponta a ponta |
 | Banco | PostgreSQL 17 via Prisma 7 (driver adapter, sem Rust) |
 | Auth | Better-Auth (e-mail/senha) |
-| Mídia | R2 em produção, MinIO no dev — mesmo adapter S3 |
+| Mídia | R2 em produção, RustFS no dev — mesmo adapter S3 |
 | Agendamento | Inngest, atrás da porta `Scheduler` |
 | UI | shadcn/ui em `packages/ui`, Tailwind v4 |
 | Qualidade | Biome, Vitest (unidade + integração), Playwright, dependency-cruiser |

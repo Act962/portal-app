@@ -26,4 +26,21 @@ describe("recorte da capa", () => {
 			height: 450,
 		});
 	});
+	it("recorta um quadrado de um retrato, seguindo a posição vertical", () => {
+		expect(coverCrop(961, 1280, 0.5, 0, 1, "1:1")).toEqual({
+			left: 0,
+			top: 0,
+			width: 961,
+			height: 961,
+		});
+		expect(coverCrop(961, 1280, 0.5, 1, 1, "1:1").top).toBe(319);
+	});
+	it("recorta um quadrado de uma foto deitada, com ampliação", () => {
+		expect(coverCrop(1600, 900, 0.5, 0.5, 2, "1:1")).toEqual({
+			left: 575,
+			top: 225,
+			width: 450,
+			height: 450,
+		});
+	});
 });

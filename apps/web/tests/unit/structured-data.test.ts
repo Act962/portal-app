@@ -21,9 +21,11 @@ const site = siteIdentityFrom({
 	state: "PI",
 	logoUrl: null,
 	socialImage: null,
-	contactEmail: "contato@fm7cidades.com",
-	contactNewsroom: "(86) 3343-1107",
-	contactAddress: "BR-343, km 140",
+	contactLines: [
+		"Redação · (86) 3343-1107",
+		"contato@fm7cidades.com",
+		"BR-343, km 140",
+	],
 	social: [{ label: "Instagram", href: "https://instagram.com/fm7cidades" }],
 });
 
@@ -66,7 +68,6 @@ describe("organizationSchema", () => {
 		// — estavam nas Configurações e não chegavam a lugar nenhum do HTML.
 		expect(schema.address).toMatchObject({
 			"@type": "PostalAddress",
-			streetAddress: "BR-343, km 140",
 			addressLocality: "Piracuruca",
 			addressRegion: "PI",
 			addressCountry: "BR",
@@ -95,14 +96,11 @@ describe("organizationSchema", () => {
 				state: "PI",
 				logoUrl: null,
 				socialImage: null,
-				contactEmail: null,
-				contactNewsroom: null,
-				contactAddress: null,
+				contactLines: [],
 				social: [],
 			}),
 		);
 		expect(semContato).not.toHaveProperty("contactPoint");
-		expect(semContato.address).not.toHaveProperty("streetAddress");
 	});
 });
 

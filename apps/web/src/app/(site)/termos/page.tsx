@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LegalPage } from "@/components/layout/legal-page";
 import { JsonLd } from "@/components/seo/json-ld";
 import { loadSiteSettings } from "@/data/queries";
+import { legalContactOf } from "@/lib/legal-contact";
 import { routes } from "@/lib/routes";
 import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { pageMetadata } from "@/lib/seo/metadata";
@@ -32,7 +33,7 @@ export default async function TermsPage() {
 		loadSiteSettings(),
 		loadSiteIdentity(),
 	]);
-	const contact = site.contactEmail;
+	const contact = legalContactOf(site);
 
 	return (
 		<>
@@ -95,18 +96,24 @@ export default async function TermsPage() {
 						treinar modelos de linguagem, sem autorização prévia por escrito.
 					</li>
 				</ul>
-				<p>
-					Pedidos de autorização e propostas de parceria de conteúdo podem ser
-					enviados{" "}
-					{contact ? (
-						<>
-							para <a href={`mailto:${contact}`}>{contact}</a>
-						</>
-					) : (
-						"pelos canais de contato do rodapé"
-					)}
-					.
-				</p>
+				{/* Sem canal cadastrado o parágrafo sai — o rodapé também esconde o
+				    bloco de contato quando ele está vazio. */}
+				{contact.kind !== "none" ? (
+					<p>
+						Pedidos de autorização e propostas de parceria de conteúdo podem ser
+						enviados{" "}
+						{contact.kind === "email" ? (
+							<>
+								para <a href={`mailto:${contact.email}`}>{contact.email}</a>
+							</>
+						) : contact.kind === "footer" ? (
+							"pelos canais de contato do rodapé"
+						) : (
+							"pelos perfis oficiais do portal nas redes sociais, listados no topo do site"
+						)}
+						.
+					</p>
+				) : null}
 
 				<h2>Compromisso editorial e correções</h2>
 				<p>

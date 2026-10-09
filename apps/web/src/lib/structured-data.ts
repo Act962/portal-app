@@ -59,7 +59,6 @@ export function organizationSchema(site: SiteIdentity) {
 		 */
 		address: {
 			"@type": "PostalAddress",
-			...(site.address ? { streetAddress: site.address } : {}),
 			addressLocality: site.city,
 			addressRegion: site.state,
 			addressCountry: "BR",

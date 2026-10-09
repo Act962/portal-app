@@ -15,14 +15,10 @@ const LINK = "text-on-brand-muted hover:text-white";
 export async function SiteFooter({ sections }: { sections: Section[] }) {
 	const site = await loadSiteSettings();
 
-	// Só as linhas preenchidas: um rótulo "WhatsApp ·" sem número ao lado é pior
-	// do que a ausência da linha.
-	const contact = [
-		site.contactNewsroom ? `Redação · ${site.contactNewsroom}` : null,
-		site.contactWhatsapp ? `WhatsApp · ${site.contactWhatsapp}` : null,
-		site.contactEmail,
-		site.contactAddress,
-	].filter((line): line is string => Boolean(line));
+	// Texto livre, uma linha por item, na ordem das Configurações. Sem linha
+	// nenhuma o bloco inteiro some — um "CONTATO" sem nada embaixo é pior do
+	// que a ausência dele.
+	const contact = site.contactLines;
 
 	return (
 		<footer className="mt-stack bg-brand-deep text-on-brand-muted md:mt-major">
@@ -100,14 +96,17 @@ export async function SiteFooter({ sections }: { sections: Section[] }) {
 					</ul>
 				</nav>
 
-				<div className="col-span-2 lg:col-span-1">
-					<h2 className={HEADING}>CONTATO</h2>
-					<ul className="flex flex-col gap-1.5 text-[12.5px] md:text-[13.5px]">
-						{contact.map((line) => (
-							<li key={line}>{line}</li>
-						))}
-					</ul>
-				</div>
+				{contact.length > 0 ? (
+					<div className="col-span-2 lg:col-span-1">
+						<h2 className={HEADING}>CONTATO</h2>
+						<ul className="flex flex-col gap-1.5 text-[12.5px] md:text-[13.5px]">
+							{contact.map((line, index) => (
+								// Duas linhas iguais são possíveis; a posição desempata.
+								<li key={`${index}-${line}`}>{line}</li>
+							))}
+						</ul>
+					</div>
+				) : null}
 			</Container>
 
 			{/*

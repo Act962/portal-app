@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { LegalPage } from "@/components/layout/legal-page";
 import { loadSiteSettings } from "@/data/queries";
+import { legalContactOf } from "@/lib/legal-contact";
 import { routes } from "@/lib/routes";
 import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { pageMetadata } from "@/lib/seo/metadata";
@@ -47,7 +48,7 @@ export default async function DataDeletionPage({
 	]);
 	const code =
 		typeof codigo === "string" && /^[a-f0-9]{16}$/.test(codigo) ? codigo : null;
-	const contact = site.contactEmail;
+	const contact = legalContactOf(site);
 
 	return (
 		<LegalPage
@@ -94,14 +95,16 @@ export default async function DataDeletionPage({
 				aplicativo do portal e peça a exclusão dos dados. A Meta nos avisa, e a
 				autorização guardada é apagada na hora; as contas aparecem como
 				desconectadas no painel.{" "}
-				{contact ? (
+				{contact.kind === "email" ? (
 					<>
 						Se preferir, escreva para{" "}
-						<a href={`mailto:${contact}`}>{contact}</a>.
+						<a href={`mailto:${contact.email}`}>{contact.email}</a>.
 					</>
-				) : (
+				) : contact.kind === "footer" ? (
 					"Se preferir, use os canais de contato listados no rodapé do portal."
-				)}
+				) : contact.kind === "social" ? (
+					"Se preferir, fale conosco pelos perfis oficiais do portal nas redes sociais, listados no topo do site."
+				) : null}
 			</p>
 
 			<h2>O que continua existindo</h2>

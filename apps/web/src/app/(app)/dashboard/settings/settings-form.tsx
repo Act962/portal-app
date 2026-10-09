@@ -23,7 +23,7 @@ import {
 } from "@portal-app/ui/components/tabs";
 import { Textarea } from "@portal-app/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 
@@ -85,7 +85,6 @@ function Form({ initial }: { initial: Settings }) {
 					<TabsTrigger value="identidade">Identidade</TabsTrigger>
 					<TabsTrigger value="contato">Contato</TabsTrigger>
 					<TabsTrigger value="redes">Redes</TabsTrigger>
-					<TabsTrigger value="radio">Rádio</TabsTrigger>
 					<TabsTrigger value="rodape">Rodapé</TabsTrigger>
 				</TabsList>
 
@@ -186,30 +185,16 @@ function Form({ initial }: { initial: Settings }) {
 						<CardHeader>
 							<CardTitle>Contato</CardTitle>
 							<CardDescription>
-								Aparece no rodapé. Campo em branco some do site — melhor a
-								ausência da linha do que um rótulo sem valor ao lado.
+								O bloco “Contato” do rodapé: cada linha aparece no site
+								exatamente como escrita, nesta ordem. Escreva o que quiser —
+								telefone, WhatsApp, e-mail, endereço, horário. Para tirar algo
+								do ar, remova a linha; sem linha nenhuma, o bloco some.
 							</CardDescription>
 						</CardHeader>
-						<CardContent className="grid gap-4 md:grid-cols-2">
-							<Text
-								label="Telefone da redação"
-								value={draft.contactNewsroom ?? ""}
-								onChange={(v) => set("contactNewsroom", v)}
-							/>
-							<Text
-								label="WhatsApp"
-								value={draft.contactWhatsapp ?? ""}
-								onChange={(v) => set("contactWhatsapp", v)}
-							/>
-							<Text
-								label="E-mail"
-								value={draft.contactEmail ?? ""}
-								onChange={(v) => set("contactEmail", v)}
-							/>
-							<Text
-								label="Endereço"
-								value={draft.contactAddress ?? ""}
-								onChange={(v) => set("contactAddress", v)}
+						<CardContent>
+							<LineList
+								lines={draft.contactLines}
+								onChange={(lines) => set("contactLines", lines)}
 							/>
 						</CardContent>
 					</Card>
@@ -230,32 +215,6 @@ function Form({ initial }: { initial: Settings }) {
 								onChange={(links) => set("social", links)}
 								labelPlaceholder="Instagram"
 								hrefPlaceholder="https://instagram.com/sua-conta"
-							/>
-						</CardContent>
-					</Card>
-				</TabsContent>
-
-				<TabsContent value="radio">
-					<Card>
-						<CardHeader>
-							<CardTitle>Rádio</CardTitle>
-							<CardDescription>
-								A frequência aparece sob o nome do veículo no cabeçalho e no
-								rodapé do portal.
-							</CardDescription>
-						</CardHeader>
-						<CardContent className="grid gap-4 md:grid-cols-2">
-							<Text
-								label="Frequência"
-								value={draft.radioFrequency ?? ""}
-								onChange={(v) => set("radioFrequency", v)}
-								hint="Ex.: 93,9 MHz"
-							/>
-							<Text
-								label="Faixa"
-								value={draft.radioBand ?? ""}
-								onChange={(v) => set("radioBand", v)}
-								hint="Ex.: 93,9 FM"
 							/>
 						</CardContent>
 					</Card>
@@ -442,6 +401,99 @@ function LinkList({
 				>
 					<Plus className="size-4" />
 					Adicionar
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+/**
+ * Editor das linhas de contato: um campo por linha, texto livre, com ordem.
+ *
+ * Linha em branco pode existir enquanto se digita — quem a descarta é o
+ * domínio, ao salvar.
+ */
+function LineList({
+	lines,
+	onChange,
+}: {
+	lines: string[];
+	onChange: (lines: string[]) => void;
+}) {
+	const move = (index: number, to: number) => {
+		const next = [...lines];
+		const [line] = next.splice(index, 1);
+		next.splice(to, 0, line as string);
+		onChange(next);
+	};
+
+	return (
+		<div className="flex flex-col gap-3">
+			{lines.length === 0 ? (
+				<p className="text-muted-foreground text-sm">
+					Nenhuma linha — o bloco de contato não aparece no rodapé.
+				</p>
+			) : null}
+
+			{lines.map((line, index) => (
+				// A posição É a identidade: o texto muda a cada tecla, e chavear por
+				// ele tiraria o foco do campo no meio da digitação.
+				// biome-ignore lint/suspicious/noArrayIndexKey: ver acima
+				<div key={index} className="flex gap-1">
+					<Input
+						aria-label={`Linha ${index + 1} do contato`}
+						placeholder="Redação · (86) 3343-1107"
+						value={line}
+						onChange={(event) =>
+							onChange(
+								lines.map((current, i) =>
+									i === index ? event.target.value : current,
+								),
+							)
+						}
+						className="flex-1"
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						aria-label={`Subir a linha ${index + 1}`}
+						disabled={index === 0}
+						onClick={() => move(index, index - 1)}
+					>
+						<ArrowUp className="size-4" />
+					</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						aria-label={`Descer a linha ${index + 1}`}
+						disabled={index === lines.length - 1}
+						onClick={() => move(index, index + 1)}
+					>
+						<ArrowDown className="size-4" />
+					</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						aria-label={`Remover a linha ${index + 1}`}
+						onClick={() => onChange(lines.filter((_, i) => i !== index))}
+					>
+						<Trash2 className="size-4 text-destructive" />
+					</Button>
+				</div>
+			))}
+
+			<div>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onClick={() => onChange([...lines, ""])}
+				>
+					<Plus className="size-4" />
+					Adicionar linha
 				</Button>
 			</div>
 		</div>

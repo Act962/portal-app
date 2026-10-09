@@ -53,40 +53,56 @@ services:
       retries: 10
     restart: unless-stopped
 
-  minio:
-    # Armazenamento de mídia no dev (Fase 2). MinIO fala a API S3 do R2, então o
-    # mesmo adapter S3MediaStorage roda aqui offline e, em produção, no R2 — sem
-    # conta em serviço nenhum (Decisão D1). O CI usa MinIO via Testcontainers.
-    # Do quay.io, com versão fixa: `minio/minio` saiu do Docker Hub.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    container_name: portal-app-minio
-    command: server /data --console-address ":9001"
+  storage:
+    # Armazenamento de mídia no dev (Fase 2). O RustFS fala a API S3 do R2, então
+    # o mesmo adapter S3MediaStorage roda aqui offline e, em produção, no R2 —
+    # sem conta em serviço nenhum (Decisão D1). O CI usa a mesma imagem via
+    # Testcontainers.
+    #
+    # Era o MinIO, até as imagens dele saírem do Docker Hub e depois do quay.io:
+    # o `pnpm db:start` só funcionava em máquina que já as tinha em cache. As
+    # credenciais continuam `minioadmin` de propósito — são as que já estão no
+    # `apps/web/.env` de todo mundo, e trocá-las quebraria o upload sem motivo.
+    image: quay.io/rustfs/rustfs:1.0.1
+    container_name: portal-app-storage
+    command: /data
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      RUSTFS_ACCESS_KEY: minioadmin
+      RUSTFS_SECRET_KEY: minioadmin
+      RUSTFS_CONSOLE_ENABLE: "true"
     ports:
-      - "${MINIO_PORT:-9000}:9000"
-      # Console web do MinIO (inspecionar objetos): http://localhost:9001
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${STORAGE_PORT:-9000}:9000"
+      # Console web (inspecionar objetos): http://localhost:9001/rustfs/console/
+      - "${STORAGE_CONSOLE_PORT:-9001}:9001"
     volumes:
-      - portal-app_minio_data:/data
+      # Volume NOVO, e não o do MinIO reaproveitado: o formato em disco é outro.
+      - portal-app_storage_data:/data
     restart: unless-stopped
 
-  minio-init:
-    # Provisiona o bucket assim que o MinIO sobe: cria `portal-media` e o deixa
-    # com leitura pública (o portal serve as imagens por `publicUrl`). Roda uma
-    # vez e sai — por isso não tem restart.
-    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
-    container_name: portal-app-minio-init
+  storage-init:
+    # Provisiona o bucket assim que o armazenamento sobe: cria `portal-media`,
+    # deixa-o com leitura pública (o portal serve as imagens por `publicUrl`) e
+    # libera o CORS — o painel sobe o arquivo direto do navegador, por URL
+    # pré-assinada, e sem a regra o `PUT` é barrado antes de sair. O MinIO
+    # respondia CORS aberto por padrão; o RustFS só com a regra no bucket.
+    # Roda uma vez e sai — por isso não tem restart.
+    image: amazon/aws-cli:2.37.12
+    container_name: portal-app-storage-init
     depends_on:
-      - minio
+      - storage
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://storage:9000
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done;
-      mc mb --ignore-existing local/portal-media;
-      mc anonymous set download local/portal-media;
+      until aws s3api list-buckets > /dev/null 2>&1; do sleep 1; done;
+      aws s3api head-bucket --bucket portal-media > /dev/null 2>&1 || aws s3api create-bucket --bucket portal-media;
+      aws s3api put-bucket-policy --bucket portal-media --policy '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[\"*\"]},\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::portal-media/*\"]}]}';
+      aws s3api put-bucket-cors --bucket portal-media --cors-configuration '{\"CORSRules\":[{\"AllowedOrigins\":[\"*\"],\"AllowedMethods\":[\"GET\",\"PUT\",\"HEAD\"],\"AllowedHeaders\":[\"*\"],\"ExposeHeaders\":[\"ETag\"]}]}';
       "
 
 volumes:
   portal-app_postgres_data:
-  portal-app_minio_data:
+  portal-app_storage_data:

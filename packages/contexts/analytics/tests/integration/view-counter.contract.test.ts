@@ -20,7 +20,11 @@ let container: StartedTestContainer;
 let redis: Redis;
 
 beforeAll(async () => {
-	container = await new GenericContainer("redis:7-alpine")
+	// Do espelho oficial no ECR público — mesma imagem, sem o limite de `pull`
+	// anônimo do Docker Hub (ver `tests/integration/global-setup.ts`).
+	container = await new GenericContainer(
+		"public.ecr.aws/docker/library/redis:7-alpine",
+	)
 		.withExposedPorts(6379)
 		.start();
 	redis = new Redis({
@@ -30,8 +34,10 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-	redis.disconnect();
-	await container.stop();
+	// `?.`: se o container não subiu, o erro que importa é o do `beforeAll` —
+	// sem isto ele saía acompanhado de um TypeError daqui, que é só ruído.
+	redis?.disconnect();
+	await container?.stop();
 });
 
 type Harness = { counter: ViewCounterPort; reset: () => Promise<void> };

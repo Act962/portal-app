@@ -59,7 +59,10 @@ function fail(error: Error): never {
 }
 
 export const mediaRouter = router({
-	/** Gera uma capa independente, preservando o arquivo original. */
+	/**
+	 * Gera um recorte independente, preservando o arquivo original: a capa
+	 * (16:9, o padrão) ou a foto do colunista (1:1).
+	 */
 	crop: staffProcedure
 		.input(
 			z.object({
@@ -67,6 +70,7 @@ export const mediaRouter = router({
 				x: z.number().min(0).max(1),
 				y: z.number().min(0).max(1),
 				zoom: z.number().min(1).max(3),
+				aspect: z.enum(["16:9", "1:1"]).default("16:9"),
 			}),
 		)
 		.mutation(async ({ input }) => {
@@ -98,12 +102,14 @@ export const mediaRouter = router({
 				input.x,
 				input.y,
 				input.zoom,
+				input.aspect,
 			);
 			const output = await sharp(source)
 				.extract(region)
 				.jpeg({ quality: 90 })
 				.toBuffer();
-			const filename = `capa-${asset.filename.replace(/\.[^.]+$/, "")}.jpg`;
+			const prefix = input.aspect === "1:1" ? "foto" : "capa";
+			const filename = `${prefix}-${asset.filename.replace(/\.[^.]+$/, "")}.jpg`;
 			const upload = await requestUpload(
 				{ filename, contentType: "image/jpeg" },
 				mediaDeps,

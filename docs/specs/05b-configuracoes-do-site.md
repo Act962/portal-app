@@ -162,6 +162,14 @@ Coerente com o resto do sistema (ADR 0005) e útil na prática: quando o rodapé
 > `20260807181354_drop_radio_stream_url`). Sobraram `radioFrequency` e
 > `radioBand`, que são só a identidade exibida no cabeçalho e no rodapé. O texto
 > abaixo fica como registro do que se decidiu na época.
+>
+> **09/10:** `radioFrequency` e `radioBand` também saíram — a aba Rádio foi
+> removida das Configurações e nada no portal os lia mais. Na mesma entrega os
+> quatro campos de contato (`contactNewsroom`, `contactWhatsapp`,
+> `contactEmail`, `contactAddress`) viraram `contactLines`, uma lista de linhas
+> de texto livre: campo vazio caía no valor padrão na leitura, e por isso não
+> dava para tirar o e-mail do rodapé. As colunas antigas seguem no banco por um
+> deploy (`docs/pendencias.md`).
 
 Três campos: `radioStreamUrl`, `radioFrequency`, `radioBand`.
 

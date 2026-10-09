@@ -1095,3 +1095,15 @@ que resta, na ordem em que rende mais:
 agora ou quando aparecer o primeiro anunciante; e o que "colunistas" significa —
 autor com destaque (barato, o backend já suporta) ou seção editorial própria
 (feature nova).
+
+## Colunas legadas de `site_settings` (09/10)
+
+O contato do rodapé virou `contactLines` e a aba Rádio saiu das Configurações
+(migration `20261009120000_contact_lines`). As seis colunas antigas —
+`radioFrequency`, `radioBand`, `contactNewsroom`, `contactWhatsapp`,
+`contactEmail`, `contactAddress` — ficaram no banco e no `settings.prisma`, sem
+leitor nem escritor, só para a versão anterior continuar respondendo durante o
+build do deploy.
+
+- [ ] Depois que essa versão estiver em produção, remover as seis do
+      `settings.prisma` e gerar a migração de `DROP COLUMN`.

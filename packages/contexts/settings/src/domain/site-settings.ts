@@ -1,7 +1,6 @@
 import { AggregateRoot, err, ok, type Result } from "@portal-app/shared-kernel";
 
 import {
-	InvalidEmail,
 	InvalidLinkHref,
 	InvalidUrl,
 	RequiredField,
@@ -40,15 +39,16 @@ export type SiteSettingsData = {
 	 */
 	ogImageMediaId: string | null;
 
-	// Rádio (D11)
-	radioFrequency: string | null;
-	radioBand: string | null;
-
-	// Contato
-	contactNewsroom: string | null;
-	contactWhatsapp: string | null;
-	contactEmail: string | null;
-	contactAddress: string | null;
+	/**
+	 * O bloco CONTATO do rodapé: uma linha de texto livre por item, na ordem em
+	 * que aparecem.
+	 *
+	 * Eram quatro campos fixos (redação, WhatsApp, e-mail, endereço), e a
+	 * leitura trocava campo vazio pelo valor padrão — apagar o e-mail na tela
+	 * trazia de volta o e-mail de exemplo, e não havia como tirá-lo do ar. Lista
+	 * não tem esse problema: vazia é vazia, e a redação escreve o que quiser.
+	 */
+	contactLines: string[];
 
 	// Listas curtas, guardadas em Json (D13)
 	social: Link[];
@@ -92,13 +92,12 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
 	faviconMediaId: null,
 	ogImageMediaId: null,
 
-	radioFrequency: "93,9 MHz",
-	radioBand: "93,9 FM",
-
-	contactNewsroom: "(86) 3343-1107",
-	contactWhatsapp: "(86) 9 9999-0000",
-	contactEmail: "contato@fm7cidades.com",
-	contactAddress: "BR-343, km 140 · Piracuruca",
+	contactLines: [
+		"Redação · (86) 3343-1107",
+		"WhatsApp · (86) 9 9999-0000",
+		"contato@fm7cidades.com",
+		"BR-343, km 140 · Piracuruca",
+	],
 
 	social: [
 		{ label: "Instagram", href: "https://instagram.com" },
@@ -190,13 +189,9 @@ export class SiteSettings extends AggregateRoot<string> {
 			faviconMediaId: nullableText(row.faviconMediaId),
 			ogImageMediaId: nullableText(row.ogImageMediaId),
 
-			radioFrequency: nullableText(row.radioFrequency) ?? d.radioFrequency,
-			radioBand: nullableText(row.radioBand) ?? d.radioBand,
-
-			contactNewsroom: nullableText(row.contactNewsroom) ?? d.contactNewsroom,
-			contactWhatsapp: nullableText(row.contactWhatsapp) ?? d.contactWhatsapp,
-			contactEmail: nullableText(row.contactEmail) ?? d.contactEmail,
-			contactAddress: nullableText(row.contactAddress) ?? d.contactAddress,
+			// Lista VAZIA é resposta válida e fica vazia — o default só entra
+			// quando não há lista nenhuma (banco sem a linha de configuração).
+			contactLines: strings(row.contactLines) ?? d.contactLines,
 
 			social: links(row.social) ?? d.social,
 			institutional: links(row.institutional) ?? d.institutional,
@@ -214,6 +209,7 @@ export class SiteSettings extends AggregateRoot<string> {
 			...this.state,
 			social: this.state.social.map((link) => ({ ...link })),
 			institutional: this.state.institutional.map((link) => ({ ...link })),
+			contactLines: [...this.state.contactLines],
 			popularSearches: [...this.state.popularSearches],
 		};
 	}
@@ -273,12 +269,8 @@ function normalize(
 		logoMediaId: blankToNull(data.logoMediaId),
 		faviconMediaId: blankToNull(data.faviconMediaId),
 		ogImageMediaId: blankToNull(data.ogImageMediaId),
-		radioFrequency: blankToNull(data.radioFrequency),
-		radioBand: blankToNull(data.radioBand),
-		contactNewsroom: blankToNull(data.contactNewsroom),
-		contactWhatsapp: blankToNull(data.contactWhatsapp),
-		contactEmail: blankToNull(data.contactEmail),
-		contactAddress: blankToNull(data.contactAddress),
+		// Linha em branco é ruído de formulário, não erro — some ao salvar.
+		contactLines: data.contactLines.map((line) => line.trim()).filter(Boolean),
 		footerTagline: blankToNull(data.footerTagline),
 		legal: blankToNull(data.legal),
 		popularSearches: data.popularSearches
@@ -296,10 +288,6 @@ function normalize(
 	// og:url e endereço no sitemap, onde caminho relativo não significa nada.
 	if (!isHttpUrl(out.url)) {
 		return err(new InvalidUrl("url", out.url));
-	}
-
-	if (out.contactEmail && !isEmail(out.contactEmail)) {
-		return err(new InvalidEmail(out.contactEmail));
 	}
 
 	const social = normalizeLinks(data.social);
@@ -365,8 +353,33 @@ function isLinkHref(value: string): boolean {
 	return value.startsWith("/") || isHttpUrl(value);
 }
 
-function isEmail(value: string): boolean {
-	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+/**
+ * O e-mail e o telefone que as linhas de contato trazem, quando trazem.
+ *
+ * As linhas são texto livre, mas dois lugares precisam do DADO e não da frase:
+ * o schema.org (`email`, `telephone`) e o "escreva para…" das páginas legais.
+ * Vale o primeiro de cada tipo, na ordem das linhas — quem quer outro telefone
+ * no Google sobe a linha dele. Sem nenhum, `null`: quem lê já omite o campo.
+ */
+export function contactChannels(lines: readonly string[]): {
+	email: string | null;
+	phone: string | null;
+} {
+	let email: string | null = null;
+	let phone: string | null = null;
+
+	for (const line of lines) {
+		email ??=
+			line.match(/[^\s@·|,;:()<>]+@[^\s@·|,;:()<>]+\.[a-z]{2,}/i)?.[0] ?? null;
+		// Ao menos 10 dígitos (DDD + número): é o que separa um telefone do
+		// "km 140" e do CEP de uma linha de endereço.
+		const candidate = line.match(/\+?\(?\d[\d\s().-]{6,}\d/)?.[0] ?? null;
+		if (candidate && candidate.replace(/\D/g, "").length >= 10) {
+			phone ??= candidate;
+		}
+	}
+
+	return { email, phone };
 }
 
 function changedFields(

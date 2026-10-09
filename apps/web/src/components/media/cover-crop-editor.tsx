@@ -12,9 +12,19 @@ import { Check, Crop, Move, RotateCcw } from "lucide-react";
 import { type PointerEvent, useRef, useState } from "react";
 
 type Selection = { x: number; y: number; zoom: number };
+
+/** Par inteiro, como no `coverCrop` do servidor — é a MESMA conta dos dois lados. */
+const ASPECTS = {
+	"16:9": [16, 9],
+	"1:1": [1, 1],
+} as const;
+
 type Props = {
 	url: string;
 	alt: string;
+	/** A proporção do recorte. 16:9 é a capa; 1:1, a foto de pessoa. */
+	aspect?: keyof typeof ASPECTS;
+	title?: string;
 	initial: Selection;
 	pending: boolean;
 	onClose: () => void;
@@ -27,6 +37,8 @@ const clamp = (value: number, min: number, max: number) =>
 export function CoverCropEditor({
 	url,
 	alt,
+	aspect = "16:9",
+	title = "Recortar imagem de capa",
 	initial,
 	pending,
 	onClose,
@@ -46,9 +58,13 @@ export function CoverCropEditor({
 		width: number;
 		scale: number;
 	} | null>(null);
-	const base = Math.min(dimensions.width, (dimensions.height * 16) / 9);
+	const [ratioW, ratioH] = ASPECTS[aspect];
+	const base = Math.min(
+		dimensions.width,
+		(dimensions.height * ratioW) / ratioH,
+	);
 	const width = base / selection.zoom;
-	const height = (width * 9) / 16;
+	const height = (width * ratioH) / ratioW;
 	const left = (dimensions.width - width) * selection.x;
 	const top = (dimensions.height - height) * selection.y;
 	const ready = dimensions.width > 0;
@@ -80,21 +96,23 @@ export function CoverCropEditor({
 			const west = drag.mode.includes("w");
 			const north = drag.mode.includes("n");
 			const anchorX = west ? drag.left + drag.width : drag.left;
-			const anchorY = north ? drag.top + (drag.width * 9) / 16 : drag.top;
+			const anchorY = north
+				? drag.top + (drag.width * ratioH) / ratioW
+				: drag.top;
 			const change =
-				Math.abs(dx) > Math.abs((dy * 16) / 9)
+				Math.abs(dx) > Math.abs((dy * ratioW) / ratioH)
 					? dx * (west ? -1 : 1)
-					: (dy * (north ? -1 : 1) * 16) / 9;
+					: (dy * (north ? -1 : 1) * ratioW) / ratioH;
 			const maxWidth = Math.min(
 				west ? anchorX : dimensions.width - anchorX,
-				((north ? anchorY : dimensions.height - anchorY) * 16) / 9,
+				((north ? anchorY : dimensions.height - anchorY) * ratioW) / ratioH,
 			);
 			nextWidth = clamp(drag.width + change, base / 3, maxWidth);
 			nextLeft = west ? anchorX - nextWidth : anchorX;
-			nextTop = north ? anchorY - (nextWidth * 9) / 16 : anchorY;
+			nextTop = north ? anchorY - (nextWidth * ratioH) / ratioW : anchorY;
 		}
 		const remainingX = dimensions.width - nextWidth;
-		const remainingY = dimensions.height - (nextWidth * 9) / 16;
+		const remainingY = dimensions.height - (nextWidth * ratioH) / ratioW;
 		setSelection({
 			x: remainingX > 0 ? clamp(nextLeft / remainingX, 0, 1) : 0.5,
 			y: remainingY > 0 ? clamp(nextTop / remainingY, 0, 1) : 0.5,
@@ -119,7 +137,7 @@ export function CoverCropEditor({
 				<DialogHeader className="border-b px-5 py-4">
 					<DialogTitle className="flex items-center gap-2">
 						<Crop className="size-4" />
-						Recortar imagem de capa
+						{title}
 					</DialogTitle>
 					<DialogDescription>
 						Arraste a seleção para enquadrar. Use os cantos para ajustar o
@@ -257,7 +275,7 @@ export function CoverCropEditor({
 				<div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4">
 					<div className="flex items-center gap-3">
 						<span className="rounded-md border px-2 py-1 font-medium text-xs">
-							16:9
+							{aspect}
 						</span>
 						<span className="text-muted-foreground text-xs">
 							{Math.floor(width)} × {Math.floor(height)} px

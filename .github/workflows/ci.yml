@@ -53,7 +53,31 @@ jobs:
       # Roda a suíte completa com cobertura: é aqui que o fail-under do domínio
       # (docs/testing-strategy.md §10) é aplicado — a cobertura depende dos
       # testes unitários E de integração juntos.
+      - name: Baixar as imagens dos containers de teste
+        # Antes da suíte, uma por vez e com nova tentativa. O Testcontainers
+        # baixa as três ao mesmo tempo e não insiste: um "toomanyrequests" do
+        # registro (o ECR público também limita o `pull` anônimo) virava teste
+        # vermelho sem que nenhum teste tivesse rodado. A lista sai dos próprios
+        # arquivos de teste, para não haver uma segunda cópia a manter.
+        run: |
+          images=$(grep -rhoE '"(public\.ecr\.aws|quay\.io)/[^"]+"' tests packages/contexts/*/tests | tr -d '"' | sort -u)
+          test -n "$images"
+          for image in $images; do
+            for attempt in 1 2 3 4 5 6; do
+              docker pull --quiet "$image" && continue 2
+              echo "pull de $image falhou (tentativa $attempt); aguardando"
+              sleep $((attempt * 10))
+            done
+            echo "::error::não foi possível baixar $image"
+            exit 1
+          done
       - run: pnpm test:coverage
+        env:
+          # O Ryuk é o container que o Testcontainers sobe para limpar os outros
+          # no fim. O runner é descartável — não há o que limpar —, e a imagem
+          # dele é a única que ainda viria do Docker Hub, cujo `pull` anônimo
+          # tem limite por IP: derrubou este job com "toomanyrequests".
+          TESTCONTAINERS_RYUK_DISABLED: "true"
 
   build:
     runs-on: ubuntu-latest
@@ -81,7 +105,10 @@ jobs:
     needs: check
     services:
       postgres:
-        image: postgres:17
+        # A mesma `postgres:17`, pelo espelho oficial no ECR público: o Docker
+        # Hub limita o `pull` anônimo por IP e derrubou este job com
+        # "toomanyrequests" antes de o banco subir.
+        image: public.ecr.aws/docker/library/postgres:17
         env:
           POSTGRES_USER: portal
           POSTGRES_PASSWORD: portal

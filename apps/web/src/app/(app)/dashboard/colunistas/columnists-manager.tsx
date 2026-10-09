@@ -594,6 +594,8 @@ function ColumnistForm({
 					onChange={(photoMediaId) => onChange({ ...form, photoMediaId })}
 					pickerTitle="Escolher a foto do colunista"
 					aspect="square"
+					cropAspect="1:1"
+					cropTitle="Enquadrar a foto do colunista"
 					hint="Sem foto, o cartão da home mostra o espaço reservado."
 				/>
 			</div>
