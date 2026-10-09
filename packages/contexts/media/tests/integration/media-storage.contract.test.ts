@@ -46,8 +46,9 @@ let s3Config: S3StorageConfig | undefined;
 let s3Client: S3Client | undefined;
 
 beforeAll(async () => {
-	// Versão fixa: `latest` muda sem aviso.
-	server = await new GenericContainer("rustfs/rustfs:1.0.1")
+	// Versão fixa: `latest` muda sem aviso. Do quay.io, e não do Docker Hub,
+	// para não gastar o limite de `pull` anônimo que os runners do CI dividem.
+	server = await new GenericContainer("quay.io/rustfs/rustfs:1.0.1")
 		.withEnvironment({
 			RUSTFS_ACCESS_KEY: ACCESS_KEY,
 			RUSTFS_SECRET_KEY: SECRET_KEY,

@@ -54,6 +54,12 @@ jobs:
       # (docs/testing-strategy.md §10) é aplicado — a cobertura depende dos
       # testes unitários E de integração juntos.
       - run: pnpm test:coverage
+        env:
+          # O Ryuk é o container que o Testcontainers sobe para limpar os outros
+          # no fim. O runner é descartável — não há o que limpar —, e a imagem
+          # dele é a única que ainda viria do Docker Hub, cujo `pull` anônimo
+          # tem limite por IP: derrubou este job com "toomanyrequests".
+          TESTCONTAINERS_RYUK_DISABLED: "true"
 
   build:
     runs-on: ubuntu-latest

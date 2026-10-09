@@ -63,7 +63,7 @@ services:
     # o `pnpm db:start` só funcionava em máquina que já as tinha em cache. As
     # credenciais continuam `minioadmin` de propósito — são as que já estão no
     # `apps/web/.env` de todo mundo, e trocá-las quebraria o upload sem motivo.
-    image: rustfs/rustfs:1.0.1
+    image: quay.io/rustfs/rustfs:1.0.1
     container_name: portal-app-storage
     command: /data
     environment:
