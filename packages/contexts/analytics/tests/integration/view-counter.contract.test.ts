@@ -34,8 +34,10 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-	redis.disconnect();
-	await container.stop();
+	// `?.`: se o container não subiu, o erro que importa é o do `beforeAll` —
+	// sem isto ele saía acompanhado de um TypeError daqui, que é só ruído.
+	redis?.disconnect();
+	await container?.stop();
 });
 
 type Harness = { counter: ViewCounterPort; reset: () => Promise<void> };
