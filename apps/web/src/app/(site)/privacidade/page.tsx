@@ -1,4 +1,3 @@
-import { contactChannels } from "@portal-app/settings";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 
@@ -6,6 +5,7 @@ import { LegalPage } from "@/components/layout/legal-page";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getAdSenseScript } from "@/data/ads";
 import { loadSiteSettings } from "@/data/queries";
+import { legalContactOf } from "@/lib/legal-contact";
 import { routes } from "@/lib/routes";
 import { loadSiteIdentity } from "@/lib/seo/load-site-identity";
 import { pageMetadata } from "@/lib/seo/metadata";
@@ -51,7 +51,7 @@ export default async function PrivacyPage() {
 		loadSiteIdentity(),
 		getAdSenseScript(),
 	]);
-	const contact = contactChannels(site.contactLines).email;
+	const contact = legalContactOf(site);
 
 	return (
 		<>
@@ -236,19 +236,28 @@ export default async function PrivacyPage() {
 					última atualização no topo refletirá isso.
 				</p>
 
-				<h2>Como falar conosco</h2>
-				<p>
-					Dúvidas, pedidos ou reclamações relacionados a dados pessoais podem
-					ser enviados{" "}
-					{contact ? (
-						<>
-							para <a href={`mailto:${contact}`}>{contact}</a>
-						</>
-					) : (
-						"pelos canais de contato listados no rodapé do portal"
-					)}
-					. Também respondemos pelos demais canais da redação.
-				</p>
+				{/* Sem canal nenhum cadastrado a seção inteira sai: o rodapé esconde
+				    o bloco de contato quando ele está vazio, e mandar o leitor para
+				    lá seria apontar para um lugar que não existe. */}
+				{contact.kind !== "none" ? (
+					<>
+						<h2>Como falar conosco</h2>
+						<p>
+							Dúvidas, pedidos ou reclamações relacionados a dados pessoais
+							podem ser enviados{" "}
+							{contact.kind === "email" ? (
+								<>
+									para <a href={`mailto:${contact.email}`}>{contact.email}</a>.
+									Também respondemos pelos demais canais da redação.
+								</>
+							) : contact.kind === "footer" ? (
+								"pelos canais de contato listados no rodapé do portal."
+							) : (
+								"pelos perfis oficiais do portal nas redes sociais, listados no topo do site."
+							)}
+						</p>
+					</>
+				) : null}
 
 				<p>
 					Veja também os <Link href={routes.terms}>Termos de Uso</Link> do
