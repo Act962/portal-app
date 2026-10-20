@@ -4,10 +4,7 @@ import { env } from "@portal-app/env/server";
 import {
 	AuthorProfile,
 	activateStaff,
-	bindStaffSections,
-	changeStaffRole,
 	deactivateStaff,
-	type Forbidden,
 	inviteMember,
 	listInvitations,
 	listStaff,
@@ -16,9 +13,11 @@ import {
 	type StaffMember,
 	StaffNotFound,
 	updateAuthorProfile,
+	updateStaffAccess,
 } from "@portal-app/identity";
 import type { Result } from "@portal-app/shared-kernel";
 import { UuidGenerator } from "@portal-app/shared-kernel";
+import { listSections } from "@portal-app/taxonomy";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -29,6 +28,7 @@ import {
 	staffProcedure,
 } from "../index";
 import { invitationDeps, staffRepo } from "../staff";
+import { sectionDeps } from "../taxonomy";
 
 const inviteDeps = { ...invitationDeps, ids: new UuidGenerator() };
 
@@ -48,11 +48,16 @@ function toDto(staff: StaffMember) {
 	};
 }
 
-function unwrap(result: Result<StaffMember, Forbidden | StaffNotFound>) {
+function unwrap<E extends Error>(result: Result<StaffMember, E>) {
 	if (result.isErr()) {
 		const error = result.unwrapErr();
 		throw new TRPCError({
-			code: error instanceof StaffNotFound ? "NOT_FOUND" : "FORBIDDEN",
+			code:
+				error instanceof StaffNotFound
+					? "NOT_FOUND"
+					: error.name === "Forbidden"
+						? "FORBIDDEN"
+						: "BAD_REQUEST",
 			message: error.message,
 		});
 	}
@@ -60,6 +65,20 @@ function unwrap(result: Result<StaffMember, Forbidden | StaffNotFound>) {
 }
 
 const manage = requirePermission("user:manage");
+
+async function ensureActiveSections(sectionIds: readonly string[]) {
+	const activeIds = new Set(
+		(await listSections(sectionDeps))
+			.filter((section) => section.isActive())
+			.map((section) => section.id),
+	);
+	if (sectionIds.some((id) => !activeIds.has(id))) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Uma das editorias selecionadas não existe ou está inativa.",
+		});
+	}
+}
 
 export const identityRouter = router({
 	/** O membro por trás da sessão atual — papel, editorias e perfil. */
@@ -84,17 +103,22 @@ export const identityRouter = router({
 			return result.unwrap().map(toDto);
 		}),
 
-		setRole: manage
-			.input(z.object({ staffId: z.string(), role: z.enum(ROLES) }))
-			.mutation(async ({ ctx, input }) =>
-				unwrap(await changeStaffRole(ctx.staff, input, { repo: staffRepo })),
-			),
-
-		setSections: manage
-			.input(z.object({ staffId: z.string(), sectionIds: z.array(z.string()) }))
-			.mutation(async ({ ctx, input }) =>
-				unwrap(await bindStaffSections(ctx.staff, input, { repo: staffRepo })),
-			),
+		updateAccess: manage
+			.input(
+				z.object({
+					staffId: z.string(),
+					role: z.enum(ROLES),
+					sectionIds: z.array(z.string()),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				if (input.role === "EDITOR") {
+					await ensureActiveSections(input.sectionIds);
+				}
+				return unwrap(
+					await updateStaffAccess(ctx.staff, input, { repo: staffRepo }),
+				);
+			}),
 
 		deactivate: manage
 			.input(z.object({ staffId: z.string() }))
@@ -169,6 +193,9 @@ export const identityRouter = router({
 				}),
 			)
 			.mutation(async ({ ctx, input }) => {
+				if (input.role === "EDITOR") {
+					await ensureActiveSections(input.sectionIds ?? []);
+				}
 				const result = await inviteMember(input, ctx.staff.id, inviteDeps);
 				if (result.isErr()) {
 					throw new TRPCError({

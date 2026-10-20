@@ -6,7 +6,11 @@ import type {
 	InvitationAlreadyAccepted,
 	InvitationExpired,
 } from "../domain/errors";
-import { InvitationAlreadyExists, NotInvited } from "../domain/errors";
+import {
+	EditorRequiresSection,
+	InvitationAlreadyExists,
+	NotInvited,
+} from "../domain/errors";
 import { Invitation, normalizeEmail } from "../domain/invitation";
 import type { InvitationRepository } from "../domain/ports/invitation-repository";
 import type { Mailer } from "../domain/ports/mailer";
@@ -36,7 +40,15 @@ export async function inviteMember(
 	input: { email: string; role: Role; sectionIds?: string[] },
 	invitedBy: string,
 	deps: Deps,
-): Promise<Result<Invitation, InvalidInviteEmail | InvitationAlreadyExists>> {
+): Promise<
+	Result<
+		Invitation,
+		InvalidInviteEmail | InvitationAlreadyExists | EditorRequiresSection
+	>
+> {
+	if (input.role === "EDITOR" && (input.sectionIds?.length ?? 0) === 0) {
+		return err(new EditorRequiresSection());
+	}
 	const now = deps.clock.now();
 	const email = normalizeEmail(input.email);
 
@@ -51,7 +63,7 @@ export async function inviteMember(
 		id: deps.ids.generate(),
 		email,
 		role: input.role,
-		sectionIds: input.sectionIds,
+		sectionIds: input.role === "EDITOR" ? input.sectionIds : [],
 		invitedBy,
 		now,
 	});

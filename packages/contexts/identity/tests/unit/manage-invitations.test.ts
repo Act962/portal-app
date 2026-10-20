@@ -2,7 +2,10 @@ import { FixedClock, SequentialIdGenerator } from "@portal-app/shared-kernel";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { inviteMember } from "../../src/application/manage-invitations";
-import { InvitationAlreadyExists } from "../../src/domain/errors";
+import {
+	EditorRequiresSection,
+	InvitationAlreadyExists,
+} from "../../src/domain/errors";
 import { InMemoryInvitationRepository } from "../../src/domain/ports/invitation-repository";
 import { InMemoryMailer, NoopMailer } from "../../src/domain/ports/mailer";
 
@@ -71,6 +74,17 @@ describe("inviteMember — Mailer", () => {
 		);
 
 		expect(result).toBeErr(InvitationAlreadyExists);
+		expect(mailer.sent).toHaveLength(0);
+	});
+
+	it("editor precisa ser convidado com ao menos uma editoria", async () => {
+		const result = await inviteMember(
+			{ email: "editor@fm7cidades.com", role: "EDITOR", sectionIds: [] },
+			"admin-1",
+			deps,
+		);
+
+		expect(result).toBeErr(EditorRequiresSection);
 		expect(mailer.sent).toHaveLength(0);
 	});
 });

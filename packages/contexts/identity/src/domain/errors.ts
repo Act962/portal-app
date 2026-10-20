@@ -17,6 +17,24 @@ export class StaffNotFound extends Error {
 	}
 }
 
+/** O sistema precisa conservar ao menos um administrador ativo. */
+export class LastActiveAdmin extends Error {
+	constructor() {
+		super(
+			"O último administrador ativo não pode ser rebaixado nem desativado.",
+		);
+		this.name = "LastActiveAdmin";
+	}
+}
+
+/** Um editor sem editoria não conseguiria revisar nem publicar matéria alguma. */
+export class EditorRequiresSection extends Error {
+	constructor() {
+		super("Selecione ao menos uma editoria para o editor.");
+		this.name = "EditorRequiresSection";
+	}
+}
+
 /** E-mail de convite fora de formato. */
 export class InvalidInviteEmail extends Error {
 	constructor(raw: string) {

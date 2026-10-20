@@ -9,6 +9,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@portal-app/ui/components/card";
+import { Checkbox } from "@portal-app/ui/components/checkbox";
 import { Input } from "@portal-app/ui/components/input";
 import { Label } from "@portal-app/ui/components/label";
 import {
@@ -48,8 +49,10 @@ export function InvitationsPanel() {
 	const emailId = useId();
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<Role>("REDATOR");
+	const [sectionIds, setSectionIds] = useState<string[]>([]);
 
 	const invitations = useQuery(trpc.identity.invitations.list.queryOptions());
+	const sections = useQuery(trpc.taxonomy.sections.list.queryOptions());
 
 	const invalidate = () =>
 		queryClient.invalidateQueries({
@@ -60,6 +63,7 @@ export function InvitationsPanel() {
 		trpc.identity.invitations.create.mutationOptions({
 			onSuccess: (invitation) => {
 				setEmail("");
+				setSectionIds([]);
 				invalidate();
 				toast.success(
 					`Convite criado para ${invitation.email}. Avise a pessoa para se cadastrar com ESTE e-mail.`,
@@ -77,6 +81,17 @@ export function InvitationsPanel() {
 	);
 
 	const list = invitations.data ?? [];
+	const activeSections = (sections.data ?? []).filter(
+		(section) => section.active,
+	);
+	const editorWithoutSection = role === "EDITOR" && sectionIds.length === 0;
+	const toggleSection = (sectionId: string) => {
+		setSectionIds((current) =>
+			current.includes(sectionId)
+				? current.filter((id) => id !== sectionId)
+				: [...current, sectionId],
+		);
+	};
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -94,49 +109,101 @@ export function InvitationsPanel() {
 					<form
 						onSubmit={(event) => {
 							event.preventDefault();
-							create.mutate({ email, role });
+							create.mutate({
+								email,
+								role,
+								sectionIds: role === "EDITOR" ? sectionIds : [],
+							});
 						}}
-						className="flex flex-col gap-3 sm:flex-row sm:items-end"
+						className="flex flex-col gap-4"
 					>
-						<div className="flex flex-1 flex-col gap-1.5">
-							<Label htmlFor={emailId}>E-mail</Label>
-							<Input
-								id={emailId}
-								type="email"
-								required
-								placeholder="jornalista@fm7cidades.com"
-								value={email}
-								onChange={(event) => setEmail(event.target.value)}
-							/>
-						</div>
+						<div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_13rem_auto] sm:items-end">
+							<div className="flex flex-col gap-1.5">
+								<Label htmlFor={emailId}>E-mail</Label>
+								<Input
+									id={emailId}
+									type="email"
+									required
+									placeholder="jornalista@fm7cidades.com"
+									value={email}
+									onChange={(event) => setEmail(event.target.value)}
+								/>
+							</div>
 
-						<div className="flex flex-col gap-1.5 sm:w-52">
-							<Label>Papel</Label>
-							<Select
-								items={ROLES.map((item) => ({
-									value: item,
-									label: ROLE_LABELS[item],
-								}))}
-								value={role}
-								onValueChange={(value) => value && setRole(value as Role)}
+							<div className="flex flex-col gap-1.5">
+								<Label>Papel</Label>
+								<Select
+									items={ROLES.map((item) => ({
+										value: item,
+										label: ROLE_LABELS[item],
+									}))}
+									value={role}
+									onValueChange={(value) => {
+										if (value) {
+											setRole(value as Role);
+											if (value !== "EDITOR") {
+												setSectionIds([]);
+											}
+										}
+									}}
+								>
+									<SelectTrigger>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{ROLES.map((item) => (
+											<SelectItem key={item} value={item}>
+												{ROLE_LABELS[item]}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<Button
+								type="submit"
+								disabled={create.isPending || editorWithoutSection}
 							>
-								<SelectTrigger>
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{ROLES.map((item) => (
-										<SelectItem key={item} value={item}>
-											{ROLE_LABELS[item]}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+								<UserPlus className="size-4" />
+								{create.isPending ? "Convidando…" : "Convidar"}
+							</Button>
 						</div>
 
-						<Button type="submit" disabled={create.isPending}>
-							<UserPlus className="size-4" />
-							{create.isPending ? "Convidando…" : "Convidar"}
-						</Button>
+						{role === "EDITOR" ? (
+							<div>
+								<Label>Editorias do editor</Label>
+								<p className="mt-1 mb-2 text-muted-foreground text-xs">
+									Ele poderá revisar e publicar somente nas editorias marcadas.
+								</p>
+								<div className="flex flex-wrap gap-3 rounded-md border p-3">
+									{activeSections.map((section) => (
+										<div key={section.id} className="flex items-center gap-2">
+											<Checkbox
+												id={`convite-editoria-${section.id}`}
+												checked={sectionIds.includes(section.id)}
+												onCheckedChange={() => toggleSection(section.id)}
+											/>
+											<Label
+												htmlFor={`convite-editoria-${section.id}`}
+												className="cursor-pointer font-normal"
+											>
+												{section.name}
+											</Label>
+										</div>
+									))}
+									{!sections.isLoading && activeSections.length === 0 ? (
+										<p className="text-muted-foreground text-sm">
+											Crie uma editoria ativa antes de convidar um editor.
+										</p>
+									) : null}
+								</div>
+								{editorWithoutSection ? (
+									<p className="mt-1.5 text-destructive text-xs">
+										Selecione ao menos uma editoria.
+									</p>
+								) : null}
+							</div>
+						) : null}
 					</form>
 				</CardContent>
 			</Card>

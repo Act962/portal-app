@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback } from "@portal-app/ui/components/avatar";
 import { Badge } from "@portal-app/ui/components/badge";
 import { Button } from "@portal-app/ui/components/button";
+import { Checkbox } from "@portal-app/ui/components/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -22,6 +23,7 @@ import {
 	DialogTitle,
 } from "@portal-app/ui/components/dialog";
 import { Input } from "@portal-app/ui/components/input";
+import { Label } from "@portal-app/ui/components/label";
 import {
 	Select,
 	SelectContent,
@@ -39,7 +41,7 @@ import {
 	TableRow,
 } from "@portal-app/ui/components/table";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, KeyRound, UserCheck, UserMinus } from "lucide-react";
+import { Copy, KeyRound, Settings2, UserCheck, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -63,7 +65,11 @@ const ROLE_HINTS: Record<Role, string> = {
 export function UsersTable() {
 	const queryClient = useQueryClient();
 	const users = useQuery(trpc.identity.users.list.queryOptions());
+	const sections = useQuery(trpc.taxonomy.sections.list.queryOptions());
 	const [confirming, setConfirming] = useState<string | null>(null);
+	const [accessEditing, setAccessEditing] = useState<string | null>(null);
+	const [accessRole, setAccessRole] = useState<Role>("REDATOR");
+	const [accessSectionIds, setAccessSectionIds] = useState<string[]>([]);
 	const [resetLink, setResetLink] = useState<{
 		email: string;
 		url: string;
@@ -75,11 +81,12 @@ export function UsersTable() {
 		});
 	const onError = (error: { message: string }) => toast.error(error.message);
 
-	const setRole = useMutation(
-		trpc.identity.users.setRole.mutationOptions({
+	const updateAccess = useMutation(
+		trpc.identity.users.updateAccess.mutationOptions({
 			onSuccess: () => {
 				invalidate();
-				toast.success("Papel atualizado.");
+				setAccessEditing(null);
+				toast.success("Acesso atualizado.");
 			},
 			onError,
 		}),
@@ -111,6 +118,31 @@ export function UsersTable() {
 
 	const list = users.data ?? [];
 	const target = list.find((u) => u.id === confirming);
+	const accessTarget = list.find((u) => u.id === accessEditing);
+	const activeSections = (sections.data ?? []).filter(
+		(section) => section.active,
+	);
+	const activeSectionIds = new Set(activeSections.map((section) => section.id));
+	const selectedActiveSectionIds = accessSectionIds.filter((id) =>
+		activeSectionIds.has(id),
+	);
+	const sectionNames = new Map(
+		(sections.data ?? []).map((section) => [section.id, section.name]),
+	);
+
+	const openAccess = (user: (typeof list)[number]) => {
+		setAccessEditing(user.id);
+		setAccessRole(user.role as Role);
+		setAccessSectionIds([...user.sectionIds]);
+	};
+
+	const toggleAccessSection = (sectionId: string) => {
+		setAccessSectionIds((current) =>
+			current.includes(sectionId)
+				? current.filter((id) => id !== sectionId)
+				: [...current, sectionId],
+		);
+	};
 
 	return (
 		<>
@@ -121,7 +153,7 @@ export function UsersTable() {
 							<TableHead>Pessoa</TableHead>
 							<TableHead className="w-56">Papel</TableHead>
 							<TableHead className="w-28">Situação</TableHead>
-							<TableHead className="w-12" />
+							<TableHead className="w-36" />
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -160,37 +192,21 @@ export function UsersTable() {
 										</div>
 									</TableCell>
 									<TableCell>
-										<Select
-											items={ROLES.map((r) => ({
-												value: r,
-												label: ROLE_LABELS[r],
-											}))}
-											value={user.role}
-											disabled={!user.active}
-											onValueChange={(value) =>
-												value &&
-												setRole.mutate({
-													staffId: user.id,
-													role: value as Role,
-												})
-											}
-										>
-											<SelectTrigger className="w-full">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												{ROLES.map((role) => (
-													<SelectItem key={role} value={role}>
-														<span className="flex flex-col">
-															<span>{ROLE_LABELS[role]}</span>
-															<span className="text-muted-foreground text-xs">
-																{ROLE_HINTS[role]}
-															</span>
-														</span>
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
+										<p className="font-medium text-sm">
+											{ROLE_LABELS[user.role as Role]}
+										</p>
+										{user.role === "EDITOR" ? (
+											<p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
+												{user.sectionIds.length > 0
+													? user.sectionIds
+															.map(
+																(id) =>
+																	sectionNames.get(id) ?? "Editoria removida",
+															)
+															.join(", ")
+													: "Sem editoria atribuída"}
+											</p>
+										) : null}
 									</TableCell>
 									<TableCell>
 										{user.active ? (
@@ -206,6 +222,14 @@ export function UsersTable() {
 									</TableCell>
 									<TableCell>
 										<div className="flex justify-end">
+											<Button
+												variant="ghost"
+												size="icon"
+												aria-label={`Editar acesso de ${user.email}`}
+												onClick={() => openAccess(user)}
+											>
+												<Settings2 className="size-4" />
+											</Button>
 											<Button
 												variant="ghost"
 												size="icon"
@@ -274,6 +298,117 @@ export function UsersTable() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			<Dialog
+				open={accessEditing !== null}
+				onOpenChange={(open) => !open && setAccessEditing(null)}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Editar acesso de {accessTarget?.email}</DialogTitle>
+						<DialogDescription>
+							Defina o papel e, para editores, onde podem revisar e publicar.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="flex flex-col gap-4">
+						<div className="flex flex-col gap-1.5">
+							<Label>Papel</Label>
+							<Select
+								items={ROLES.map((role) => ({
+									value: role,
+									label: ROLE_LABELS[role],
+								}))}
+								value={accessRole}
+								onValueChange={(value) => {
+									if (value) {
+										setAccessRole(value as Role);
+										if (value !== "EDITOR") {
+											setAccessSectionIds([]);
+										}
+									}
+								}}
+							>
+								<SelectTrigger className="w-full">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{ROLES.map((role) => (
+										<SelectItem key={role} value={role}>
+											<span className="flex flex-col">
+												<span>{ROLE_LABELS[role]}</span>
+												<span className="text-muted-foreground text-xs">
+													{ROLE_HINTS[role]}
+												</span>
+											</span>
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						{accessRole === "EDITOR" ? (
+							<div>
+								<Label>Editorias do editor</Label>
+								<p className="mt-1 mb-2 text-muted-foreground text-xs">
+									Selecione ao menos uma. O acesso editorial fica restrito a
+									elas.
+								</p>
+								<div className="flex flex-wrap gap-3 rounded-md border p-3">
+									{activeSections.map((section) => (
+										<div key={section.id} className="flex items-center gap-2">
+											<Checkbox
+												id={`membro-editoria-${section.id}`}
+												checked={accessSectionIds.includes(section.id)}
+												onCheckedChange={() => toggleAccessSection(section.id)}
+											/>
+											<Label
+												htmlFor={`membro-editoria-${section.id}`}
+												className="cursor-pointer font-normal"
+											>
+												{section.name}
+											</Label>
+										</div>
+									))}
+									{!sections.isLoading && activeSections.length === 0 ? (
+										<p className="text-muted-foreground text-sm">
+											Crie uma editoria ativa antes de definir um editor.
+										</p>
+									) : null}
+								</div>
+								{selectedActiveSectionIds.length === 0 ? (
+									<p className="mt-1.5 text-destructive text-xs">
+										Selecione ao menos uma editoria.
+									</p>
+								) : null}
+							</div>
+						) : null}
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setAccessEditing(null)}>
+							Cancelar
+						</Button>
+						<Button
+							disabled={
+								updateAccess.isPending ||
+								(accessRole === "EDITOR" &&
+									selectedActiveSectionIds.length === 0)
+							}
+							onClick={() => {
+								if (accessTarget) {
+									updateAccess.mutate({
+										staffId: accessTarget.id,
+										role: accessRole,
+										sectionIds:
+											accessRole === "EDITOR" ? selectedActiveSectionIds : [],
+									});
+								}
+							}}
+						>
+							{updateAccess.isPending ? "Salvando…" : "Salvar acesso"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog
 				open={resetLink !== null}
