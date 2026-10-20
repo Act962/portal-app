@@ -43,6 +43,15 @@ describe("createColumnist", () => {
 		expect(terceiro.order).toBe(2);
 	});
 
+	it("permite criar oculto para o perfil automático de um redator", async () => {
+		const created = (
+			await createColumnist({ name: "Aldo Costa", active: false }, deps)
+		).unwrap();
+
+		expect(created.isActive).toBe(false);
+		expect((await repo.findBySlug("aldo-costa"))?.isActive).toBe(false);
+	});
+
 	it("recusa assinatura já cadastrada", async () => {
 		await createColumnist(INPUT, deps);
 

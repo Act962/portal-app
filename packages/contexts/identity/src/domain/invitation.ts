@@ -14,7 +14,8 @@ export const INVITATION_VALIDITY_DAYS = 7;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type InvitationState = {
-	email: string;
+	email: string | null;
+	claimedEmail: string | null;
 	role: Role;
 	sectionIds: string[];
 	expiresAt: Date;
@@ -24,7 +25,7 @@ type InvitationState = {
 
 type CreateInput = {
 	id: string;
-	email: string;
+	email?: string | null;
 	role: Role;
 	sectionIds?: string[];
 	invitedBy: string;
@@ -35,14 +36,13 @@ type CreateInput = {
 /**
  * Convite para entrar na redação.
  *
- * **O portão é o e-mail** (decisão do cliente): quem se cadastra com um e-mail
- * convidado entra; qualquer outro é recusado. Não há token no link — o que
- * significa que o convite não vaza por encaminhamento de mensagem, e que o
- * endereço do painel pode ser público sem virar cadastro aberto.
+ * O identificador opaco é o token do link. Num convite nominal, o token só
+ * funciona com o e-mail indicado; num link aberto, o primeiro e-mail que o
+ * apresenta fica registrado em `claimedEmail`. Em ambos os casos o convite é
+ * temporário e de uso único.
  *
- * O e-mail é normalizado (minúsculas, aparado) porque é chave de comparação: um
- * convite para "Joao@X.com" precisa casar com um cadastro em "joao@x.com", ou o
- * convite simplesmente não funciona e ninguém entende por quê.
+ * E-mails são normalizados (minúsculas, aparados) porque são chaves de
+ * comparação: "Joao@X.com" precisa casar com "joao@x.com".
  */
 export class Invitation extends AggregateRoot<string> {
 	private state: InvitationState;
@@ -53,9 +53,9 @@ export class Invitation extends AggregateRoot<string> {
 	}
 
 	static create(input: CreateInput): Result<Invitation, InvalidInviteEmail> {
-		const email = normalizeEmail(input.email);
-		if (!EMAIL.test(email)) {
-			return err(new InvalidInviteEmail(input.email));
+		const email = input.email ? normalizeEmail(input.email) : null;
+		if (email !== null && !EMAIL.test(email)) {
+			return err(new InvalidInviteEmail(input.email ?? ""));
 		}
 
 		const days = input.validityDays ?? INVITATION_VALIDITY_DAYS;
@@ -66,6 +66,7 @@ export class Invitation extends AggregateRoot<string> {
 		return ok(
 			new Invitation(input.id, {
 				email,
+				claimedEmail: null,
 				role: input.role,
 				sectionIds: [...(input.sectionIds ?? [])],
 				expiresAt,
@@ -79,7 +80,8 @@ export class Invitation extends AggregateRoot<string> {
 	static fromPersistence(
 		id: string,
 		state: {
-			email: string;
+			email: string | null;
+			claimedEmail?: string | null;
 			role: string;
 			sectionIds: string[];
 			expiresAt: Date;
@@ -88,7 +90,10 @@ export class Invitation extends AggregateRoot<string> {
 		},
 	): Invitation {
 		return new Invitation(id, {
-			email: normalizeEmail(state.email),
+			email: state.email ? normalizeEmail(state.email) : null,
+			claimedEmail: state.claimedEmail
+				? normalizeEmail(state.claimedEmail)
+				: null,
 			role: (ROLES as readonly string[]).includes(state.role)
 				? (state.role as Role)
 				: "REDATOR",
@@ -99,8 +104,13 @@ export class Invitation extends AggregateRoot<string> {
 		});
 	}
 
-	get email(): string {
+	get email(): string | null {
 		return this.state.email;
+	}
+
+	/** E-mail que apresentou o token. Em links abertos, é o primeiro cadastro. */
+	get claimedEmail(): string | null {
+		return this.state.claimedEmail;
 	}
 
 	get role(): Role {
@@ -145,10 +155,18 @@ export class Invitation extends AggregateRoot<string> {
 		now: Date,
 	): Result<void, InvitationAlreadyAccepted | InvitationExpired> {
 		if (this.isAccepted()) {
-			return err(new InvitationAlreadyAccepted(this.state.email));
+			return err(
+				new InvitationAlreadyAccepted(
+					this.state.email ?? this.state.claimedEmail ?? "este link",
+				),
+			);
 		}
 		if (this.isExpired(now)) {
-			return err(new InvitationExpired(this.state.email));
+			return err(
+				new InvitationExpired(
+					this.state.email ?? this.state.claimedEmail ?? "este link",
+				),
+			);
 		}
 		this.state.acceptedAt = now;
 		return ok(undefined);

@@ -25,6 +25,37 @@ export class PrismaInvitationRepository implements InvitationRepository {
 		return row ? toDomain(row) : null;
 	}
 
+	async findClaimedByEmail(
+		email: string,
+		now: Date,
+	): Promise<Invitation | null> {
+		const row = await this.prisma.invitation.findFirst({
+			where: { claimedEmail: email, acceptedAt: null, expiresAt: { gt: now } },
+			orderBy: { createdAt: "desc" },
+		});
+		return row ? toDomain(row) : null;
+	}
+
+	async claimById(
+		id: string,
+		email: string,
+		now: Date,
+	): Promise<Invitation | null> {
+		const result = await this.prisma.invitation.updateMany({
+			where: {
+				id,
+				acceptedAt: null,
+				expiresAt: { gt: now },
+				AND: [
+					{ OR: [{ email: null }, { email }] },
+					{ OR: [{ claimedEmail: null }, { claimedEmail: email }] },
+				],
+			},
+			data: { claimedEmail: email },
+		});
+		return result.count === 1 ? this.findById(id) : null;
+	}
+
 	async list(): Promise<Invitation[]> {
 		const rows = await this.prisma.invitation.findMany({
 			orderBy: { createdAt: "desc" },
@@ -35,6 +66,7 @@ export class PrismaInvitationRepository implements InvitationRepository {
 	async save(invitation: Invitation): Promise<void> {
 		const data = {
 			email: invitation.email,
+			claimedEmail: invitation.claimedEmail,
 			role: invitation.role,
 			sectionIds: [...invitation.sectionIds],
 			expiresAt: invitation.expiresAt,
@@ -55,7 +87,8 @@ export class PrismaInvitationRepository implements InvitationRepository {
 
 function toDomain(row: {
 	id: string;
-	email: string;
+	email: string | null;
+	claimedEmail: string | null;
 	role: string;
 	sectionIds: string[];
 	expiresAt: Date;

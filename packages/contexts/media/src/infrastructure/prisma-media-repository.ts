@@ -70,6 +70,7 @@ type MediaRow = {
 	focalY: number | null;
 	durationSeconds: number | null;
 	folderId: string | null;
+	uploadedByStaffId: string | null;
 };
 
 function toPersistence(asset: MediaAsset) {
@@ -90,6 +91,7 @@ function toPersistence(asset: MediaAsset) {
 		focalY: focal?.y ?? null,
 		durationSeconds: asset.durationSeconds,
 		folderId: asset.folderId,
+		uploadedByStaffId: asset.uploadedByStaffId,
 	};
 }
 
@@ -113,6 +115,7 @@ function toDomain(row: MediaRow): MediaAsset {
 				: null,
 		durationSeconds: row.durationSeconds,
 		folderId: row.folderId,
+		uploadedByStaffId: row.uploadedByStaffId,
 	});
 }
 
@@ -120,6 +123,7 @@ function toDomain(row: MediaRow): MediaAsset {
 function whereFrom(query?: MediaQuery) {
 	const term = query?.search?.trim();
 	return {
+		uploadedByStaffId: query?.uploadedByStaffId,
 		...(query?.ids ? { id: { in: [...query.ids] } } : {}),
 		// `undefined` = sem filtro; `null` = só o que está fora de pasta.
 		...(query && "folderId" in query

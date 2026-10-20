@@ -5,6 +5,7 @@ import type { MediaType } from "../media-type";
 
 /** Filtro da biblioteca: busca textual (nome/legenda/crédito) e tipo. */
 export type MediaQuery = {
+	uploadedByStaffId?: string;
 	search?: string;
 	type?: MediaType;
 	/**
@@ -90,6 +91,11 @@ export class InMemoryMediaRepository implements MediaRepository {
 	private matching(query?: MediaQuery): MediaAsset[] {
 		const term = query?.search?.trim().toLowerCase();
 		return [...this.store.values()]
+			.filter((asset) =>
+				query?.uploadedByStaffId
+					? asset.uploadedByStaffId === query.uploadedByStaffId
+					: true,
+			)
 			.filter((asset) => (query?.ids ? query.ids.includes(asset.id) : true))
 			.filter((asset) =>
 				query && "folderId" in query

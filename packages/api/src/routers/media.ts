@@ -58,6 +58,19 @@ function fail(error: Error): never {
 	throw new TRPCError({ code, message: error.message });
 }
 
+function ownerScope(staff: { id: string; role: string }): string | undefined {
+	return staff.role === "REDATOR" ? staff.id : undefined;
+}
+
+function requireSharedLibraryManager(staff: { role: string }): void {
+	if (staff.role === "REDATOR") {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "Redatores não podem alterar as pastas compartilhadas.",
+		});
+	}
+}
+
 export const mediaRouter = router({
 	/**
 	 * Gera um recorte independente, preservando o arquivo original: a capa
@@ -73,9 +86,13 @@ export const mediaRouter = router({
 				aspect: z.enum(["16:9", "1:1"]).default("16:9"),
 			}),
 		)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
 			const asset = await getAsset(input.id, mediaDeps);
-			if (asset?.type !== "IMAGE") {
+			if (
+				asset?.type !== "IMAGE" ||
+				(ownerScope(ctx.staff) !== undefined &&
+					asset.uploadedByStaffId !== ctx.staff.id)
+			) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
 					message: "Escolha uma imagem válida.",
@@ -126,6 +143,7 @@ export const mediaRouter = router({
 				});
 			const result = await registerAsset(
 				{
+					uploadedByStaffId: ctx.staff.id,
 					storageKey: upload.key,
 					type: "IMAGE",
 					filename,
@@ -168,8 +186,11 @@ export const mediaRouter = router({
 				focalPoint: z.object({ x: z.number(), y: z.number() }).nullish(),
 			}),
 		)
-		.mutation(async ({ input }) => {
-			const result = await registerAsset(input, mediaDeps);
+		.mutation(async ({ ctx, input }) => {
+			const result = await registerAsset(
+				{ ...input, uploadedByStaffId: ctx.staff.id },
+				mediaDeps,
+			);
 			if (result.isErr()) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
@@ -194,10 +215,10 @@ export const mediaRouter = router({
 				})
 				.optional(),
 		)
-		.query(async ({ input }) => {
+		.query(async ({ ctx, input }) => {
 			const { page, perPage, ...query } = input ?? {};
 			const result = await listLibrary(
-				query,
+				{ ...query, uploadedByStaffId: ownerScope(ctx.staff) },
 				mediaDeps,
 				toPageRequest({ page, perPage }),
 			);
@@ -211,8 +232,15 @@ export const mediaRouter = router({
 
 	get: staffProcedure
 		.input(z.object({ id: z.string() }))
-		.query(async ({ input }) => {
+		.query(async ({ ctx, input }) => {
 			const asset = await getAsset(input.id, mediaDeps);
+			if (
+				asset &&
+				ownerScope(ctx.staff) !== undefined &&
+				asset.uploadedByStaffId !== ctx.staff.id
+			) {
+				return null;
+			}
 			return asset ? assetDto(asset) : null;
 		}),
 
@@ -233,8 +261,11 @@ export const mediaRouter = router({
 				focalPoint: z.object({ x: z.number(), y: z.number() }).nullish(),
 			}),
 		)
-		.mutation(async ({ input }) => {
-			const result = await updateAssetDetails(input, mediaDeps);
+		.mutation(async ({ ctx, input }) => {
+			const result = await updateAssetDetails(
+				{ ...input, allowedOwnerId: ownerScope(ctx.staff) },
+				mediaDeps,
+			);
 			if (result.isErr()) {
 				fail(result.unwrapErr());
 			}
@@ -260,7 +291,8 @@ export const mediaRouter = router({
 
 		create: staffProcedure
 			.input(z.object({ name: z.string() }))
-			.mutation(async ({ input }) => {
+			.mutation(async ({ ctx, input }) => {
+				requireSharedLibraryManager(ctx.staff);
 				const result = await createFolder(input, mediaDeps);
 				if (result.isErr()) {
 					fail(result.error);
@@ -271,7 +303,8 @@ export const mediaRouter = router({
 
 		rename: staffProcedure
 			.input(z.object({ id: z.string(), name: z.string() }))
-			.mutation(async ({ input }) => {
+			.mutation(async ({ ctx, input }) => {
+				requireSharedLibraryManager(ctx.staff);
 				const result = await renameFolder(input, mediaDeps);
 				if (result.isErr()) {
 					fail(result.error);
@@ -282,7 +315,8 @@ export const mediaRouter = router({
 
 		remove: staffProcedure
 			.input(z.object({ id: z.string() }))
-			.mutation(async ({ input }) => {
+			.mutation(async ({ ctx, input }) => {
+				requireSharedLibraryManager(ctx.staff);
 				const result = await deleteFolder(input, mediaDeps);
 				if (result.isErr()) {
 					fail(result.error);
@@ -293,8 +327,11 @@ export const mediaRouter = router({
 
 	remove: staffProcedure
 		.input(z.object({ id: z.string() }))
-		.mutation(async ({ input }) => {
-			const result = await deleteAsset(input, mediaDeps);
+		.mutation(async ({ ctx, input }) => {
+			const result = await deleteAsset(
+				{ ...input, allowedOwnerId: ownerScope(ctx.staff) },
+				mediaDeps,
+			);
 			if (result.isErr()) {
 				fail(result.error);
 			}
@@ -306,7 +343,12 @@ export const mediaRouter = router({
 	 * erro qual arquivo trava a operação. */
 	removeMany: staffProcedure
 		.input(z.object({ ids: z.array(z.string()).min(1) }))
-		.mutation(({ input }) => deleteAssets(input, mediaDeps)),
+		.mutation(({ ctx, input }) =>
+			deleteAssets(
+				{ ...input, allowedOwnerId: ownerScope(ctx.staff) },
+				mediaDeps,
+			),
+		),
 
 	moveMany: staffProcedure
 		.input(
@@ -315,5 +357,10 @@ export const mediaRouter = router({
 				folderId: z.string().nullable(),
 			}),
 		)
-		.mutation(({ input }) => moveAssets(input, mediaDeps)),
+		.mutation(({ ctx, input }) =>
+			moveAssets(
+				{ ...input, allowedOwnerId: ownerScope(ctx.staff) },
+				mediaDeps,
+			),
+		),
 });

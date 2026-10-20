@@ -59,6 +59,21 @@ describe("registerAsset (invariantes A29)", () => {
 		expect(await repo.findByStorageKey("nao-existe")).toBeNull();
 	});
 
+	it("registra quem enviou o arquivo", async () => {
+		const asset = (
+			await registerAsset(
+				{
+					...image,
+					storageKey: "uploads/redator/foto.jpg",
+					uploadedByStaffId: "redator-1",
+				},
+				{ repo, ids },
+			)
+		).unwrap();
+
+		expect(asset.uploadedByStaffId).toBe("redator-1");
+	});
+
 	it("rejeita registro sem crédito (domínio, não tela)", async () => {
 		const result = await registerAsset(
 			{ ...image, credit: "  ", storageKey: "uploads/x/foto.jpg" },
@@ -130,6 +145,33 @@ describe("listLibrary (busca + filtro)", () => {
 		const found = await listLibrary({ search: "prefeitura" }, { repo });
 		expect(found.items.map((a) => a.filename)).toEqual(["edital.pdf"]);
 	});
+
+	it("filtra a biblioteca pelo redator que enviou", async () => {
+		await registerAsset(
+			{
+				...image,
+				filename: "minha-foto.jpg",
+				storageKey: "k4",
+				uploadedByStaffId: "redator-1",
+			},
+			{ repo, ids },
+		);
+		await registerAsset(
+			{
+				...image,
+				filename: "foto-do-colega.jpg",
+				storageKey: "k5",
+				uploadedByStaffId: "redator-2",
+			},
+			{ repo, ids },
+		);
+
+		const own = await listLibrary({ uploadedByStaffId: "redator-1" }, { repo });
+		expect(own.items.map((asset) => asset.filename)).toEqual([
+			"minha-foto.jpg",
+		]);
+		expect(own.total).toBe(1);
+	});
 });
 
 describe("updateAssetDetails", () => {
@@ -165,6 +207,33 @@ describe("updateAssetDetails", () => {
 		);
 
 		expect(result.unwrapErr()).toBeInstanceOf(MediaAssetNotFound);
+	});
+
+	it("oculta como inexistente um arquivo de outro redator", async () => {
+		const asset = (
+			await registerAsset(
+				{
+					...image,
+					storageKey: "k-outro",
+					uploadedByStaffId: "redator-2",
+				},
+				{ repo, ids },
+			)
+		).unwrap();
+
+		const result = await updateAssetDetails(
+			{
+				id: asset.id,
+				credit: "Tentativa",
+				allowedOwnerId: "redator-1",
+			},
+			{ repo },
+		);
+
+		expect(result.unwrapErr()).toBeInstanceOf(MediaAssetNotFound);
+		expect((await getAsset(asset.id, { repo }))?.credit.value).toBe(
+			"Foto: Ana",
+		);
 	});
 
 	it("propaga a recusa do domínio e NÃO grava", async () => {

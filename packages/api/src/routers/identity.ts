@@ -27,7 +27,7 @@ import {
 	router,
 	staffProcedure,
 } from "../index";
-import { invitationDeps, staffRepo } from "../staff";
+import { invitationDeps, invitationRepo, staffRepo } from "../staff";
 import { sectionDeps } from "../taxonomy";
 
 const inviteDeps = { ...invitationDeps, ids: new UuidGenerator() };
@@ -166,30 +166,50 @@ export const identityRouter = router({
 	}),
 
 	/**
-	 * Convites (spec 05, D2 — emendada: o portão é o e-mail, sem token).
+	 * Convites por e-mail ou por link aberto. O token é a identidade opaca do
+	 * convite e nunca carrega papel/editorias no endereço.
 	 *
 	 * Convidar é `user:manage` (ADMIN): quem entra na redação e com qual papel é
 	 * decisão de quem administra a equipe.
 	 */
 	invitations: router({
+		preview: publicProcedure
+			.input(z.object({ id: z.string() }))
+			.query(async ({ input }) => {
+				const invitation = await invitationRepo.findById(input.id);
+				if (!invitation?.isOpen(new Date())) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Este convite não existe, já foi usado ou venceu.",
+					});
+				}
+				return {
+					email: invitation.email,
+					expiresAt: invitation.expiresAt,
+				};
+			}),
+
 		list: manage.query(async () =>
 			(await listInvitations(inviteDeps)).map((invitation) => ({
 				id: invitation.id,
 				email: invitation.email,
+				claimedEmail: invitation.claimedEmail,
 				role: invitation.role,
 				sectionIds: [...invitation.sectionIds],
 				expiresAt: invitation.expiresAt,
 				acceptedAt: invitation.acceptedAt,
 				open: invitation.isOpen(new Date()),
+				url: `${env.BETTER_AUTH_URL}/login?invite=${invitation.id}&modo=criar`,
 			})),
 		),
 
 		create: manage
 			.input(
 				z.object({
-					email: z.string(),
+					email: z.email().nullable().optional(),
 					role: z.enum(ROLES),
 					sectionIds: z.array(z.string()).optional(),
+					validityDays: z.number().int().min(1).max(30).optional(),
 				}),
 			)
 			.mutation(async ({ ctx, input }) => {
@@ -209,6 +229,7 @@ export const identityRouter = router({
 					email: invitation.email,
 					role: invitation.role,
 					expiresAt: invitation.expiresAt,
+					url: `${env.BETTER_AUTH_URL}/login?invite=${invitation.id}&modo=criar`,
 				};
 			}),
 

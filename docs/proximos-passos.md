@@ -111,14 +111,14 @@ de mídia com arrastar-e-soltar e ponto focal, e todas as telas refeitas no desi
 system. Detalhes e critérios de aceite em `specs/05-admin-redacao.md`.
 
 ### Bloco B — Equipe e configurações
-- [ ] **Convite por link** (D2): agregado `Invitation` no contexto `identity`
-      (token com hash guardado, e-mail, papel, validade de 7 dias, aceito/revogado)
-      + modelo Prisma + `pnpm db:migrate`. A UI mostra o link para copiar; **sem
-      dependência de e-mail** (restrição de infra auto-hospedável).
-- [ ] **Decisão de segurança que vem junto:** hoje `resolveStaff` provisiona
-      QUALQUER usuário autenticado como membro (o primeiro vira ADMIN). Com
-      convites isso vira brecha — passar a provisionar só com convite válido,
-      exceto o primeiro do sistema.
+- [x] **Convite por link** (D2): agregado `Invitation` no contexto `identity`,
+      token opaco de uso único, papel/editorias no servidor, validade padrão de
+      7 dias e migração Prisma. A UI copia o link e permite convite nominal ou
+      aberto para o primeiro cadastro.
+- [x] **Decisão de segurança que vem junto:** `databaseHooks.user.create.before`
+      exige e reserva atomicamente um convite válido antes de criar a conta;
+      `resolveStaff` provisiona pelo convite reservado. Só o primeiro usuário do
+      sistema permanece como exceção.
 - [ ] `reactivateStaff` (só existe `deactivate`).
 - [ ] **Configurações do site**: `settings:manage` existe como permissão desde a
       Fase 1 sem nada atrás. Contexto novo com `SiteSettings` (nome, logo,

@@ -35,6 +35,7 @@ type CreateInput = {
 	photoMediaId?: string | null;
 	socials?: SocialLinks;
 	email?: string | null;
+	active?: boolean;
 };
 
 export function listColumnists(deps: Pick<Deps, "repo">): Promise<Columnist[]> {

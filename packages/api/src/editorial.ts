@@ -254,9 +254,12 @@ export async function listAuditLog(page: PageRequest): Promise<
  * a página, e o painel mostraria "3 publicadas" com 300 no banco. Um `groupBy`,
  * não sete `count`.
  */
-export async function countArticlesByStatus(): Promise<Record<string, number>> {
+export async function countArticlesByStatus(
+	authorId?: string,
+): Promise<Record<string, number>> {
 	const rows = await prisma.article.groupBy({
 		by: ["status"],
+		where: { authorId },
 		_count: { _all: true },
 	});
 	return Object.fromEntries(rows.map((row) => [row.status, row._count._all]));

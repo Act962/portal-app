@@ -67,8 +67,12 @@ export function createAuth() {
 		databaseHooks: {
 			user: {
 				create: {
-					before: async (user) => {
-						const allowed = await assertCanSignUp(user.email, gate);
+					before: async (user, ctx) => {
+						const allowed = await assertCanSignUp(
+							user.email,
+							ctx?.getHeader("x-invitation-token") ?? null,
+							gate,
+						);
 						if (allowed.isErr()) {
 							throw new APIError("BAD_REQUEST", {
 								message: allowed.unwrapErr().message,

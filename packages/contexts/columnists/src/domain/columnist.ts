@@ -36,6 +36,7 @@ type CreateInput = {
 	socials?: SocialLinks;
 	email?: string | null;
 	order?: number;
+	active?: boolean;
 };
 
 type CreateError = NameRequired | InvalidSlug | InvalidColumnistEmail;
@@ -95,7 +96,7 @@ export class Columnist extends AggregateRoot<string> {
 				socials: normalizeSocials(input.socials ?? {}),
 				email: email.value,
 				order: input.order ?? 0,
-				active: true,
+				active: input.active ?? true,
 			}),
 		);
 	}

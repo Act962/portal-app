@@ -75,11 +75,8 @@ import { PaginationBar } from "@/components/admin/pagination-bar";
 import { STATUS_LABELS, StatusBadge } from "@/components/admin/status-badge";
 import { tableDate, tableDateTitle, tableRelative } from "@/lib/admin-dates";
 import {
-	allows,
 	type BulkAction,
 	bulkResultMessage,
-	canArchive,
-	canDelete,
 	countLabel,
 	headerCheckboxState,
 	pruneSelection,
@@ -178,6 +175,8 @@ type Target = {
 	status: EditorialStatus;
 	headline: string;
 	firstPublishedAt: Date | string | null;
+	canArchive: boolean;
+	canDelete: boolean;
 };
 
 /**
@@ -382,6 +381,8 @@ export function ArticlesList() {
 		status: article.status as EditorialStatus,
 		headline: article.headline,
 		firstPublishedAt: article.firstPublishedAt,
+		canArchive: article.canArchive,
+		canDelete: article.canDelete,
 	}));
 
 	const headerState = headerCheckboxState(rows, selected);
@@ -389,7 +390,11 @@ export function ArticlesList() {
 
 	/** Da seleção, o que ESTA ação alcança. */
 	const eligible = (action: BulkAction) =>
-		rows.filter((row) => selected.has(row.id) && allows(row.status, action));
+		rows.filter(
+			(row) =>
+				selected.has(row.id) &&
+				(action === "archive" ? row.canArchive : row.canDelete),
+		);
 
 	const archivableSelected = eligible("archive");
 	const deletableSelected = eligible("delete");
@@ -854,7 +859,7 @@ export function ArticlesList() {
 															Ver no portal
 														</DropdownMenuItem>
 													) : null}
-													{canArchive(status) ? (
+													{article.canArchive ? (
 														<DropdownMenuItem
 															onClick={() =>
 																setConfirming({
@@ -865,6 +870,8 @@ export function ArticlesList() {
 																		status,
 																		headline: article.headline,
 																		firstPublishedAt: article.firstPublishedAt,
+																		canArchive: article.canArchive,
+																		canDelete: article.canDelete,
 																	},
 																})
 															}
@@ -879,7 +886,7 @@ export function ArticlesList() {
 													    Some para matéria no ar — quem quiser eliminá-la
 													    arquiva antes, e essa parada é a chance de mudar de
 													    ideia. */}
-													{canDelete(status) ? (
+													{article.canDelete ? (
 														<>
 															<DropdownMenuSeparator />
 															<DropdownMenuItem
@@ -894,6 +901,8 @@ export function ArticlesList() {
 																			headline: article.headline,
 																			firstPublishedAt:
 																				article.firstPublishedAt,
+																			canArchive: article.canArchive,
+																			canDelete: article.canDelete,
 																		},
 																	})
 																}

@@ -37,7 +37,12 @@ export function listInvitations(
 }
 
 export async function inviteMember(
-	input: { email: string; role: Role; sectionIds?: string[] },
+	input: {
+		email?: string | null;
+		role: Role;
+		sectionIds?: string[];
+		validityDays?: number;
+	},
 	invitedBy: string,
 	deps: Deps,
 ): Promise<
@@ -50,12 +55,14 @@ export async function inviteMember(
 		return err(new EditorRequiresSection());
 	}
 	const now = deps.clock.now();
-	const email = normalizeEmail(input.email);
+	const email = input.email ? normalizeEmail(input.email) : null;
 
 	// Dois convites abertos para a mesma pessoa não fazem mal, mas confundem a
 	// lista e o revogar — melhor recusar e mandar revogar o anterior.
-	const existing = await deps.invitations.findOpenByEmail(email, now);
-	if (existing) {
+	const existing = email
+		? await deps.invitations.findOpenByEmail(email, now)
+		: null;
+	if (existing && email) {
 		return err(new InvitationAlreadyExists(email));
 	}
 
@@ -66,6 +73,7 @@ export async function inviteMember(
 		sectionIds: input.role === "EDITOR" ? input.sectionIds : [],
 		invitedBy,
 		now,
+		validityDays: input.validityDays,
 	});
 	if (invitation.isErr()) {
 		return invitation;
@@ -75,11 +83,14 @@ export async function inviteMember(
 
 	// Sem Mailer configurado isto é um NoopMailer — não falha, só não faz nada,
 	// e o "avise você mesmo" que já existe continua sendo o caminho.
-	await deps.mailer.send({
-		to: email,
-		subject: "Convite para a redação",
-		text: `Você foi convidado para o painel da redação. Crie sua conta em ${deps.appUrl}/login usando exatamente este e-mail (${email}).`,
-	});
+	if (email) {
+		const url = `${deps.appUrl}/login?invite=${invitation.unwrap().id}&modo=criar`;
+		await deps.mailer.send({
+			to: email,
+			subject: "Convite para a redação",
+			text: `Você foi convidado para o painel da redação. Crie sua conta em ${url} usando exatamente este e-mail (${email}).`,
+		});
+	}
 
 	return invitation;
 }
@@ -101,13 +112,19 @@ export async function revokeInvitation(
  */
 export async function assertCanSignUp(
 	email: string,
+	invitationId: string | null,
 	deps: Pick<Deps, "invitations" | "clock"> & { staff: StaffMemberRepository },
 ): Promise<Result<Invitation | null, NotInvited>> {
 	if ((await deps.staff.count()) === 0) {
 		return ok(null);
 	}
 
-	const invitation = await deps.invitations.findOpenByEmail(
+	if (!invitationId) {
+		return err(new NotInvited());
+	}
+
+	const invitation = await deps.invitations.claimById(
+		invitationId,
 		normalizeEmail(email),
 		deps.clock.now(),
 	);

@@ -163,8 +163,9 @@ pnpm dev
 
 Cadastre-se normalmente em <http://localhost:3001/login>. **O primeiro usuário do
 banco nasce ADMIN** — é a exceção que existe justamente para haver alguém que
-convide os outros. Do segundo em diante, só entra quem tiver convite com aquele
-e-mail (o `databaseHooks` do Better Auth recusa o resto).
+convide os outros. Do segundo em diante, só entra quem abrir um token de convite
+válido. O convite pode exigir um e-mail específico ou aceitar o primeiro e-mail
+que concluir o cadastro (o `databaseHooks` do Better Auth recusa o resto).
 
 Ou seja: se você errar o e-mail do primeiro cadastro, o jeito mais rápido é
 apagar a linha em `user` e cadastrar de novo.

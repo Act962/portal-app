@@ -20,6 +20,7 @@ import {
 	unpublish,
 	updateArticle,
 } from "@portal-app/editorial";
+import { can, type StaffMember } from "@portal-app/identity";
 import { getAsset } from "@portal-app/media";
 import {
 	DEFAULT_PAGE_SIZE,
@@ -142,7 +143,22 @@ async function resolveCover(cover: z.infer<typeof coverSchema>) {
 		: cover;
 }
 
-function articleDto(article: Article) {
+function articleDto(article: Article, actor?: StaffMember) {
+	const ref = {
+		authorId: article.byline.authorId,
+		sectionId: article.sectionId ?? undefined,
+	};
+	const canArchive = actor
+		? article.isPublished()
+			? can(actor, "article:unpublish", ref)
+			: can(actor, "article:edit-any", ref) ||
+				can(actor, "article:edit-own", ref)
+		: false;
+	const canDelete = actor
+		? !article.isPublished() &&
+			can(actor, "article:delete", ref) &&
+			(!article.wasEverPublished() || can(actor, "article:unpublish", ref))
+		: false;
 	return {
 		id: article.id,
 		headline: article.headline,
@@ -171,6 +187,8 @@ function articleDto(article: Article) {
 		updatedAt: article.updatedAt,
 		// A04: pendências que impedem publicar, para a UI listar antes do clique.
 		pendencias: article.publishPreflight().map((blocker) => blocker.message),
+		canArchive,
+		canDelete,
 	};
 }
 
@@ -189,12 +207,12 @@ function codeFor(error: Error): TRPCError["code"] {
 	}
 }
 
-function ensure(result: Result<Article, Error>) {
+function ensure(result: Result<Article, Error>, actor: StaffMember) {
 	if (result.isErr()) {
 		const error = result.unwrapErr();
 		throw new TRPCError({ code: codeFor(error), message: error.message });
 	}
-	return articleDto(result.unwrap());
+	return articleDto(result.unwrap(), actor);
 }
 
 /** O endereço público de uma matéria, do jeito que o cache do portal o conhece. */
@@ -268,8 +286,12 @@ async function revalidateBulk(
  * público, então não há cache a derrubar; e matéria que ACABOU de ser arquivada
  * precisa da invalidação justamente porque a página dela tem de sair do ar.
  */
-async function commit(result: Result<Article, Error>, previous?: PublicRef) {
-	const dto = ensure(result);
+async function commit(
+	result: Result<Article, Error>,
+	actor: StaffMember,
+	previous?: PublicRef,
+) {
+	const dto = ensure(result, actor);
 	await dispatchEditorialEvents();
 	if (dto.firstPublishedAt !== null) {
 		await revalidateArticlePaths(dto, previous);
@@ -305,15 +327,20 @@ export const editorialRouter = router({
 					})
 					.optional(),
 			)
-			.query(async ({ input }) => {
+			.query(async ({ ctx, input }) => {
 				const { page, perPage, ...filter } = input ?? {};
+				const scopedFilter = {
+					...filter,
+					authorId:
+						ctx.staff.role === "REDATOR" ? ctx.staff.id : filter.authorId,
+				};
 				const result = await listArticles(
-					filter,
+					scopedFilter,
 					articleDeps,
 					toPageRequest({ page, perPage }),
 				);
 				return {
-					items: result.items.map(articleDto),
+					items: result.items.map((article) => articleDto(article, ctx.staff)),
 					total: result.total,
 					page: page ?? 1,
 					perPage: perPage ?? DEFAULT_PAGE_SIZE,
@@ -323,13 +350,24 @@ export const editorialRouter = router({
 		/** Contagem por status — os cartões da visão geral. Separado do `list`
 		 * porque aquele agora devolve uma PÁGINA: contar no cliente contaria só
 		 * os 20 da tela. */
-		counts: staffProcedure.query(() => countArticlesByStatus()),
+		counts: staffProcedure.query(({ ctx }) =>
+			countArticlesByStatus(
+				ctx.staff.role === "REDATOR" ? ctx.staff.id : undefined,
+			),
+		),
 
 		get: staffProcedure
 			.input(z.object({ id: z.string() }))
-			.query(async ({ input }) => {
+			.query(async ({ ctx, input }) => {
 				const article = await getArticle(input.id, articleDeps);
-				return article ? articleDto(article) : null;
+				if (
+					article &&
+					ctx.staff.role === "REDATOR" &&
+					article.byline.authorId !== ctx.staff.id
+				) {
+					return null;
+				}
+				return article ? articleDto(article, ctx.staff) : null;
 			}),
 
 		create: staffProcedure
@@ -345,6 +383,7 @@ export const editorialRouter = router({
 						},
 						articleDeps,
 					),
+					ctx.staff,
 				),
 			),
 
@@ -367,6 +406,7 @@ export const editorialRouter = router({
 						{ ...input, cover: await resolveCover(input.cover) },
 						articleDeps,
 					),
+					ctx.staff,
 					previous ?? undefined,
 				);
 			}),
@@ -377,6 +417,7 @@ export const editorialRouter = router({
 				const previous = await snapshot(input.id);
 				return commit(
 					await changeSlug(ctx.staff, input, articleDeps),
+					ctx.staff,
 					previous ?? undefined,
 				);
 			}),
@@ -384,31 +425,31 @@ export const editorialRouter = router({
 		publish: staffProcedure
 			.input(z.object({ id: z.string() }))
 			.mutation(async ({ ctx, input }) =>
-				commit(await publish(ctx.staff, input, articleDeps)),
+				commit(await publish(ctx.staff, input, articleDeps), ctx.staff),
 			),
 
 		unpublish: staffProcedure
 			.input(z.object({ id: z.string() }))
 			.mutation(async ({ ctx, input }) =>
-				commit(await unpublish(ctx.staff, input, articleDeps)),
+				commit(await unpublish(ctx.staff, input, articleDeps), ctx.staff),
 			),
 
 		schedule: staffProcedure
 			.input(z.object({ id: z.string(), at: z.coerce.date() }))
 			.mutation(async ({ ctx, input }) =>
-				commit(await schedule(ctx.staff, input, articleDeps)),
+				commit(await schedule(ctx.staff, input, articleDeps), ctx.staff),
 			),
 
 		cancelSchedule: staffProcedure
 			.input(z.object({ id: z.string() }))
 			.mutation(async ({ ctx, input }) =>
-				commit(await cancelSchedule(ctx.staff, input, articleDeps)),
+				commit(await cancelSchedule(ctx.staff, input, articleDeps), ctx.staff),
 			),
 
 		archive: staffProcedure
 			.input(z.object({ id: z.string() }))
 			.mutation(async ({ ctx, input }) =>
-				commit(await archive(ctx.staff, input, articleDeps)),
+				commit(await archive(ctx.staff, input, articleDeps), ctx.staff),
 			),
 
 		/**
@@ -469,9 +510,18 @@ export const editorialRouter = router({
 
 	schedules: router({
 		/** Calendário editorial (A15): tudo que está agendado. */
-		list: staffProcedure.query(async () =>
-			(await listScheduled(articleDeps)).map(articleDto),
-		),
+		list: staffProcedure.query(async ({ ctx }) => {
+			if (ctx.staff.role !== "REDATOR") {
+				return (await listScheduled(articleDeps)).map((article) =>
+					articleDto(article, ctx.staff),
+				);
+			}
+			const result = await listArticles(
+				{ status: "AGENDADA", authorId: ctx.staff.id },
+				articleDeps,
+			);
+			return result.items.map((article) => articleDto(article, ctx.staff));
+		}),
 
 		/**
 		 * Dispara o poller que publica as agendadas vencidas (A13). Em produção,

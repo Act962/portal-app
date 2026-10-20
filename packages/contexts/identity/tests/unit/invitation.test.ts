@@ -35,6 +35,13 @@ describe("Invitation.create", () => {
 		);
 	});
 
+	it("aceita link aberto sem e-mail pré-definido", () => {
+		const invitation = novo({ email: null }).unwrap();
+
+		expect(invitation.email).toBeNull();
+		expect(invitation.isOpen(NOW)).toBe(true);
+	});
+
 	it("normaliza o e-mail — é chave de comparação, não texto livre", () => {
 		const invitation = novo({ email: "  Joao@FM7Cidades.COM  " }).unwrap();
 

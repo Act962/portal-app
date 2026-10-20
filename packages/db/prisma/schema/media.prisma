@@ -35,10 +35,15 @@ model MediaAsset {
   folderId String?
   folder   MediaFolder? @relation(fields: [folderId], references: [id], onDelete: Restrict)
 
+  // Membro que enviou o arquivo. Nulo preserva assets antigos e os gerados
+  // automaticamente; novos uploads do painel sempre informam o responsável.
+  uploadedByStaffId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([folderId])
+  @@index([uploadedByStaffId, createdAt])
   @@map("media_asset")
 }
 

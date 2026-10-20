@@ -12,18 +12,25 @@ import Loader from "./loader";
 
 export default function SignUpForm({
 	onSwitchToSignIn,
+	invitationToken,
+	invitedEmail,
 }: {
 	onSwitchToSignIn: () => void;
+	invitationToken?: string;
+	invitedEmail?: string | null;
 }) {
 	const router = useRouter();
 	const { isPending } = authClient.useSession();
 
 	const form = useForm({
-		defaultValues: { email: "", password: "", name: "" },
+		defaultValues: { email: invitedEmail ?? "", password: "", name: "" },
 		onSubmit: async ({ value }) => {
 			await authClient.signUp.email(
 				{ email: value.email, password: value.password, name: value.name },
 				{
+					headers: invitationToken
+						? { "x-invitation-token": invitationToken }
+						: undefined,
 					onSuccess: () => {
 						router.push("/dashboard");
 					},
@@ -87,6 +94,7 @@ export default function SignUpForm({
 								name={field.name}
 								type="email"
 								autoComplete="email"
+								readOnly={Boolean(invitedEmail)}
 								value={field.state.value}
 								onBlur={field.handleBlur}
 								onChange={(e) => field.handleChange(e.target.value)}
