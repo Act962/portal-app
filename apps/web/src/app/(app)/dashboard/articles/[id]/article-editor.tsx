@@ -85,8 +85,6 @@ import { CoverCropEditor } from "@/components/media/cover-crop-editor";
 import { MediaPickerDialog } from "@/components/media/media-picker-dialog";
 import {
 	type BulkAction,
-	canArchive,
-	canDelete,
 	requiresTypedConfirmation,
 } from "@/lib/article-selection";
 import { trpc } from "@/utils/trpc";
@@ -254,8 +252,8 @@ export function ArticleEditor({
 	const status = article.data?.status as EditorialStatus | undefined;
 	// As duas saídas do cartão de publicação. Calculadas aqui porque `status`
 	// ainda pode ser indefinido enquanto a matéria carrega.
-	const canArchiveThis = status !== undefined && canArchive(status);
-	const canDeleteThis = status !== undefined && canDelete(status);
+	const canArchiveThis = article.data?.canArchive ?? false;
+	const canDeleteThis = article.data?.canDelete ?? false;
 
 	const bylineId = useId();
 

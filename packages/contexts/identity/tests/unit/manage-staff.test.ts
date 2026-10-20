@@ -4,34 +4,38 @@ import {
 	bindStaffSections,
 	changeStaffRole,
 	deactivateStaff,
+	EditorRequiresSection,
 	Forbidden,
 	InMemoryStaffRepository,
+	LastActiveAdmin,
 	listStaff,
 	StaffMember,
 	StaffNotFound,
 	updateAuthorProfile,
+	updateStaffAccess,
 } from "@portal-app/identity";
 import { beforeEach, describe, expect, it } from "vitest";
 
 let repo: InMemoryStaffRepository;
-
-const admin = StaffMember.restore({
-	id: "admin-1",
-	email: "admin@x.com",
-	role: "ADMIN",
-	status: "ATIVO",
-	sectionIds: [],
-});
-const redator = StaffMember.restore({
-	id: "redator-1",
-	email: "red@x.com",
-	role: "REDATOR",
-	status: "ATIVO",
-	sectionIds: [],
-});
+let admin: StaffMember;
+let redator: StaffMember;
 
 beforeEach(async () => {
 	repo = new InMemoryStaffRepository();
+	admin = StaffMember.restore({
+		id: "admin-1",
+		email: "admin@x.com",
+		role: "ADMIN",
+		status: "ATIVO",
+		sectionIds: [],
+	});
+	redator = StaffMember.restore({
+		id: "redator-1",
+		email: "red@x.com",
+		role: "REDATOR",
+		status: "ATIVO",
+		sectionIds: [],
+	});
 	await repo.save(admin);
 	await repo.save(redator);
 });
@@ -88,6 +92,76 @@ describe("gestão de usuários — efeitos", () => {
 		expect(
 			(await repo.findById("redator-1"))?.belongsToSection("politica"),
 		).toBe(true);
+	});
+
+	it("admin atualiza papel e editorias do editor em uma operação", async () => {
+		const result = await updateStaffAccess(
+			admin,
+			{
+				staffId: "redator-1",
+				role: "EDITOR",
+				sectionIds: ["politica", "cidades"],
+			},
+			{ repo },
+		);
+
+		expect(result.isOk()).toBe(true);
+		const loaded = await repo.findById("redator-1");
+		expect(loaded?.role).toBe("EDITOR");
+		expect(loaded?.belongsToSection("cidades")).toBe(true);
+	});
+
+	it("não cria editor sem editoria", async () => {
+		const result = await updateStaffAccess(
+			admin,
+			{ staffId: "redator-1", role: "EDITOR", sectionIds: [] },
+			{ repo },
+		);
+
+		expect(result).toBeErr(EditorRequiresSection);
+		expect((await repo.findById("redator-1"))?.role).toBe("REDATOR");
+	});
+
+	it("não rebaixa o último administrador ativo", async () => {
+		const result = await updateStaffAccess(
+			admin,
+			{ staffId: "admin-1", role: "REDATOR", sectionIds: [] },
+			{ repo },
+		);
+
+		expect(result).toBeErr(LastActiveAdmin);
+		expect((await repo.findById("admin-1"))?.role).toBe("ADMIN");
+	});
+
+	it("não desativa o último administrador ativo", async () => {
+		const result = await deactivateStaff(
+			admin,
+			{ staffId: "admin-1" },
+			{ repo },
+		);
+
+		expect(result).toBeErr(LastActiveAdmin);
+		expect((await repo.findById("admin-1"))?.isActive()).toBe(true);
+	});
+
+	it("permite rebaixar um admin quando há outro ativo", async () => {
+		const otherAdmin = StaffMember.restore({
+			id: "admin-2",
+			email: "admin2@x.com",
+			role: "ADMIN",
+			status: "ATIVO",
+			sectionIds: [],
+		});
+		await repo.save(otherAdmin);
+
+		const result = await updateStaffAccess(
+			admin,
+			{ staffId: "admin-2", role: "REDATOR", sectionIds: [] },
+			{ repo },
+		);
+
+		expect(result.isOk()).toBe(true);
+		expect((await repo.findById("admin-2"))?.role).toBe("REDATOR");
 	});
 
 	it("admin desativa um membro (autoria preservada pelo id)", async () => {

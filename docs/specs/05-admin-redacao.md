@@ -112,9 +112,11 @@ e emite esse JSON"*. E o renderizador do portal **já** suporta `strong` e `link
 (`InlineNode` em `apps/web/src/data/types.ts`) — só o domínio não carregava.
 Registrado no **ADR 0010**.
 
-### D2 — Convite por link copiável, sem e-mail
+### D2 — Convite por link copiável, nominal ou aberto
 
-**Escolhido:** o dono gera um convite (e-mail + papel + validade); a UI mostra um link
+**Escolhido:** o dono gera um convite com papel, editorias e validade padrão de
+7 dias. Pode vinculá-lo a um e-mail específico ou criar um link aberto, que é
+reservado para o primeiro e-mail que concluir o cadastro. A UI mostra o link
 com token para copiar e enviar pelo canal que quiser.
 
 Enviar por e-mail exigiria SMTP ou um SaaS de e-mail — e a restrição de projeto é

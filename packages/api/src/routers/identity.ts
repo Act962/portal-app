@@ -4,10 +4,7 @@ import { env } from "@portal-app/env/server";
 import {
 	AuthorProfile,
 	activateStaff,
-	bindStaffSections,
-	changeStaffRole,
 	deactivateStaff,
-	type Forbidden,
 	inviteMember,
 	listInvitations,
 	listStaff,
@@ -16,9 +13,11 @@ import {
 	type StaffMember,
 	StaffNotFound,
 	updateAuthorProfile,
+	updateStaffAccess,
 } from "@portal-app/identity";
 import type { Result } from "@portal-app/shared-kernel";
 import { UuidGenerator } from "@portal-app/shared-kernel";
+import { listSections } from "@portal-app/taxonomy";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -28,7 +27,8 @@ import {
 	router,
 	staffProcedure,
 } from "../index";
-import { invitationDeps, staffRepo } from "../staff";
+import { invitationDeps, invitationRepo, staffRepo } from "../staff";
+import { sectionDeps } from "../taxonomy";
 
 const inviteDeps = { ...invitationDeps, ids: new UuidGenerator() };
 
@@ -48,11 +48,16 @@ function toDto(staff: StaffMember) {
 	};
 }
 
-function unwrap(result: Result<StaffMember, Forbidden | StaffNotFound>) {
+function unwrap<E extends Error>(result: Result<StaffMember, E>) {
 	if (result.isErr()) {
 		const error = result.unwrapErr();
 		throw new TRPCError({
-			code: error instanceof StaffNotFound ? "NOT_FOUND" : "FORBIDDEN",
+			code:
+				error instanceof StaffNotFound
+					? "NOT_FOUND"
+					: error.name === "Forbidden"
+						? "FORBIDDEN"
+						: "BAD_REQUEST",
 			message: error.message,
 		});
 	}
@@ -60,6 +65,20 @@ function unwrap(result: Result<StaffMember, Forbidden | StaffNotFound>) {
 }
 
 const manage = requirePermission("user:manage");
+
+async function ensureActiveSections(sectionIds: readonly string[]) {
+	const activeIds = new Set(
+		(await listSections(sectionDeps))
+			.filter((section) => section.isActive())
+			.map((section) => section.id),
+	);
+	if (sectionIds.some((id) => !activeIds.has(id))) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Uma das editorias selecionadas não existe ou está inativa.",
+		});
+	}
+}
 
 export const identityRouter = router({
 	/** O membro por trás da sessão atual — papel, editorias e perfil. */
@@ -84,17 +103,22 @@ export const identityRouter = router({
 			return result.unwrap().map(toDto);
 		}),
 
-		setRole: manage
-			.input(z.object({ staffId: z.string(), role: z.enum(ROLES) }))
-			.mutation(async ({ ctx, input }) =>
-				unwrap(await changeStaffRole(ctx.staff, input, { repo: staffRepo })),
-			),
-
-		setSections: manage
-			.input(z.object({ staffId: z.string(), sectionIds: z.array(z.string()) }))
-			.mutation(async ({ ctx, input }) =>
-				unwrap(await bindStaffSections(ctx.staff, input, { repo: staffRepo })),
-			),
+		updateAccess: manage
+			.input(
+				z.object({
+					staffId: z.string(),
+					role: z.enum(ROLES),
+					sectionIds: z.array(z.string()),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				if (input.role === "EDITOR") {
+					await ensureActiveSections(input.sectionIds);
+				}
+				return unwrap(
+					await updateStaffAccess(ctx.staff, input, { repo: staffRepo }),
+				);
+			}),
 
 		deactivate: manage
 			.input(z.object({ staffId: z.string() }))
@@ -142,33 +166,56 @@ export const identityRouter = router({
 	}),
 
 	/**
-	 * Convites (spec 05, D2 — emendada: o portão é o e-mail, sem token).
+	 * Convites por e-mail ou por link aberto. O token é a identidade opaca do
+	 * convite e nunca carrega papel/editorias no endereço.
 	 *
 	 * Convidar é `user:manage` (ADMIN): quem entra na redação e com qual papel é
 	 * decisão de quem administra a equipe.
 	 */
 	invitations: router({
+		preview: publicProcedure
+			.input(z.object({ id: z.string() }))
+			.query(async ({ input }) => {
+				const invitation = await invitationRepo.findById(input.id);
+				if (!invitation?.isOpen(new Date())) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Este convite não existe, já foi usado ou venceu.",
+					});
+				}
+				return {
+					email: invitation.email,
+					expiresAt: invitation.expiresAt,
+				};
+			}),
+
 		list: manage.query(async () =>
 			(await listInvitations(inviteDeps)).map((invitation) => ({
 				id: invitation.id,
 				email: invitation.email,
+				claimedEmail: invitation.claimedEmail,
 				role: invitation.role,
 				sectionIds: [...invitation.sectionIds],
 				expiresAt: invitation.expiresAt,
 				acceptedAt: invitation.acceptedAt,
 				open: invitation.isOpen(new Date()),
+				url: `${env.BETTER_AUTH_URL}/login?invite=${invitation.id}&modo=criar`,
 			})),
 		),
 
 		create: manage
 			.input(
 				z.object({
-					email: z.string(),
+					email: z.email().nullable().optional(),
 					role: z.enum(ROLES),
 					sectionIds: z.array(z.string()).optional(),
+					validityDays: z.number().int().min(1).max(30).optional(),
 				}),
 			)
 			.mutation(async ({ ctx, input }) => {
+				if (input.role === "EDITOR") {
+					await ensureActiveSections(input.sectionIds ?? []);
+				}
 				const result = await inviteMember(input, ctx.staff.id, inviteDeps);
 				if (result.isErr()) {
 					throw new TRPCError({
@@ -182,6 +229,7 @@ export const identityRouter = router({
 					email: invitation.email,
 					role: invitation.role,
 					expiresAt: invitation.expiresAt,
+					url: `${env.BETTER_AUTH_URL}/login?invite=${invitation.id}&modo=criar`,
 				};
 			}),
 

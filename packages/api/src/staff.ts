@@ -11,6 +11,8 @@ import { PrismaInvitationRepository } from "@portal-app/identity/infrastructure/
 import { PrismaStaffRepository } from "@portal-app/identity/infrastructure/prisma-staff-repository";
 import { SystemClock } from "@portal-app/shared-kernel";
 
+import { ensureHiddenColumnistForRedator } from "./columnists";
+
 /**
  * Raiz de composição da identidade no lado servidor. É AQUI (na camada de API,
  * não em `apps/web`) que a infraestrutura do contexto é instanciada, para o app
@@ -51,10 +53,13 @@ export async function resolveStaff(
 
 	const existing = await staffRepo.findById(session.user.id);
 	if (existing) {
+		if (existing.role === "REDATOR") {
+			await ensureHiddenColumnistForRedator(session.user.name);
+		}
 		return { session, staff: existing };
 	}
 
-	const invitation = await invitationRepo.findOpenByEmail(
+	const invitation = await invitationRepo.findClaimedByEmail(
 		session.user.email.trim().toLowerCase(),
 		invitationDeps.clock.now(),
 	);
@@ -74,6 +79,9 @@ export async function resolveStaff(
 	// alguém sem acesso e sem como voltar.
 	if (invitation) {
 		await acceptInvitation(invitation, invitationDeps);
+	}
+	if (staff.role === "REDATOR") {
+		await ensureHiddenColumnistForRedator(session.user.name);
 	}
 
 	return { session, staff };

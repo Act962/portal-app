@@ -416,7 +416,7 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
 
 | # | Pendência | Por que importa | Onde |
 |---|---|---|---|
-| B1 | ~~Qualquer um cria conta no painel~~ | ✅ **Resolvido**: o cadastro é fechado por convite, com o portão no `databaseHooks.user.create.before` do Better Auth — vale para qualquer caminho que crie usuário, não só a nossa UI. O portão é o **e-mail** (sem token). Primeiro usuário do sistema segue nascendo ADMIN. | `packages/auth/src/index.ts` |
+| B1 | ~~Qualquer um cria conta no painel~~ | ✅ **Resolvido**: o cadastro é fechado por token de convite no `databaseHooks.user.create.before` do Better Auth — vale para qualquer caminho que crie usuário, não só a nossa UI. O convite pode exigir um e-mail específico ou ser um link aberto, reservado atomicamente pelo primeiro cadastro. Primeiro usuário do sistema segue nascendo ADMIN. | `packages/auth/src/index.ts` |
 | B2 | ~~Capa das matérias do seed~~ | ✅ **Resolvido**: o seed distribui, em rodízio, 6 imagens que já estão no bucket do R2. Depende de `S3_PUBLIC_URL` apontar para o bucket. | `packages/db/prisma/seed.mjs` (`IMAGENS`) |
 | B3 | ~~Migrations no deploy~~ | ✅ **Resolvido**: `pnpm db:deploy` criado e já ligado no `buildCommand` do `vercel.json`, com guarda para não migrar o banco de produção em deploy de preview. Hoje roda no estágio `builder` do Dockerfile (Coolify). | [`deploy.md`](./deploy.md) §2 |
 | B4 | ~~R2 em produção~~ | ✅ **Código pronto** (o adapter S3 serve R2 sem mudança). O que falta é configuração, não código: variáveis e o **CORS de `PUT`** no bucket — ver seção 🔧. | [`deploy.md`](./deploy.md) §3 |
@@ -430,8 +430,9 @@ dia. É a prova de que testes provam comportamento, não legibilidade.
 
 ### Bloco B — Equipe e configurações
 - [x] ~~**Convite** e **fechar o auto-cadastro**~~ ✅ Feito. O portão é o
-      **e-mail convidado**, por decisão do cliente — sem token, o que também
-      significa que convite não vaza por encaminhamento de mensagem.
+      **token de uso único**, com validade padrão de 7 dias. O admin escolhe
+      entre restringir o link a um e-mail ou deixá-lo aberto para o primeiro
+      cadastro; papel e editorias permanecem somente no servidor.
 - [x] ~~**Envio do convite por e-mail (Resend)**~~ ✅ Resolvido: porta `Mailer`
       (`packages/contexts/identity/src/domain/ports/mailer.ts`) com
       `NoopMailer` como padrão e `ResendMailer` (`fetch` puro, sem SDK) atrás

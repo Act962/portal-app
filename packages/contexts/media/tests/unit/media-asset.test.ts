@@ -89,6 +89,24 @@ describe("MediaAsset — invariantes A29", () => {
 		expect(doc.focalPoint).toBeNull();
 		expect(doc.caption.isEmpty()).toBe(true);
 	});
+
+	it.each([
+		[90, 90],
+		[0, null],
+		[Number.POSITIVE_INFINITY, null],
+	] as const)("normaliza duração %s para %s", (durationSeconds, expected) => {
+		const audio = MediaAsset.create({
+			id: "audio-1",
+			type: "AUDIO",
+			storageKey: "2026/08/boletim.mp3",
+			filename: "boletim.mp3",
+			mimeType: "audio/mpeg",
+			credit: "Rádio 7 Cidades",
+			durationSeconds,
+		}).unwrap();
+
+		expect(audio.durationSeconds).toBe(expected);
+	});
 });
 
 describe("MediaAsset — correção de metadados", () => {

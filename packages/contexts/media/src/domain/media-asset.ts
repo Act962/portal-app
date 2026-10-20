@@ -14,6 +14,7 @@ import { FocalPoint } from "./focal-point";
 import type { MediaType } from "./media-type";
 
 type MediaAssetState = {
+	uploadedByStaffId: string | null;
 	type: MediaType;
 	storageKey: string;
 	filename: string;
@@ -49,6 +50,7 @@ type CreateInput = {
 	durationSeconds?: number | null;
 	focalPoint?: { x: number; y: number } | null;
 	folderId?: string | null;
+	uploadedByStaffId?: string | null;
 };
 
 export type MediaAssetError =
@@ -128,6 +130,7 @@ export class MediaAsset extends AggregateRoot<string> {
 
 		return ok(
 			new MediaAsset(input.id, {
+				uploadedByStaffId: input.uploadedByStaffId ?? null,
 				type: input.type,
 				storageKey: input.storageKey,
 				filename: input.filename,
@@ -159,6 +162,10 @@ export class MediaAsset extends AggregateRoot<string> {
 
 	get type(): MediaType {
 		return this.state.type;
+	}
+
+	get uploadedByStaffId(): string | null {
+		return this.state.uploadedByStaffId;
 	}
 
 	get storageKey(): string {

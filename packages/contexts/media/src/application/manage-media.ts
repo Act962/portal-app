@@ -48,6 +48,7 @@ export async function requestUpload(
 }
 
 type RegisterInput = {
+	uploadedByStaffId?: string | null;
 	storageKey: string;
 	type: MediaType;
 	filename: string;
@@ -118,7 +119,7 @@ type UpdateDetailsInput = {
  * caminhos: senão a edição vira o furo por onde a regra escapa.
  */
 export async function updateAssetDetails(
-	input: UpdateDetailsInput,
+	input: UpdateDetailsInput & { allowedOwnerId?: string },
 	deps: Pick<Deps, "repo">,
 ): Promise<Result<MediaAsset, MediaAssetNotFound | MediaAssetError>> {
 	const { id, ...details } = input;
@@ -126,7 +127,14 @@ export async function updateAssetDetails(
 	if (!asset) {
 		return err(new MediaAssetNotFound(id));
 	}
-	const updated = asset.updateDetails(details);
+	if (
+		input.allowedOwnerId !== undefined &&
+		asset.uploadedByStaffId !== input.allowedOwnerId
+	) {
+		return err(new MediaAssetNotFound(id));
+	}
+	const { allowedOwnerId: _allowedOwnerId, ...safeDetails } = details;
+	const updated = asset.updateDetails(safeDetails);
 	if (updated.isErr()) {
 		return err(updated.error);
 	}
@@ -257,11 +265,17 @@ export async function listFoldersWithCount(
  * quebrado e insistindo que ele existe.
  */
 export async function deleteAsset(
-	input: { id: string },
+	input: { id: string; allowedOwnerId?: string },
 	deps: Pick<Deps, "repo" | "storage" | "usage">,
 ): Promise<Result<void, MediaAssetNotFound | MediaInUse>> {
 	const asset = await deps.repo.findById(input.id);
 	if (!asset) {
+		return err(new MediaAssetNotFound(input.id));
+	}
+	if (
+		input.allowedOwnerId !== undefined &&
+		asset.uploadedByStaffId !== input.allowedOwnerId
+	) {
 		return err(new MediaAssetNotFound(input.id));
 	}
 	if (await deps.usage.isMediaInUse(input.id)) {
@@ -279,11 +293,17 @@ export async function deleteAsset(
 }
 
 export async function moveAsset(
-	input: { id: string; folderId: string | null },
+	input: { id: string; folderId: string | null; allowedOwnerId?: string },
 	deps: Pick<Deps, "repo" | "folders">,
 ): Promise<Result<void, MediaAssetNotFound | FolderNotFound>> {
 	const asset = await deps.repo.findById(input.id);
 	if (!asset) {
+		return err(new MediaAssetNotFound(input.id));
+	}
+	if (
+		input.allowedOwnerId !== undefined &&
+		asset.uploadedByStaffId !== input.allowedOwnerId
+	) {
 		return err(new MediaAssetNotFound(input.id));
 	}
 	if (input.folderId !== null) {
@@ -314,12 +334,15 @@ export type BulkOutcome = {
  * mesmo storage troca um relatório legível por uma rajada difícil de auditar.
  */
 export async function deleteAssets(
-	input: { ids: readonly string[] },
+	input: { ids: readonly string[]; allowedOwnerId?: string },
 	deps: Pick<Deps, "repo" | "storage" | "usage">,
 ): Promise<BulkOutcome> {
 	const outcome: BulkOutcome = { ok: [], failed: [] };
 	for (const id of input.ids) {
-		const result = await deleteAsset({ id }, deps);
+		const result = await deleteAsset(
+			{ id, allowedOwnerId: input.allowedOwnerId },
+			deps,
+		);
 		if (result.isErr()) {
 			outcome.failed.push({ id, reason: result.error.message });
 		} else {
@@ -330,12 +353,23 @@ export async function deleteAssets(
 }
 
 export async function moveAssets(
-	input: { ids: readonly string[]; folderId: string | null },
+	input: {
+		ids: readonly string[];
+		folderId: string | null;
+		allowedOwnerId?: string;
+	},
 	deps: Pick<Deps, "repo" | "folders">,
 ): Promise<BulkOutcome> {
 	const outcome: BulkOutcome = { ok: [], failed: [] };
 	for (const id of input.ids) {
-		const result = await moveAsset({ id, folderId: input.folderId }, deps);
+		const result = await moveAsset(
+			{
+				id,
+				folderId: input.folderId,
+				allowedOwnerId: input.allowedOwnerId,
+			},
+			deps,
+		);
 		if (result.isErr()) {
 			outcome.failed.push({ id, reason: result.error.message });
 		} else {
