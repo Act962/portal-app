@@ -55,7 +55,7 @@ export class Invitation extends AggregateRoot<string> {
 	static create(input: CreateInput): Result<Invitation, InvalidInviteEmail> {
 		const email = input.email ? normalizeEmail(input.email) : null;
 		if (email !== null && !EMAIL.test(email)) {
-			return err(new InvalidInviteEmail(input.email ?? ""));
+			return err(new InvalidInviteEmail(input.email as string));
 		}
 
 		const days = input.validityDays ?? INVITATION_VALIDITY_DAYS;

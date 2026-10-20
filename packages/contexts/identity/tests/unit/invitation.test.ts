@@ -97,6 +97,13 @@ describe("Invitation.accept", () => {
 		);
 	});
 
+	it("descreve com segurança um link aberto já consumido", () => {
+		const invitation = novo({ email: null }).unwrap();
+		invitation.accept(NOW);
+
+		expect(invitation.accept(NOW).unwrapErr().message).toContain("este link");
+	});
+
 	it("recusa convite vencido", () => {
 		const invitation = novo().unwrap();
 		const depois = new Date(
@@ -107,6 +114,31 @@ describe("Invitation.accept", () => {
 			InvitationExpired,
 		);
 		expect(invitation.isAccepted()).toBe(false);
+	});
+
+	it("descreve com segurança um link aberto vencido", () => {
+		const invitation = novo({ email: null }).unwrap();
+		const depois = new Date(invitation.expiresAt.getTime() + 1);
+
+		expect(invitation.accept(depois).unwrapErr().message).toContain(
+			"este link",
+		);
+	});
+
+	it("usa o e-mail reivindicado quando o link aberto já tem dono", () => {
+		const invitation = Invitation.fromPersistence("inv-aberto", {
+			email: null,
+			claimedEmail: "pessoa@fm7cidades.com",
+			role: "REDATOR",
+			sectionIds: [],
+			expiresAt: new Date(NOW.getTime() + 3600_000),
+			acceptedAt: NOW,
+			invitedBy: "admin-1",
+		});
+
+		expect(invitation.accept(NOW).unwrapErr().message).toContain(
+			"pessoa@fm7cidades.com",
+		);
 	});
 
 	it("o instante exato do vencimento já está vencido", () => {
