@@ -33,7 +33,19 @@ describe("environmentInstagramFrom", () => {
 			username: "radio7cidades",
 			// Fim do dia em UTC: meia-noite UTC ainda é dia 12 no Brasil.
 			tokenExpiresAt: new Date("2026-11-13T23:59:59Z"),
+			host: "INSTAGRAM",
 		});
+	});
+
+	it("token do login unificado (EAA…) fala com graph.facebook.com", () => {
+		// É o que o painel da Meta gera hoje, mesmo para a conta do Instagram.
+		// No graph.instagram.com ele é recusado com 190.
+		expect(
+			environmentInstagramFrom({
+				accessToken: " EAAhkToken ",
+				userId: "17841405442970374",
+			}).unwrap()?.host,
+		).toBe("FACEBOOK");
 	});
 
 	it("data com horário é respeitada como veio", () => {
@@ -57,6 +69,7 @@ describe("environmentInstagramFrom", () => {
 			userId: "1784",
 			username: null,
 			tokenExpiresAt: null,
+			host: "INSTAGRAM",
 		});
 	});
 
@@ -96,6 +109,7 @@ const instagram: EnvironmentInstagram = {
 	accessToken: "IGAA-TOKEN-DO-ENV",
 	username: "radio7cidades",
 	tokenExpiresAt: new Date("2026-11-13T00:00:00Z"),
+	host: "INSTAGRAM",
 };
 
 function contaNoBanco(

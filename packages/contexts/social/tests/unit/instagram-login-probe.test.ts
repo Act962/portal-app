@@ -115,4 +115,54 @@ describe("InstagramLoginProbe", () => {
 			"Não foi possível consultar o Instagram",
 		);
 	});
+
+	describe("token do login unificado (EAA…, graph.facebook.com)", () => {
+		const facebook = { ...credenciais, accessToken: "EAAhk-TOKEN" };
+
+		it("pergunta pela conta configurada, não pelo /me", async () => {
+			// Em graph.facebook.com o /me é o usuário do Facebook e não tem user_id.
+			const { urls, probe } = fakeGraph((url) =>
+				url.pathname.endsWith("content_publishing_limit")
+					? cota()
+					: Response.json({ id: "17841400000000001", username: "radio" }),
+			);
+
+			expect(await probe.inspect(facebook)).toEqual({
+				problems: [],
+				quota: { used: 2, total: 50 },
+			});
+			expect(urls[0]?.pathname).toBe("/v25.0/17841400000000001");
+			expect(urls[0]?.searchParams.get("fields")).toBe("id,username");
+			expect(urls[0]?.searchParams.get("access_token")).toBe("EAAhk-TOKEN");
+		});
+
+		it("token que não alcança a conta: diz isso, sem expor a configuração", async () => {
+			const { probe } = fakeGraph(() =>
+				Response.json(
+					{
+						error: {
+							message: "Unsupported get request. Object does not exist",
+							code: 100,
+						},
+					},
+					{ status: 400 },
+				),
+			);
+			const [problem] = (await probe.inspect(facebook)).problems;
+			expect(problem).toContain("não dá acesso a esta conta");
+			expect(problem).not.toMatch(/META_|17841400000000001/);
+		});
+
+		it("token vencido (190) pede a renovação", async () => {
+			const { probe } = fakeGraph(() =>
+				Response.json(
+					{ error: { message: "Session has expired", code: 190 } },
+					{ status: 400 },
+				),
+			);
+			expect((await probe.inspect(facebook)).problems[0]).toContain(
+				"renová-la",
+			);
+		});
+	});
 });

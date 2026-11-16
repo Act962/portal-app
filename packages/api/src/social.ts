@@ -101,11 +101,19 @@ export const metaConfig: MetaOAuthConfig | null =
 
 const graph = new MetaGraphClient({ version: env.META_GRAPH_VERSION });
 
-/** O host do token do login do Instagram — só usado com o Instagram do `.env`. */
-const instagramGraph = new MetaGraphClient({
-	version: env.META_GRAPH_VERSION,
-	baseUrl: "https://graph.instagram.com",
-});
+/**
+ * O cliente do Instagram do `.env`, no host do token dele: `graph.instagram.com`
+ * para o token do login do Instagram (`IGAA…`), `graph.facebook.com` para o do
+ * login unificado (`EAA…`), que é o que o painel da Meta gera hoje. O host
+ * errado responde 190 e nada publica.
+ */
+const instagramGraph =
+	environmentInstagram?.host === "INSTAGRAM"
+		? new MetaGraphClient({
+				version: env.META_GRAPH_VERSION,
+				baseUrl: "https://graph.instagram.com",
+			})
+		: graph;
 
 export const metaOAuth = metaConfig ? new MetaOAuth(metaConfig, graph) : null;
 
