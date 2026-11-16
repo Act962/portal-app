@@ -8,18 +8,38 @@ import type {
 import { SocialAccount } from "../domain/social-account";
 
 /**
+ * Em que host da Graph API o token funciona.
+ *
+ * - `INSTAGRAM`: token do **login do Instagram** (`IGAA…`), da configuração
+ *   antiga do painel da Meta — só `graph.instagram.com` aceita;
+ * - `FACEBOOK`: token do **login unificado** (`EAA…`), que é o que o painel gera
+ *   hoje, mesmo para a conta do Instagram — só `graph.facebook.com` aceita. No
+ *   outro host a Meta responde 190 ("Cannot parse access token").
+ *
+ * A decisão é pelo prefixo: é o formato que a Meta usa, ainda que não seja um
+ * campo explícito.
+ */
+export type InstagramTokenHost = "INSTAGRAM" | "FACEBOOK";
+
+export function instagramTokenHost(accessToken: string): InstagramTokenHost {
+	return accessToken.trim().startsWith("EAA") ? "FACEBOOK" : "INSTAGRAM";
+}
+
+/**
  * O Instagram do cliente, configurado pelo ambiente (spec 08, §15).
  *
- * O token é o do **login do Instagram** (`IGAA…`), gerado no painel da Meta, e
- * fala com `graph.instagram.com`. Vale 60 dias: quem gera informa a validade, e
- * o painel avisa antes de vencer pela mesma regra de qualquer conta
- * (`SocialAccount.stateAt`).
+ * O token é gerado no painel da Meta: `IGAA…` (login do Instagram, fala com
+ * `graph.instagram.com`) ou `EAA…` (login unificado, fala com
+ * `graph.facebook.com`) — ver `instagramTokenHost`. Quem gera informa a
+ * validade, se houver, e o painel avisa antes de vencer pela mesma regra de
+ * qualquer conta (`SocialAccount.stateAt`).
  */
 export type EnvironmentInstagram = {
 	userId: string;
 	accessToken: string;
 	username: string | null;
 	tokenExpiresAt: Date | null;
+	host: InstagramTokenHost;
 };
 
 export type EnvironmentInstagramInput = {
@@ -75,7 +95,13 @@ export function environmentInstagramFrom(
 	}
 
 	const username = input.username?.trim().replace(/^@/, "") || null;
-	return ok({ userId, accessToken, username, tokenExpiresAt });
+	return ok({
+		userId,
+		accessToken,
+		username,
+		tokenExpiresAt,
+		host: instagramTokenHost(accessToken),
+	});
 }
 
 /** O id fixo da conta do ambiente. Não existe no banco; é só um nome estável. */
